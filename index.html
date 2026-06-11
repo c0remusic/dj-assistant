@@ -21,33 +21,23 @@
 --color-text-info:#85b7eb;--color-text-danger:#f09595;--color-text-success:#5dcaa5;--color-text-warning:#fac775;
 --color-border-tertiary:rgba(255,255,255,0.14);--color-border-secondary:rgba(255,255,255,0.26);
 }}
-html,body{margin:0;background:var(--color-background-tertiary);color:var(--color-text-primary);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
-.wrap{max-width:760px;margin:0 auto;padding:22px 16px}
-.title{font-size:24px;font-weight:600;margin:0 0 8px;letter-spacing:-.01em}
-.pitch{font-size:14px;line-height:1.55;color:var(--color-text-secondary);margin:0 0 16px;max-width:680px}
-.pitch strong{color:var(--color-text-primary);font-weight:600}
-.sub{font-size:13px;color:var(--color-text-secondary);margin:0 0 16px}
-.fsec{margin-top:26px}
-.fsec-h{font-size:15px;font-weight:600;margin-bottom:12px}
-.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
-.fcard{display:flex;gap:11px;align-items:flex-start;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);padding:13px 14px}
-.fcard>i{font-size:20px;color:var(--color-text-info);flex:none;margin-top:1px}
-.fcard b{display:block;font-size:13px;font-weight:600;margin-bottom:3px}
-.fcard span{display:block;font-size:12px;line-height:1.45;color:var(--color-text-secondary)}
-button{font-family:inherit;background:transparent;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:5px 10px;color:var(--color-text-primary);cursor:pointer;font-size:13px}
-button:hover{background:var(--color-background-secondary)}button:disabled{opacity:.4;cursor:default}
-input{font-family:inherit}input[type=range]{accent-color:var(--color-text-info)}
-.pa{display:flex;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);overflow:hidden;font-size:12px;min-height:400px}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--color-background-tertiary);color:var(--color-text-primary);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:10px 18px 10px;height:100vh;display:flex;flex-direction:column;gap:8px}
+.appbar{display:flex;align-items:baseline;gap:10px;flex:none}
+.title{font-size:20px;font-weight:600;letter-spacing:-.01em;margin:0}
+.sub{font-size:12px;line-height:1.4;color:var(--color-text-tertiary);margin:0}
+.pa{flex:1;min-height:0;display:flex;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);overflow:hidden;font-size:12px}
 .sb{width:46px;flex:none;display:flex;flex-direction:column;gap:3px;padding:10px 6px;background:var(--color-background-secondary);border-right:0.5px solid var(--color-border-tertiary);align-items:center}
 .nv{width:32px;height:32px;border-radius:var(--border-radius-md);display:flex;align-items:center;justify-content:center;color:var(--color-text-secondary);cursor:pointer}
 .nv.on{background:var(--color-background-info);color:var(--color-text-info)}.nv i{font-size:16px}
-.queue{width:148px;flex:none;display:flex;flex-direction:column;padding:11px 8px;border-right:0.5px solid var(--color-border-tertiary)}
+.queue{width:158px;flex:none;display:flex;flex-direction:column;padding:11px 8px;border-right:0.5px solid var(--color-border-tertiary)}
 .qi{display:flex;align-items:center;gap:6px;padding:5px 7px;border-radius:var(--border-radius-md);font-size:12px;color:var(--color-text-secondary);white-space:nowrap;overflow:hidden;cursor:pointer}
 .qi span{overflow:hidden;text-overflow:ellipsis}.qi.done{color:var(--color-text-tertiary)}
 .qi.cur{background:var(--color-background-info);color:var(--color-text-info);font-weight:500}.qi i{font-size:13px;flex:none}
 .pbar{height:4px;background:var(--color-border-tertiary);border-radius:3px;margin:3px 0 7px;overflow:hidden}.pfill{height:100%;background:var(--color-text-info);border-radius:3px}
-.mid{flex:1;min-width:0;display:flex;flex-direction:column;padding:12px}
-.dest{width:128px;flex:none;display:flex;flex-direction:column;padding:12px 9px;background:var(--color-background-secondary);border-left:0.5px solid var(--color-border-tertiary)}
+.mid{flex:1;min-width:0;display:flex;flex-direction:column;padding:13px 15px;overflow-y:auto}
+.dest{width:148px;flex:none;display:flex;flex-direction:column;padding:13px 10px;background:var(--color-background-secondary);border-left:0.5px solid var(--color-border-tertiary)}
 .col-h{font-size:10px;letter-spacing:.05em;color:var(--color-text-tertiary);text-transform:uppercase;margin-bottom:6px}
 .pill{display:inline-flex;align-items:center;gap:4px;background:var(--color-background-secondary);color:var(--color-text-secondary);padding:2px 7px;border-radius:var(--border-radius-md);font-size:11px}
 .fld{display:flex;align-items:center;gap:6px;padding:6px 7px;border-radius:var(--border-radius-md);color:var(--color-text-secondary);cursor:pointer;font-size:12px}
@@ -68,39 +58,32 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-text-info)}
 .cbx.on{background:var(--color-text-info);border-color:var(--color-text-info);color:#fff}
 .mf{margin-bottom:6px}.mf .lab{font-size:10px;color:var(--color-text-tertiary);margin-bottom:2px}.mf .inp{border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:5px 8px;font-size:12px}
 .cov{width:40px;height:40px;flex:none;border-radius:6px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;justify-content:center;color:var(--color-text-tertiary)}.cov i{font-size:20px}
+button{font-family:inherit;background:transparent;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:5px 10px;color:var(--color-text-primary);cursor:pointer;font-size:13px}
+button:hover{background:var(--color-background-secondary)}button:disabled{opacity:.4;cursor:default}
+input{font-family:inherit}input[type=range]{accent-color:var(--color-text-info)}
+.home-body{display:flex;gap:14px;flex:1;min-height:0}
+.home-left{flex:1;min-width:0;overflow-y:auto}
+.home-right{width:220px;flex:none;overflow-y:auto}
 </style>
 </head>
 <body>
 <div class="wrap">
-<div class="title">DJ Assistant</div>
-<div class="pitch">Le poste de prépa entre Soulseek et tes platines. Tu télécharges en vrac — albums, dossiers, noms d'utilisateurs, formats mélangés. DJ Assistant <strong>écoute, vérifie et range</strong> : il repère les <strong>faux fichiers</strong> (MP3 transcodés vendus pour du lossless) au spectrogramme, t'évite les <strong>doublons</strong> et ce qui est <strong>déjà dans ta biblio</strong>, <strong>convertit au format CDJ</strong> au moment où tu ranges, <strong>renomme</strong> proprement depuis Discogs, et pousse tes dossiers en <strong>playlists Rekordbox</strong>. Un seul geste par morceau : écouter → ranger ou jeter.</div>
-<div class="sub">Démo interactive d'UI/UX · pas de vrai audio ni traitement. Clique les onglets à gauche ; dans Revue, choisis un dossier (1-5 / clic) puis Ranger (&crarr;).</div>
-<div class="pa" id="pa" tabindex="0">
-  <div class="sb" id="nav">
-    <div style="margin-bottom:3px"><i class="ti ti-disc" style="font-size:17px" aria-hidden="true"></i></div>
-    <div class="nv" data-view="home" title="Accueil"><i class="ti ti-home" aria-hidden="true"></i></div>
-    <div class="nv" data-view="revue" title="Revue"><i class="ti ti-headphones" aria-hidden="true"></i></div>
-    <div class="nv" data-view="biblio" title="Bibliothèque"><i class="ti ti-folders" aria-hidden="true"></i></div>
-    <div class="nv" data-view="rkb" title="Rekordbox"><i class="ti ti-refresh" aria-hidden="true"></i></div>
-    <div class="nv" data-view="cle" title="Formater la clé"><i class="ti ti-usb" aria-hidden="true"></i></div>
-    <div class="nv" data-view="ecarts" title="Écartés / À re-sourcer"><i class="ti ti-alert-circle" aria-hidden="true"></i></div>
-    <div class="nv" data-view="reglages" style="margin-top:auto" title="Réglages"><i class="ti ti-settings" aria-hidden="true"></i></div>
+  <div class="appbar">
+    <div class="title"><i class="ti ti-disc" style="font-size:17px;vertical-align:-2px;margin-right:5px" aria-hidden="true"></i>DJ Assistant</div>
+    <div class="sub">Démo interactive · écouter → ranger ou jeter · clique les onglets à gauche ; dans Revue, choisis un dossier (1-5) puis Ranger (↵).</div>
   </div>
-  <div id="content" style="flex:1;min-width:0;display:flex"></div>
-</div>
-<div class="fsec">
-  <div class="fsec-h">Ce que fait l'app</div>
-  <div class="fgrid">
-    <div class="fcard"><i class="ti ti-headphones" aria-hidden="true"></i><div><b>Écoute & pré-sélection</b><span>Waveform cliquable, pré-écoute, accélération/ralenti type platine (±%) pour juger un morceau avant de le garder.</span></div></div>
-    <div class="fcard"><i class="ti ti-wave-sine" aria-hidden="true"></i><div><b>Détecteur de faux</b><span>Spectrogramme + analyse de coupure : repère les MP3 transcodés déguisés en lossless. Sensibilité réglable.</span></div></div>
-    <div class="fcard"><i class="ti ti-arrows-shuffle" aria-hidden="true"></i><div><b>Doublons & déjà-en-biblio</b><span>Détecte les copies et ce que tu possèdes déjà — par empreinte audio, indépendamment du nom de fichier.</span></div></div>
-    <div class="fcard"><i class="ti ti-file-export" aria-hidden="true"></i><div><b>Conversion au rangement</b><span>Encode au format CDJ (AIFF / WAV / MP3 320) au moment où tu ranges. Lossy et lossless restent séparés — pas d'upscale.</span></div></div>
-    <div class="fcard"><i class="ti ti-tag" aria-hidden="true"></i><div><b>Nommage & métadonnées Discogs</b><span>Renomme proprement et récupère pochette, label, année, genre depuis Discogs — avec lien vers la release exacte.</span></div></div>
-    <div class="fcard"><i class="ti ti-folders" aria-hidden="true"></i><div><b>Rangement physique en dossiers</b><span>Déplace réellement les fichiers dans tes dossiers de genres/labels. Création de dossier à la volée, mode batch.</span></div></div>
-    <div class="fcard"><i class="ti ti-refresh" aria-hidden="true"></i><div><b>Sync Rekordbox</b><span>Tes dossiers deviennent des playlists Rekordbox (XML sûr, ou master.db natif avec backup). Dédoublonne aussi les playlists.</span></div></div>
-    <div class="fcard"><i class="ti ti-usb" aria-hidden="true"></i><div><b>Préparation de clé USB</b><span>Formate une clé en FAT32 (tous CDJ) ou exFAT (CDJ récents), prête à brancher en club.</span></div></div>
+  <div class="pa" id="pa" tabindex="0">
+    <div class="sb" id="nav">
+      <div class="nv" data-view="home" title="Accueil"><i class="ti ti-home" aria-hidden="true"></i></div>
+      <div class="nv" data-view="revue" title="À traiter"><i class="ti ti-headphones" aria-hidden="true"></i></div>
+      <div class="nv" data-view="ecarts" title="Écartés / À re-sourcer"><i class="ti ti-alert-circle" aria-hidden="true"></i></div>
+      <div class="nv" data-view="biblio" title="Bibliothèque"><i class="ti ti-folders" aria-hidden="true"></i></div>
+      <div class="nv" data-view="rkb" title="Rekordbox"><i class="ti ti-playlist" aria-hidden="true"></i></div>
+      <div class="nv" data-view="cle" title="Formater la clé"><i class="ti ti-usb" aria-hidden="true"></i></div>
+      <div class="nv" data-view="reglages" style="margin-top:auto" title="Réglages"><i class="ti ti-settings" aria-hidden="true"></i></div>
+    </div>
+    <div id="content" style="flex:1;min-width:0;display:flex"></div>
   </div>
-</div>
 </div>
 <script>
 function openLink(u){window.open(u,'_blank','noopener');}
@@ -117,8 +100,8 @@ function openLink(u){window.open(u,'_blank','noopener');}
     {a:"Lil Louis",t:"French Kiss",lbl:"FFRR",yr:1989,fmt:"WAV · 24",dur:"9:55",fake:false,file:"french kiss FULL.wav",real:"conforme",gen:"Acid House"},
     {a:"Octave One",t:"Blackwater",lbl:"430 West",yr:2002,fmt:"AIFF · 16",dur:"6:45",fake:false,file:"octave one - blackwater.aiff",real:"conforme",gen:"Detroit Techno"}
   ];
-  T[1].status="resource";T[1].ecartReason="fake";   // Larry Heard — transcodé
-  T[4].status="resource";T[4].ecartReason="truncated"; // Theo Parrish — tronqué
+  T[1].status="resource";T[1].ecartReason="fake";
+  T[4].status="resource";T[4].ecartReason="truncated";
   T.forEach(function(x,i){if(!x.status)x.status="pending";x.folder=null;
     x.wave=[];for(var k=0;k<32;k++){var h=18+Math.round(Math.abs(Math.sin((k+i*3)*0.7))*60+((k*7+i*13)%15));x.wave.push(h>96?96:h);}
     x.spec=[];for(var m=0;m<32;m++){var b=56+((m*5+i*11)%40);if(x.fake&&m>22)b=10+((m*3)%14);x.spec.push(b);}});
@@ -134,41 +117,48 @@ function openLink(u){window.open(u,'_blank','noopener');}
   function cnt(s){return T.filter(function(x){return x.status===s;}).length;}
   function byFolder(){var b={};T.forEach(function(x){if(x.status==="filed")b[x.folder]=(b[x.folder]||0)+1;});return b;}
   function nSel(){var n=0;for(var k in sel)if(sel[k])n++;return n;}
-  function block(){content.style.display="block";content.style.padding="14px 16px";}
+  function block(){content.style.display="block";content.style.padding="14px 18px";content.style.overflowY="auto";}
   function render(){Array.prototype.forEach.call(nav.querySelectorAll('.nv'),function(n){n.classList.toggle('on',n.dataset.view===view);});
     if(view==="revue")return revMode==="batch"?renderBatch():renderRevue();
-if(view==="home")return renderHome();if(view==="biblio")return renderBiblio();if(view==="rkb")return renderRkb();if(view==="cle")return renderCle();if(view==="ecarts")return renderEcarts();return renderReglages();}
-  function renderHome(){block();
+    if(view==="home")return renderHome();if(view==="biblio")return renderBiblio();if(view==="rkb")return renderRkb();if(view==="cle")return renderCle();if(view==="ecarts")return renderEcarts();return renderReglages();}
+
+  function renderHome(){
+    content.style.display="flex";content.style.padding="14px 18px";content.style.overflowY="auto";content.style.flexDirection="column";
     var filed=cnt("filed"),res=cnt("resource"),tr=cnt("trash"),pend=cnt("pending");
     var fakes=T.filter(function(x){return x.status==="resource"&&x.ecartReason==="fake";}).length;
     var noMeta=T.filter(function(x){return x.status==="filed"&&!x.lbl;}).length;
     var byF=byFolder(),mx=Math.max(1,filed);
-    var bars=FOLDERS.map(function(f,i){var n=byF[i]||0;return n?'<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><span style="width:80px;flex:none;font-size:11px;color:var(--color-text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+f+'</span><span style="flex:1;height:7px;background:var(--color-background-secondary);border-radius:4px"><span style="display:block;height:100%;border-radius:4px;background:var(--color-text-info);width:'+Math.round(n/mx*100)+'%"></span></span><span style="width:18px;text-align:right;font-size:11px;color:var(--color-text-tertiary)">'+n+'</span></div>':'';}).join('');
-    var statCard=function(label,val,color,view,sub){
-      var style='cursor:'+(view?'pointer':'default')+';background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:9px 11px'+(view?';border:0.5px solid var(--color-border-tertiary)':'');
-      return '<div class="mc" '+(view?'data-view="'+view+'"':'')+' style="'+style+'" title="'+(view?'Aller à '+view:'')+'">'
-        +'<div class="l">'+label+(view?' <i class="ti ti-arrow-right" style="font-size:10px;opacity:.5"></i>':'')+'</div>'
+    var bars=FOLDERS.map(function(f,i){var n=byF[i]||0;return n?'<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><span style="width:90px;flex:none;font-size:11px;color:var(--color-text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+f+'</span><span style="flex:1;height:7px;background:var(--color-background-secondary);border-radius:4px"><span style="display:block;height:100%;border-radius:4px;background:var(--color-text-info);width:'+Math.round(n/mx*100)+'%"></span></span><span style="width:18px;text-align:right;font-size:11px;color:var(--color-text-tertiary)">'+n+'</span></div>':'';}).join('');
+    var statCard=function(label,val,color,vw,sub){
+      var style='cursor:'+(vw?'pointer':'default')+';background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:9px 12px'+(vw?';border:0.5px solid var(--color-border-tertiary)':'');
+      return '<div class="mc" '+(vw?'data-view="'+vw+'"':'')+' style="'+style+'">'
+        +'<div class="l">'+label+(vw?' <i class="ti ti-arrow-right" style="font-size:10px;opacity:.5"></i>':'')+'</div>'
         +'<div class="n" style="color:'+color+'">'+val+'</div>'
         +(sub?'<div style="font-size:10px;color:var(--color-text-tertiary);margin-top:2px">'+sub+'</div>':'')
         +'</div>';
     };
-    content.innerHTML='<div class="h1">Accueil</div>'
-      +'<div class="col-h">Dossiers surveillés</div>'
-      +'<div class="srow"><span class="v"><i class="ti ti-folder" aria-hidden="true"></i> ~/Downloads/soulseek</span><span style="display:flex;align-items:center;gap:9px"><span style="font-size:11px;color:var(--color-text-info)">8 nouveaux</span><span class="tog"></span></span></div>'
-      +'<div class="srow"><span class="v"><i class="ti ti-folder" aria-hidden="true"></i> ~/Downloads/promos</span><span style="display:flex;align-items:center;gap:9px"><span style="font-size:11px;color:var(--color-text-info)">1 nouveau</span><span class="tog"></span></span></div>'
-      +'<div style="margin:8px 0 13px"><button><i class="ti ti-plus" style="font-size:13px;vertical-align:-2px" aria-hidden="true"></i> ajouter un dossier</button></div>'
-      +(pend?'<div style="display:flex;align-items:center;justify-content:space-between;background:var(--color-background-info);border-radius:var(--border-radius-md);padding:11px 14px;margin-bottom:13px"><div><div style="font-size:14px;font-weight:500;color:var(--color-text-info)">'+pend+' fichiers à trier</div><div style="font-size:11px;color:var(--color-text-info);opacity:.8">dont '+fakes+' faux détecté'+(fakes>1?'s':'')+'</div></div><button data-view="revue">Trier <i class="ti ti-arrow-right" style="font-size:12px;vertical-align:-2px" aria-hidden="true"></i></button></div>':'')
-      +'<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:13px">'
+    // left column: stats + bar chart
+    var leftHtml='<div class="h1">Accueil</div>'
+      +(pend?'<div style="display:flex;align-items:center;justify-content:space-between;background:var(--color-background-info);border-radius:var(--border-radius-md);padding:11px 14px;margin-bottom:13px"><div><div style="font-size:14px;font-weight:500;color:var(--color-text-info)">'+pend+' fichiers à trier</div><div style="font-size:11px;color:var(--color-text-info);opacity:.8">dont '+fakes+' faux détecté'+(fakes>1?'s':'')+'</div></div><button data-view="revue">Trier <i class="ti ti-arrow-right" style="font-size:12px;vertical-align:-2px"></i></button></div>':'')
+      +'<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px">'
         +statCard('Rangés',filed,'var(--color-text-success)','biblio','dans la bibliothèque')
         +statCard('À re-sourcer',res,'var(--color-text-danger)','ecarts',fakes+' faux · '+(res-fakes)+' tronqués')
         +statCard('Corbeille',tr,'var(--color-text-tertiary)','',null)
         +statCard('Sans métadonnées',noMeta+12,'var(--color-text-warning)','biblio','tags incomplets')
       +'</div>'
       +(filed?'<div class="col-h">Répartition par dossier</div>'+bars:'');
+    // right column: dossiers surveillés
+    var rightHtml='<div class="col-h">Dossiers surveillés</div>'
+      +'<div class="srow"><span class="v"><i class="ti ti-folder"></i> ~/Downloads/soulseek</span><span style="display:flex;align-items:center;gap:9px"><span style="font-size:11px;color:var(--color-text-info)">8 nouveaux</span><span class="tog"></span></span></div>'
+      +'<div class="srow"><span class="v"><i class="ti ti-folder"></i> ~/Downloads/promos</span><span style="display:flex;align-items:center;gap:9px"><span style="font-size:11px;color:var(--color-text-info)">1 nouveau</span><span class="tog"></span></span></div>'
+      +'<div style="margin:10px 0 0"><button><i class="ti ti-plus" style="font-size:13px;vertical-align:-2px"></i> ajouter un dossier</button></div>';
+    content.innerHTML='<div class="home-body"><div class="home-left">'+leftHtml+'</div><div class="home-right">'+rightHtml+'</div></div>';
   }
-  function renderRevue(){content.style.display="flex";content.style.padding="0";
+
+  function renderRevue(){
+    content.style.display="flex";content.style.padding="0";content.style.flexDirection="";content.style.overflowY="";
     var pendingCount=cnt("pending"),doneCount=T.length-pendingCount;
-    content.innerHTML='<div class="queue"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px"><span class="col-h" style="margin:0">À traiter</span><span style="display:flex;gap:3px"><span data-act="revmode" data-m="detail" title="Vue détail" style="cursor:pointer;color:var(--color-text-info)"><i class="ti ti-layout-list" style="font-size:14px" aria-hidden="true"></i></span><span data-act="revmode" data-m="batch" title="Mode batch" style="cursor:pointer;color:var(--color-text-tertiary)"><i class="ti ti-table" style="font-size:14px" aria-hidden="true"></i></span></span></div><div class="pbar"><div class="pfill" id="pf" style="width:0%"></div></div><div id="ql"></div>'+(doneCount?'<div style="padding:5px 4px 0"><span data-act="togglequeue" style="font-size:10px;color:var(--color-text-tertiary);cursor:pointer;text-decoration:underline">'+(queueShowAll?'Masquer les traités':'+ '+doneCount+' traités')+'</span></div>':'')+'</div><div class="mid" id="mid"></div><div class="dest"><div class="col-h">Où on va</div><div id="fldz"></div></div>';
+    content.innerHTML='<div class="queue"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px"><span class="col-h" style="margin:0">À traiter</span><span style="display:flex;gap:3px"><span data-act="revmode" data-m="detail" title="Vue détail" style="cursor:pointer;color:var(--color-text-info)"><i class="ti ti-layout-list" style="font-size:14px"></i></span><span data-act="revmode" data-m="batch" title="Mode batch" style="cursor:pointer;color:var(--color-text-tertiary)"><i class="ti ti-table" style="font-size:14px"></i></span></span></div><div class="pbar"><div class="pfill" id="pf" style="width:0%"></div></div><div id="ql"></div>'+(doneCount?'<div style="padding:5px 4px 0"><span data-act="togglequeue" style="font-size:10px;color:var(--color-text-tertiary);cursor:pointer;text-decoration:underline">'+(queueShowAll?'Masquer les traités':'+ '+doneCount+' traités')+'</span></div>':'')+'</div><div class="mid" id="mid"></div><div class="dest"><div class="col-h">Où on va</div><div id="fldz"></div></div>';
     var done2=T.length-pendingCount;document.getElementById('pf').style.width=Math.round(done2/T.length*100)+"%";
     var h="";T.forEach(function(x,i){
       var isPending=x.status==="pending";
@@ -178,50 +168,52 @@ if(view==="home")return renderHome();if(view==="biblio")return renderBiblio();if
       else if(x.status==="resource")cls+=" done",ic="ti-x",col="color:var(--color-text-danger)";
       else if(x.status==="trash")cls+=" done",ic="ti-trash",col="color:var(--color-text-tertiary)";
       else if(x.fake)ic="ti-alert-triangle",col="color:var(--color-text-danger)";
-      h+='<div class="'+cls+'" data-act="sel" data-i="'+i+'"><i class="ti '+ic+'" style="'+col+'" aria-hidden="true"></i><span>'+x.a+' — '+x.t+'</span></div>';});
+      h+='<div class="'+cls+'" data-act="sel" data-i="'+i+'"><i class="ti '+ic+'" style="'+col+'"></i><span>'+x.a+' — '+x.t+'</span></div>';});
     document.getElementById('ql').innerHTML=h;
     var fh="";FOLDERS.forEach(function(f,i){fh+='<div class="fld'+(i===selFolder?' on':'')+'" data-act="file" data-i="'+i+'"><span class="kbd">'+(i+1)+'</span> '+f+'</div>';});
-    fh+= creating ? '<input id="newin" placeholder="nom du dossier…" style="width:100%;font-size:12px;padding:5px 7px;margin-top:2px">' : '<div class="fld" data-act="newfld" style="color:var(--color-text-tertiary)"><i class="ti ti-plus" style="font-size:14px" aria-hidden="true"></i> nouveau</div>';
+    fh+= creating ? '<input id="newin" placeholder="nom du dossier…" style="width:100%;font-size:12px;padding:5px 7px;margin-top:2px">' : '<div class="fld" data-act="newfld" style="color:var(--color-text-tertiary)"><i class="ti ti-plus" style="font-size:14px"></i> nouveau</div>';
     document.getElementById('fldz').innerHTML=fh;renderMid();
     if(creating){var ni=document.getElementById('newin');if(ni)ni.focus();}
   }
+
   function renderMid(){var mid=document.getElementById('mid');if(!mid)return;
-    if(cur<0){mid.innerHTML='<div class="col-h">Ce qu\'on voit</div><div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px;color:var(--color-text-secondary)"><i class="ti ti-circle-check" style="font-size:26px;color:var(--color-text-success)" aria-hidden="true"></i><div style="font-size:13px;font-weight:500;color:var(--color-text-primary)">Tout est trié</div><div style="font-size:11px">'+cnt("filed")+' rangés · '+cnt("resource")+' re-sourcer · '+cnt("trash")+' corbeille</div><button data-view="rkb" style="margin-top:4px">Mettre à jour Rekordbox <i class="ti ti-refresh" style="font-size:12px;vertical-align:-2px" aria-hidden="true"></i></button></div>';return;}
+    if(cur<0){mid.innerHTML='<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px;color:var(--color-text-secondary)"><i class="ti ti-circle-check" style="font-size:26px;color:var(--color-text-success)"></i><div style="font-size:13px;font-weight:500;color:var(--color-text-primary)">Tout est trié</div><div style="font-size:11px">'+cnt("filed")+' rangés · '+cnt("resource")+' re-sourcer · '+cnt("trash")+' corbeille</div><button data-view="rkb" style="margin-top:4px">Mettre à jour Rekordbox <i class="ti ti-playlist" style="font-size:12px;vertical-align:-2px"></i></button></div>';return;}
     if(outFmt===null)outFmt=defFmt(cur);
     var x=T[cur];var vb=x.fake?'background:var(--color-background-danger);color:var(--color-text-danger)':'background:var(--color-background-success);color:var(--color-text-success)';
-    var vt=x.fake?'<i class="ti ti-alert-triangle" style="font-size:12px" aria-hidden="true"></i> faux':'<i class="ti ti-shield-check" style="font-size:12px" aria-hidden="true"></i> vrai';
-    var head='<div class="col-h">Ce qu\'on voit</div>'
-      +'<div style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:5px"><i class="ti ti-file" style="font-size:11px;vertical-align:-1px" aria-hidden="true"></i> '+x.file+'</div>'
-      +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:9px"><div class="cov"><i class="ti ti-disc" aria-hidden="true"></i></div><div style="min-width:0;flex:1"><div style="font-weight:500;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+x.a+' — '+x.t+'</div><div style="color:var(--color-text-tertiary);font-size:11px">'+x.lbl+' · '+x.yr+'</div></div><span style="flex:none;display:inline-flex;align-items:center;gap:4px;'+vb+';padding:3px 7px;border-radius:var(--border-radius-md);font-size:11px;font-weight:500">'+vt+'</span></div>';
-    var body;
-    {
-      var realPill=x.fake?'<span class="pill" style="background:var(--color-background-danger);color:var(--color-text-danger)"><i class="ti ti-alert-triangle" style="font-size:10px" aria-hidden="true"></i> '+x.real+'</span>':'<span class="pill" style="background:var(--color-background-success);color:var(--color-text-success)"><i class="ti ti-check" style="font-size:10px" aria-hidden="true"></i> conforme</span>';
-      var wave="";x.wave.forEach(function(hh,k){wave+='<span style="height:'+hh+'%;background:'+(k/32<=playPos?'var(--color-text-primary)':'var(--color-text-tertiary)')+'"></span>';});
-      var chips=OUTF.map(function(f){return '<span class="chip'+(outFmt===f?' on':'')+'" data-act="fmtsel" data-f="'+f+'">'+f+'</span>';}).join(' ');
-      var nm=x.a+' - '+x.t+' (Original Mix) ['+x.lbl+'].'+extOf(outFmt);
-      var specCap=x.fake?'<span style="color:var(--color-text-danger)"><i class="ti ti-alert-triangle" style="font-size:9px;vertical-align:-1px" aria-hidden="true"></i> coupure nette ~16 kHz = transcodé</span>':'énergie jusqu\'en haut = encodage conforme';
-      body=
-        // 1. ENCODAGE (déclaré → réel) — au-dessus du spectrogramme
-        '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:11px;flex-wrap:wrap"><span style="color:var(--color-text-tertiary)">Encodage</span><span class="pill">'+x.fmt+'</span><i class="ti ti-arrow-right" style="font-size:12px;color:var(--color-text-tertiary)" aria-hidden="true"></i>'+realPill+'<span class="pill">'+x.dur+'</span></div>'
-        // 2. SPECTROGRAMME (preuve visuelle), juste sous le verdict
-        +'<canvas id="spc" width="300" height="46" style="width:100%;height:46px;border-radius:4px;display:block"></canvas>'
-        +'<div style="font-size:9px;color:var(--color-text-tertiary);margin:2px 0 9px">'+specCap+'</div>'
-        // 3. LECTEUR (écoute + tempo)
-        +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:9px"><button data-act="play" aria-label="Lecture" style="width:26px;height:26px;border-radius:50%;flex:none;display:inline-flex;align-items:center;justify-content:center;padding:0"><i class="ti '+(playing?'ti-player-pause':'ti-player-play')+'" style="font-size:12px" aria-hidden="true"></i></button><div class="bars" data-act="seek" style="flex:1">'+wave+'</div><div style="flex:none;display:flex;flex-direction:column;align-items:center"><input type="range" min="-8" max="8" step="1" value="'+tempo+'" data-act="tempo" aria-label="Tempo" style="writing-mode:vertical-lr;direction:rtl;width:15px;height:30px"><span id="tout" style="font-family:var(--font-mono);font-size:9px">'+(tempo>0?'+':'')+tempo+'%</span></div></div>'
-        // 4. SORTIR EN (format de conversion à l'export)
-        +'<div style="padding-top:8px;border-top:0.5px solid var(--color-border-tertiary)"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:5px"><span style="font-size:10px;color:var(--color-text-tertiary)">Sortir en</span>'+chips+'</div><div style="font-size:10px;color:var(--color-text-tertiary);word-break:break-all;line-height:1.5">→ <span style="font-family:var(--font-mono);color:var(--color-text-secondary)">'+nm+'</span></div></div>';
-    }
-    var meta='<div style="margin-top:10px;padding-top:9px;border-top:0.5px solid var(--color-border-tertiary)"><div style="display:flex;align-items:center;gap:5px;margin-bottom:6px"><span style="font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--color-text-tertiary)">Métadonnées</span><span class="pill" style="background:var(--color-background-info);color:var(--color-text-info);font-size:9px;padding:1px 6px"><i class="ti ti-download" style="font-size:9px" aria-hidden="true"></i> pullé de Discogs</span></div>'
+    var vt=x.fake?'<i class="ti ti-alert-triangle" style="font-size:12px"></i> faux':'<i class="ti ti-shield-check" style="font-size:12px"></i> vrai';
+    // header: cover + title + verdict badge
+    var head='<div style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:6px"><i class="ti ti-file" style="font-size:11px;vertical-align:-1px"></i> '+x.file+'</div>'
+      +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><div class="cov"><i class="ti ti-disc"></i></div><div style="min-width:0;flex:1"><div style="font-weight:500;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+x.a+' — '+x.t+'</div><div style="color:var(--color-text-tertiary);font-size:11px">'+x.lbl+' · '+x.yr+'</div></div><span style="flex:none;display:inline-flex;align-items:center;gap:4px;'+vb+';padding:3px 7px;border-radius:var(--border-radius-md);font-size:11px;font-weight:500">'+vt+'</span></div>';
+    var wave="";x.wave.forEach(function(hh,k){wave+='<span style="height:'+hh+'%;background:'+(k/32<=playPos?'var(--color-text-primary)':'var(--color-text-tertiary)')+'"></span>';});
+    // 1. LECTEUR — sous le titre
+    var player='<div style="display:flex;align-items:center;gap:8px;margin-bottom:11px;padding:8px 10px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)">'
+      +'<button data-act="play" aria-label="Lecture" style="width:28px;height:28px;border-radius:50%;flex:none;display:inline-flex;align-items:center;justify-content:center;padding:0"><i class="ti '+(playing?'ti-player-pause':'ti-player-play')+'" style="font-size:13px"></i></button>'
+      +'<div class="bars" data-act="seek" style="flex:1">'+wave+'</div>'
+      +'<div style="flex:none;display:flex;flex-direction:column;align-items:center"><input type="range" min="-8" max="8" step="1" value="'+tempo+'" data-act="tempo" aria-label="Tempo" style="writing-mode:vertical-lr;direction:rtl;width:15px;height:30px"><span id="tout" style="font-family:var(--font-mono);font-size:9px">'+(tempo>0?'+':'')+tempo+'%</span></div>'
+      +'</div>';
+    var realPill=x.fake?'<span class="pill" style="background:var(--color-background-danger);color:var(--color-text-danger)"><i class="ti ti-alert-triangle" style="font-size:10px"></i> '+x.real+'</span>':'<span class="pill" style="background:var(--color-background-success);color:var(--color-text-success)"><i class="ti ti-check" style="font-size:10px"></i> conforme</span>';
+    var specCap=x.fake?'<span style="color:var(--color-text-danger)"><i class="ti ti-alert-triangle" style="font-size:9px;vertical-align:-1px"></i> coupure nette ~16 kHz = transcodé</span>':"énergie jusqu'en haut = encodage conforme";
+    // 2. ENCODAGE + SPECTROGRAMME
+    var encoding='<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:11px;flex-wrap:wrap"><span style="color:var(--color-text-tertiary)">Encodage</span><span class="pill">'+x.fmt+'</span><i class="ti ti-arrow-right" style="font-size:12px;color:var(--color-text-tertiary)"></i>'+realPill+'<span class="pill">'+x.dur+'</span></div>'
+      +'<canvas id="spc" width="400" height="46" style="width:100%;height:46px;border-radius:4px;display:block"></canvas>'
+      +'<div style="font-size:9px;color:var(--color-text-tertiary);margin:2px 0 9px">'+specCap+'</div>';
+    // 3. FORMAT SORTIE
+    var chips=OUTF.map(function(f){return '<span class="chip'+(outFmt===f?' on':'')+'" data-act="fmtsel" data-f="'+f+'">'+f+'</span>';}).join(' ');
+    var nm=x.a+' - '+x.t+' (Original Mix) ['+x.lbl+'].'+extOf(outFmt);
+    var sortir='<div style="padding-top:8px;border-top:0.5px solid var(--color-border-tertiary)"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:5px"><span style="font-size:10px;color:var(--color-text-tertiary)">Sortir en</span>'+chips+'</div><div style="font-size:10px;color:var(--color-text-tertiary);word-break:break-all;line-height:1.5">→ <span style="font-family:var(--font-mono);color:var(--color-text-secondary)">'+nm+'</span></div></div>';
+    var meta='<div style="margin-top:10px;padding-top:9px;border-top:0.5px solid var(--color-border-tertiary)"><div style="display:flex;align-items:center;gap:5px;margin-bottom:6px"><span style="font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--color-text-tertiary)">Métadonnées</span><span class="pill" style="background:var(--color-background-info);color:var(--color-text-info);font-size:9px;padding:1px 6px"><i class="ti ti-download" style="font-size:9px"></i> pullé de Discogs</span></div>'
       +'<div style="display:grid;grid-template-columns:auto 1fr auto 1fr;gap:3px 8px;font-size:11px;align-items:center">'
       +'<span style="color:var(--color-text-tertiary)">Label</span><span>'+x.lbl+'</span><span style="color:var(--color-text-tertiary)">Année</span><span>'+x.yr+'</span>'
       +'<span style="color:var(--color-text-tertiary)">Genre</span><span>'+x.gen+'</span><span style="color:var(--color-text-tertiary)">BPM</span><span>'+(120+(cur*3)%9)+'</span></div>'
-      +'<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:6px"><span style="color:var(--color-text-tertiary);font-size:11px">Tags</span><span class="pill" style="font-size:10px">peak-time</span><span class="pill" style="font-size:10px">classic</span><span class="pill" style="font-size:10px;color:var(--color-text-tertiary)"><i class="ti ti-plus" style="font-size:9px" aria-hidden="true"></i></span></div></div>';
+      +'<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:6px"><span style="color:var(--color-text-tertiary);font-size:11px">Tags</span><span class="pill" style="font-size:10px">peak-time</span><span class="pill" style="font-size:10px">classic</span><span class="pill" style="font-size:10px;color:var(--color-text-tertiary)"><i class="ti ti-plus" style="font-size:9px"></i></span></div></div>';
     var jBtn=x.fake
       ?'<button data-act="jeter" style="color:var(--color-text-warning);border-color:var(--color-border-danger)" title="Fichier faux — sera mis en liste à re-sourcer"><span class="kbd">X</span> ⚠ Re-sourcer</button>'
       :'<button data-act="jeter" style="color:var(--color-text-danger);border-color:var(--color-border-danger)" title="Envoyer à la corbeille"><span class="kbd">X</span> Jeter</button>';
-    mid.innerHTML=head+body+meta+'<div style="margin-top:auto;padding-top:10px;display:flex;gap:8px"><button data-act="commit" style="flex:1;background:var(--color-background-info);color:var(--color-text-info);border-color:var(--color-border-info);font-weight:500"><span class="kbd">&crarr;</span> Ranger &rarr; '+FOLDERS[selFolder]+'</button>'+jBtn+'</div>';
+    mid.innerHTML=head+player+encoding+sortir+meta
+      +'<div style="margin-top:auto;padding-top:10px;display:flex;gap:8px"><button data-act="commit" style="flex:1;background:var(--color-background-info);color:var(--color-text-info);border-color:var(--color-border-info);font-weight:500"><span class="kbd">&crarr;</span> Ranger &rarr; '+FOLDERS[selFolder]+'</button>'+jBtn+'</div>';
     if(midTab==="ecoute"&&cur>=0)drawSpec(x);
   }
+
   function drawSpec(x){var c=document.getElementById('spc');if(!c||!c.getContext)return;var ctx=c.getContext('2d'),W=c.width,H=c.height;
     var seed=0;for(var s=0;s<x.file.length;s++)seed+=x.file.charCodeAt(s);
     function rnd(n){var v=Math.sin(n*12.9898+seed)*43758.5453;return v-Math.floor(v);}
@@ -234,31 +226,30 @@ if(view==="home")return renderHome();if(view==="biblio")return renderBiblio();if
         if(e>0.04){ctx.fillStyle=col(e);ctx.fillRect(i,j,1,1);}}}
     if(x.fake){var y=Math.round(H*(1-cutoff));ctx.strokeStyle='rgba(255,90,90,0.9)';ctx.setLineDash([4,3]);ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();ctx.setLineDash([]);}
   }
+
   function renderBatch(){block();var pend=[];T.forEach(function(x,i){if(x.status==="pending")pend.push(i);});var n=nSel();
-    var rows=pend.map(function(i){var x=T[i];var on=!!sel[i];return '<div class="br" data-act="bcheck" data-i="'+i+'"><span class="cbx'+(on?' on':'')+'">'+(on?'<i class="ti ti-check" style="font-size:11px" aria-hidden="true"></i>':'')+'</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+x.a+' — '+x.t+'</span>'+(x.fake?'<span class="pill" style="background:var(--color-background-danger);color:var(--color-text-danger);flex:none">faux</span>':'<span class="pill" style="background:var(--color-background-success);color:var(--color-text-success);flex:none">vrai</span>')+'<span class="pill" style="flex:none">'+x.fmt+'</span></div>';}).join('');
+    var rows=pend.map(function(i){var x=T[i];var on=!!sel[i];return '<div class="br" data-act="bcheck" data-i="'+i+'"><span class="cbx'+(on?' on':'')+'">'+(on?'<i class="ti ti-check" style="font-size:11px"></i>':'')+'</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+x.a+' — '+x.t+'</span>'+(x.fake?'<span class="pill" style="background:var(--color-background-danger);color:var(--color-text-danger);flex:none">faux</span>':'<span class="pill" style="background:var(--color-background-success);color:var(--color-text-success);flex:none">vrai</span>')+'<span class="pill" style="flex:none">'+x.fmt+'</span></div>';}).join('');
     var dchips=FOLDERS.map(function(f,i){return '<span class="chip'+(i===selFolder?' on':'')+'" data-act="file2" data-i="'+i+'">'+f+'</span>';}).join(' ');
-    content.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><span class="h1" style="margin:0">À traiter — mode batch</span><button data-act="revmode" data-m="detail"><i class="ti ti-layout-list" style="font-size:13px;vertical-align:-2px" aria-hidden="true"></i> vue détail</button></div>'
+    content.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><span class="h1" style="margin:0">À traiter — mode batch</span><button data-act="revmode" data-m="detail"><i class="ti ti-layout-list" style="font-size:13px;vertical-align:-2px"></i> vue détail</button></div>'
       +(rows||'<div style="font-size:12px;color:var(--color-text-tertiary)">File vide.</div>')
       +'<div style="margin-top:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-top:11px;border-top:0.5px solid var(--color-border-secondary)"><span style="font-size:11px;color:var(--color-text-tertiary)">Ranger dans :</span>'+dchips+'</div>'
       +'<div style="margin-top:11px;display:flex;gap:8px"><button data-act="brange"'+(n?'':' disabled')+'>Ranger la sélection ('+n+')</button><button data-act="bjeter" style="color:var(--color-text-danger);border-color:var(--color-border-danger)"'+(n?'':' disabled')+'>Jeter ('+n+')</button></div>';
   }
-  function renderDash(){block();var filed=cnt("filed"),res=cnt("resource"),tr=cnt("trash");var byF=byFolder();
-    var rep="",mx=Math.max(1,filed);FOLDERS.forEach(function(f,i){if(byF[i])rep+='<div style="display:flex;align-items:center;gap:9px;margin-bottom:6px"><span style="width:84px;flex:none;font-size:12px;color:var(--color-text-secondary)">'+f+'</span><span style="flex:1;height:9px;background:var(--color-background-secondary);border-radius:5px"><span style="display:block;height:100%;border-radius:5px;background:var(--color-text-info);width:'+Math.round(byF[i]/mx*100)+'%"></span></span><span style="width:20px;text-align:right;font-size:12px;color:var(--color-text-tertiary)">'+byF[i]+'</span></div>';});
-    if(!rep)rep='<div style="font-size:12px;color:var(--color-text-tertiary)">Rien rangé — va trier dans Revue.</div>';
-    content.innerHTML='<div class="h1">Tableau de bord</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:15px"><div class="mc"><div class="l">Rangés</div><div class="n" style="color:var(--color-text-success)">'+filed+'</div></div><div class="mc"><div class="l">Re-sourcer</div><div class="n" style="color:var(--color-text-danger)">'+res+'</div></div><div class="mc"><div class="l">Corbeille</div><div class="n">'+tr+'</div></div><div class="mc"><div class="l">Biblio totale</div><div class="n">'+(1248+filed)+'</div></div></div><div style="font-size:13px;font-weight:500;margin-bottom:9px">Rangés par dossier</div>'+rep;
-  }
+
   function renderRkb(){block();var filed=cnt("filed"),byF=byFolder();
-    var pls=FOLDERS.map(function(f,i){var n=byF[i]||0;return '<div class="srow"><span class="v"><i class="ti ti-playlist" aria-hidden="true"></i> '+f+'</span><span style="font-size:11px;color:'+(n?'var(--color-text-info)':'var(--color-text-tertiary)')+'">'+(n?'+ '+n:'à jour')+'</span></div>';}).join('');
-    var action= rkbSynced?'<div style="display:flex;align-items:center;gap:8px;background:var(--color-background-success);border-radius:var(--border-radius-md);padding:12px 15px;margin-bottom:15px;color:var(--color-text-success)"><i class="ti ti-circle-check" style="font-size:18px" aria-hidden="true"></i><span style="font-size:13px;font-weight:500">Rekordbox à jour — '+filed+' synchronisés</span></div>':'<div style="display:flex;align-items:center;justify-content:space-between;background:var(--color-background-info);border-radius:var(--border-radius-md);padding:12px 15px;margin-bottom:15px"><div><div style="font-size:14px;font-weight:500;color:var(--color-text-info)">'+filed+' rangés à pousser</div><div style="font-size:11px;color:var(--color-text-info);opacity:.8">dernière sync : il y a 2 j</div></div><button data-act="rksync">Mettre à jour <i class="ti ti-refresh" style="font-size:12px;vertical-align:-2px" aria-hidden="true"></i></button></div>';
-    content.innerHTML='<div class="h1">Rekordbox</div>'+action+'<div class="col-h">Playlists générées</div>'+pls+'<div class="col-h" style="margin-top:14px">Mode</div><div style="display:flex;gap:8px;margin-bottom:12px"><span class="chip on">XML — sûr</span><span class="chip">master.db — natif ⚠️</span></div><div style="display:flex;gap:8px;align-items:flex-start;font-size:11px;color:var(--color-text-warning);background:var(--color-background-warning);border-radius:var(--border-radius-md);padding:9px 12px"><i class="ti ti-alert-triangle" style="font-size:14px;flex:none" aria-hidden="true"></i><span>Ferme Rekordbox avant de synchroniser. En master.db : backup auto.</span></div>';
+    var pls=FOLDERS.map(function(f,i){var n=byF[i]||0;return '<div class="srow"><span class="v"><i class="ti ti-playlist"></i> '+f+'</span><span style="font-size:11px;color:'+(n?'var(--color-text-info)':'var(--color-text-tertiary)')+'">'+(n?'+ '+n:'à jour')+'</span></div>';}).join('');
+    var action= rkbSynced?'<div style="display:flex;align-items:center;gap:8px;background:var(--color-background-success);border-radius:var(--border-radius-md);padding:12px 15px;margin-bottom:15px;color:var(--color-text-success)"><i class="ti ti-circle-check" style="font-size:18px"></i><span style="font-size:13px;font-weight:500">Rekordbox à jour — '+filed+' synchronisés</span></div>':'<div style="display:flex;align-items:center;justify-content:space-between;background:var(--color-background-info);border-radius:var(--border-radius-md);padding:12px 15px;margin-bottom:15px"><div><div style="font-size:14px;font-weight:500;color:var(--color-text-info)">'+filed+' rangés à pousser</div><div style="font-size:11px;color:var(--color-text-info);opacity:.8">dernière sync : il y a 2 j</div></div><button data-act="rksync">Mettre à jour <i class="ti ti-refresh" style="font-size:12px;vertical-align:-2px"></i></button></div>';
+    content.innerHTML='<div class="h1">Rekordbox</div>'+action+'<div class="col-h">Playlists générées</div>'+pls+'<div class="col-h" style="margin-top:14px">Mode</div><div style="display:flex;gap:8px;margin-bottom:12px"><span class="chip on">XML — sûr</span><span class="chip">master.db — natif ⚠️</span></div><div style="display:flex;gap:8px;align-items:flex-start;font-size:11px;color:var(--color-text-warning);background:var(--color-background-warning);border-radius:var(--border-radius-md);padding:9px 12px"><i class="ti ti-alert-triangle" style="font-size:14px;flex:none"></i><span>Ferme Rekordbox avant de synchroniser. En master.db : backup auto.</span></div>';
   }
+
   function renderBiblio(){block();
-    var rows=LIB.map(function(r,i){var on=i===bibPlaying;return '<div class="lr"'+(on?' style="background:var(--color-background-info);border-radius:var(--border-radius-md);border-bottom:none"':'')+'><button class="pb" data-act="bplay" data-i="'+i+'" aria-label="Écouter"'+(on?' style="color:var(--color-text-info)"':'')+'><i class="ti '+(on?'ti-player-pause':'ti-player-play')+'" style="font-size:12px" aria-hidden="true"></i></button><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'+(on?';color:var(--color-text-info);font-weight:500':'')+'">'+r[0]+'</span><span class="pill" style="flex:none">'+r[1]+'</span><span style="flex:none;width:28px;text-align:right;font-family:var(--font-mono);color:var(--color-text-tertiary)">'+r[2]+'</span><span style="flex:none;width:34px;text-align:right;font-family:var(--font-mono);color:var(--color-text-tertiary)">'+r[3]+'</span><button class="lk" data-act="link" data-i="'+i+'" aria-label="Fiche Discogs (release)"><i class="ti ti-external-link" style="font-size:13px;color:var(--color-text-tertiary)" aria-hidden="true"></i></button></div>';}).join('');
-    var player="";if(bibPlaying>=0){var r=LIB[bibPlaying];var tot=pT(r[3]);var w="";for(var k=0;k<40;k++){var hh=18+Math.round(Math.abs(Math.sin((k+bibPlaying*3)*0.7))*60+((k*7)%15));if(hh>96)hh=96;w+='<span style="height:'+hh+'%;background:'+(k/40<=bibPos?'var(--color-text-info)':'var(--color-text-tertiary)')+'"></span>';}player='<div style="margin-top:12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:9px 11px;display:flex;align-items:center;gap:10px"><button class="pb" data-act="bplay" data-i="'+bibPlaying+'" aria-label="Pause" style="color:var(--color-text-info)"><i class="ti ti-player-pause" style="font-size:13px" aria-hidden="true"></i></button><span style="flex:none;width:116px;min-width:0;font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+r[0]+'</span><div class="bars" data-act="bseek" style="flex:1;height:30px">'+w+'</div><span style="flex:none;font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary)">'+fT(tot*bibPos)+' / '+r[3]+'</span></div>';}
-    content.innerHTML='<div style="display:flex;align-items:center;gap:8px;margin-bottom:11px"><div style="flex:1;display:flex;align-items:center;gap:7px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:6px 10px;color:var(--color-text-tertiary)"><i class="ti ti-search" style="font-size:14px" aria-hidden="true"></i><span style="font-size:12px">Rechercher…</span></div><span class="chip on">Tous</span><span class="chip">Lossless</span><span class="chip">MP3</span></div>'
-      +'<div style="display:flex;gap:12px"><div style="width:120px;flex:none"><div class="col-h">Dossiers</div>'+['House 412','Techno 318','Disco/Edits 196','Ambient 142','Breakbeat 98'].map(function(s,i){var p=s.split(' '),n=p.pop();return '<div class="fld'+(i===0?' on':'')+'" style="justify-content:space-between"><span>'+p.join(' ')+'</span><span style="font-size:11px;opacity:.7">'+n+'</span></div>';}).join('')+'</div>'
+    var rows=LIB.map(function(r,i){var on=i===bibPlaying;return '<div class="lr"'+(on?' style="background:var(--color-background-info);border-radius:var(--border-radius-md);border-bottom:none"':'')+'><button class="pb" data-act="bplay" data-i="'+i+'" aria-label="Écouter"'+(on?' style="color:var(--color-text-info)"':'')+'><i class="ti '+(on?'ti-player-pause':'ti-player-play')+'" style="font-size:12px"></i></button><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'+(on?';color:var(--color-text-info);font-weight:500':'')+'">'+r[0]+'</span><span class="pill" style="flex:none">'+r[1]+'</span><span style="flex:none;width:28px;text-align:right;font-family:var(--font-mono);color:var(--color-text-tertiary)">'+r[2]+'</span><span style="flex:none;width:34px;text-align:right;font-family:var(--font-mono);color:var(--color-text-tertiary)">'+r[3]+'</span><button class="lk" data-act="link" data-i="'+i+'" aria-label="Fiche Discogs"><i class="ti ti-external-link" style="font-size:13px;color:var(--color-text-tertiary)"></i></button></div>';}).join('');
+    var player="";if(bibPlaying>=0){var r=LIB[bibPlaying];var tot=pT(r[3]);var w="";for(var k=0;k<40;k++){var hh=18+Math.round(Math.abs(Math.sin((k+bibPlaying*3)*0.7))*60+((k*7)%15));if(hh>96)hh=96;w+='<span style="height:'+hh+'%;background:'+(k/40<=bibPos?'var(--color-text-info)':'var(--color-text-tertiary)')+'"></span>';}player='<div style="margin-top:12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:9px 11px;display:flex;align-items:center;gap:10px"><button class="pb" data-act="bplay" data-i="'+bibPlaying+'" aria-label="Pause" style="color:var(--color-text-info)"><i class="ti ti-player-pause" style="font-size:13px"></i></button><span style="flex:none;width:116px;min-width:0;font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+r[0]+'</span><div class="bars" data-act="bseek" style="flex:1;height:30px">'+w+'</div><span style="flex:none;font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary)">'+fT(tot*bibPos)+' / '+r[3]+'</span></div>';}
+    content.innerHTML='<div style="display:flex;align-items:center;gap:8px;margin-bottom:11px"><div style="flex:1;display:flex;align-items:center;gap:7px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:6px 10px;color:var(--color-text-tertiary)"><i class="ti ti-search" style="font-size:14px"></i><span style="font-size:12px">Rechercher…</span></div><span class="chip on">Tous</span><span class="chip">Lossless</span><span class="chip">MP3</span></div>'
+      +'<div style="display:flex;gap:14px"><div style="width:130px;flex:none"><div class="col-h">Dossiers</div>'+['House 412','Techno 318','Disco/Edits 196','Ambient 142','Breakbeat 98'].map(function(s,i){var p=s.split(' '),n=p.pop();return '<div class="fld'+(i===0?' on':'')+'" style="justify-content:space-between"><span>'+p.join(' ')+'</span><span style="font-size:11px;opacity:.7">'+n+'</span></div>';}).join('')+'</div>'
       +'<div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:13px;font-weight:500">House</span><span style="font-size:11px;color:var(--color-text-tertiary)">412 morceaux</span></div>'+rows+player+'</div></div>';
   }
+
   var STORES=[
     {id:'beatport',label:'Beatport',url:function(q){return 'https://www.beatport.com/search?q='+q;}},
     {id:'traxsource',label:'Traxsource',url:function(q){return 'https://www.traxsource.com/search?term='+q;}},
@@ -267,15 +258,16 @@ if(view==="home")return renderHome();if(view==="biblio")return renderBiblio();if
     {id:'amazon',label:'Amazon',url:function(q){return 'https://www.amazon.fr/s?k='+q+'&i=digital-music';}},
     {id:'apple',label:'Apple Music',url:function(q){return 'https://music.apple.com/fr/search?term='+q;}}
   ];
+
   function renderEcarts(){block();
     var ecarts=T.filter(function(x){return x.status==="resource"||x.status==="trash";});
     var filterR=ecarts.filter(function(x){return x.status==="resource";});
     var filterT=ecarts.filter(function(x){return x.status==="trash";});
     function slsk(x){return x.a+' '+x.t;}
     function reasonLabel(x){
-      if(x.ecartReason==="truncated")return '<span class="pill" style="background:var(--color-background-warning);color:var(--color-text-warning);flex:none"><i class="ti ti-cut" style="font-size:9px" aria-hidden="true"></i> tronqué</span>';
-      if(x.ecartReason==="duplicate")return '<span class="pill" style="background:var(--color-background-secondary);color:var(--color-text-secondary);flex:none"><i class="ti ti-copy" style="font-size:9px" aria-hidden="true"></i> doublon</span>';
-      return '<span class="pill" style="background:var(--color-background-danger);color:var(--color-text-danger);flex:none"><i class="ti ti-alert-triangle" style="font-size:9px" aria-hidden="true"></i> faux</span>';
+      if(x.ecartReason==="truncated")return '<span class="pill" style="background:var(--color-background-warning);color:var(--color-text-warning);flex:none"><i class="ti ti-cut" style="font-size:9px"></i> tronqué</span>';
+      if(x.ecartReason==="duplicate")return '<span class="pill" style="background:var(--color-background-secondary);color:var(--color-text-secondary);flex:none"><i class="ti ti-copy" style="font-size:9px"></i> doublon</span>';
+      return '<span class="pill" style="background:var(--color-background-danger);color:var(--color-text-danger);flex:none"><i class="ti ti-alert-triangle" style="font-size:9px"></i> faux</span>';
     }
     var rows=ecarts.map(function(x){
       var qi=T.indexOf(x);
@@ -287,7 +279,7 @@ if(view==="home")return renderHome();if(view==="biblio")return renderBiblio();if
         +'<div style="flex:1;min-width:0"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;font-weight:500">'+x.a+' — '+x.t+'</div>'
         +'<div style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+x.file+'</div></div>'
         +reasonLabel(x)
-        +'<button class="lk" data-act="etrash" data-i="'+qi+'" title="Corbeille"><i class="ti ti-trash" style="font-size:12px;color:var(--color-text-tertiary)" aria-hidden="true"></i></button>'
+        +'<button class="lk" data-act="etrash" data-i="'+qi+'" title="Corbeille"><i class="ti ti-trash" style="font-size:12px;color:var(--color-text-tertiary)"></i></button>'
         +'</div>'
         +(isRes?'<div style="margin-top:5px;display:flex;flex-wrap:wrap;align-items:center;gap:1px">'+storeLinks+'</div>':'')
         +'</div>';
@@ -295,22 +287,25 @@ if(view==="home")return renderHome();if(view==="biblio")return renderBiblio();if
     var allSlsk=filterR.map(slsk).join('\n');
     content.innerHTML='<div class="h1">Écartés</div>'
       +'<div style="display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap">'
-      +'<span class="pill" style="background:var(--color-background-danger);color:var(--color-text-danger)"><i class="ti ti-alert-circle" style="font-size:10px" aria-hidden="true"></i> '+filterR.length+' à re-sourcer</span>'
-      +'<span class="pill"><i class="ti ti-trash" style="font-size:10px" aria-hidden="true"></i> '+filterT.length+' en attente corbeille</span>'
+      +'<span class="pill" style="background:var(--color-background-danger);color:var(--color-text-danger)"><i class="ti ti-alert-circle" style="font-size:10px"></i> '+filterR.length+' à re-sourcer</span>'
+      +'<span class="pill"><i class="ti ti-trash" style="font-size:10px"></i> '+filterT.length+' en attente corbeille</span>'
       +'</div>'
       +(rows||'<div style="font-size:12px;color:var(--color-text-tertiary)">Aucun fichier écarté.</div>')
       +(filterR.length?'<div style="margin-top:13px;padding-top:11px;border-top:0.5px solid var(--color-border-tertiary);display:flex;flex-wrap:wrap;gap:8px;align-items:center">'
-        +'<button data-act="eslsk" data-txt="'+encodeURIComponent(allSlsk)+'"><i class="ti ti-copy" style="font-size:12px;vertical-align:-2px" aria-hidden="true"></i> Copier liste Soulseek ('+filterR.length+')</button>'
+        +'<button data-act="eslsk" data-txt="'+encodeURIComponent(allSlsk)+'"><i class="ti ti-copy" style="font-size:12px;vertical-align:-2px"></i> Copier liste Soulseek ('+filterR.length+')</button>'
         +'<span style="font-size:10px;color:var(--color-text-tertiary)">· ouvrir tout sur :</span>'
         +STORES.map(function(s){return '<button data-act="eallstore" data-sid="'+s.id+'" style="font-size:11px">'+s.label+'</button>';}).join('')
         +'</div>':'');
   }
+
   function renderCle(){block();
-    content.innerHTML='<div class="h1">Formater la clé</div><div style="display:flex;gap:8px;align-items:flex-start;background:var(--color-background-warning);border-radius:var(--border-radius-md);padding:9px 12px;margin-bottom:14px;font-size:11px;color:var(--color-text-warning)"><i class="ti ti-alert-triangle" style="font-size:15px;flex:none" aria-hidden="true"></i><span>Volumes <strong>amovibles uniquement</strong> — le formatage <strong>efface tout</strong>.</span></div><div class="col-h">Volume</div><div class="srow"><span class="v"><i class="ti ti-usb" aria-hidden="true"></i> USB DJ — 28 Go <span style="color:var(--color-text-tertiary)">(FAT32)</span></span><i class="ti ti-circle-check" style="color:var(--color-text-info);font-size:16px" aria-hidden="true"></i></div><div class="srow"><span class="v"><i class="ti ti-usb" aria-hidden="true"></i> SSD Samsung T7 — 500 Go <span style="color:var(--color-text-tertiary)">(exFAT)</span></span><i class="ti ti-circle" style="color:var(--color-text-tertiary);font-size:16px" aria-hidden="true"></i></div><div class="col-h" style="margin-top:14px">Format</div><div style="display:flex;gap:8px;margin-bottom:14px"><span class="chip on">FAT32 — compat tous CDJ</span><span class="chip">exFAT — CDJ récents</span></div><div style="display:flex;align-items:center;gap:9px"><div style="flex:1;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:6px 10px;font-size:12px;color:var(--color-text-tertiary)">tape « USB DJ » pour confirmer</div><button style="color:var(--color-text-danger);border-color:var(--color-border-danger)">Formater</button></div>';
+    content.innerHTML='<div class="h1">Formater la clé</div><div style="display:flex;gap:8px;align-items:flex-start;background:var(--color-background-warning);border-radius:var(--border-radius-md);padding:9px 12px;margin-bottom:14px;font-size:11px;color:var(--color-text-warning)"><i class="ti ti-alert-triangle" style="font-size:15px;flex:none"></i><span>Volumes <strong>amovibles uniquement</strong> — le formatage <strong>efface tout</strong>.</span></div><div class="col-h">Volume</div><div class="srow"><span class="v"><i class="ti ti-usb"></i> USB DJ — 28 Go <span style="color:var(--color-text-tertiary)">(FAT32)</span></span><i class="ti ti-circle-check" style="color:var(--color-text-info);font-size:16px"></i></div><div class="srow"><span class="v"><i class="ti ti-usb"></i> SSD Samsung T7 — 500 Go <span style="color:var(--color-text-tertiary)">(exFAT)</span></span><i class="ti ti-circle" style="color:var(--color-text-tertiary);font-size:16px"></i></div><div class="col-h" style="margin-top:14px">Format</div><div style="display:flex;gap:8px;margin-bottom:14px"><span class="chip on">FAT32 — compat tous CDJ</span><span class="chip">exFAT — CDJ récents</span></div><div style="display:flex;align-items:center;gap:9px"><div style="flex:1;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:6px 10px;font-size:12px;color:var(--color-text-tertiary)">tape « USB DJ » pour confirmer</div><button style="color:var(--color-text-danger);border-color:var(--color-border-danger)">Formater</button></div>';
   }
+
   function renderReglages(){block();var rows=[['Dossiers source','2 dossiers'],['Dossiers destination','6 genres'],['Format lossless','AIFF · 16-bit / 44,1 kHz'],['Format lossy','MP3 320 (pas d\'upscale)'],['Modèle de nommage','Artiste - Titre (Mix) [Label]'],['Sensibilité anti-fake','standard'],['Identification','tags → Discogs → manuel'],['Discogs','connecté'],['Intégration Rekordbox','XML (master.db désactivé)'],['Normalisation','désactivée']];
-    content.innerHTML='<div class="h1">Réglages</div>'+rows.map(function(r){return '<div class="srow"><span>'+r[0]+'</span><span class="v">'+r[1]+' <i class="ti ti-chevron-right" style="font-size:14px;color:var(--color-text-tertiary)" aria-hidden="true"></i></span></div>';}).join('');
+    content.innerHTML='<div class="h1">Réglages</div>'+rows.map(function(r){return '<div class="srow"><span>'+r[0]+'</span><span class="v">'+r[1]+' <i class="ti ti-chevron-right" style="font-size:14px;color:var(--color-text-tertiary)"></i></span></div>';}).join('');
   }
+
   var pa=document.getElementById('pa');
   pa.addEventListener('click',function(e){
     var v=e.target.closest('[data-view]');if(v){view=v.dataset.view;creating=false;render();return;}
