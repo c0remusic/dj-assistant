@@ -189,12 +189,17 @@ dans ce jalon (voir M8) — en V1 l'utilisateur est prévenu et décide.
 
 **Modèle mental :** l'app n'est pas un outil "track par track" — c'est un **pipeline avec queue de décisions**. L'analyse tourne en fond sans intervention ; le DJ ne touche que les décisions ambiguës.
 
-**Décision cadrage — le batch est AUTO par défaut, piloté par des règles fixées à l'avance.**
-L'utilisateur configure ses règles une fois (Réglages) ; ensuite le pipeline applique sans
-popup et ne remonte en revue que les cas hors-règle / ambigus. La revue manuelle est
-l'exception, pas le mode normal. **Invariant dur : un vrai MP3 (≥ seuil, non transcodé)
-n'est JAMAIS upscalé** vers lossless — il reste sur son rail lossy, converti seulement si
-besoin de conformité CDJ (jamais AIFF/WAV depuis un MP3).
+**Décision cadrage — trois modes de traitement coexistent (l'utilisateur choisit) :**
+
+| Mode | Pour quoi | Comportement |
+|---|---|---|
+| **Auto par règles** (défaut) | Backlog, gros imports | Tourne en fond, applique les règles sans popup, ne remonte que les cas hors-règle / ambigus. La revue manuelle est l'exception. |
+| **Batch manuel** | Petits ajouts qu'on veut contrôler sans track-par-track | Vue tableau (maquettée) : multi-sélection, verdict/format visibles, action groupée (ranger/écarter), aperçu avant commit. |
+| **Revue détail** | Cas ambigus, pièces précieuses | Track par track (maquetté) : écoute, spectrogramme, décision unitaire. |
+
+**Invariant dur (tous modes) : un vrai MP3 (≥ seuil, non transcodé) n'est JAMAIS upscalé**
+vers lossless — il reste sur son rail lossy, converti seulement si besoin de conformité CDJ
+(jamais AIFF/WAV depuis un MP3).
 
 ### Worker background (M1+)
 - Dès qu'un fichier arrive via le watcher → **analyse auto-déclenchée** (M2) sans clic.
@@ -257,8 +262,8 @@ Les règles auto s'appliquent sans popup ; un journal d'actions (DB `actions`) p
 **Tranchés au brainstorm (voir Décisions de cadrage) :** nom (Sift) · MP3 < 320 (seuil
 configurable, badge, re-sourcer par défaut) · biblio existante (nettoyage actif V1) ·
 Rekordbox (garde-fou V1, réparation plus tard, **gelée jusqu'aux tests**) · diffusion
-(gratuite, signing + site V1) · **mode batch = auto par règles** (défaut) · **vrai MP3
-jamais upscalé**.
+(gratuite, signing + site V1) · **3 modes : auto par règles (défaut) + batch manuel +
+revue détail** · **vrai MP3 jamais upscalé**.
 
 ## Séquencement / rationale
 `M0→M1→M2` posent le socle + le cœur lecture. **M4 clôt la première boucle utile** (on peut s'en servir). **M5 finit le MVP.** Phase B (M6-M7) ajoute confort et Rekordbox sûr. M8 (risqué) reste isolé et optionnel, derrière backups.
