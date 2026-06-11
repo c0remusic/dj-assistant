@@ -8,7 +8,6 @@ use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -17,6 +16,7 @@ pub fn run() {
                         .build(),
                 )?;
             }
+            ffmpeg::init_ffmpeg_path();
             let dir = app.path().app_data_dir().expect("no app data dir");
             std::fs::create_dir_all(&dir).ok();
             let conn = db::open(&dir.join("sift.db")).expect("db open failed");

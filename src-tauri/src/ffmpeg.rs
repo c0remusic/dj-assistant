@@ -1,57 +1,50 @@
-use tauri::AppHandle;
-use tauri_plugin_shell::ShellExt;
+//! FFmpeg integration via the `ffmpeg-sidecar` crate, pointed at our bundled binary.
+//!
+//! Binary model (no runtime auto-download):
+//! - **release**: Tauri's `externalBin` places the sidecar next to the app binary as
+//!   `ffmpeg(.exe)`; `ffmpeg-sidecar` resolves it by default (sibling of current exe).
+//! - **dev**: the bundled binary lives at `<manifest>/binaries/ffmpeg-<triple>`; we point
+//!   `ffmpeg-sidecar` at it via the `FFMPEG_BINARY` env var.
 
-/// Extracts the version token from the first line of `ffmpeg -version` output.
-/// Input:  "ffmpeg version 7.1 Copyright (c) 2000-2024 ..."
-/// Output: "7.1"
-pub fn parse_ffmpeg_version(banner: &str) -> Option<String> {
-    let first = banner.lines().next()?;
-    let after = first.strip_prefix("ffmpeg version ")?;
-    Some(after.split_whitespace().next()?.to_string())
+/// Wire `ffmpeg-sidecar` to our bundled binary. Call once at startup, before any ffmpeg use.
+pub fn init_ffmpeg_path() {
+    #[cfg(debug_assertions)]
+    if let Some(p) = find_bundled_ffmpeg() {
+        std::env::set_var("FFMPEG_BINARY", &p);
+    }
 }
 
-/// Runs the bundled ffmpeg sidecar with the given args, returning stdout as a String.
-pub async fn run_ffmpeg(app: &AppHandle, args: &[&str]) -> Result<String, String> {
-    let output = app
-        .shell()
-        .sidecar("ffmpeg")
-        .map_err(|e| format!("sidecar resolve failed: {e}"))?
-        .args(args)
-        .output()
-        .await
-        .map_err(|e| format!("ffmpeg exec failed: {e}"))?;
-    if !output.status.success() {
-        return Err(format!(
-            "ffmpeg exited with {:?}: {}",
-            output.status.code(),
-            String::from_utf8_lossy(&output.stderr)
-        ));
-    }
-    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+/// Locate the dev-time bundled binary at `<manifest>/binaries/ffmpeg-<triple>(.exe)`.
+#[cfg(debug_assertions)]
+fn find_bundled_ffmpeg() -> Option<std::path::PathBuf> {
+    let dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("binaries");
+    std::fs::read_dir(dir)
+        .ok()?
+        .filter_map(|e| e.ok())
+        .map(|e| e.path())
+        .find(|p| {
+            p.file_name()
+                .and_then(|n| n.to_str())
+                .map(|n| n.starts_with("ffmpeg-"))
+                .unwrap_or(false)
+        })
+}
+
+/// Returns the bundled ffmpeg version string (respects `FFMPEG_BINARY`).
+pub fn version() -> Result<String, String> {
+    ffmpeg_sidecar::version::ffmpeg_version().map_err(|e| e.to_string())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::parse_ffmpeg_version;
-
+    /// Validates the dev binary-resolution logic — the exact wiring we de-risk here.
+    /// Requires `npm run fetch-ffmpeg` to have populated src-tauri/binaries/.
+    #[cfg(debug_assertions)]
     #[test]
-    fn parses_standard_banner() {
-        let banner =
-            "ffmpeg version 7.1 Copyright (c) 2000-2024 the FFmpeg developers\nbuilt with gcc";
-        assert_eq!(parse_ffmpeg_version(banner).as_deref(), Some("7.1"));
-    }
-
-    #[test]
-    fn parses_git_build_banner() {
-        let banner = "ffmpeg version n7.1-latest-win64-gpl Copyright (c)";
-        assert_eq!(
-            parse_ffmpeg_version(banner).as_deref(),
-            Some("n7.1-latest-win64-gpl")
+    fn finds_bundled_ffmpeg_in_dev() {
+        assert!(
+            super::find_bundled_ffmpeg().is_some(),
+            "no binaries/ffmpeg-* found — run `npm run fetch-ffmpeg`"
         );
-    }
-
-    #[test]
-    fn rejects_garbage() {
-        assert_eq!(parse_ffmpeg_version("not ffmpeg output"), None);
     }
 }

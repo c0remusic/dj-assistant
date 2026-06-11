@@ -34,9 +34,8 @@ pub fn db_health(conn: State<'_, Mutex<Connection>>) -> Result<DbHealth, String>
 }
 
 #[tauri::command]
-pub async fn ffmpeg_version(app: tauri::AppHandle) -> Result<String, String> {
-    let out = ffmpeg::run_ffmpeg(&app, &["-version"]).await?;
-    ffmpeg::parse_ffmpeg_version(&out).ok_or_else(|| "could not parse ffmpeg version".into())
+pub fn ffmpeg_version() -> Result<String, String> {
+    ffmpeg::version()
 }
 
 /// Smoke-test reporter: lets the frontend echo the IPC result to the Rust log (stdout),
