@@ -28,7 +28,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--color-background
 .pitch{font-size:12px;line-height:1.45;color:var(--color-text-secondary);margin:0;flex:none}
 .pitch strong{color:var(--color-text-primary);font-weight:600}
 .sub{font-size:11px;color:var(--color-text-tertiary);margin:0;flex:none}
-.pa{height:calc(100vh - 310px);min-height:260px;flex:none;display:flex;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);overflow:hidden;font-size:12px}
+.pa{height:calc(100vh - 360px);min-height:220px;flex:none;display:flex;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);overflow:hidden;font-size:12px}
 .frow{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;flex:none}
 .fcard{display:flex;gap:9px;align-items:flex-start;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:8px 10px}
 .fcard>i{font-size:16px;color:var(--color-text-info);flex:none;margin-top:1px}
@@ -78,14 +78,14 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-text-info)}
   <div class="pitch">Le poste de prépa entre Soulseek et tes platines. Tu télécharges en vrac — albums, dossiers, noms d'utilisateurs, formats mélangés. DJ Assistant <strong>écoute, vérifie et range</strong> : il repère les <strong>faux fichiers</strong> (MP3 transcodés vendus pour du lossless) au spectrogramme, t'évite les <strong>doublons</strong> et ce qui est <strong>déjà dans ta biblio</strong>, <strong>convertit au format CDJ</strong> au moment où tu ranges, <strong>renomme</strong> proprement depuis Discogs, et pousse tes dossiers en <strong>playlists Rekordbox</strong>. Un seul geste par morceau : écouter → ranger ou jeter.</div>
   <div class="sub">Démo interactive d'UI/UX · pas de vrai audio ni traitement. Clique les onglets à gauche ; dans Revue, choisis un dossier (1-5 / clic) puis Ranger (&crarr;).</div>
   <div class="frow">
-    <div class="fcard"><i class="ti ti-headphones"></i><b>Écoute & pré-sélection</b><span></span></div>
-    <div class="fcard"><i class="ti ti-wave-sine"></i><b>Détecteur de faux</b><span></span></div>
-    <div class="fcard"><i class="ti ti-arrows-shuffle"></i><b>Doublons & déjà-en-biblio</b><span></span></div>
-    <div class="fcard"><i class="ti ti-file-export"></i><b>Conversion au rangement</b><span></span></div>
-    <div class="fcard"><i class="ti ti-tag"></i><b>Nommage Discogs</b><span></span></div>
-    <div class="fcard"><i class="ti ti-folders"></i><b>Rangement en dossiers</b><span></span></div>
-    <div class="fcard"><i class="ti ti-playlist"></i><b>Sync Rekordbox</b><span></span></div>
-    <div class="fcard"><i class="ti ti-usb"></i><b>Prépa clé USB</b><span></span></div>
+    <div class="fcard"><i class="ti ti-headphones"></i><div><b>Écoute & pré-sélection</b><span>Waveform cliquable, pré-écoute, accélération/ralenti type platine (±%) pour juger un morceau avant de le garder.</span></div></div>
+    <div class="fcard"><i class="ti ti-wave-sine"></i><div><b>Détecteur de faux</b><span>Spectrogramme + analyse de coupure : repère les MP3 transcodés déguisés en lossless. Sensibilité réglable.</span></div></div>
+    <div class="fcard"><i class="ti ti-arrows-shuffle"></i><div><b>Doublons & déjà-en-biblio</b><span>Détecte les copies et ce que tu possèdes déjà — par empreinte audio, indépendamment du nom de fichier.</span></div></div>
+    <div class="fcard"><i class="ti ti-file-export"></i><div><b>Conversion au rangement</b><span>Encode au format CDJ (AIFF / WAV / MP3 320) au moment où tu ranges. Lossy et lossless restent séparés.</span></div></div>
+    <div class="fcard"><i class="ti ti-tag"></i><div><b>Nommage & métadonnées Discogs</b><span>Renomme proprement, récupère pochette, label, année, genre depuis Discogs.</span></div></div>
+    <div class="fcard"><i class="ti ti-folders"></i><div><b>Rangement en dossiers</b><span>Déplace les fichiers dans tes dossiers de genres/labels. Création à la volée, mode batch.</span></div></div>
+    <div class="fcard"><i class="ti ti-playlist"></i><div><b>Sync Rekordbox</b><span>Tes dossiers deviennent des playlists Rekordbox (XML sûr ou master.db natif avec backup).</span></div></div>
+    <div class="fcard"><i class="ti ti-usb"></i><div><b>Préparation de clé USB</b><span>Formate en FAT32 (tous CDJ) ou exFAT (CDJ récents), prête à brancher en club.</span></div></div>
   </div>
   <div class="pa" id="pa" tabindex="0">
     <div class="sb" id="nav">
