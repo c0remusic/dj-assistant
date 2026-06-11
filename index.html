@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>App prépa sons DJ — maquette</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont/dist/tabler-icons.min.css">
+<style>
+:root{
+--color-background-primary:#ffffff;--color-background-secondary:#f4f3ee;--color-background-tertiary:#faf9f6;
+--color-background-info:#e6f1fb;--color-background-danger:#fcebeb;--color-background-success:#e3f3e9;--color-background-warning:#faeeda;
+--color-text-primary:#1d1c1a;--color-text-secondary:#5f5e5a;--color-text-tertiary:#90908a;
+--color-text-info:#185fa5;--color-text-danger:#a32d2d;--color-text-success:#1f7a52;--color-text-warning:#854f0b;
+--color-border-tertiary:rgba(20,20,15,0.12);--color-border-secondary:rgba(20,20,15,0.24);--color-border-info:#378add;--color-border-danger:#e24b4a;
+--border-radius-md:8px;--border-radius-lg:12px;--font-mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+--color-background-primary:#1c1b19;--color-background-secondary:#26241f;--color-background-tertiary:#161513;
+--color-background-info:#10243a;--color-background-danger:#3a1717;--color-background-success:#13301f;--color-background-warning:#352711;
+--color-text-primary:#f3f1ea;--color-text-secondary:#b4b2a9;--color-text-tertiary:#7e7d77;
+--color-text-info:#85b7eb;--color-text-danger:#f09595;--color-text-success:#5dcaa5;--color-text-warning:#fac775;
+--color-border-tertiary:rgba(255,255,255,0.14);--color-border-secondary:rgba(255,255,255,0.26);
+}}
+html,body{margin:0;background:var(--color-background-tertiary);color:var(--color-text-primary);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:22px 16px}
+.title{font-size:24px;font-weight:600;margin:0 0 8px;letter-spacing:-.01em}
+.pitch{font-size:14px;line-height:1.55;color:var(--color-text-secondary);margin:0 0 16px;max-width:680px}
+.pitch strong{color:var(--color-text-primary);font-weight:600}
+.sub{font-size:13px;color:var(--color-text-secondary);margin:0 0 16px}
+.fsec{margin-top:26px}
+.fsec-h{font-size:15px;font-weight:600;margin-bottom:12px}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+.fcard{display:flex;gap:11px;align-items:flex-start;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);padding:13px 14px}
+.fcard>i{font-size:20px;color:var(--color-text-info);flex:none;margin-top:1px}
+.fcard b{display:block;font-size:13px;font-weight:600;margin-bottom:3px}
+.fcard span{display:block;font-size:12px;line-height:1.45;color:var(--color-text-secondary)}
+button{font-family:inherit;background:transparent;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:5px 10px;color:var(--color-text-primary);cursor:pointer;font-size:13px}
+button:hover{background:var(--color-background-secondary)}button:disabled{opacity:.4;cursor:default}
+input{font-family:inherit}input[type=range]{accent-color:var(--color-text-info)}
+.pa{display:flex;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);overflow:hidden;font-size:12px;min-height:400px}
+.sb{width:46px;flex:none;display:flex;flex-direction:column;gap:3px;padding:10px 6px;background:var(--color-background-secondary);border-right:0.5px solid var(--color-border-tertiary);align-items:center}
+.nv{width:32px;height:32px;border-radius:var(--border-radius-md);display:flex;align-items:center;justify-content:center;color:var(--color-text-secondary);cursor:pointer}
+.nv.on{background:var(--color-background-info);color:var(--color-text-info)}.nv i{font-size:16px}
+.queue{width:148px;flex:none;display:flex;flex-direction:column;padding:11px 8px;border-right:0.5px solid var(--color-border-tertiary)}
+.qi{display:flex;align-items:center;gap:6px;padding:5px 7px;border-radius:var(--border-radius-md);font-size:12px;color:var(--color-text-secondary);white-space:nowrap;overflow:hidden;cursor:pointer}
+.qi span{overflow:hidden;text-overflow:ellipsis}.qi.done{color:var(--color-text-tertiary)}
+.qi.cur{background:var(--color-background-info);color:var(--color-text-info);font-weight:500}.qi i{font-size:13px;flex:none}
+.pbar{height:4px;background:var(--color-border-tertiary);border-radius:3px;margin:3px 0 7px;overflow:hidden}.pfill{height:100%;background:var(--color-text-info);border-radius:3px}
+.mid{flex:1;min-width:0;display:flex;flex-direction:column;padding:12px}
+.dest{width:128px;flex:none;display:flex;flex-direction:column;padding:12px 9px;background:var(--color-background-secondary);border-left:0.5px solid var(--color-border-tertiary)}
+.col-h{font-size:10px;letter-spacing:.05em;color:var(--color-text-tertiary);text-transform:uppercase;margin-bottom:6px}
+.pill{display:inline-flex;align-items:center;gap:4px;background:var(--color-background-secondary);color:var(--color-text-secondary);padding:2px 7px;border-radius:var(--border-radius-md);font-size:11px}
+.fld{display:flex;align-items:center;gap:6px;padding:6px 7px;border-radius:var(--border-radius-md);color:var(--color-text-secondary);cursor:pointer;font-size:12px}
+.fld.on{background:var(--color-background-info);color:var(--color-text-info);font-weight:500}
+.kbd{font-family:var(--font-mono);font-size:10px;border:0.5px solid var(--color-border-secondary);border-radius:3px;padding:0 5px;color:var(--color-text-tertiary)}
+.bars{display:flex;align-items:center;gap:1px;height:42px;cursor:pointer}.bars span{flex:1;border-radius:1px}
+.spec{display:flex;align-items:flex-end;gap:1px;height:22px}.spec span{flex:1;border-radius:1px 1px 0 0}
+.mc{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 12px}.mc .l{font-size:11px;color:var(--color-text-secondary)}.mc .n{font-size:20px;font-weight:500;margin-top:2px}
+.srow{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:12px}.srow .v{color:var(--color-text-secondary);display:flex;align-items:center;gap:6px}
+.h1{font-size:16px;font-weight:500;margin-bottom:12px}
+.chip{font-size:11px;padding:3px 9px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary);cursor:pointer}.chip.on{background:var(--color-background-info);color:var(--color-text-info);border-color:var(--color-border-info)}
+.tog{width:30px;height:17px;border-radius:9px;background:var(--color-text-info);position:relative;flex:none}.tog::after{content:"";position:absolute;right:2px;top:2px;width:13px;height:13px;border-radius:50%;background:#fff}
+.lr{display:flex;align-items:center;gap:7px;padding:5px 4px;border-bottom:0.5px solid var(--color-border-tertiary);font-size:12px}
+.lr .pb{width:23px;height:23px;border-radius:50%;flex:none;padding:0;display:inline-flex;align-items:center;justify-content:center}
+.lk{width:22px;height:22px;border-radius:var(--border-radius-md);flex:none;padding:0;display:inline-flex;align-items:center;justify-content:center}
+.br{display:flex;align-items:center;gap:9px;padding:7px 5px;border-bottom:0.5px solid var(--color-border-tertiary);font-size:12px;cursor:pointer}
+.cbx{width:16px;height:16px;border-radius:4px;border:0.5px solid var(--color-border-secondary);flex:none;display:inline-flex;align-items:center;justify-content:center}
+.cbx.on{background:var(--color-text-info);border-color:var(--color-text-info);color:#fff}
+.mf{margin-bottom:6px}.mf .lab{font-size:10px;color:var(--color-text-tertiary);margin-bottom:2px}.mf .inp{border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:5px 8px;font-size:12px}
+.cov{width:40px;height:40px;flex:none;border-radius:6px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;justify-content:center;color:var(--color-text-tertiary)}.cov i{font-size:20px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="title">DJ Assistant</div>
+<div class="pitch">Le poste de prépa entre Soulseek et tes platines. Tu télécharges en vrac — albums, dossiers, noms d'utilisateurs, formats mélangés. DJ Assistant <strong>écoute, vérifie et range</strong> : il repère les <strong>faux fichiers</strong> (MP3 transcodés vendus pour du lossless) au spectrogramme, t'évite les <strong>doublons</strong> et ce qui est <strong>déjà dans ta biblio</strong>, <strong>convertit au format CDJ</strong> au moment où tu ranges, <strong>renomme</strong> proprement depuis Discogs, et pousse tes dossiers en <strong>playlists Rekordbox</strong>. Un seul geste par morceau : écouter → ranger ou jeter.</div>
+<div class="sub">Démo interactive d'UI/UX · pas de vrai audio ni traitement. Clique les onglets à gauche ; dans Revue, choisis un dossier (1-5 / clic) puis Ranger (&crarr;).</div>
+<div class="pa" id="pa" tabindex="0">
+  <div class="sb" id="nav">
+    <div style="margin-bottom:3px"><i class="ti ti-disc" style="font-size:17px" aria-hidden="true"></i></div>
+    <div class="nv" data-view="home" title="Accueil"><i class="ti ti-home" aria-hidden="true"></i></div>
+    <div class="nv" data-view="revue" title="Revue"><i class="ti ti-headphones" aria-hidden="true"></i></div>
+    <div class="nv" data-view="dash" title="Tableau de bord"><i class="ti ti-chart-bar" aria-hidden="true"></i></div>
+    <div class="nv" data-view="biblio" title="Bibliothèque"><i class="ti ti-folders" aria-hidden="true"></i></div>
+    <div class="nv" data-view="rkb" title="Rekordbox"><i class="ti ti-refresh" aria-hidden="true"></i></div>
+    <div class="nv" data-view="cle" title="Formater la clé"><i class="ti ti-usb" aria-hidden="true"></i></div>
+    <div class="nv" data-view="reglages" style="margin-top:auto" title="Réglages"><i class="ti ti-settings" aria-hidden="true"></i></div>
+  </div>
+  <div id="content" style="flex:1;min-width:0;display:flex"></div>
+</div>
+<div class="fsec">
+  <div class="fsec-h">Ce que fait l'app</div>
+  <div class="fgrid">
+    <div class="fcard"><i class="ti ti-headphones" aria-hidden="true"></i><div><b>Écoute & pré-sélection</b><span>Waveform cliquable, pré-écoute, accélération/ralenti type platine (±%) pour juger un morceau avant de le garder.</span></div></div>
+    <div class="fcard"><i class="ti ti-wave-sine" aria-hidden="true"></i><div><b>Détecteur de faux</b><span>Spectrogramme + analyse de coupure : repère les MP3 transcodés déguisés en lossless. Sensibilité réglable.</span></div></div>
+    <div class="fcard"><i class="ti ti-arrows-shuffle" aria-hidden="true"></i><div><b>Doublons & déjà-en-biblio</b><span>Détecte les copies et ce que tu possèdes déjà — par empreinte audio, indépendamment du nom de fichier.</span></div></div>
+    <div class="fcard"><i class="ti ti-file-export" aria-hidden="true"></i><div><b>Conversion au rangement</b><span>Encode au format CDJ (AIFF / WAV / MP3 320) au moment où tu ranges. Lossy et lossless restent séparés — pas d'upscale.</span></div></div>
+    <div class="fcard"><i class="ti ti-tag" aria-hidden="true"></i><div><b>Nommage & métadonnées Discogs</b><span>Renomme proprement et récupère pochette, label, année, genre depuis Discogs — avec lien vers la release exacte.</span></div></div>
+    <div class="fcard"><i class="ti ti-folders" aria-hidden="true"></i><div><b>Rangement physique en dossiers</b><span>Déplace réellement les fichiers dans tes dossiers de genres/labels. Création de dossier à la volée, mode batch.</span></div></div>
+    <div class="fcard"><i class="ti ti-refresh" aria-hidden="true"></i><div><b>Sync Rekordbox</b><span>Tes dossiers deviennent des playlists Rekordbox (XML sûr, ou master.db natif avec backup). Dédoublonne aussi les playlists.</span></div></div>
+    <div class="fcard"><i class="ti ti-usb" aria-hidden="true"></i><div><b>Préparation de clé USB</b><span>Formate une clé en FAT32 (tous CDJ) ou exFAT (CDJ récents), prête à brancher en club.</span></div></div>
+  </div>
+</div>
+</div>
+<script>
+function openLink(u){window.open(u,'_blank','noopener');}
+(function(){
+  var FOLDERS=["House","Techno","Disco/Edits","Ambient","Breakbeat"],OUTF=["MP3 320","AIFF","WAV"];
+  var T=[
+    {a:"Mr. Fingers",t:"Can You Feel It",lbl:"Trax",yr:1986,fmt:"AIFF · 16",dur:"7:48",fake:false,file:"mr fingers - cyfi (org).aiff",real:"conforme",gen:"Deep House"},
+    {a:"Larry Heard",t:"Mystery of Love",lbl:"Alleviated",yr:1985,fmt:"MP3 320",dur:"6:12",fake:true,file:"larry_heard_mystery_320.mp3",real:"~128 kbps (transcodé)",gen:"Deep House"},
+    {a:"Chez Damier",t:"Can You Feel It",lbl:"KMS",yr:1992,fmt:"AIFF · 16",dur:"7:02",fake:false,file:"chez damier cyfi.aif",real:"conforme",gen:"Deep House"},
+    {a:"Moodymann",t:"Shades of Jae",lbl:"KDJ",yr:1997,fmt:"WAV · 24",dur:"5:30",fake:false,file:"01_shades_of_jae.wav",real:"conforme",gen:"Deep House"},
+    {a:"Theo Parrish",t:"Falling Up",lbl:"Peacefrog",yr:1998,fmt:"AIFF · 16",dur:"9:20",fake:false,file:"theo parrish-falling up.aiff",real:"conforme",gen:"Detroit House"},
+    {a:"M. Jefferson",t:"Move Your Body",lbl:"Trax",yr:1986,fmt:"MP3 320",dur:"6:30",fake:false,file:"move your body (320).mp3",real:"conforme",gen:"Chicago House"},
+    {a:"Robert Owens",t:"Bring Down the Walls",lbl:"Trax",yr:1986,fmt:"AIFF · 16",dur:"7:30",fake:false,file:"bring down the walls.aiff",real:"conforme",gen:"Chicago House"},
+    {a:"Lil Louis",t:"French Kiss",lbl:"FFRR",yr:1989,fmt:"WAV · 24",dur:"9:55",fake:false,file:"french kiss FULL.wav",real:"conforme",gen:"Acid House"},
+    {a:"Octave One",t:"Blackwater",lbl:"430 West",yr:2002,fmt:"AIFF · 16",dur:"6:45",fake:false,file:"octave one - blackwater.aiff",real:"conforme",gen:"Detroit Techno"}
+  ];
+  T.forEach(function(x,i){x.status="pending";x.folder=null;
+    x.wave=[];for(var k=0;k<32;k++){var h=18+Math.round(Math.abs(Math.sin((k+i*3)*0.7))*60+((k*7+i*13)%15));x.wave.push(h>96?96:h);}
+    x.spec=[];for(var m=0;m<32;m++){var b=56+((m*5+i*11)%40);if(x.fake&&m>22)b=10+((m*3)%14);x.spec.push(b);}});
+  var LIB=[["Mr. Fingers — Can You Feel It","AIFF","120","7:48","30521"],["Chez Damier — Can You Feel It","AIFF","122","7:02","41822"],["Marshall Jefferson — Move Your Body","MP3","118","6:30","18743"],["Lil Louis — French Kiss","WAV","120","9:55","9210"],["Robert Owens — Bring Down the Walls","AIFF","121","7:30","55190"],["Fingers Inc. — Distant Planet","AIFF","119","8:10","73004"]];
+  var view="home",cur=0,playing=false,tempo=0,selFolder=0,playPos=0,bibPlaying=-1,bibPos=0.3,creating=false,rkbSynced=false,outFmt=null,revMode="detail",midTab="ecoute",sel={};
+  var content=document.getElementById('content'),nav=document.getElementById('nav');
+  function extOf(f){return f==="MP3 320"?"mp3":(f==="WAV"?"wav":"aiff");}
+  function defFmt(i){if(i<0)return "AIFF";return /AIFF|WAV/.test(T[i].fmt)?"AIFF":"MP3 320";}
+  function pT(s){var p=s.split(':');return (+p[0])*60+(+p[1]);}function fT(sec){var m=Math.floor(sec/60),s=Math.round(sec%60);return m+':'+(s<10?'0':'')+s;}
+  function np(from){for(var i=from;i<T.length;i++)if(T[i].status==="pending")return i;for(var j=0;j<T.length;j++)if(T[j].status==="pending")return j;return -1;}
+  function fileTo(fi){if(view!=="revue"||cur<0)return;selFolder=fi;T[cur].status="filed";T[cur].folder=fi;rkbSynced=false;playPos=0;outFmt=null;midTab="ecoute";cur=np(cur+1);render();}
+  function jeter(){if(view!=="revue"||cur<0)return;T[cur].status=T[cur].fake?"resource":"trash";playPos=0;outFmt=null;midTab="ecoute";cur=np(cur+1);render();}
+  function cnt(s){return T.filter(function(x){return x.status===s;}).length;}
+  function byFolder(){var b={};T.forEach(function(x){if(x.status==="filed")b[x.folder]=(b[x.folder]||0)+1;});return b;}
+  function nSel(){var n=0;for(var k in sel)if(sel[k])n++;return n;}
+  function block(){content.style.display="block";content.style.padding="14px 16px";}
+  function render(){Array.prototype.forEach.call(nav.querySelectorAll('.nv'),function(n){n.classList.toggle('on',n.dataset.view===view);});
+    if(view==="revue")return revMode==="batch"?renderBatch():renderRevue();
+    if(view==="dash")return renderDash();if(view==="home")return renderHome();if(view==="biblio")return renderBiblio();if(view==="rkb")return renderRkb();if(view==="cle")return renderCle();return renderReglages();}
+  function renderHome(){block();
+    content.innerHTML='<div class="h1">Accueil</div><div class="col-h">Dossiers surveillés (source)</div>'
+      +'<div class="srow"><span class="v"><i class="ti ti-folder" aria-hidden="true"></i> ~/Downloads/soulseek</span><span style="display:flex;align-items:center;gap:9px"><span style="font-size:11px;color:var(--color-text-info)">8 nouveaux</span><span class="tog"></span></span></div>'
+      +'<div class="srow"><span class="v"><i class="ti ti-folder" aria-hidden="true"></i> ~/Downloads/promos</span><span style="display:flex;align-items:center;gap:9px"><span style="font-size:11px;color:var(--color-text-info)">1 nouveau</span><span class="tog"></span></span></div>'
+      +'<div style="margin:10px 0 15px"><button><i class="ti ti-plus" style="font-size:14px;vertical-align:-2px" aria-hidden="true"></i> ajouter — ou glisser-déposer ici</button></div>'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;background:var(--color-background-info);border-radius:var(--border-radius-md);padding:12px 15px;margin-bottom:15px"><div><div style="font-size:15px;font-weight:500;color:var(--color-text-info)">'+cnt("pending")+' fichiers à trier</div><div style="font-size:11px;color:var(--color-text-info);opacity:.8">dont 1 faux détecté</div></div><button data-view="revue">Trier <i class="ti ti-arrow-right" style="font-size:13px;vertical-align:-2px" aria-hidden="true"></i></button></div>'
+      +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px"><div class="mc"><div class="l">Rangés</div><div class="n" style="color:var(--color-text-success)">'+cnt("filed")+'</div></div><div class="mc"><div class="l">À re-sourcer</div><div class="n" style="color:var(--color-text-danger)">'+cnt("resource")+'</div></div><div class="mc"><div class="l">Corbeille</div><div class="n">'+cnt("trash")+'</div></div></div>';
+  }
+  function renderRevue(){content.style.display="flex";content.style.padding="0";
+    content.innerHTML='<div class="queue"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px"><span class="col-h" style="margin:0">À traiter</span><span style="display:flex;gap:3px"><span data-act="revmode" data-m="detail" title="Détail" style="cursor:pointer;color:var(--color-text-info)"><i class="ti ti-layout-list" style="font-size:14px" aria-hidden="true"></i></span><span data-act="revmode" data-m="batch" title="Batch" style="cursor:pointer;color:var(--color-text-tertiary)"><i class="ti ti-table" style="font-size:14px" aria-hidden="true"></i></span></span></div><div class="pbar"><div class="pfill" id="pf" style="width:0%"></div></div><div id="ql"></div></div><div class="mid" id="mid"></div><div class="dest"><div class="col-h">Où on va</div><div id="fldz"></div></div>';
+    var done=T.length-cnt("pending");document.getElementById('pf').style.width=Math.round(done/T.length*100)+"%";
+    var h="";T.forEach(function(x,i){var ic="ti-circle",col="",cls="qi";
+      if(i===cur)cls+=" cur",ic="ti-player-play";else if(x.status==="filed")cls+=" done",ic="ti-check";
+      else if(x.status==="resource")cls+=" done",ic="ti-x",col="color:var(--color-text-danger)";
+      else if(x.status==="trash")cls+=" done",ic="ti-trash",col="color:var(--color-text-tertiary)";
+      else if(x.fake)ic="ti-alert-triangle",col="color:var(--color-text-danger)";
+      h+='<div class="'+cls+'" data-act="sel" data-i="'+i+'"><i class="ti '+ic+'" style="'+col+'" aria-hidden="true"></i><span>'+x.a+' — '+x.t+'</span></div>';});
+    document.getElementById('ql').innerHTML=h;
+    var fh="";FOLDERS.forEach(function(f,i){fh+='<div class="fld'+(i===selFolder?' on':'')+'" data-act="file" data-i="'+i+'"><span class="kbd">'+(i+1)+'</span> '+f+'</div>';});
+    fh+= creating ? '<input id="newin" placeholder="nom du dossier…" style="width:100%;font-size:12px;padding:5px 7px;margin-top:2px">' : '<div class="fld" data-act="newfld" style="color:var(--color-text-tertiary)"><i class="ti ti-plus" style="font-size:14px" aria-hidden="true"></i> nouveau</div>';
+    document.getElementById('fldz').innerHTML=fh;renderMid();
+    if(creating){var ni=document.getElementById('newin');if(ni)ni.focus();}
+  }
+  function renderMid(){var mid=document.getElementById('mid');if(!mid)return;
+    if(cur<0){mid.innerHTML='<div class="col-h">Ce qu\'on voit</div><div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px;color:var(--color-text-secondary)"><i class="ti ti-circle-check" style="font-size:26px;color:var(--color-text-success)" aria-hidden="true"></i><div style="font-size:13px;font-weight:500;color:var(--color-text-primary)">Tout est trié</div><div style="font-size:11px">'+cnt("filed")+' rangés · '+cnt("resource")+' re-sourcer · '+cnt("trash")+' corbeille</div><button data-view="rkb" style="margin-top:4px">Mettre à jour Rekordbox <i class="ti ti-refresh" style="font-size:12px;vertical-align:-2px" aria-hidden="true"></i></button></div>';return;}
+    if(outFmt===null)outFmt=defFmt(cur);
+    var x=T[cur];var vb=x.fake?'background:var(--color-background-danger);color:var(--color-text-danger)':'background:var(--color-background-success);color:var(--color-text-success)';
+    var vt=x.fake?'<i class="ti ti-alert-triangle" style="font-size:12px" aria-hidden="true"></i> faux':'<i class="ti ti-shield-check" style="font-size:12px" aria-hidden="true"></i> vrai';
+    var head='<div class="col-h">Ce qu\'on voit</div>'
+      +'<div style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:5px"><i class="ti ti-file" style="font-size:11px;vertical-align:-1px" aria-hidden="true"></i> '+x.file+'</div>'
+      +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:9px"><div class="cov"><i class="ti ti-disc" aria-hidden="true"></i></div><div style="min-width:0;flex:1"><div style="font-weight:500;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+x.a+' — '+x.t+'</div><div style="color:var(--color-text-tertiary);font-size:11px">'+x.lbl+' · '+x.yr+'</div></div><span style="flex:none;display:inline-flex;align-items:center;gap:4px;'+vb+';padding:3px 7px;border-radius:var(--border-radius-md);font-size:11px;font-weight:500">'+vt+'</span></div>';
+    var body;
+    {
+      var realPill=x.fake?'<span class="pill" style="background:var(--color-background-danger);color:var(--color-text-danger)"><i class="ti ti-alert-triangle" style="font-size:10px" aria-hidden="true"></i> '+x.real+'</span>':'<span class="pill" style="background:var(--color-background-success);color:var(--color-text-success)"><i class="ti ti-check" style="font-size:10px" aria-hidden="true"></i> conforme</span>';
+      var wave="";x.wave.forEach(function(hh,k){wave+='<span style="height:'+hh+'%;background:'+(k/32<=playPos?'var(--color-text-primary)':'var(--color-text-tertiary)')+'"></span>';});
+      var chips=OUTF.map(function(f){return '<span class="chip'+(outFmt===f?' on':'')+'" data-act="fmtsel" data-f="'+f+'">'+f+'</span>';}).join(' ');
+      var nm=x.a+' - '+x.t+' (Original Mix) ['+x.lbl+'].'+extOf(outFmt);
+      var specCap=x.fake?'<span style="color:var(--color-text-danger)"><i class="ti ti-alert-triangle" style="font-size:9px;vertical-align:-1px" aria-hidden="true"></i> coupure nette ~16 kHz = transcodé</span>':'énergie jusqu\'en haut = encodage conforme';
+      body=
+        // 1. ENCODAGE (déclaré → réel) — au-dessus du spectrogramme
+        '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:11px;flex-wrap:wrap"><span style="color:var(--color-text-tertiary)">Encodage</span><span class="pill">'+x.fmt+'</span><i class="ti ti-arrow-right" style="font-size:12px;color:var(--color-text-tertiary)" aria-hidden="true"></i>'+realPill+'<span class="pill">'+x.dur+'</span></div>'
+        // 2. SPECTROGRAMME (preuve visuelle), juste sous le verdict
+        +'<canvas id="spc" width="300" height="46" style="width:100%;height:46px;border-radius:4px;display:block"></canvas>'
+        +'<div style="font-size:9px;color:var(--color-text-tertiary);margin:2px 0 9px">'+specCap+'</div>'
+        // 3. LECTEUR (écoute + tempo)
+        +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:9px"><button data-act="play" aria-label="Lecture" style="width:26px;height:26px;border-radius:50%;flex:none;display:inline-flex;align-items:center;justify-content:center;padding:0"><i class="ti '+(playing?'ti-player-pause':'ti-player-play')+'" style="font-size:12px" aria-hidden="true"></i></button><div class="bars" data-act="seek" style="flex:1">'+wave+'</div><div style="flex:none;display:flex;flex-direction:column;align-items:center"><input type="range" min="-8" max="8" step="1" value="'+tempo+'" data-act="tempo" aria-label="Tempo" style="writing-mode:vertical-lr;direction:rtl;width:15px;height:30px"><span id="tout" style="font-family:var(--font-mono);font-size:9px">'+(tempo>0?'+':'')+tempo+'%</span></div></div>'
+        // 4. SORTIR EN (format de conversion à l'export)
+        +'<div style="padding-top:8px;border-top:0.5px solid var(--color-border-tertiary)"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:5px"><span style="font-size:10px;color:var(--color-text-tertiary)">Sortir en</span>'+chips+'</div><div style="font-size:10px;color:var(--color-text-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">→ <span style="font-family:var(--font-mono);color:var(--color-text-secondary)">'+nm+'</span></div></div>';
+    }
+    var meta='<div style="margin-top:10px;padding-top:9px;border-top:0.5px solid var(--color-border-tertiary)"><div style="display:flex;align-items:center;gap:5px;margin-bottom:6px"><span style="font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--color-text-tertiary)">Métadonnées</span><span class="pill" style="background:var(--color-background-info);color:var(--color-text-info);font-size:9px;padding:1px 6px"><i class="ti ti-download" style="font-size:9px" aria-hidden="true"></i> pullé de Discogs</span></div>'
+      +'<div style="display:grid;grid-template-columns:auto 1fr auto 1fr;gap:3px 8px;font-size:11px;align-items:center">'
+      +'<span style="color:var(--color-text-tertiary)">Label</span><span>'+x.lbl+'</span><span style="color:var(--color-text-tertiary)">Année</span><span>'+x.yr+'</span>'
+      +'<span style="color:var(--color-text-tertiary)">Genre</span><span>'+x.gen+'</span><span style="color:var(--color-text-tertiary)">BPM</span><span>'+(120+(cur*3)%9)+'</span></div>'
+      +'<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:6px"><span style="color:var(--color-text-tertiary);font-size:11px">Tags</span><span class="pill" style="font-size:10px">peak-time</span><span class="pill" style="font-size:10px">classic</span><span class="pill" style="font-size:10px;color:var(--color-text-tertiary)"><i class="ti ti-plus" style="font-size:9px" aria-hidden="true"></i></span></div></div>';
+    mid.innerHTML=head+body+meta+'<div style="margin-top:auto;padding-top:10px;display:flex;gap:8px"><button data-act="commit" style="flex:1;background:var(--color-background-info);color:var(--color-text-info);border-color:var(--color-border-info);font-weight:500"><span class="kbd">&crarr;</span> Ranger &rarr; '+FOLDERS[selFolder]+'</button><button data-act="jeter" style="color:var(--color-text-danger);border-color:var(--color-border-danger)"><span class="kbd">X</span> jeter</button></div>';
+    if(midTab==="ecoute"&&cur>=0)drawSpec(x);
+  }
+  function drawSpec(x){var c=document.getElementById('spc');if(!c||!c.getContext)return;var ctx=c.getContext('2d'),W=c.width,H=c.height;
+    var seed=0;for(var s=0;s<x.file.length;s++)seed+=x.file.charCodeAt(s);
+    function rnd(n){var v=Math.sin(n*12.9898+seed)*43758.5453;return v-Math.floor(v);}
+    function col(e){e=e<0?0:e>1?1:e;var st=[[20,12,38],[58,18,92],[181,23,158],[255,179,71],[255,222,128]];var t=e*(st.length-1),i=Math.floor(t),f=t-i;if(i>=st.length-1){i=st.length-2;f=1;}var a=st[i],b=st[i+1];return 'rgb('+Math.round(a[0]+(b[0]-a[0])*f)+','+Math.round(a[1]+(b[1]-a[1])*f)+','+Math.round(a[2]+(b[2]-a[2])*f)+')';}
+    var cutoff=x.fake?0.60:1.0;ctx.fillStyle='rgb(20,12,38)';ctx.fillRect(0,0,W,H);
+    for(var i=0;i<W;i++){var beat=0.6+0.4*Math.abs(Math.sin(i*0.09+seed));
+      for(var j=0;j<H;j++){var fy=1-j/H;var e=Math.pow(1-fy,0.55)*beat;
+        e*=0.6+0.4*Math.sin(i*0.18+fy*7+seed);e*=0.65+0.35*rnd(i*131+j*7);
+        if(fy>cutoff)e*=Math.max(0,1-(fy-cutoff)*16);
+        if(e>0.04){ctx.fillStyle=col(e);ctx.fillRect(i,j,1,1);}}}
+    if(x.fake){var y=Math.round(H*(1-cutoff));ctx.strokeStyle='rgba(255,90,90,0.9)';ctx.setLineDash([4,3]);ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();ctx.setLineDash([]);}
+  }
+  function renderBatch(){block();var pend=[];T.forEach(function(x,i){if(x.status==="pending")pend.push(i);});var n=nSel();
+    var rows=pend.map(function(i){var x=T[i];var on=!!sel[i];return '<div class="br" data-act="bcheck" data-i="'+i+'"><span class="cbx'+(on?' on':'')+'">'+(on?'<i class="ti ti-check" style="font-size:11px" aria-hidden="true"></i>':'')+'</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+x.a+' — '+x.t+'</span>'+(x.fake?'<span class="pill" style="background:var(--color-background-danger);color:var(--color-text-danger);flex:none">faux</span>':'<span class="pill" style="background:var(--color-background-success);color:var(--color-text-success);flex:none">vrai</span>')+'<span class="pill" style="flex:none">'+x.fmt+'</span></div>';}).join('');
+    var dchips=FOLDERS.map(function(f,i){return '<span class="chip'+(i===selFolder?' on':'')+'" data-act="file2" data-i="'+i+'">'+f+'</span>';}).join(' ');
+    content.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><span class="h1" style="margin:0">À traiter — mode batch</span><button data-act="revmode" data-m="detail"><i class="ti ti-layout-list" style="font-size:13px;vertical-align:-2px" aria-hidden="true"></i> vue détail</button></div>'
+      +(rows||'<div style="font-size:12px;color:var(--color-text-tertiary)">File vide.</div>')
+      +'<div style="margin-top:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-top:11px;border-top:0.5px solid var(--color-border-secondary)"><span style="font-size:11px;color:var(--color-text-tertiary)">Ranger dans :</span>'+dchips+'</div>'
+      +'<div style="margin-top:11px;display:flex;gap:8px"><button data-act="brange"'+(n?'':' disabled')+'>Ranger la sélection ('+n+')</button><button data-act="bjeter" style="color:var(--color-text-danger);border-color:var(--color-border-danger)"'+(n?'':' disabled')+'>Jeter ('+n+')</button></div>';
+  }
+  function renderDash(){block();var filed=cnt("filed"),res=cnt("resource"),tr=cnt("trash");var byF=byFolder();
+    var rep="",mx=Math.max(1,filed);FOLDERS.forEach(function(f,i){if(byF[i])rep+='<div style="display:flex;align-items:center;gap:9px;margin-bottom:6px"><span style="width:84px;flex:none;font-size:12px;color:var(--color-text-secondary)">'+f+'</span><span style="flex:1;height:9px;background:var(--color-background-secondary);border-radius:5px"><span style="display:block;height:100%;border-radius:5px;background:var(--color-text-info);width:'+Math.round(byF[i]/mx*100)+'%"></span></span><span style="width:20px;text-align:right;font-size:12px;color:var(--color-text-tertiary)">'+byF[i]+'</span></div>';});
+    if(!rep)rep='<div style="font-size:12px;color:var(--color-text-tertiary)">Rien rangé — va trier dans Revue.</div>';
+    content.innerHTML='<div class="h1">Tableau de bord</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:15px"><div class="mc"><div class="l">Rangés</div><div class="n" style="color:var(--color-text-success)">'+filed+'</div></div><div class="mc"><div class="l">Re-sourcer</div><div class="n" style="color:var(--color-text-danger)">'+res+'</div></div><div class="mc"><div class="l">Corbeille</div><div class="n">'+tr+'</div></div><div class="mc"><div class="l">Biblio totale</div><div class="n">'+(1248+filed)+'</div></div></div><div style="font-size:13px;font-weight:500;margin-bottom:9px">Rangés par dossier</div>'+rep;
+  }
+  function renderRkb(){block();var filed=cnt("filed"),byF=byFolder();
+    var pls=FOLDERS.map(function(f,i){var n=byF[i]||0;return '<div class="srow"><span class="v"><i class="ti ti-playlist" aria-hidden="true"></i> '+f+'</span><span style="font-size:11px;color:'+(n?'var(--color-text-info)':'var(--color-text-tertiary)')+'">'+(n?'+ '+n:'à jour')+'</span></div>';}).join('');
+    var action= rkbSynced?'<div style="display:flex;align-items:center;gap:8px;background:var(--color-background-success);border-radius:var(--border-radius-md);padding:12px 15px;margin-bottom:15px;color:var(--color-text-success)"><i class="ti ti-circle-check" style="font-size:18px" aria-hidden="true"></i><span style="font-size:13px;font-weight:500">Rekordbox à jour — '+filed+' synchronisés</span></div>':'<div style="display:flex;align-items:center;justify-content:space-between;background:var(--color-background-info);border-radius:var(--border-radius-md);padding:12px 15px;margin-bottom:15px"><div><div style="font-size:14px;font-weight:500;color:var(--color-text-info)">'+filed+' rangés à pousser</div><div style="font-size:11px;color:var(--color-text-info);opacity:.8">dernière sync : il y a 2 j</div></div><button data-act="rksync">Mettre à jour <i class="ti ti-refresh" style="font-size:12px;vertical-align:-2px" aria-hidden="true"></i></button></div>';
+    content.innerHTML='<div class="h1">Rekordbox</div>'+action+'<div class="col-h">Playlists générées</div>'+pls+'<div class="col-h" style="margin-top:14px">Mode</div><div style="display:flex;gap:8px;margin-bottom:12px"><span class="chip on">XML — sûr</span><span class="chip">master.db — natif ⚠️</span></div><div style="display:flex;gap:8px;align-items:flex-start;font-size:11px;color:var(--color-text-warning);background:var(--color-background-warning);border-radius:var(--border-radius-md);padding:9px 12px"><i class="ti ti-alert-triangle" style="font-size:14px;flex:none" aria-hidden="true"></i><span>Ferme Rekordbox avant de synchroniser. En master.db : backup auto.</span></div>';
+  }
+  function renderBiblio(){block();
+    var rows=LIB.map(function(r,i){var on=i===bibPlaying;return '<div class="lr"'+(on?' style="background:var(--color-background-info);border-radius:var(--border-radius-md);border-bottom:none"':'')+'><button class="pb" data-act="bplay" data-i="'+i+'" aria-label="Écouter"'+(on?' style="color:var(--color-text-info)"':'')+'><i class="ti '+(on?'ti-player-pause':'ti-player-play')+'" style="font-size:12px" aria-hidden="true"></i></button><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'+(on?';color:var(--color-text-info);font-weight:500':'')+'">'+r[0]+'</span><span class="pill" style="flex:none">'+r[1]+'</span><span style="flex:none;width:28px;text-align:right;font-family:var(--font-mono);color:var(--color-text-tertiary)">'+r[2]+'</span><span style="flex:none;width:34px;text-align:right;font-family:var(--font-mono);color:var(--color-text-tertiary)">'+r[3]+'</span><button class="lk" data-act="link" data-i="'+i+'" aria-label="Fiche Discogs (release)"><i class="ti ti-external-link" style="font-size:13px;color:var(--color-text-tertiary)" aria-hidden="true"></i></button></div>';}).join('');
+    var player="";if(bibPlaying>=0){var r=LIB[bibPlaying];var tot=pT(r[3]);var w="";for(var k=0;k<40;k++){var hh=18+Math.round(Math.abs(Math.sin((k+bibPlaying*3)*0.7))*60+((k*7)%15));if(hh>96)hh=96;w+='<span style="height:'+hh+'%;background:'+(k/40<=bibPos?'var(--color-text-info)':'var(--color-text-tertiary)')+'"></span>';}player='<div style="margin-top:12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:9px 11px;display:flex;align-items:center;gap:10px"><button class="pb" data-act="bplay" data-i="'+bibPlaying+'" aria-label="Pause" style="color:var(--color-text-info)"><i class="ti ti-player-pause" style="font-size:13px" aria-hidden="true"></i></button><span style="flex:none;width:116px;min-width:0;font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+r[0]+'</span><div class="bars" data-act="bseek" style="flex:1;height:30px">'+w+'</div><span style="flex:none;font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary)">'+fT(tot*bibPos)+' / '+r[3]+'</span></div>';}
+    content.innerHTML='<div style="display:flex;align-items:center;gap:8px;margin-bottom:11px"><div style="flex:1;display:flex;align-items:center;gap:7px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:6px 10px;color:var(--color-text-tertiary)"><i class="ti ti-search" style="font-size:14px" aria-hidden="true"></i><span style="font-size:12px">Rechercher…</span></div><span class="chip on">Tous</span><span class="chip">Lossless</span><span class="chip">MP3</span></div>'
+      +'<div style="display:flex;gap:12px"><div style="width:120px;flex:none"><div class="col-h">Dossiers</div>'+['House 412','Techno 318','Disco/Edits 196','Ambient 142','Breakbeat 98'].map(function(s,i){var p=s.split(' '),n=p.pop();return '<div class="fld'+(i===0?' on':'')+'" style="justify-content:space-between"><span>'+p.join(' ')+'</span><span style="font-size:11px;opacity:.7">'+n+'</span></div>';}).join('')+'</div>'
+      +'<div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:13px;font-weight:500">House</span><span style="font-size:11px;color:var(--color-text-tertiary)">412 morceaux</span></div>'+rows+player+'</div></div>';
+  }
+  function renderCle(){block();
+    content.innerHTML='<div class="h1">Formater la clé</div><div style="display:flex;gap:8px;align-items:flex-start;background:var(--color-background-warning);border-radius:var(--border-radius-md);padding:9px 12px;margin-bottom:14px;font-size:11px;color:var(--color-text-warning)"><i class="ti ti-alert-triangle" style="font-size:15px;flex:none" aria-hidden="true"></i><span>Volumes <strong>amovibles uniquement</strong> — le formatage <strong>efface tout</strong>.</span></div><div class="col-h">Volume</div><div class="srow"><span class="v"><i class="ti ti-usb" aria-hidden="true"></i> USB DJ — 28 Go <span style="color:var(--color-text-tertiary)">(FAT32)</span></span><i class="ti ti-circle-check" style="color:var(--color-text-info);font-size:16px" aria-hidden="true"></i></div><div class="srow"><span class="v"><i class="ti ti-usb" aria-hidden="true"></i> SSD Samsung T7 — 500 Go <span style="color:var(--color-text-tertiary)">(exFAT)</span></span><i class="ti ti-circle" style="color:var(--color-text-tertiary);font-size:16px" aria-hidden="true"></i></div><div class="col-h" style="margin-top:14px">Format</div><div style="display:flex;gap:8px;margin-bottom:14px"><span class="chip on">FAT32 — compat tous CDJ</span><span class="chip">exFAT — CDJ récents</span></div><div style="display:flex;align-items:center;gap:9px"><div style="flex:1;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:6px 10px;font-size:12px;color:var(--color-text-tertiary)">tape « USB DJ » pour confirmer</div><button style="color:var(--color-text-danger);border-color:var(--color-border-danger)">Formater</button></div>';
+  }
+  function renderReglages(){block();var rows=[['Dossiers source','2 dossiers'],['Dossiers destination','6 genres'],['Format lossless','AIFF · 16-bit / 44,1 kHz'],['Format lossy','MP3 320 (pas d\'upscale)'],['Modèle de nommage','Artiste - Titre (Mix) [Label]'],['Sensibilité anti-fake','standard'],['Identification','tags → Discogs → manuel'],['Discogs','connecté'],['Intégration Rekordbox','XML (master.db désactivé)'],['Normalisation','désactivée']];
+    content.innerHTML='<div class="h1">Réglages</div>'+rows.map(function(r){return '<div class="srow"><span>'+r[0]+'</span><span class="v">'+r[1]+' <i class="ti ti-chevron-right" style="font-size:14px;color:var(--color-text-tertiary)" aria-hidden="true"></i></span></div>';}).join('');
+  }
+  var pa=document.getElementById('pa');
+  pa.addEventListener('click',function(e){
+    var v=e.target.closest('[data-view]');if(v){view=v.dataset.view;creating=false;render();return;}
+    var el=e.target.closest('[data-act]');if(!el)return;var act=el.dataset.act;
+    if(act==='sel'){cur=+el.dataset.i;playPos=0;outFmt=null;midTab="ecoute";render();}
+    else if(act==='play'){playing=!playing;renderMid();}
+    else if(act==='file'){selFolder=+el.dataset.i;renderRevue();}
+    else if(act==='file2'){selFolder=+el.dataset.i;renderBatch();}
+    else if(act==='commit'){fileTo(selFolder);}
+    else if(act==='jeter'){jeter();}
+    else if(act==='newfld'){creating=true;render();}
+    else if(act==='fmtsel'){outFmt=el.dataset.f;renderMid();}
+    else if(act==='mtab'){midTab=el.dataset.m;renderMid();}
+    else if(act==='revmode'){revMode=el.dataset.m;sel={};render();}
+    else if(act==='bcheck'){var bi=+el.dataset.i;sel[bi]=!sel[bi];renderBatch();}
+    else if(act==='brange'){for(var k in sel){if(sel[k]&&T[k].status==="pending"){T[k].status="filed";T[k].folder=selFolder;}}sel={};rkbSynced=false;render();}
+    else if(act==='bjeter'){for(var k2 in sel){if(sel[k2]&&T[k2].status==="pending")T[k2].status=T[k2].fake?"resource":"trash";}sel={};render();}
+    else if(act==='rksync'){rkbSynced=true;render();}
+    else if(act==='bplay'){var i=+el.dataset.i;if(bibPlaying===i){bibPlaying=-1;}else{bibPlaying=i;bibPos=0.3;}renderBiblio();}
+    else if(act==='bseek'){var r2=el.getBoundingClientRect();bibPos=Math.min(1,Math.max(0,(e.clientX-r2.left)/r2.width));renderBiblio();}
+    else if(act==='link'){openLink('https://www.discogs.com/search/?type=release&q='+encodeURIComponent(LIB[+el.dataset.i][0].replace(/\s+—\s+/g,' ')));}
+    else if(act==='seek'){var r=el.getBoundingClientRect();playPos=Math.min(1,Math.max(0,(e.clientX-r.left)/r.width));renderMid();}
+  });
+  pa.addEventListener('input',function(e){if(e.target.dataset.act==='tempo'){tempo=parseInt(e.target.value,10);var o=document.getElementById('tout');if(o)o.textContent=(tempo>0?'+':'')+tempo+'%';}});
+  pa.addEventListener('keydown',function(e){
+    if(e.target.id==='newin'){if(e.key==='Enter'){var val=e.target.value.trim();if(val){FOLDERS.push(val);creating=false;fileTo(FOLDERS.length-1);}}else if(e.key==='Escape'){creating=false;render();}return;}
+    if(e.target.tagName==='INPUT')return;if(view!=="revue"||revMode!=="detail")return;
+    if(e.key>='1'&&e.key<='5'){selFolder=+e.key-1;renderRevue();}else if(e.key==='Enter'){e.preventDefault();fileTo(selFolder);}else if(e.key==='x'||e.key==='X')jeter();else if(e.key===' '){e.preventDefault();playing=!playing;renderMid();}
+  });
+  render();
+})();
+</script>
+</body>
+</html>
