@@ -80,7 +80,6 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-text-info)}
     <div style="margin-bottom:3px"><i class="ti ti-disc" style="font-size:17px" aria-hidden="true"></i></div>
     <div class="nv" data-view="home" title="Accueil"><i class="ti ti-home" aria-hidden="true"></i></div>
     <div class="nv" data-view="revue" title="Revue"><i class="ti ti-headphones" aria-hidden="true"></i></div>
-    <div class="nv" data-view="dash" title="Tableau de bord"><i class="ti ti-chart-bar" aria-hidden="true"></i></div>
     <div class="nv" data-view="biblio" title="Bibliothèque"><i class="ti ti-folders" aria-hidden="true"></i></div>
     <div class="nv" data-view="rkb" title="Rekordbox"><i class="ti ti-refresh" aria-hidden="true"></i></div>
     <div class="nv" data-view="cle" title="Formater la clé"><i class="ti ti-usb" aria-hidden="true"></i></div>
@@ -138,14 +137,34 @@ function openLink(u){window.open(u,'_blank','noopener');}
   function block(){content.style.display="block";content.style.padding="14px 16px";}
   function render(){Array.prototype.forEach.call(nav.querySelectorAll('.nv'),function(n){n.classList.toggle('on',n.dataset.view===view);});
     if(view==="revue")return revMode==="batch"?renderBatch():renderRevue();
-    if(view==="dash")return renderDash();if(view==="home")return renderHome();if(view==="biblio")return renderBiblio();if(view==="rkb")return renderRkb();if(view==="cle")return renderCle();if(view==="ecarts")return renderEcarts();return renderReglages();}
+if(view==="home")return renderHome();if(view==="biblio")return renderBiblio();if(view==="rkb")return renderRkb();if(view==="cle")return renderCle();if(view==="ecarts")return renderEcarts();return renderReglages();}
   function renderHome(){block();
-    content.innerHTML='<div class="h1">Accueil</div><div class="col-h">Dossiers surveillés (source)</div>'
+    var filed=cnt("filed"),res=cnt("resource"),tr=cnt("trash"),pend=cnt("pending");
+    var fakes=T.filter(function(x){return x.status==="resource"&&x.ecartReason==="fake";}).length;
+    var noMeta=T.filter(function(x){return x.status==="filed"&&!x.lbl;}).length;
+    var byF=byFolder(),mx=Math.max(1,filed);
+    var bars=FOLDERS.map(function(f,i){var n=byF[i]||0;return n?'<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><span style="width:80px;flex:none;font-size:11px;color:var(--color-text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+f+'</span><span style="flex:1;height:7px;background:var(--color-background-secondary);border-radius:4px"><span style="display:block;height:100%;border-radius:4px;background:var(--color-text-info);width:'+Math.round(n/mx*100)+'%"></span></span><span style="width:18px;text-align:right;font-size:11px;color:var(--color-text-tertiary)">'+n+'</span></div>':'';}).join('');
+    var statCard=function(label,val,color,view,sub){
+      var style='cursor:'+(view?'pointer':'default')+';background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:9px 11px'+(view?';border:0.5px solid var(--color-border-tertiary)':'');
+      return '<div class="mc" '+(view?'data-view="'+view+'"':'')+' style="'+style+'" title="'+(view?'Aller à '+view:'')+'">'
+        +'<div class="l">'+label+(view?' <i class="ti ti-arrow-right" style="font-size:10px;opacity:.5"></i>':'')+'</div>'
+        +'<div class="n" style="color:'+color+'">'+val+'</div>'
+        +(sub?'<div style="font-size:10px;color:var(--color-text-tertiary);margin-top:2px">'+sub+'</div>':'')
+        +'</div>';
+    };
+    content.innerHTML='<div class="h1">Accueil</div>'
+      +'<div class="col-h">Dossiers surveillés</div>'
       +'<div class="srow"><span class="v"><i class="ti ti-folder" aria-hidden="true"></i> ~/Downloads/soulseek</span><span style="display:flex;align-items:center;gap:9px"><span style="font-size:11px;color:var(--color-text-info)">8 nouveaux</span><span class="tog"></span></span></div>'
       +'<div class="srow"><span class="v"><i class="ti ti-folder" aria-hidden="true"></i> ~/Downloads/promos</span><span style="display:flex;align-items:center;gap:9px"><span style="font-size:11px;color:var(--color-text-info)">1 nouveau</span><span class="tog"></span></span></div>'
-      +'<div style="margin:10px 0 15px"><button><i class="ti ti-plus" style="font-size:14px;vertical-align:-2px" aria-hidden="true"></i> ajouter — ou glisser-déposer ici</button></div>'
-      +'<div style="display:flex;align-items:center;justify-content:space-between;background:var(--color-background-info);border-radius:var(--border-radius-md);padding:12px 15px;margin-bottom:15px"><div><div style="font-size:15px;font-weight:500;color:var(--color-text-info)">'+cnt("pending")+' fichiers à trier</div><div style="font-size:11px;color:var(--color-text-info);opacity:.8">dont 1 faux détecté</div></div><button data-view="revue">Trier <i class="ti ti-arrow-right" style="font-size:13px;vertical-align:-2px" aria-hidden="true"></i></button></div>'
-      +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px"><div class="mc"><div class="l">Rangés</div><div class="n" style="color:var(--color-text-success)">'+cnt("filed")+'</div></div><div class="mc"><div class="l">À re-sourcer</div><div class="n" style="color:var(--color-text-danger)">'+cnt("resource")+'</div></div><div class="mc"><div class="l">Corbeille</div><div class="n">'+cnt("trash")+'</div></div></div>';
+      +'<div style="margin:8px 0 13px"><button><i class="ti ti-plus" style="font-size:13px;vertical-align:-2px" aria-hidden="true"></i> ajouter un dossier</button></div>'
+      +(pend?'<div style="display:flex;align-items:center;justify-content:space-between;background:var(--color-background-info);border-radius:var(--border-radius-md);padding:11px 14px;margin-bottom:13px"><div><div style="font-size:14px;font-weight:500;color:var(--color-text-info)">'+pend+' fichiers à trier</div><div style="font-size:11px;color:var(--color-text-info);opacity:.8">dont '+fakes+' faux détecté'+(fakes>1?'s':'')+'</div></div><button data-view="revue">Trier <i class="ti ti-arrow-right" style="font-size:12px;vertical-align:-2px" aria-hidden="true"></i></button></div>':'')
+      +'<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:13px">'
+        +statCard('Rangés',filed,'var(--color-text-success)','biblio','dans la bibliothèque')
+        +statCard('À re-sourcer',res,'var(--color-text-danger)','ecarts',fakes+' faux · '+(res-fakes)+' tronqués')
+        +statCard('Corbeille',tr,'var(--color-text-tertiary)','',null)
+        +statCard('Sans métadonnées',noMeta+12,'var(--color-text-warning)','biblio','tags incomplets')
+      +'</div>'
+      +(filed?'<div class="col-h">Répartition par dossier</div>'+bars:'');
   }
   function renderRevue(){content.style.display="flex";content.style.padding="0";
     content.innerHTML='<div class="queue"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px"><span class="col-h" style="margin:0">À traiter</span><span style="display:flex;gap:3px"><span data-act="revmode" data-m="detail" title="Détail" style="cursor:pointer;color:var(--color-text-info)"><i class="ti ti-layout-list" style="font-size:14px" aria-hidden="true"></i></span><span data-act="revmode" data-m="batch" title="Batch" style="cursor:pointer;color:var(--color-text-tertiary)"><i class="ti ti-table" style="font-size:14px" aria-hidden="true"></i></span></span></div><div class="pbar"><div class="pfill" id="pf" style="width:0%"></div></div><div id="ql"></div></div><div class="mid" id="mid"></div><div class="dest"><div class="col-h">Où on va</div><div id="fldz"></div></div>';
