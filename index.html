@@ -123,7 +123,7 @@ function openLink(u){window.open(u,'_blank','noopener');}
     x.wave=[];for(var k=0;k<32;k++){var h=18+Math.round(Math.abs(Math.sin((k+i*3)*0.7))*60+((k*7+i*13)%15));x.wave.push(h>96?96:h);}
     x.spec=[];for(var m=0;m<32;m++){var b=56+((m*5+i*11)%40);if(x.fake&&m>22)b=10+((m*3)%14);x.spec.push(b);}});
   var LIB=[["Mr. Fingers — Can You Feel It","AIFF","120","7:48","30521"],["Chez Damier — Can You Feel It","AIFF","122","7:02","41822"],["Marshall Jefferson — Move Your Body","MP3","118","6:30","18743"],["Lil Louis — French Kiss","WAV","120","9:55","9210"],["Robert Owens — Bring Down the Walls","AIFF","121","7:30","55190"],["Fingers Inc. — Distant Planet","AIFF","119","8:10","73004"]];
-  var view="home",cur=0,playing=false,tempo=0,selFolder=0,playPos=0,bibPlaying=-1,bibPos=0.3,creating=false,rkbSynced=false,outFmt=null,revMode="detail",midTab="ecoute",sel={};
+  var view="home",cur=0,playing=false,tempo=0,selFolder=0,playPos=0,bibPlaying=-1,bibPos=0.3,creating=false,rkbSynced=false,outFmt=null,revMode="detail",midTab="ecoute",sel={},queueShowAll=false;
   var content=document.getElementById('content'),nav=document.getElementById('nav');
   function extOf(f){return f==="MP3 320"?"mp3":(f==="WAV"?"wav":"aiff");}
   function defFmt(i){if(i<0)return "AIFF";return /AIFF|WAV/.test(T[i].fmt)?"AIFF":"MP3 320";}
@@ -167,9 +167,13 @@ if(view==="home")return renderHome();if(view==="biblio")return renderBiblio();if
       +(filed?'<div class="col-h">Répartition par dossier</div>'+bars:'');
   }
   function renderRevue(){content.style.display="flex";content.style.padding="0";
-    content.innerHTML='<div class="queue"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px"><span class="col-h" style="margin:0">À traiter</span><span style="display:flex;gap:3px"><span data-act="revmode" data-m="detail" title="Détail" style="cursor:pointer;color:var(--color-text-info)"><i class="ti ti-layout-list" style="font-size:14px" aria-hidden="true"></i></span><span data-act="revmode" data-m="batch" title="Batch" style="cursor:pointer;color:var(--color-text-tertiary)"><i class="ti ti-table" style="font-size:14px" aria-hidden="true"></i></span></span></div><div class="pbar"><div class="pfill" id="pf" style="width:0%"></div></div><div id="ql"></div></div><div class="mid" id="mid"></div><div class="dest"><div class="col-h">Où on va</div><div id="fldz"></div></div>';
-    var done=T.length-cnt("pending");document.getElementById('pf').style.width=Math.round(done/T.length*100)+"%";
-    var h="";T.forEach(function(x,i){var ic="ti-circle",col="",cls="qi";
+    var pendingCount=cnt("pending"),doneCount=T.length-pendingCount;
+    content.innerHTML='<div class="queue"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px"><span class="col-h" style="margin:0">À traiter</span><span style="display:flex;gap:3px"><span data-act="revmode" data-m="detail" title="Vue détail" style="cursor:pointer;color:var(--color-text-info)"><i class="ti ti-layout-list" style="font-size:14px" aria-hidden="true"></i></span><span data-act="revmode" data-m="batch" title="Mode batch" style="cursor:pointer;color:var(--color-text-tertiary)"><i class="ti ti-table" style="font-size:14px" aria-hidden="true"></i></span></span></div><div class="pbar"><div class="pfill" id="pf" style="width:0%"></div></div><div id="ql"></div>'+(doneCount?'<div style="padding:5px 4px 0"><span data-act="togglequeue" style="font-size:10px;color:var(--color-text-tertiary);cursor:pointer;text-decoration:underline">'+(queueShowAll?'Masquer les traités':'+ '+doneCount+' traités')+'</span></div>':'')+'</div><div class="mid" id="mid"></div><div class="dest"><div class="col-h">Où on va</div><div id="fldz"></div></div>';
+    var done2=T.length-pendingCount;document.getElementById('pf').style.width=Math.round(done2/T.length*100)+"%";
+    var h="";T.forEach(function(x,i){
+      var isPending=x.status==="pending";
+      if(!isPending&&!queueShowAll&&i!==cur)return;
+      var ic="ti-circle",col="",cls="qi";
       if(i===cur)cls+=" cur",ic="ti-player-play";else if(x.status==="filed")cls+=" done",ic="ti-check";
       else if(x.status==="resource")cls+=" done",ic="ti-x",col="color:var(--color-text-danger)";
       else if(x.status==="trash")cls+=" done",ic="ti-trash",col="color:var(--color-text-tertiary)";
@@ -205,14 +209,17 @@ if(view==="home")return renderHome();if(view==="biblio")return renderBiblio();if
         // 3. LECTEUR (écoute + tempo)
         +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:9px"><button data-act="play" aria-label="Lecture" style="width:26px;height:26px;border-radius:50%;flex:none;display:inline-flex;align-items:center;justify-content:center;padding:0"><i class="ti '+(playing?'ti-player-pause':'ti-player-play')+'" style="font-size:12px" aria-hidden="true"></i></button><div class="bars" data-act="seek" style="flex:1">'+wave+'</div><div style="flex:none;display:flex;flex-direction:column;align-items:center"><input type="range" min="-8" max="8" step="1" value="'+tempo+'" data-act="tempo" aria-label="Tempo" style="writing-mode:vertical-lr;direction:rtl;width:15px;height:30px"><span id="tout" style="font-family:var(--font-mono);font-size:9px">'+(tempo>0?'+':'')+tempo+'%</span></div></div>'
         // 4. SORTIR EN (format de conversion à l'export)
-        +'<div style="padding-top:8px;border-top:0.5px solid var(--color-border-tertiary)"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:5px"><span style="font-size:10px;color:var(--color-text-tertiary)">Sortir en</span>'+chips+'</div><div style="font-size:10px;color:var(--color-text-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">→ <span style="font-family:var(--font-mono);color:var(--color-text-secondary)">'+nm+'</span></div></div>';
+        +'<div style="padding-top:8px;border-top:0.5px solid var(--color-border-tertiary)"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:5px"><span style="font-size:10px;color:var(--color-text-tertiary)">Sortir en</span>'+chips+'</div><div style="font-size:10px;color:var(--color-text-tertiary);word-break:break-all;line-height:1.5">→ <span style="font-family:var(--font-mono);color:var(--color-text-secondary)">'+nm+'</span></div></div>';
     }
     var meta='<div style="margin-top:10px;padding-top:9px;border-top:0.5px solid var(--color-border-tertiary)"><div style="display:flex;align-items:center;gap:5px;margin-bottom:6px"><span style="font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--color-text-tertiary)">Métadonnées</span><span class="pill" style="background:var(--color-background-info);color:var(--color-text-info);font-size:9px;padding:1px 6px"><i class="ti ti-download" style="font-size:9px" aria-hidden="true"></i> pullé de Discogs</span></div>'
       +'<div style="display:grid;grid-template-columns:auto 1fr auto 1fr;gap:3px 8px;font-size:11px;align-items:center">'
       +'<span style="color:var(--color-text-tertiary)">Label</span><span>'+x.lbl+'</span><span style="color:var(--color-text-tertiary)">Année</span><span>'+x.yr+'</span>'
       +'<span style="color:var(--color-text-tertiary)">Genre</span><span>'+x.gen+'</span><span style="color:var(--color-text-tertiary)">BPM</span><span>'+(120+(cur*3)%9)+'</span></div>'
       +'<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:6px"><span style="color:var(--color-text-tertiary);font-size:11px">Tags</span><span class="pill" style="font-size:10px">peak-time</span><span class="pill" style="font-size:10px">classic</span><span class="pill" style="font-size:10px;color:var(--color-text-tertiary)"><i class="ti ti-plus" style="font-size:9px" aria-hidden="true"></i></span></div></div>';
-    mid.innerHTML=head+body+meta+'<div style="margin-top:auto;padding-top:10px;display:flex;gap:8px"><button data-act="commit" style="flex:1;background:var(--color-background-info);color:var(--color-text-info);border-color:var(--color-border-info);font-weight:500"><span class="kbd">&crarr;</span> Ranger &rarr; '+FOLDERS[selFolder]+'</button><button data-act="jeter" style="color:var(--color-text-danger);border-color:var(--color-border-danger)"><span class="kbd">X</span> jeter</button></div>';
+    var jBtn=x.fake
+      ?'<button data-act="jeter" style="color:var(--color-text-warning);border-color:var(--color-border-danger)" title="Fichier faux — sera mis en liste à re-sourcer"><span class="kbd">X</span> ⚠ Re-sourcer</button>'
+      :'<button data-act="jeter" style="color:var(--color-text-danger);border-color:var(--color-border-danger)" title="Envoyer à la corbeille"><span class="kbd">X</span> Jeter</button>';
+    mid.innerHTML=head+body+meta+'<div style="margin-top:auto;padding-top:10px;display:flex;gap:8px"><button data-act="commit" style="flex:1;background:var(--color-background-info);color:var(--color-text-info);border-color:var(--color-border-info);font-weight:500"><span class="kbd">&crarr;</span> Ranger &rarr; '+FOLDERS[selFolder]+'</button>'+jBtn+'</div>';
     if(midTab==="ecoute"&&cur>=0)drawSpec(x);
   }
   function drawSpec(x){var c=document.getElementById('spc');if(!c||!c.getContext)return;var ctx=c.getContext('2d'),W=c.width,H=c.height;
@@ -318,6 +325,7 @@ if(view==="home")return renderHome();if(view==="biblio")return renderBiblio();if
     else if(act==='fmtsel'){outFmt=el.dataset.f;renderMid();}
     else if(act==='mtab'){midTab=el.dataset.m;renderMid();}
     else if(act==='revmode'){revMode=el.dataset.m;sel={};render();}
+    else if(act==='togglequeue'){queueShowAll=!queueShowAll;renderRevue();}
     else if(act==='bcheck'){var bi=+el.dataset.i;sel[bi]=!sel[bi];renderBatch();}
     else if(act==='brange'){for(var k in sel){if(sel[k]&&T[k].status==="pending"){T[k].status="filed";T[k].folder=selFolder;}}sel={};rkbSynced=false;render();}
     else if(act==='bjeter'){for(var k2 in sel){if(sel[k2]&&T[k2].status==="pending")T[k2].status=T[k2].fake?"resource":"trash";}sel={};render();}
