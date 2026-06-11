@@ -1,0 +1,122 @@
+use rusqlite::Connection;
+
+/// Ordered list of migrations. Index + 1 == the schema version it brings the DB to.
+/// NEVER reorder or edit an existing entry once shipped — only append.
+const MIGRATIONS: &[&str] = &[
+    // v1 — initial schema (matches docs/plan-implementation.md "Données")
+    r#"
+    CREATE TABLE tracks (
+        id INTEGER PRIMARY KEY,
+        path TEXT NOT NULL UNIQUE,
+        hash TEXT,
+        fingerprint TEXT,
+        format TEXT,
+        bitrate INTEGER,
+        duration REAL,
+        declared_fmt TEXT,
+        real_quality TEXT,
+        verdict TEXT,                 -- ok | fake | grey
+        status TEXT NOT NULL DEFAULT 'pending', -- pending | filed | resourcing | trash
+        folder TEXT,
+        clip_runs INTEGER,
+        clip_pct REAL,
+        true_peak_dbtp REAL,
+        dc_offset REAL,
+        phase_correlation REAL,
+        truncated INTEGER,            -- bool 0/1
+        silence_head_ms INTEGER,
+        silence_tail_ms INTEGER,
+        has_cover INTEGER,            -- bool 0/1
+        tags_cdj_ok INTEGER,          -- bool 0/1
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE TABLE metadata (
+        track_id INTEGER PRIMARY KEY REFERENCES tracks(id) ON DELETE CASCADE,
+        artist TEXT, title TEXT, label TEXT, year INTEGER,
+        genre TEXT, bpm INTEGER, cover_path TEXT,
+        discogs_release_id TEXT, source TEXT
+    );
+    CREATE TABLE custom_tags (
+        track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+        tag TEXT NOT NULL,
+        PRIMARY KEY (track_id, tag)
+    );
+    CREATE TABLE actions (
+        id INTEGER PRIMARY KEY,
+        track_id INTEGER REFERENCES tracks(id) ON DELETE SET NULL,
+        type TEXT NOT NULL,           -- convert | move | trash | reject
+        from_path TEXT,
+        to_path TEXT,
+        ts TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE TABLE sources (
+        id INTEGER PRIMARY KEY,
+        path TEXT NOT NULL UNIQUE,
+        watched INTEGER NOT NULL DEFAULT 1  -- bool 0/1
+    );
+    "#,
+];
+
+/// Applies any migrations the DB hasn't seen yet, tracked via PRAGMA user_version.
+/// Idempotent: running twice is a no-op the second time.
+pub fn run_migrations(conn: &Connection) -> rusqlite::Result<()> {
+    let current: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
+    for (i, sql) in MIGRATIONS.iter().enumerate() {
+        let version = (i + 1) as i64;
+        if version > current {
+            conn.execute_batch(sql)?;
+            conn.execute_batch(&format!("PRAGMA user_version = {version}"))?;
+        }
+    }
+    Ok(())
+}
+
+/// Opens (creating if needed) the DB at `path`, enables foreign keys, runs migrations.
+pub fn open(path: &std::path::Path) -> rusqlite::Result<Connection> {
+    let conn = Connection::open(path)?;
+    conn.execute_batch("PRAGMA foreign_keys = ON;")?;
+    run_migrations(&conn)?;
+    Ok(conn)
+}
+
+/// Current schema version (PRAGMA user_version).
+pub fn schema_version(conn: &Connection) -> rusqlite::Result<i64> {
+    conn.query_row("PRAGMA user_version", [], |r| r.get(0))
+}
+
+/// Count of user tables (excludes sqlite internal tables).
+pub fn table_count(conn: &Connection) -> rusqlite::Result<i64> {
+    conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+        [],
+        |r| r.get(0),
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    #[test]
+    fn migrations_bring_db_to_latest_version() {
+        let conn = Connection::open_in_memory().unwrap();
+        run_migrations(&conn).unwrap();
+        assert_eq!(schema_version(&conn).unwrap(), MIGRATIONS.len() as i64);
+    }
+
+    #[test]
+    fn migrations_create_all_tables() {
+        let conn = Connection::open_in_memory().unwrap();
+        run_migrations(&conn).unwrap();
+        assert_eq!(table_count(&conn).unwrap(), 5);
+    }
+
+    #[test]
+    fn migrations_are_idempotent() {
+        let conn = Connection::open_in_memory().unwrap();
+        run_migrations(&conn).unwrap();
+        run_migrations(&conn).unwrap(); // second run must not error or duplicate
+        assert_eq!(table_count(&conn).unwrap(), 5);
+    }
+}
