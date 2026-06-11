@@ -256,7 +256,7 @@ function openLink(u){window.open(u,'_blank','noopener');}
     else if(act==='rksync'){rkbSynced=true;render();}
     else if(act==='bplay'){var i=+el.dataset.i;if(bibPlaying===i){bibPlaying=-1;}else{bibPlaying=i;bibPos=0.3;}renderBiblio();}
     else if(act==='bseek'){var r2=el.getBoundingClientRect();bibPos=Math.min(1,Math.max(0,(e.clientX-r2.left)/r2.width));renderBiblio();}
-    else if(act==='link'){openLink('https://www.discogs.com/search/?type=release&q='+encodeURIComponent(LIB[+el.dataset.i][0].replace(/\s+—\s+/g,' ')));}
+    else if(act==='link'){var parts=LIB[+el.dataset.i][0].split(/\s*[—–-]\s*/);var q=parts.length>1?parts[0]+' '+parts[1]:parts[0];openLink('https://www.discogs.com/search/?type=release&q='+encodeURIComponent(q));}
     else if(act==='seek'){var r=el.getBoundingClientRect();playPos=Math.min(1,Math.max(0,(e.clientX-r.left)/r.width));renderMid();}
   });
   pa.addEventListener('input',function(e){if(e.target.dataset.act==='tempo'){tempo=parseInt(e.target.value,10);var o=document.getElementById('tout');if(o)o.textContent=(tempo>0?'+':'')+tempo+'%';}});
