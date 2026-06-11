@@ -37,7 +37,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--color-background
 .sb{width:46px;flex:none;display:flex;flex-direction:column;gap:3px;padding:10px 6px;background:var(--color-background-secondary);border-right:0.5px solid var(--color-border-tertiary);align-items:center}
 .nv{width:32px;height:32px;border-radius:var(--border-radius-md);display:flex;align-items:center;justify-content:center;color:var(--color-text-secondary);cursor:pointer}
 .nv.on{background:var(--color-background-info);color:var(--color-text-info)}.nv i{font-size:16px}
-.queue{width:158px;flex:none;display:flex;flex-direction:column;padding:11px 8px;border-right:0.5px solid var(--color-border-tertiary)}
+.queue{width:180px;min-width:140px;max-width:360px;flex:none;display:flex;flex-direction:column;padding:11px 8px;border-right:0.5px solid var(--color-border-tertiary);resize:horizontal;overflow:hidden}
 .qi{display:flex;align-items:center;gap:6px;padding:5px 7px;border-radius:var(--border-radius-md);font-size:12px;color:var(--color-text-secondary);white-space:nowrap;overflow:hidden;cursor:pointer}
 .qi span{overflow:hidden;text-overflow:ellipsis}.qi.done{color:var(--color-text-tertiary)}
 .qi.cur{background:var(--color-background-info);color:var(--color-text-info);font-weight:500}.qi i{font-size:13px;flex:none}
@@ -67,9 +67,9 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--color-background
 button{font-family:inherit;background:transparent;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:5px 10px;color:var(--color-text-primary);cursor:pointer;font-size:13px}
 button:hover{background:var(--color-background-secondary)}button:disabled{opacity:.4;cursor:default}
 input{font-family:inherit}input[type=range]{accent-color:var(--color-text-info)}
-.home-body{display:flex;gap:14px;flex:1;min-height:0}
-.home-left{flex:1;min-width:0;overflow-y:auto}
-.home-right{width:220px;flex:none;overflow-y:auto}
+.home-body{display:flex;gap:14px;flex:1;min-height:0;overflow:hidden}
+.home-left{flex:1;min-width:0;overflow-y:auto;padding-right:4px}
+.home-right{width:200px;flex:none;overflow-y:auto}
 </style>
 </head>
 <body>
@@ -115,8 +115,8 @@ function openLink(u){window.open(u,'_blank','noopener');}
     {a:"Lil Louis",t:"French Kiss",lbl:"FFRR",yr:1989,fmt:"WAV · 24",dur:"9:55",fake:false,file:"french kiss FULL.wav",real:"conforme",gen:"Acid House"},
     {a:"Octave One",t:"Blackwater",lbl:"430 West",yr:2002,fmt:"AIFF · 16",dur:"6:45",fake:false,file:"octave one - blackwater.aiff",real:"conforme",gen:"Detroit Techno"}
   ];
-  T[1].status="resource";T[1].ecartReason="fake";
-  T[4].status="resource";T[4].ecartReason="truncated";
+  T[1].status="resource";T[1].ecartReason="fake";T[1].storeAvail=["beatport","traxsource","juno"];
+  T[4].status="resource";T[4].ecartReason="truncated";T[4].storeAvail=["juno","bandcamp"];
   T.forEach(function(x,i){if(!x.status)x.status="pending";x.folder=null;
     x.wave=[];for(var k=0;k<32;k++){var h=18+Math.round(Math.abs(Math.sin((k+i*3)*0.7))*60+((k*7+i*13)%15));x.wave.push(h>96?96:h);}
     x.spec=[];for(var m=0;m<32;m++){var b=56+((m*5+i*11)%40);if(x.fake&&m>22)b=10+((m*3)%14);x.spec.push(b);}});
@@ -184,7 +184,8 @@ function openLink(u){window.open(u,'_blank','noopener');}
       else if(x.status==="resource")cls+=" done",ic="ti-x",col="color:var(--color-text-danger)";
       else if(x.status==="trash")cls+=" done",ic="ti-trash",col="color:var(--color-text-tertiary)";
       else if(x.fake)ic="ti-alert-triangle",col="color:var(--color-text-danger)";
-      h+='<div class="'+cls+'" data-act="sel" data-i="'+i+'"><i class="ti '+ic+'" style="'+col+'"></i><span>'+x.a+' — '+x.t+'</span></div>';});
+      var slskBtn=(x.status==="resource"||x.fake)?'<button data-act="qslsk" data-i="'+i+'" data-txt="'+encodeURIComponent(x.a+' '+x.t)+'" title="Copier nom Soulseek" style="flex:none;width:18px;height:18px;padding:0;border:none;display:inline-flex;align-items:center;justify-content:center;color:var(--color-text-tertiary);background:transparent" onclick="event.stopPropagation()"><i class="ti ti-copy" style="font-size:11px"></i></button>':'';
+      h+='<div class="'+cls+'" data-act="sel" data-i="'+i+'"><i class="ti '+ic+'" style="'+col+'"></i><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">'+x.a+' — '+x.t+'</span>'+slskBtn+'</div>';});
     document.getElementById('ql').innerHTML=h;
     var fh="";FOLDERS.forEach(function(f,i){fh+='<div class="fld'+(i===selFolder?' on':'')+'" data-act="file" data-i="'+i+'"><span class="kbd">'+(i+1)+'</span> '+f+'</div>';});
     fh+= creating ? '<input id="newin" placeholder="nom du dossier…" style="width:100%;font-size:12px;padding:5px 7px;margin-top:2px">' : '<div class="fld" data-act="newfld" style="color:var(--color-text-tertiary)"><i class="ti ti-plus" style="font-size:14px"></i> nouveau</div>';
@@ -223,10 +224,10 @@ function openLink(u){window.open(u,'_blank','noopener');}
       +'<span style="color:var(--color-text-tertiary)">Genre</span><span>'+x.gen+'</span><span style="color:var(--color-text-tertiary)">BPM</span><span>'+(120+(cur*3)%9)+'</span></div>'
       +'<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:6px"><span style="color:var(--color-text-tertiary);font-size:11px">Tags</span><span class="pill" style="font-size:10px">peak-time</span><span class="pill" style="font-size:10px">classic</span><span class="pill" style="font-size:10px;color:var(--color-text-tertiary)"><i class="ti ti-plus" style="font-size:9px"></i></span></div></div>';
     var jBtn=x.fake
-      ?'<button data-act="jeter" style="color:var(--color-text-warning);border-color:var(--color-border-danger)" title="Fichier faux — sera mis en liste à re-sourcer"><span class="kbd">X</span> ⚠ Re-sourcer</button>'
-      :'<button data-act="jeter" style="color:var(--color-text-danger);border-color:var(--color-border-danger)" title="Envoyer à la corbeille"><span class="kbd">X</span> Jeter</button>';
+      ?'<button data-act="jeter" style="color:var(--color-text-warning)" title="Fichier faux — sera mis en liste à re-sourcer"><span class="kbd">X</span> ⚠ Re-sourcer</button>'
+      :'<button data-act="jeter" style="color:var(--color-text-danger)" title="Envoyer à la corbeille"><span class="kbd">X</span> Jeter</button>';
     mid.innerHTML=head+player+encoding+sortir+meta
-      +'<div style="margin-top:auto;padding-top:10px;display:flex;gap:8px"><button data-act="commit" style="flex:1;background:var(--color-background-info);color:var(--color-text-info);border-color:var(--color-border-info);font-weight:500"><span class="kbd">&crarr;</span> Ranger &rarr; '+FOLDERS[selFolder]+'</button>'+jBtn+'</div>';
+      +'<div style="margin-top:auto;padding-top:10px;display:flex;gap:8px"><button data-act="commit" style="flex:1;background:var(--color-background-info);color:var(--color-text-info);border:none;font-weight:500"><span class="kbd">&crarr;</span> Ranger &rarr; '+FOLDERS[selFolder]+'</button>'+jBtn+'</div>';
     if(midTab==="ecoute"&&cur>=0)drawSpec(x);
   }
 
@@ -289,7 +290,9 @@ function openLink(u){window.open(u,'_blank','noopener');}
       var qi=T.indexOf(x);
       var isRes=x.status==="resource";
       var q=encodeURIComponent(slsk(x));
-      var storeLinks=isRes?STORES.map(function(s){return '<a data-act="estore" data-i="'+qi+'" data-url="'+encodeURIComponent(s.url(q))+'" style="font-size:10px;color:var(--color-text-info);cursor:pointer;text-decoration:none;white-space:nowrap">'+s.label+'</a>';}).join('<span style="color:var(--color-border-secondary);margin:0 3px">·</span>'):'';
+      var avail=x.storeAvail||[];
+      var storeLinks=isRes?STORES.filter(function(s){return avail.length===0||avail.indexOf(s.id)>=0;}).map(function(s){return '<a data-act="estore" data-i="'+qi+'" data-url="'+encodeURIComponent(s.url(q))+'" style="font-size:10px;color:var(--color-text-info);cursor:pointer;text-decoration:none;white-space:nowrap">'+s.label+'</a>';}).join('<span style="color:var(--color-border-secondary);margin:0 3px">·</span>'):'';
+      var slskTxt=encodeURIComponent(x.a+' '+x.t);
       return '<div style="padding:7px 4px;border-bottom:0.5px solid var(--color-border-tertiary)">'
         +'<div style="display:flex;align-items:center;gap:7px">'
         +'<div style="flex:1;min-width:0"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;font-weight:500">'+x.a+' — '+x.t+'</div>'
@@ -297,7 +300,7 @@ function openLink(u){window.open(u,'_blank','noopener');}
         +reasonLabel(x)
         +'<button class="lk" data-act="etrash" data-i="'+qi+'" title="Corbeille"><i class="ti ti-trash" style="font-size:12px;color:var(--color-text-tertiary)"></i></button>'
         +'</div>'
-        +(isRes?'<div style="margin-top:5px;display:flex;flex-wrap:wrap;align-items:center;gap:1px">'+storeLinks+'</div>':'')
+        +(isRes?'<div style="margin-top:5px;display:flex;flex-wrap:wrap;align-items:center;gap:4px"><button data-act="eslsk" data-txt="'+slskTxt+'" style="font-size:10px;padding:2px 7px;color:var(--color-text-secondary)"><i class="ti ti-copy" style="font-size:10px;vertical-align:-1px"></i> Slsk</button>'+(storeLinks?'<span style="color:var(--color-border-secondary)">·</span>'+storeLinks:'')+'</div>':'')
         +'</div>';
     }).join('');
     var allSlsk=filterR.map(slsk).join('\n');
@@ -343,6 +346,7 @@ function openLink(u){window.open(u,'_blank','noopener');}
     else if(act==='rksync'){rkbSynced=true;render();}
     else if(act==='etrash'){T[+el.dataset.i].status="trash";renderEcarts();}
     else if(act==='estore'){openLink(decodeURIComponent(el.dataset.url));}
+    else if(act==='qslsk'){var txt=decodeURIComponent(el.dataset.txt);navigator.clipboard.writeText(txt).catch(function(){});var prev=el.innerHTML;el.innerHTML='<i class="ti ti-check" style="font-size:11px"></i>';setTimeout(function(){el.innerHTML=prev;},1200);}
     else if(act==='eslsk'){navigator.clipboard.writeText(decodeURIComponent(el.dataset.txt)).catch(function(){});el.innerHTML='<i class="ti ti-check" style="font-size:12px;vertical-align:-2px"></i> Copié';setTimeout(function(){renderEcarts();},1400);}
     else if(act==='eallstore'){var sid=el.dataset.sid;var st=STORES.find(function(s){return s.id===sid;});if(st)T.filter(function(x){return x.status==="resource";}).forEach(function(x){openLink(st.url(encodeURIComponent(x.a+' '+x.t)));});}
     else if(act==='bplay'){var i=+el.dataset.i;if(bibPlaying===i){bibPlaying=-1;}else{bibPlaying=i;bibPos=0.3;}renderBiblio();}
