@@ -1,0 +1,164 @@
+# Plan d'implémentation — DJ Assistant
+
+> App desktop Windows + Mac. Source de vérité fonctionnelle : la spec
+> (`App prépa sons DJ.md`, vault Obsidian). Ce document découpe la construction en
+> **jalons livrables** : à chaque jalon l'app est lançable et fait quelque chose de
+> réel. La maquette `index.html` actuelle sert de **référence UI** et de base au shell
+> frontend (à câbler sur le vrai backend).
+
+## Pile (confirmée par la spec)
+
+| Brique | Choix | Rôle |
+|---|---|---|
+| Shell desktop | **Tauri** (Rust + webview) | léger, Win + Mac, IPC commands |
+| Traitement audio | **FFmpeg** (sidecar bundlé) | décodage · peaks · FFT/spectre · conversion |
+| Waveform/lecture | **wavesurfer.js** | waveform interactive + player |
+| Time-stretch | **SoundTouch.js** (key-lock) / `playbackRate` (varispeed) | fader tempo preview |
+| Empreinte | **Chromaprint / AcoustID** | dédup indépendant du nom |
+| État | **SQLite** (rusqlite / tauri-plugin-sql) | vus, verdicts, tags, décisions, undo |
+| Formatage clé | `diskutil` (Mac) · `fat32format`/diskpart (Win) | utilitaire FAT32, amovible-only |
+
+Deux modules cœur réutilisables, testés isolément : 🔍 **Analyseur** · 🔁 **Encodeur**.
+
+---
+
+## M0 — Scaffolding (socle technique)
+**But :** un Tauri qui démarre, FFmpeg embarqué, DB ouverte, CI qui build les 2 OS.
+- Init projet Tauri ; remplacer le contenu `index.html` statique par le **shell frontend** (réutiliser le markup/CSS de la maquette : nav, 4 zones, thème clair/sombre).
+- Bundler **FFmpeg en sidecar** (binaire par OS) + helper Rust `run_ffmpeg(args)`.
+- **SQLite** : ouverture + migrations (schéma initial ci-dessous).
+- Squelette **IPC** (commands Rust ↔ front) + types partagés.
+- CI GitHub Actions : build Win (.msi) + Mac (.dmg), artefacts non signés.
+
+**Livrable :** fenêtre vide navigable, `ffmpeg -version` appelable depuis le front, DB créée.
+
+## M1 — Watcher + file « à traiter »
+**But :** voir ses vrais téléchargements arriver dans la file.
+- Surveillance **récursive** des dossiers source (`notify` crate) ; config multi-dossiers (Accueil).
+- Détection des fichiers audio dans toute l'arbo (albums Soulseek, dossiers par pseudo) → **éclatement en morceaux individuels**.
+- Persistance des « vus » (hash chemin + mtime) → pas de re-traitement ; nettoyage des sous-dossiers vides après tri.
+- UI : **Accueil** (dossiers surveillés, compteur) + **file** peuplée en réel.
+
+**Livrable :** déposer un dossier dans la source → la file se remplit toute seule.
+
+## M2 — Analyseur (lecture seule) ⭐ cœur
+**But :** voir waveform + spectrogramme + verdict fake + métadonnées RÉELS.
+
+Un seul décodage FFmpeg → **huit sorties** :
+
+| # | Sortie | Signal |
+|---|--------|--------|
+| 1 | Peaks waveform (JSON) | → wavesurfer |
+| 2 | FFT bins fréq/temps | → spectrogramme canvas |
+| 3 | Fréquence de coupure | → **verdict fake** (seuil réglable ; zone grise = soumis) |
+| 4 | Qualité réelle | → rail lossless vs lossy confirmé |
+| 5 | Écrêtage (clip_runs, clip_pct, true_peak_dBTP) | → **intégrité dynamique** (rips vinyle trop chauds) |
+| 6 | **Troncature / fichier incomplet** | → fin abrupte (énergie ne retombe pas) OU erreur décodage FFmpeg en fin de fichier ; durée < attendue |
+| 7 | **Silence tête/queue** | → lead-in/run-out parasites → proposer trim |
+| 8 | **DC offset** | → moyenne ≠ 0 (fréquent rips cartes son bas gamme) |
+
+Bonus même passe :
+- **Compatibilité mono/phase** — corrélation canaux : dual-mono (faux stéréo) + canaux hors phase (destructif en club sur basse sommée mono).
+- **Intégrité conteneur/codec** — frames corrompues, header illisible (FFmpeg stderr) → badge « fichier cassé ».
+- **Compatibilité tags CDJ** — version ID3, encodage, champs lus par les CDJ (différents selon modèle) → signaler/corriger ce qui ne passe pas au rangement.
+- **Pochette embarquée** — présente/absente ; extraite pour l'UI ; ré-embarquée après conversion.
+
+**Transparence du verdict** : la preuve est visible — coupure sur le spectrogramme, marqueurs d'écrêtage sur la waveform, badge explicatif. Le verdict doit être compréhensible, pas subi.
+
+- Lecture **métadonnées/tags** (déclaré vs réel).
+- Cache des résultats d'analyse en DB.
+- **Tests de caractérisation** sur un jeu de fichiers connus (vrai 320, faux 320 transcodé, AIFF, WAV, FLAC, tronqué, écrêté) → fige le comportement du verdict.
+
+**Livrable :** vue Revue avec vraie waveform, vrai spectrogramme, vrais badges qualité.
+
+## M3 — Player + tempo
+- Lecture wavesurfer : seek au clic, **Espace** = play/pause (pas d'autoplay, pas de marqueurs).
+- **Fader tempo vertical** ±% : SoundTouch.js (key-lock ON par défaut) + toggle varispeed.
+
+**Livrable :** on écoute et on cale le tempo dans la preview.
+
+## M4 — Encodeur + « déplacer = encoder + ranger » ⭐ boucle complète
+**But :** premier flux de bout en bout réellement utile.
+- **Encodeur** : conversion 2 rails (MP3 320 / AIFF 16-bit 44,1 par défaut), **jamais d'upscale**, lossy ≠ lossless. Option 24-bit avertie.
+- Ordre strict : ① convertir → ② **tags + nommage sur le fichier CONVERTI** (modèle configurable) → ③ déplacer vers le dossier choisi.
+- **Bacs 1-6** (clavier + clic) = ranger ; **« + nouveau »** = dossier à la volée ; bouton **Ranger** + Entrée ; **jeter** = corbeille (vrai) / `rejeté/` + re-sourcing (faux).
+- **Journal undo** + **corbeille centralisée auto-purgée** ; **`à-retélécharger.txt`** (copie 1 clic) ; aperçu avant action.
+- **Mono-emplacement** (zéro doublon physique).
+
+**Livrable :** version « utilisable au quotidien » — la maquette devient réelle.
+
+## M5 — Dédup par empreinte (fin du MVP)
+
+### Architecture deux tiers
+
+**Tier 1 — Candidats par nom (gratuit, sans décodage)**
+- Module de **normalisation partagé** (réutilisé par identification + renommage) :
+  - Supprime : numéro de piste, tokens qualité (320kbps, FLAC, HQ), brackets parasites, noms d'uploaders, underscores.
+  - **Conserve** : qualificateurs de version (Original Mix, Remix, Dub, Extended, feat.) — indispensable pour ne pas fusionner Original et Remix.
+- Matching **fuzzy token-set** (ratio normalisé) sur les noms nettoyés → liste de candidats par groupe de similarité.
+
+**Tier 2 — Vérification par empreinte (Chromaprint)**
+- Chromaprint est PCM-based → **format-agnostic** : compare MP3 / WAV / AIFF / FLAC du même morceau sans faux positifs de format.
+- Index inversé sur les sous-empreintes → requête sublinéaire (pas de N² sur 15 000 fichiers).
+- Fingerprint initial partagé avec le décodage M2 (one-shot). Incrémental ensuite.
+- Confirme « même enregistrement » (pas juste même titre). Anti-fusion Original/Remix si les noms sont ambigus.
+- **Filet de sécurité** : les fichiers aux noms illisibles (uploaders, caractères aléatoires) passent directement au tier 2.
+
+### Sélection du gagnant
+
+Rail lossless vs lossy d'abord (jamais croisés sauf pour élimination), puis au sein du rail :
+
+1. **Qualité réelle spectrale** (verdict fake/réel — M2)
+2. **Intégrité dynamique** (moins d'écrêtage = clip_pct, true_peak)
+3. **Utilisabilité** (AIFF > WAV pour les tags CDJ ; pas de fichier tronqué)
+4. **Proximité format cible** (AIFF 16-bit/44,1 kHz par défaut — tous CDJ)
+
+Sur rail lossy uniquement : bitrate comme tiebreaker final.
+**Bit-depth ignoré** : la cible est 16-bit/44,1 kHz (tous CDJ) — 24-bit n'est pas un avantage par défaut.
+
+- Détection doublons entre fichiers **et** « **déjà dans ta biblio** ».
+- Comparaison N versions → recommande le gagnant → confirmation.
+
+**Livrable :** 🎯 **MVP complet.**
+
+---
+
+## M6 — Identification & Biblio (Phase B)
+- **Cascade d'identification** : ① tags fichier → ② **Discogs** (genres/styles + **pochette** + **release_id** stocké) → ③ Beatport/AcoustID → ④ manuel. *Nom final toujours regénéré depuis le modèle.*
+- **Onglet Bibliothèque** : mini-lecteur waveform en bas, actions (re-ranger / re-tagger / supprimer), **lien vers la release exacte** (via `release_id`, pas une recherche).
+- **Tags custom** (énergie/mood/occasion) + filtres.
+- **Tableau de bord** : % lossless vs MP3, doublons restants, fakes à re-sourcer, par genre.
+- Panneau métadonnées éditable (pochette + champs Discogs).
+
+## M7 — Rekordbox XML + batch + clé USB (Phase B)
+- **Génération playlists Rekordbox via XML** (dossiers + tags → playlists). Rappels (Rekordbox fermé).
+- **Vue batch / tableau** : tri (verdict/format/BPM), sélection multiple, action groupée, aperçu.
+- **Utilitaire « Formater la clé »** : FAT32 par défaut (contourne limite 32 Go Win), **amovible-only**, double confirmation, exFAT averti.
+- Fichiers corrompus/tronqués · clipping.
+
+## M8 — Profond & rétroactif (Phase ultérieure, isolé, risqué)
+- **Rekordbox `master.db`** (pyrekordbox) : remplacement in-situ, **dédup des playlists existantes**, **réparation/prévention des liens cassés** (chemin change au changement de format). ⚠️ non-officiel, **backup obligatoire**, Rekordbox fermé.
+- **Mode rétroactif** sur la biblio existante (⚠️ touche des fichiers déjà en playlists).
+- **Normalisation loudness** (option, OFF par défaut).
+
+---
+
+## Données (schéma SQLite initial)
+- `tracks` — id, path, hash, fingerprint, format, bitrate, duration, declared_fmt, real_quality, verdict (ok/fake/grey), status (pending/filed/resourcing/trash), folder, created_at.
+  - Signaux analyseur : clip_runs, clip_pct, true_peak_dbtp, dc_offset, phase_correlation, truncated (bool), silence_head_ms, silence_tail_ms, has_cover (bool), tags_cdj_ok (bool).
+- `metadata` — track_id, artist, title, label, year, genre, bpm, cover_path, discogs_release_id, source.
+- `custom_tags` — track_id, tag.
+- `actions` — id, track_id, type (convert/move/trash/reject), from_path, to_path, ts (pour **undo**).
+- `sources` — path, watched (bool).
+
+## Transverse (à tenir dès M0)
+- **Contrats IPC** typés (Rust ↔ front) versionnés ; le front ne fait jamais d'I/O fichier.
+- **Tests** : caractérisation FFmpeg/verdict (M2), équivalence avant/après conversion (M4), fingerprint sur même morceau multi-format (M5).
+- **Sécurité fichiers** : toute action passe par le journal `actions` + corbeille réversible ; jamais de suppression sèche.
+- **Packaging/signing** : code-sign Windows + notarization macOS, auto-update Tauri — à activer avant diffusion publique.
+
+## Points encore ouverts (à trancher en cours de route)
+- Nom de l'app · mode batch auto vs revue · canal `master.db` · que faire d'un vrai MP3 < 320.
+
+## Séquencement / rationale
+`M0→M1→M2` posent le socle + le cœur lecture. **M4 clôt la première boucle utile** (on peut s'en servir). **M5 finit le MVP.** Phase B (M6-M7) ajoute confort et Rekordbox sûr. M8 (risqué) reste isolé et optionnel, derrière backups.
