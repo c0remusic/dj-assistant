@@ -152,23 +152,22 @@ function openLink(u){window.open(u,'_blank','noopener');}
         +(sub?'<div style="font-size:10px;color:var(--color-text-tertiary);margin-top:2px">'+sub+'</div>':'')
         +'</div>';
     };
-    // left column: stats + bar chart
+    var pendBanner=pend?'<div style="display:flex;align-items:center;justify-content:space-between;background:var(--color-background-info);border-radius:var(--border-radius-md);padding:10px 14px;margin-bottom:12px"><div><div style="font-size:13px;font-weight:500;color:var(--color-text-info)">'+pend+' fichiers à trier</div><div style="font-size:11px;color:var(--color-text-info);opacity:.8">dont '+fakes+' faux détecté'+(fakes>1?'s':'')+'</div></div><button data-view="revue">Trier <i class="ti ti-arrow-right" style="font-size:12px;vertical-align:-2px"></i></button></div>':'';
+    var dossiers='<div class="col-h" style="margin-top:12px">Dossiers surveillés</div>'
+      +'<div class="srow"><span class="v"><i class="ti ti-folder"></i> ~/Downloads/soulseek</span><span style="display:flex;align-items:center;gap:9px"><span style="font-size:11px;color:var(--color-text-info)">8 nouveaux</span><span class="tog"></span></span></div>'
+      +'<div class="srow"><span class="v"><i class="ti ti-folder"></i> ~/Downloads/promos</span><span style="display:flex;align-items:center;gap:9px"><span style="font-size:11px;color:var(--color-text-info)">1 nouveau</span><span class="tog"></span></span></div>'
+      +'<div style="margin:8px 0 0"><button><i class="ti ti-plus" style="font-size:13px;vertical-align:-2px"></i> ajouter un dossier</button></div>';
     var leftHtml='<div class="h1">Accueil</div>'
-      +(pend?'<div style="display:flex;align-items:center;justify-content:space-between;background:var(--color-background-info);border-radius:var(--border-radius-md);padding:11px 14px;margin-bottom:13px"><div><div style="font-size:14px;font-weight:500;color:var(--color-text-info)">'+pend+' fichiers à trier</div><div style="font-size:11px;color:var(--color-text-info);opacity:.8">dont '+fakes+' faux détecté'+(fakes>1?'s':'')+'</div></div><button data-view="revue">Trier <i class="ti ti-arrow-right" style="font-size:12px;vertical-align:-2px"></i></button></div>':'')
-      +'<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px">'
+      +'<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px">'
         +statCard('Rangés',filed,'var(--color-text-success)','biblio','dans la bibliothèque')
         +statCard('À re-sourcer',res,'var(--color-text-danger)','ecarts',fakes+' faux · '+(res-fakes)+' tronqués')
         +statCard('Corbeille',tr,'var(--color-text-tertiary)','',null)
         +statCard('Sans métadonnées',noMeta+12,'var(--color-text-warning)','biblio','tags incomplets')
       +'</div>'
-      +(filed?'<div class="col-h">Répartition par dossier</div>'+bars:'')
-      ;
-    // right column: dossiers surveillés
-    var rightHtml='<div class="col-h">Dossiers surveillés</div>'
-      +'<div class="srow"><span class="v"><i class="ti ti-folder"></i> ~/Downloads/soulseek</span><span style="display:flex;align-items:center;gap:9px"><span style="font-size:11px;color:var(--color-text-info)">8 nouveaux</span><span class="tog"></span></span></div>'
-      +'<div class="srow"><span class="v"><i class="ti ti-folder"></i> ~/Downloads/promos</span><span style="display:flex;align-items:center;gap:9px"><span style="font-size:11px;color:var(--color-text-info)">1 nouveau</span><span class="tog"></span></span></div>'
-      +'<div style="margin:10px 0 0"><button><i class="ti ti-plus" style="font-size:13px;vertical-align:-2px"></i> ajouter un dossier</button></div>';
-    content.innerHTML='<div class="home-body"><div class="home-left">'+leftHtml+'</div><div class="home-right">'+rightHtml+'</div></div>';
+      +pendBanner
+      +dossiers
+      +(filed?'<div class="col-h" style="margin-top:12px">Répartition par dossier</div>'+bars:'');
+    content.innerHTML='<div class="home-body"><div class="home-left">'+leftHtml+'</div></div>';
   }
 
   function renderRevue(){
