@@ -1,16 +1,34 @@
+mod db;
+mod ffmpeg;
+mod ipc;
+
+use std::sync::Mutex;
+use tauri::Manager;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-  tauri::Builder::default()
-    .setup(|app| {
-      if cfg!(debug_assertions) {
-        app.handle().plugin(
-          tauri_plugin_log::Builder::default()
-            .level(log::LevelFilter::Info)
-            .build(),
-        )?;
-      }
-      Ok(())
-    })
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+    tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
+        .setup(|app| {
+            if cfg!(debug_assertions) {
+                app.handle().plugin(
+                    tauri_plugin_log::Builder::default()
+                        .level(log::LevelFilter::Info)
+                        .build(),
+                )?;
+            }
+            let dir = app.path().app_data_dir().expect("no app data dir");
+            std::fs::create_dir_all(&dir).ok();
+            let conn = db::open(&dir.join("sift.db")).expect("db open failed");
+            app.manage(Mutex::new(conn));
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            ipc::app_info,
+            ipc::db_health,
+            ipc::ffmpeg_version,
+            ipc::report_smoke
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
 }

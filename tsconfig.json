@@ -5,6 +5,8 @@
     "moduleResolution": "bundler",
     "strict": true,
     "noEmit": true,
+    "allowJs": true,
+    "checkJs": false,
     "skipLibCheck": true,
     "types": []
   },
