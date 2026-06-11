@@ -117,11 +117,12 @@ function openLink(u){window.open(u,'_blank','noopener');}
   ];
   T[1].status="resource";T[1].ecartReason="fake";T[1].storeAvail=["beatport","traxsource","juno"];
   T[4].status="resource";T[4].ecartReason="truncated";T[4].storeAvail=["juno","bandcamp"];
+  T[0].duplicate=true;T[0].dupOf={title:"Mr. Fingers — Can You Feel It",fmt:"AIFF · 16",path:"House/mr fingers - cyfi (org).aiff"};
   T.forEach(function(x,i){if(!x.status)x.status="pending";x.folder=null;
     x.wave=[];for(var k=0;k<32;k++){var h=18+Math.round(Math.abs(Math.sin((k+i*3)*0.7))*60+((k*7+i*13)%15));x.wave.push(h>96?96:h);}
     x.spec=[];for(var m=0;m<32;m++){var b=56+((m*5+i*11)%40);if(x.fake&&m>22)b=10+((m*3)%14);x.spec.push(b);}});
   var LIB=[["Mr. Fingers — Can You Feel It","AIFF","120","7:48","30521"],["Chez Damier — Can You Feel It","AIFF","122","7:02","41822"],["Marshall Jefferson — Move Your Body","MP3","118","6:30","18743"],["Lil Louis — French Kiss","WAV","120","9:55","9210"],["Robert Owens — Bring Down the Walls","AIFF","121","7:30","55190"],["Fingers Inc. — Distant Planet","AIFF","119","8:10","73004"]];
-  var view="home",cur=0,playing=false,tempo=0,selFolder=0,playPos=0,bibPlaying=-1,bibPos=0.3,creating=false,rkbSynced=false,outFmt=null,revMode="detail",midTab="ecoute",sel={},queueShowAll=false;
+  var view="home",cur=0,playing=false,tempo=0,selFolder=0,playPos=0,bibPlaying=-1,bibPos=0.3,creating=false,rkbSynced=false,outFmt=null,revMode="detail",midTab="ecoute",sel={},queueShowAll=false,dupScanDone=false,dupDismissed={};
   var content=document.getElementById('content'),nav=document.getElementById('nav');
   function extOf(f){return f==="MP3 320"?"mp3":(f==="WAV"?"wav":"aiff");}
   function defFmt(i){if(i<0)return "AIFF";return /AIFF|WAV/.test(T[i].fmt)?"AIFF":"MP3 320";}
@@ -184,7 +185,8 @@ function openLink(u){window.open(u,'_blank','noopener');}
       else if(x.status==="trash")cls+=" done",ic="ti-trash",col="color:var(--color-text-tertiary)";
       else if(x.fake)ic="ti-alert-triangle",col="color:var(--color-text-danger)";
       var slskBtn=(x.status==="resource"||x.fake)?'<button data-act="qslsk" data-i="'+i+'" data-txt="'+encodeURIComponent(x.a+' '+x.t)+'" title="Copier nom Soulseek" style="flex:none;width:18px;height:18px;padding:0;border:none;display:inline-flex;align-items:center;justify-content:center;color:var(--color-text-tertiary);background:transparent" onclick="event.stopPropagation()"><i class="ti ti-copy" style="font-size:11px"></i></button>':'';
-      h+='<div class="'+cls+'" data-act="sel" data-i="'+i+'"><i class="ti '+ic+'" style="'+col+'"></i><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">'+x.a+' — '+x.t+'</span>'+slskBtn+'</div>';});
+      var dupBadge=x.duplicate?'<i class="ti ti-copy" style="font-size:11px;flex:none;color:var(--color-text-secondary)" title="Doublon — déjà en biblio"></i>':'';
+      h+='<div class="'+cls+'" data-act="sel" data-i="'+i+'"><i class="ti '+ic+'" style="'+col+'"></i><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">'+x.a+' — '+x.t+'</span>'+dupBadge+slskBtn+'</div>';});
     document.getElementById('ql').innerHTML=h;
     var fh="";FOLDERS.forEach(function(f,i){fh+='<div class="fld'+(i===selFolder?' on':'')+'" data-act="file" data-i="'+i+'"><span class="kbd">'+(i+1)+'</span> '+f+'</div>';});
     fh+= creating ? '<input id="newin" placeholder="nom du dossier…" style="width:100%;font-size:12px;padding:5px 7px;margin-top:2px">' : '<div class="fld" data-act="newfld" style="color:var(--color-text-tertiary)"><i class="ti ti-plus" style="font-size:14px"></i> nouveau</div>';
@@ -195,11 +197,13 @@ function openLink(u){window.open(u,'_blank','noopener');}
   function renderMid(){var mid=document.getElementById('mid');if(!mid)return;
     if(cur<0){mid.innerHTML='<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px;color:var(--color-text-secondary)"><i class="ti ti-circle-check" style="font-size:26px;color:var(--color-text-success)"></i><div style="font-size:13px;font-weight:500;color:var(--color-text-primary)">Tout est trié</div><div style="font-size:11px">'+cnt("filed")+' rangés · '+cnt("resource")+' re-sourcer · '+cnt("trash")+' corbeille</div><button data-view="rkb" style="margin-top:4px">Mettre à jour Rekordbox <i class="ti ti-playlist" style="font-size:12px;vertical-align:-2px"></i></button></div>';return;}
     if(outFmt===null)outFmt=defFmt(cur);
-    var x=T[cur];var vb=x.fake?'background:var(--color-background-danger);color:var(--color-text-danger)':'background:var(--color-background-success);color:var(--color-text-success)';
-    var vt=x.fake?'<i class="ti ti-alert-triangle" style="font-size:12px"></i> faux':'<i class="ti ti-shield-check" style="font-size:12px"></i> vrai';
+    var x=T[cur];
+    var vb=x.fake?'background:var(--color-background-danger);color:var(--color-text-danger)':x.duplicate?'background:var(--color-background-secondary);color:var(--color-text-secondary)':'background:var(--color-background-success);color:var(--color-text-success)';
+    var vt=x.fake?'<i class="ti ti-alert-triangle" style="font-size:12px"></i> faux':x.duplicate?'<i class="ti ti-copy" style="font-size:12px"></i> doublon':'<i class="ti ti-shield-check" style="font-size:12px"></i> vrai';
     // header: cover + title + verdict badge
     var head='<div style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:6px"><i class="ti ti-file" style="font-size:11px;vertical-align:-1px"></i> '+x.file+'</div>'
       +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><div class="cov"><i class="ti ti-disc"></i></div><div style="min-width:0;flex:1"><div style="font-weight:500;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+x.a+' — '+x.t+'</div><div style="color:var(--color-text-tertiary);font-size:11px">'+x.lbl+' · '+x.yr+'</div></div><span style="flex:none;display:inline-flex;align-items:center;gap:4px;'+vb+';padding:3px 7px;border-radius:var(--border-radius-md);font-size:11px;font-weight:500">'+vt+'</span></div>';
+    var dupBanner=x.duplicate?'<div style="display:flex;align-items:center;gap:8px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:8px 11px;margin-bottom:10px;font-size:11px"><i class="ti ti-copy" style="font-size:14px;flex:none;color:var(--color-text-secondary)"></i><div style="min-width:0"><div style="font-weight:500;color:var(--color-text-primary)">Déjà en bibliothèque</div><div style="color:var(--color-text-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+x.dupOf.path+' · '+x.dupOf.fmt+'</div></div><button data-view="biblio" style="flex:none;font-size:11px">Voir</button></div>':'';
     var wave="";x.wave.forEach(function(hh,k){wave+='<span style="height:'+hh+'%;background:'+(k/32<=playPos?'var(--color-text-primary)':'var(--color-text-tertiary)')+'"></span>';});
     // 1. LECTEUR — sous le titre
     var player='<div style="display:flex;align-items:center;gap:8px;margin-bottom:11px;padding:8px 10px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)">'
@@ -224,8 +228,10 @@ function openLink(u){window.open(u,'_blank','noopener');}
       +'<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:6px"><span style="color:var(--color-text-tertiary);font-size:11px">Tags</span><span class="pill" style="font-size:10px">peak-time</span><span class="pill" style="font-size:10px">classic</span><span class="pill" style="font-size:10px;color:var(--color-text-tertiary)"><i class="ti ti-plus" style="font-size:9px"></i></span></div></div>';
     var jBtn=x.fake
       ?'<button data-act="jeter" style="color:var(--color-text-warning)" title="Fichier faux — sera mis en liste à re-sourcer"><span class="kbd">X</span> ⚠ Re-sourcer</button>'
+      :x.duplicate
+      ?'<button data-act="jeter" style="color:var(--color-text-danger)" title="Supprimer ce doublon"><span class="kbd">X</span> Jeter (doublon)</button>'
       :'<button data-act="jeter" style="color:var(--color-text-danger)" title="Envoyer à la corbeille"><span class="kbd">X</span> Jeter</button>';
-    mid.innerHTML=head+player+encoding+sortir+meta
+    mid.innerHTML=head+dupBanner+player+encoding+sortir+meta
       +'<div style="margin-top:auto;padding-top:10px;display:flex;gap:8px"><button data-act="commit" style="flex:1;background:var(--color-background-info);color:var(--color-text-info);border:none;font-weight:500"><span class="kbd">&crarr;</span> Ranger &rarr; '+FOLDERS[selFolder]+'</button>'+jBtn+'</div>';
     if(midTab==="ecoute"&&cur>=0)drawSpec(x);
   }
@@ -260,8 +266,42 @@ function openLink(u){window.open(u,'_blank','noopener');}
 
   function renderBiblio(){block();
     var rows=LIB.map(function(r,i){var on=i===bibPlaying;return '<div class="lr"'+(on?' style="background:var(--color-background-info);border-radius:var(--border-radius-md);border-bottom:none"':'')+'><button class="pb" data-act="bplay" data-i="'+i+'" aria-label="Écouter"'+(on?' style="color:var(--color-text-info)"':'')+'><i class="ti '+(on?'ti-player-pause':'ti-player-play')+'" style="font-size:12px"></i></button><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'+(on?';color:var(--color-text-info);font-weight:500':'')+'">'+r[0]+'</span><span class="pill" style="flex:none">'+r[1]+'</span><span style="flex:none;width:28px;text-align:right;font-family:var(--font-mono);color:var(--color-text-tertiary)">'+r[2]+'</span><span style="flex:none;width:34px;text-align:right;font-family:var(--font-mono);color:var(--color-text-tertiary)">'+r[3]+'</span><button class="lk" data-act="link" data-i="'+i+'" aria-label="Fiche Discogs"><i class="ti ti-external-link" style="font-size:13px;color:var(--color-text-tertiary)"></i></button></div>';}).join('');
-    var player="";if(bibPlaying>=0){var r=LIB[bibPlaying];var tot=pT(r[3]);var w="";for(var k=0;k<40;k++){var hh=18+Math.round(Math.abs(Math.sin((k+bibPlaying*3)*0.7))*60+((k*7)%15));if(hh>96)hh=96;w+='<span style="height:'+hh+'%;background:'+(k/40<=bibPos?'var(--color-text-info)':'var(--color-text-tertiary)')+'"></span>';}player='<div style="margin-top:12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:9px 11px;display:flex;align-items:center;gap:10px"><button class="pb" data-act="bplay" data-i="'+bibPlaying+'" aria-label="Pause" style="color:var(--color-text-info)"><i class="ti ti-player-pause" style="font-size:13px"></i></button><span style="flex:none;width:116px;min-width:0;font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+r[0]+'</span><div class="bars" data-act="bseek" style="flex:1;height:30px">'+w+'</div><span style="flex:none;font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary)">'+fT(tot*bibPos)+' / '+r[3]+'</span></div>';}
-    content.innerHTML='<div style="display:flex;align-items:center;gap:8px;margin-bottom:11px"><div style="flex:1;display:flex;align-items:center;gap:7px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:6px 10px;color:var(--color-text-tertiary)"><i class="ti ti-search" style="font-size:14px"></i><span style="font-size:12px">Rechercher…</span></div><span class="chip on">Tous</span><span class="chip">Lossless</span><span class="chip">MP3</span></div>'
+    var player="";if(bibPlaying>=0){var r=LIB[bibPlaying];var tot=pT(r[3]);var w="";for(var k=0;k<40;k++){var hh=18+Math.round(Math.abs(Math.sin((k+bibPlaying*3)*0.7))*60+((k*7)%15));if(hh>96)hh=96;w+='<span style="height:'+hh+'%;background:'+(k/40<=bibPos?'var(--color-text-info)':'var(--color-text-tertiary)')+'"></span>';}player='<div style="margin-top:10px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:9px 11px;display:flex;align-items:center;gap:10px"><button class="pb" data-act="bplay" data-i="'+bibPlaying+'" aria-label="Pause" style="color:var(--color-text-info)"><i class="ti ti-player-pause" style="font-size:13px"></i></button><span style="flex:none;width:116px;min-width:0;font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+r[0]+'</span><div class="bars" data-act="bseek" style="flex:1;height:30px">'+w+'</div><span style="flex:none;font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary)">'+fT(tot*bibPos)+' / '+r[3]+'</span></div>';}
+
+    // scanner doublons
+    var DUP_GROUPS=[
+      {id:0,tracks:[
+        {label:'Mr. Fingers — Can You Feel It',fmt:'AIFF · 16',path:'House/mr fingers - cyfi (org).aiff',bpm:'120',dur:'7:48',src:'biblio'},
+        {label:'Mr. Fingers — Can You Feel It',fmt:'AIFF · 16',path:'House/mr fingers can you feel it.aiff',bpm:'120',dur:'7:48',src:'biblio'}
+      ]},
+    ];
+    var scanSection='';
+    if(!dupScanDone){
+      scanSection='<div style="display:flex;align-items:center;justify-content:space-between;background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:9px 13px;margin-bottom:13px"><div style="font-size:12px;color:var(--color-text-secondary)"><i class="ti ti-arrows-shuffle" style="font-size:13px;vertical-align:-2px"></i> Scanner les doublons internes</div><button data-act="dupscan">Lancer <i class="ti ti-search" style="font-size:11px;vertical-align:-1px"></i></button></div>';
+    } else {
+      var groups=DUP_GROUPS.filter(function(g){return !dupDismissed[g.id];});
+      if(groups.length===0){
+        scanSection='<div style="display:flex;align-items:center;gap:8px;background:var(--color-background-success);border-radius:var(--border-radius-md);padding:9px 13px;margin-bottom:13px;font-size:12px;color:var(--color-text-success)"><i class="ti ti-circle-check" style="font-size:14px"></i> Aucun doublon — bibliothèque propre</div>';
+      } else {
+        var gHtml=groups.map(function(g){
+          return '<div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:9px 12px;margin-bottom:8px">'
+            +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px"><i class="ti ti-copy" style="font-size:13px;color:var(--color-text-secondary)"></i><span style="font-size:11px;font-weight:500">'+g.tracks[0].label+'</span><span style="font-size:10px;color:var(--color-text-tertiary)">· similarité 100%</span></div>'
+            +g.tracks.map(function(tr,ti){return '<div style="display:flex;align-items:center;gap:7px;padding:5px 7px;background:var(--color-background-primary);border-radius:var(--border-radius-md);margin-bottom:4px;font-size:11px">'
+              +'<i class="ti ti-file" style="color:var(--color-text-tertiary);font-size:12px;flex:none"></i>'
+              +'<span style="flex:1;min-width:0;font-family:var(--font-mono);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+tr.path+'</span>'
+              +'<span class="pill" style="flex:none">'+tr.fmt+'</span>'
+              +'<span style="flex:none;font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary)">'+tr.dur+'</span>'
+              +'<button data-act="dupkeep" data-gid="'+g.id+'" data-ti="'+ti+'" style="font-size:10px;padding:2px 7px;color:var(--color-text-success)">Garder</button>'
+              +'<button data-act="dupjeter" data-gid="'+g.id+'" data-ti="'+ti+'" style="font-size:10px;padding:2px 7px;color:var(--color-text-danger)">Jeter</button>'
+              +'</div>';}).join('')
+            +'</div>';
+        }).join('');
+        scanSection='<div style="margin-bottom:13px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:12px;font-weight:500"><i class="ti ti-copy" style="font-size:13px;vertical-align:-2px;color:var(--color-text-secondary)"></i> '+groups.length+' doublon'+(groups.length>1?'s':'')+' détecté'+(groups.length>1?'s':'')+' dans la bibliothèque</span></div>'+gHtml+'</div>';
+      }
+    }
+
+    content.innerHTML='<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><div style="flex:1;display:flex;align-items:center;gap:7px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:6px 10px;color:var(--color-text-tertiary)"><i class="ti ti-search" style="font-size:14px"></i><span style="font-size:12px">Rechercher…</span></div><span class="chip on">Tous</span><span class="chip">Lossless</span><span class="chip">MP3</span></div>'
+      +scanSection
       +'<div style="display:flex;gap:14px"><div style="width:130px;flex:none"><div class="col-h">Dossiers</div>'+['House 412','Techno 318','Disco/Edits 196','Ambient 142','Breakbeat 98'].map(function(s,i){var p=s.split(' '),n=p.pop();return '<div class="fld'+(i===0?' on':'')+'" style="justify-content:space-between"><span>'+p.join(' ')+'</span><span style="font-size:11px;opacity:.7">'+n+'</span></div>';}).join('')+'</div>'
       +'<div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:13px;font-weight:500">House</span><span style="font-size:11px;color:var(--color-text-tertiary)">412 morceaux</span></div>'+rows+player+'</div></div>';
   }
@@ -343,6 +383,8 @@ function openLink(u){window.open(u,'_blank','noopener');}
     else if(act==='brange'){for(var k in sel){if(sel[k]&&T[k].status==="pending"){T[k].status="filed";T[k].folder=selFolder;}}sel={};rkbSynced=false;render();}
     else if(act==='bjeter'){for(var k2 in sel){if(sel[k2]&&T[k2].status==="pending")T[k2].status=T[k2].fake?"resource":"trash";}sel={};render();}
     else if(act==='rksync'){rkbSynced=true;render();}
+    else if(act==='dupscan'){dupScanDone=true;renderBiblio();}
+    else if(act==='dupkeep'||act==='dupjeter'){dupDismissed[+el.dataset.gid]=true;renderBiblio();}
     else if(act==='etrash'){T[+el.dataset.i].status="trash";renderEcarts();}
     else if(act==='estore'){openLink(decodeURIComponent(el.dataset.url));}
     else if(act==='qslsk'){var txt=decodeURIComponent(el.dataset.txt);navigator.clipboard.writeText(txt).catch(function(){});var prev=el.innerHTML;el.innerHTML='<i class="ti ti-check" style="font-size:11px"></i>';setTimeout(function(){el.innerHTML=prev;},1200);}
