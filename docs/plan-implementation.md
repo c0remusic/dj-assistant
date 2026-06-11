@@ -151,7 +151,44 @@ Sur rail lossy uniquement : bitrate comme tiebreaker final.
 - `actions` — id, track_id, type (convert/move/trash/reject), from_path, to_path, ts (pour **undo**).
 - `sources` — path, watched (bool).
 
-## Transverse (à tenir dès M0)
+## Pipeline batch & automatisation (transverse, dès M1)
+
+**Modèle mental :** l'app n'est pas un outil "track par track" — c'est un **pipeline avec queue de décisions**. L'analyse tourne en fond sans intervention ; le DJ ne touche que les décisions ambiguës.
+
+### Worker background (M1+)
+- Dès qu'un fichier arrive via le watcher → **analyse auto-déclenchée** (M2) sans clic.
+- **Worker Tauri** dédié (thread séparé, non-bloquant UI) avec throttling configurable (ne pas saturer le CPU/disque pendant un set).
+- File persistée en DB : reprend après fermeture/crash, pas de double-analyse (hash + mtime).
+- Progress global dans la barre de l'app : "X fichiers analysés / Y en attente".
+
+### Routage par confiance
+Chaque résultat d'analyse est noté selon la certitude du verdict :
+
+| Confiance | Exemple | Destination |
+|-----------|---------|-------------|
+| Haute | Fake évident (coupure nette à 16 kHz), doublon identique format-agnostic | → **file d'actions auto** (batch confirmable en 1 clic) |
+| Moyenne | Zone grise spectrale, doublon avec versions multiples | → **queue review** (décision groupée) |
+| Faible / risqué | Fichier corrompu, ambiguïté nom+empreinte | → **queue review** flaggée |
+
+### Review groupée (pas track par track)
+- On ne review **pas les fichiers** — on review les **décisions** regroupées par type :
+  - "Ces 14 fichiers sont fake — jeter ?" → un clic.
+  - "Ces 3 versions du même morceau — lequel garder ?" → une décision.
+  - "47 fichiers à convertir en AIFF 16-bit — lancer ?" → batch.
+- Actions groupées : sélection multiple, aperçu diff (avant/après), confirmation unique.
+
+### Règles auto configurables (M4+)
+L'utilisateur définit son seuil de confiance requis par type d'action :
+- "Fake confirmé (coupure > seuil X) → rejeter automatiquement"
+- "Doublon avec winner évident (qualité réelle > 20 dB d'écart) → garder winner sans demander"
+- "MP3 < 320 kbps → convertir au rangement"
+- "Silence tête > 3 s → trimmer automatiquement"
+
+Les règles auto s'appliquent sans popup ; un journal d'actions (DB `actions`) permet l'undo sur tout.
+
+---
+
+
 - **Contrats IPC** typés (Rust ↔ front) versionnés ; le front ne fait jamais d'I/O fichier.
 - **Tests** : caractérisation FFmpeg/verdict (M2), équivalence avant/après conversion (M4), fingerprint sur même morceau multi-format (M5).
 - **Sécurité fichiers** : toute action passe par le journal `actions` + corbeille réversible ; jamais de suppression sèche.
