@@ -22,21 +22,18 @@
 --color-border-tertiary:rgba(255,255,255,0.14);--color-border-secondary:rgba(255,255,255,0.26);
 }}
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--color-background-tertiary);color:var(--color-text-primary);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
-.wrap{max-width:1180px;margin:0 auto;padding:18px 18px 32px;display:flex;flex-direction:column;gap:10px}
-.appbar{display:flex;align-items:baseline;gap:10px;flex:none}
-.title{font-size:24px;font-weight:600;letter-spacing:-.01em;margin:0}
-.pitch{font-size:14px;line-height:1.55;color:var(--color-text-secondary);margin:0;max-width:860px}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--color-background-tertiary);color:var(--color-text-primary);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:12px 18px 12px;height:100vh;display:flex;flex-direction:column;gap:7px}
+.title{font-size:22px;font-weight:600;letter-spacing:-.01em;margin:0;flex:none}
+.pitch{font-size:13px;line-height:1.5;color:var(--color-text-secondary);margin:0;max-width:960px;flex:none}
 .pitch strong{color:var(--color-text-primary);font-weight:600}
-.sub{font-size:13px;color:var(--color-text-secondary);margin:0}
-.pa{height:72vh;min-height:540px;display:flex;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);overflow:hidden;font-size:12px}
-.fsec{margin-top:28px}
-.fsec-h{font-size:15px;font-weight:600;margin-bottom:12px}
-.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
-.fcard{display:flex;gap:11px;align-items:flex-start;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);padding:13px 14px}
-.fcard>i{font-size:20px;color:var(--color-text-info);flex:none;margin-top:1px}
-.fcard b{display:block;font-size:13px;font-weight:600;margin-bottom:3px}
-.fcard span{display:block;font-size:12px;line-height:1.45;color:var(--color-text-secondary)}
+.sub{font-size:12px;color:var(--color-text-tertiary);margin:0;flex:none}
+.pa{flex:1;min-height:0;display:flex;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);overflow:hidden;font-size:12px}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;margin-top:14px}
+.fcard{display:flex;gap:10px;align-items:flex-start;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:10px 12px}
+.fcard>i{font-size:18px;color:var(--color-text-info);flex:none;margin-top:1px}
+.fcard b{display:block;font-size:12px;font-weight:600;margin-bottom:2px}
+.fcard span{display:block;font-size:11px;line-height:1.4;color:var(--color-text-secondary)}
 .sb{width:46px;flex:none;display:flex;flex-direction:column;gap:3px;padding:10px 6px;background:var(--color-background-secondary);border-right:0.5px solid var(--color-border-tertiary);align-items:center}
 .nv{width:32px;height:32px;border-radius:var(--border-radius-md);display:flex;align-items:center;justify-content:center;color:var(--color-text-secondary);cursor:pointer}
 .nv.on{background:var(--color-background-info);color:var(--color-text-info)}.nv i{font-size:16px}
@@ -91,19 +88,6 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-text-info)}
       <div class="nv" data-view="reglages" style="margin-top:auto" title="Réglages"><i class="ti ti-settings" aria-hidden="true"></i></div>
     </div>
     <div id="content" style="flex:1;min-width:0;display:flex"></div>
-  </div>
-  <div class="fsec">
-    <div class="fsec-h">Ce que fait l'app</div>
-    <div class="fgrid">
-      <div class="fcard"><i class="ti ti-headphones" aria-hidden="true"></i><div><b>Écoute & pré-sélection</b><span>Waveform cliquable, pré-écoute, accélération/ralenti type platine (±%) pour juger un morceau avant de le garder.</span></div></div>
-      <div class="fcard"><i class="ti ti-wave-sine" aria-hidden="true"></i><div><b>Détecteur de faux</b><span>Spectrogramme + analyse de coupure : repère les MP3 transcodés déguisés en lossless. Sensibilité réglable.</span></div></div>
-      <div class="fcard"><i class="ti ti-arrows-shuffle" aria-hidden="true"></i><div><b>Doublons & déjà-en-biblio</b><span>Détecte les copies et ce que tu possèdes déjà — par empreinte audio, indépendamment du nom de fichier.</span></div></div>
-      <div class="fcard"><i class="ti ti-file-export" aria-hidden="true"></i><div><b>Conversion au rangement</b><span>Encode au format CDJ (AIFF / WAV / MP3 320) au moment où tu ranges. Lossy et lossless restent séparés — pas d'upscale.</span></div></div>
-      <div class="fcard"><i class="ti ti-tag" aria-hidden="true"></i><div><b>Nommage & métadonnées Discogs</b><span>Renomme proprement et récupère pochette, label, année, genre depuis Discogs — avec lien vers la release exacte.</span></div></div>
-      <div class="fcard"><i class="ti ti-folders" aria-hidden="true"></i><div><b>Rangement physique en dossiers</b><span>Déplace réellement les fichiers dans tes dossiers de genres/labels. Création de dossier à la volée, mode batch.</span></div></div>
-      <div class="fcard"><i class="ti ti-playlist" aria-hidden="true"></i><div><b>Sync Rekordbox</b><span>Tes dossiers deviennent des playlists Rekordbox (XML sûr, ou master.db natif avec backup). Dédoublonne aussi les playlists.</span></div></div>
-      <div class="fcard"><i class="ti ti-usb" aria-hidden="true"></i><div><b>Préparation de clé USB</b><span>Formate une clé en FAT32 (tous CDJ) ou exFAT (CDJ récents), prête à brancher en club.</span></div></div>
-    </div>
   </div>
 </div>
 <script>
@@ -167,7 +151,17 @@ function openLink(u){window.open(u,'_blank','noopener');}
         +statCard('Corbeille',tr,'var(--color-text-tertiary)','',null)
         +statCard('Sans métadonnées',noMeta+12,'var(--color-text-warning)','biblio','tags incomplets')
       +'</div>'
-      +(filed?'<div class="col-h">Répartition par dossier</div>'+bars:'');
+      +(filed?'<div class="col-h">Répartition par dossier</div>'+bars:'')
+      +'<div class="fgrid">'
+      +'<div class="fcard"><i class="ti ti-headphones"></i><div><b>Écoute & pré-sélection</b><span>Waveform cliquable, pré-écoute, accélération/ralenti type platine (±%) pour juger un morceau.</span></div></div>'
+      +'<div class="fcard"><i class="ti ti-wave-sine"></i><div><b>Détecteur de faux</b><span>Spectrogramme + analyse de coupure : repère les MP3 transcodés déguisés en lossless.</span></div></div>'
+      +'<div class="fcard"><i class="ti ti-arrows-shuffle"></i><div><b>Doublons & déjà-en-biblio</b><span>Détecte les copies par empreinte audio, indépendamment du nom de fichier.</span></div></div>'
+      +'<div class="fcard"><i class="ti ti-file-export"></i><div><b>Conversion au rangement</b><span>Encode au format CDJ (AIFF / WAV / MP3 320) au moment où tu ranges. Pas d\'upscale.</span></div></div>'
+      +'<div class="fcard"><i class="ti ti-tag"></i><div><b>Nommage & métadonnées Discogs</b><span>Renomme proprement, récupère pochette, label, année, genre.</span></div></div>'
+      +'<div class="fcard"><i class="ti ti-folders"></i><div><b>Rangement en dossiers</b><span>Déplace les fichiers dans tes dossiers de genres/labels. Création à la volée, mode batch.</span></div></div>'
+      +'<div class="fcard"><i class="ti ti-playlist"></i><div><b>Sync Rekordbox</b><span>Tes dossiers deviennent des playlists Rekordbox (XML sûr ou master.db natif).</span></div></div>'
+      +'<div class="fcard"><i class="ti ti-usb"></i><div><b>Préparation de clé USB</b><span>Formate en FAT32 (tous CDJ) ou exFAT (CDJ récents), prête à brancher en club.</span></div></div>'
+      +'</div>';
     // right column: dossiers surveillés
     var rightHtml='<div class="col-h">Dossiers surveillés</div>'
       +'<div class="srow"><span class="v"><i class="ti ti-folder"></i> ~/Downloads/soulseek</span><span style="display:flex;align-items:center;gap:9px"><span style="font-size:11px;color:var(--color-text-info)">8 nouveaux</span><span class="tog"></span></span></div>'
