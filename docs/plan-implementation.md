@@ -82,7 +82,7 @@ Bonus même passe :
 - **Encodeur** : conversion 2 rails (MP3 320 / AIFF 16-bit 44,1 par défaut), **jamais d'upscale**, lossy ≠ lossless. Option 24-bit avertie.
 - Ordre strict : ① convertir → ② **tags + nommage sur le fichier CONVERTI** (modèle configurable) → ③ déplacer vers le dossier choisi.
 - **Bacs 1-6** (clavier + clic) = ranger ; **« + nouveau »** = dossier à la volée ; bouton **Ranger** + Entrée ; **jeter** = corbeille (vrai) / `rejeté/` + re-sourcing (faux).
-- **Journal undo** + **corbeille centralisée auto-purgée** ; **`à-retélécharger.txt`** (copie 1 clic) ; aperçu avant action.
+- **Journal undo** + **corbeille centralisée auto-purgée** ; **`à-retélécharger.txt`** (copie 1 clic) — format `Artiste Titre` espace simple (Soulseek ne cherche pas avec tiret cadratin) ; aperçu avant action.
 - **Mono-emplacement** (zéro doublon physique).
 
 **Livrable :** version « utilisable au quotidien » — la maquette devient réelle.
