@@ -233,6 +233,14 @@ function openLink(u){window.open(u,'_blank','noopener');}
       +'<div style="display:flex;gap:12px"><div style="width:120px;flex:none"><div class="col-h">Dossiers</div>'+['House 412','Techno 318','Disco/Edits 196','Ambient 142','Breakbeat 98'].map(function(s,i){var p=s.split(' '),n=p.pop();return '<div class="fld'+(i===0?' on':'')+'" style="justify-content:space-between"><span>'+p.join(' ')+'</span><span style="font-size:11px;opacity:.7">'+n+'</span></div>';}).join('')+'</div>'
       +'<div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:13px;font-weight:500">House</span><span style="font-size:11px;color:var(--color-text-tertiary)">412 morceaux</span></div>'+rows+player+'</div></div>';
   }
+  var STORES=[
+    {id:'beatport',label:'Beatport',url:function(q){return 'https://www.beatport.com/search?q='+q;}},
+    {id:'traxsource',label:'Traxsource',url:function(q){return 'https://www.traxsource.com/search?term='+q;}},
+    {id:'juno',label:'Juno',url:function(q){return 'https://www.junodownload.com/search/?q[all][]='+q;}},
+    {id:'bandcamp',label:'Bandcamp',url:function(q){return 'https://bandcamp.com/search?q='+q;}},
+    {id:'amazon',label:'Amazon',url:function(q){return 'https://www.amazon.fr/s?k='+q+'&i=digital-music';}},
+    {id:'apple',label:'Apple Music',url:function(q){return 'https://music.apple.com/fr/search?term='+q;}}
+  ];
   function renderEcarts(){block();
     var ecarts=T.filter(function(x){return x.status==="resource"||x.status==="trash";});
     var filterR=ecarts.filter(function(x){return x.status==="resource";});
@@ -243,19 +251,19 @@ function openLink(u){window.open(u,'_blank','noopener');}
       if(x.ecartReason==="duplicate")return '<span class="pill" style="background:var(--color-background-secondary);color:var(--color-text-secondary);flex:none"><i class="ti ti-copy" style="font-size:9px" aria-hidden="true"></i> doublon</span>';
       return '<span class="pill" style="background:var(--color-background-danger);color:var(--color-text-danger);flex:none"><i class="ti ti-alert-triangle" style="font-size:9px" aria-hidden="true"></i> faux</span>';
     }
-    var rows=ecarts.map(function(x,idx){
+    var rows=ecarts.map(function(x){
       var qi=T.indexOf(x);
       var isRes=x.status==="resource";
       var q=encodeURIComponent(slsk(x));
-      return '<div class="lr" style="align-items:center;gap:7px;padding:7px 4px">'
+      var storeLinks=isRes?STORES.map(function(s){return '<a data-act="estore" data-i="'+qi+'" data-url="'+encodeURIComponent(s.url(q))+'" style="font-size:10px;color:var(--color-text-info);cursor:pointer;text-decoration:none;white-space:nowrap">'+s.label+'</a>';}).join('<span style="color:var(--color-border-secondary);margin:0 3px">·</span>'):'';
+      return '<div style="padding:7px 4px;border-bottom:0.5px solid var(--color-border-tertiary)">'
+        +'<div style="display:flex;align-items:center;gap:7px">'
         +'<div style="flex:1;min-width:0"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;font-weight:500">'+x.a+' — '+x.t+'</div>'
         +'<div style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+x.file+'</div></div>'
         +reasonLabel(x)
-        +(isRes
-          ?'<button class="lk" data-act="ebeatport" data-i="'+qi+'" title="Chercher sur Beatport"><i class="ti ti-player-play" style="font-size:12px;color:#01c6a2" aria-hidden="true"></i></button>'
-          +'<button class="lk" data-act="ebandcamp" data-i="'+qi+'" title="Chercher sur Bandcamp"><i class="ti ti-music" style="font-size:12px;color:#1da0c3" aria-hidden="true"></i></button>'
-          :'')
         +'<button class="lk" data-act="etrash" data-i="'+qi+'" title="Corbeille"><i class="ti ti-trash" style="font-size:12px;color:var(--color-text-tertiary)" aria-hidden="true"></i></button>'
+        +'</div>'
+        +(isRes?'<div style="margin-top:5px;display:flex;flex-wrap:wrap;align-items:center;gap:1px">'+storeLinks+'</div>':'')
         +'</div>';
     }).join('');
     var allSlsk=filterR.map(slsk).join('\n');
@@ -266,11 +274,9 @@ function openLink(u){window.open(u,'_blank','noopener');}
       +'</div>'
       +(rows||'<div style="font-size:12px;color:var(--color-text-tertiary)">Aucun fichier écarté.</div>')
       +(filterR.length?'<div style="margin-top:13px;padding-top:11px;border-top:0.5px solid var(--color-border-tertiary);display:flex;flex-wrap:wrap;gap:8px;align-items:center">'
-        +'<span style="font-size:11px;color:var(--color-text-tertiary)">Re-sourcer</span>'
-        +'<button data-act="eslsk" data-txt="'+encodeURIComponent(allSlsk)+'" title="Format Soulseek : Artiste Titre"><i class="ti ti-brand-soulseek" style="font-size:13px;vertical-align:-2px" aria-hidden="true"></i> Copier liste Soulseek ('+filterR.length+')</button>'
-        +'<span style="font-size:10px;color:var(--color-text-tertiary)">ou chercher à l\'achat :</span>'
-        +'<button data-act="eallbeatport" title="Ouvrir Beatport pour chaque fichier"><i class="ti ti-player-play" style="font-size:12px;vertical-align:-2px;color:#01c6a2" aria-hidden="true"></i> Beatport</button>'
-        +'<button data-act="eallbandcamp" title="Ouvrir Bandcamp pour chaque fichier"><i class="ti ti-music" style="font-size:12px;vertical-align:-2px;color:#1da0c3" aria-hidden="true"></i> Bandcamp</button>'
+        +'<button data-act="eslsk" data-txt="'+encodeURIComponent(allSlsk)+'"><i class="ti ti-copy" style="font-size:12px;vertical-align:-2px" aria-hidden="true"></i> Copier liste Soulseek ('+filterR.length+')</button>'
+        +'<span style="font-size:10px;color:var(--color-text-tertiary)">· ouvrir tout sur :</span>'
+        +STORES.map(function(s){return '<button data-act="eallstore" data-sid="'+s.id+'" style="font-size:11px">'+s.label+'</button>';}).join('')
         +'</div>':'');
   }
   function renderCle(){block();
@@ -298,11 +304,9 @@ function openLink(u){window.open(u,'_blank','noopener');}
     else if(act==='bjeter'){for(var k2 in sel){if(sel[k2]&&T[k2].status==="pending")T[k2].status=T[k2].fake?"resource":"trash";}sel={};render();}
     else if(act==='rksync'){rkbSynced=true;render();}
     else if(act==='etrash'){T[+el.dataset.i].status="trash";renderEcarts();}
-    else if(act==='ebeatport'){var ex=T[+el.dataset.i];openLink('https://www.beatport.com/search?q='+encodeURIComponent(ex.a+' '+ex.t));}
-    else if(act==='ebandcamp'){var ex2=T[+el.dataset.i];openLink('https://bandcamp.com/search?q='+encodeURIComponent(ex2.a+' '+ex2.t));}
-    else if(act==='eslsk'){navigator.clipboard.writeText(decodeURIComponent(el.dataset.txt)).catch(function(){});var btn=el;btn.textContent='✓ Copié';setTimeout(function(){renderEcarts();},1200);}
-    else if(act==='eallbeatport'){T.filter(function(x){return x.status==="resource";}).forEach(function(x){openLink('https://www.beatport.com/search?q='+encodeURIComponent(x.a+' '+x.t));});}
-    else if(act==='eallbandcamp'){T.filter(function(x){return x.status==="resource";}).forEach(function(x){openLink('https://bandcamp.com/search?q='+encodeURIComponent(x.a+' '+x.t));});}
+    else if(act==='estore'){openLink(decodeURIComponent(el.dataset.url));}
+    else if(act==='eslsk'){navigator.clipboard.writeText(decodeURIComponent(el.dataset.txt)).catch(function(){});el.innerHTML='<i class="ti ti-check" style="font-size:12px;vertical-align:-2px"></i> Copié';setTimeout(function(){renderEcarts();},1400);}
+    else if(act==='eallstore'){var sid=el.dataset.sid;var st=STORES.find(function(s){return s.id===sid;});if(st)T.filter(function(x){return x.status==="resource";}).forEach(function(x){openLink(st.url(encodeURIComponent(x.a+' '+x.t)));});}
     else if(act==='bplay'){var i=+el.dataset.i;if(bibPlaying===i){bibPlaying=-1;}else{bibPlaying=i;bibPos=0.3;}renderBiblio();}
     else if(act==='bseek'){var r2=el.getBoundingClientRect();bibPos=Math.min(1,Math.max(0,(e.clientX-r2.left)/r2.width));renderBiblio();}
     else if(act==='link'){var parts=LIB[+el.dataset.i][0].split(/\s*[—–-]\s*/);var q=parts.length>1?parts[0]+' '+parts[1]:parts[0];openLink('https://www.discogs.com/search/?type=release&q='+encodeURIComponent(q));}
