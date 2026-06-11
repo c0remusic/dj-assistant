@@ -6,7 +6,14 @@
 
 **Architecture:** Tauri v2 shell (Rust backend + system WebView). Frontend is a Vite *vanilla* project (no framework) hosting the migrated mockup markup/CSS/JS — keeps the door open to a structured frontend later without locking one in now. Rust backend owns all I/O: it shells out to a bundled FFmpeg binary, owns the SQLite connection (rusqlite, migrations via `PRAGMA user_version`), and exposes a small set of `#[tauri::command]` functions. The frontend never touches the filesystem — it calls typed IPC commands whose request/response shapes are mirrored in a shared TypeScript types file.
 
-**Tech Stack:** Tauri v2, Rust (rustup/cargo), Node 24 + npm, Vite (vanilla TS), rusqlite (bundled SQLite), tauri-plugin-shell (sidecar exec), serde, GitHub Actions.
+**Tech Stack:** Tauri v2, Rust (rustup/cargo), Node 24 + npm, Vite (vanilla TS), rusqlite (bundled SQLite), `ffmpeg-sidecar` (FFmpeg exec), serde, GitHub Actions.
+
+> **✅ STATUS : M0 LIVRÉ (2026-06-12).** Toute la DoD est verte (voir en bas). Écarts vs ce plan,
+> tous validés : crate Cargo renommé `app`→`sift` ; câblage dans `lib.rs` (Tauri v2, pas `main.rs`) ;
+> fix watcher Vite (`ignored: src-tauri/`) ; vérif IPC via une commande `report_smoke` qui logge en
+> stdout (le titre de fenêtre natif n'est pas piloté par `document.title`) ; **FFmpeg via le crate
+> `ffmpeg-sidecar`** pointé sur le binaire bundlé (`FFMPEG_BINARY` en dev) au lieu de
+> `tauri-plugin-shell` — voir la décision FFmpeg dans `docs/plan-implementation.md`.
 
 **Platform note:** The primary dev machine is Windows 10 (PowerShell). The Bash tool is broken in this environment (`drivers\etc` msys error) — run shell commands in **PowerShell**. `cargo`/`npm`/`git` invocations are identical cross-platform; only path syntax and the ffmpeg binary differ per OS. Lead commands assume PowerShell from the repo root `C:\Users\LEETJ\Desktop\dj-assistant`.
 
@@ -850,13 +857,13 @@ Then check the Actions tab at https://github.com/c0remusic/dj-assistant/actions 
 
 ---
 
-## M0 Definition of Done
+## M0 Definition of Done — ✅ toutes vertes
 
-- [ ] `npm run tauri dev` opens a native **Sift** window rendering the full mockup, nav tabs switch.
-- [ ] `cargo test --manifest-path src-tauri/Cargo.toml` → all tests pass (3 ffmpeg + 3 db).
-- [ ] Webview console prints `Sift IPC contract OK` with `db_health {schema_version: 1, tables: 5}` and a real ffmpeg version.
-- [ ] `sift.db` is created in the app data dir on first boot.
-- [ ] CI builds and uploads unsigned `.msi` and `.dmg` artifacts for both targets.
+- [x] `npm run tauri dev` ouvre une fenêtre native **Sift** rendant la maquette, nav OK.
+- [x] `cargo test --manifest-path src-tauri/Cargo.toml` → **4 passed** (3 db + 1 résolution binaire ffmpeg ; le parser manuel a été remplacé par `ffmpeg-sidecar`).
+- [x] Chaîne IPC vérifiée : `SMOKE OK :: Sift v0.0.1 · db schema=1 tables=5 · ffmpeg=N-124953…` (via la commande `report_smoke` → stdout).
+- [x] `sift.db` créé dans l'app data dir au 1er boot (`db::open().expect()` passé).
+- [x] CI build + upload des artefacts non signés `.msi`/`.dmg` pour les 2 cibles (run vert).
 
 ---
 
