@@ -81,11 +81,22 @@ Bonus même passe :
 **But :** premier flux de bout en bout réellement utile.
 - **Encodeur** : conversion 2 rails (MP3 320 / AIFF 16-bit 44,1 par défaut), **jamais d'upscale**, lossy ≠ lossless. Option 24-bit avertie.
 - Ordre strict : ① convertir → ② **tags + nommage sur le fichier CONVERTI** (modèle configurable) → ③ déplacer vers le dossier choisi.
-- **Bacs 1-6** (clavier + clic) = ranger ; **« + nouveau »** = dossier à la volée ; bouton **Ranger** + Entrée ; **jeter** = corbeille (vrai) / `rejeté/` + re-sourcing (faux).
+- **Bacs 1-6** (clavier + clic) = ranger ; **« + nouveau »** = dossier à la volée ; bouton **Ranger** + Entrée.
+- **Jeter** : libellé adaptatif selon verdict — faux → « ⚠ Re-sourcer » (va dans Écartés), vrai → « Jeter » (corbeille). L'utilisateur voit l'issue avant de cliquer.
 - **Journal undo** + **corbeille centralisée auto-purgée** ; **`à-retélécharger.txt`** (copie 1 clic) — format `Artiste Titre` espace simple (Soulseek ne cherche pas avec tiret cadratin) ; aperçu avant action.
 - **Mono-emplacement** (zéro doublon physique).
 
 **Livrable :** version « utilisable au quotidien » — la maquette devient réelle.
+
+## M4b — Onglet Écartés
+
+Fichiers qui ne passent pas le tri : faux, tronqués, doublons perdants.
+
+- **Raison visible** par fichier (badge : faux / tronqué / doublon) + nom de fichier brut.
+- **Re-sourcer** : export `à-retélécharger.txt` format `Artiste Titre` espace simple (Soulseek). Liens achat par fichier et en batch : **Beatport · Traxsource · Juno · Bandcamp · Amazon · Apple Music**.
+- **Corbeille** : envoi vers corbeille système (réversible).
+- **Dossier séparé** : déplacer vers `rejeté/` plutôt que supprimer (option).
+- Filtre : à re-sourcer / en attente corbeille.
 
 ## M5 — Dédup par empreinte (fin du MVP)
 
@@ -188,6 +199,19 @@ Les règles auto s'appliquent sans popup ; un journal d'actions (DB `actions`) p
 
 ---
 
+## Décisions UI (issues review — à respecter dès M4)
+
+- **Queue Revue** : n'affiche que les `pending` par défaut ; toggle « + N traités » pour voir tout. Indispensable à l'échelle (15 000 fichiers).
+- **Nom de sortie** : toujours sur 2 lignes (word-break), jamais tronqué — c'est l'info validée avant le commit.
+- **Bouton jeter** : libellé adaptatif selon verdict — faux → « ⚠ Re-sourcer », vrai → « Jeter ».
+- **Ordre onglets nav** : Accueil · Revue · Écartés · Biblio · Rekordbox · Clé USB · Réglages.
+- **Undo** : toujours visible après une action (lien « Annuler » ou Ctrl+Z hint).
+- **Icône Rekordbox nav** : `ti-playlist`, pas `ti-refresh` (utilisé pour la sync inline).
+- **Raccourcis Revue** : 1-5, ↵, X, Espace — tous affichés comme chips dans l'UI.
+
+---
+
+## Transverse (à tenir dès M0)
 
 - **Contrats IPC** typés (Rust ↔ front) versionnés ; le front ne fait jamais d'I/O fichier.
 - **Tests** : caractérisation FFmpeg/verdict (M2), équivalence avant/après conversion (M4), fingerprint sur même morceau multi-format (M5).
