@@ -91,7 +91,7 @@ Bonus même passe :
 
 ## M4 — Encodeur + « déplacer = encoder + ranger » ⭐ boucle complète
 **But :** premier flux de bout en bout réellement utile.
-- **Encodeur** : conversion 2 rails (MP3 320 / AIFF 16-bit 44,1 par défaut), **jamais d'upscale**, lossy ≠ lossless. Option 24-bit avertie.
+- **Encodeur** : conversion 2 rails (MP3 320 / AIFF 16-bit 44,1 par défaut), **jamais d'upscale** — un vrai MP3 reste MP3, on ne fabrique pas du faux lossless depuis du lossy. lossy ≠ lossless. Option 24-bit avertie.
 - Ordre strict : ① convertir → ② **tags + nommage sur le fichier CONVERTI** (modèle configurable) → ③ déplacer vers le dossier choisi.
 - **Bacs 1-6** (clavier + clic) = ranger ; **« + nouveau »** = dossier à la volée ; bouton **Ranger** + Entrée.
 - **Jeter** : libellé adaptatif selon verdict — faux → « ⚠ Re-sourcer » (va dans Écartés), vrai → « Jeter » (corbeille). L'utilisateur voit l'issue avant de cliquer.
@@ -169,7 +169,9 @@ dans ce jalon (voir M8) — en V1 l'utilisateur est prévenu et décide.
 ## M8 — Profond & rétroactif (Phase ultérieure, isolé, risqué)
 > Note cadrage : le **scan + traitement** de la biblio existante est remonté en V1 (M5)
 > avec garde-fou lecture seule. Ce qui reste ici = la **réparation automatique** qui
-> *écrit* dans Rekordbox, plus risquée.
+> *écrit* dans Rekordbox, plus risquée. **Feature gelée** : on ne fixe pas le design
+> tant que des **tests réels sur Rekordbox** (vraies bibliothèques, backup/restore,
+> liens cassés) ne l'ont pas validée.
 - **Rekordbox `master.db`** (pyrekordbox) : remplacement in-situ, **dédup des playlists existantes**, **réparation/prévention des liens cassés** (chemin change au changement de format) — c'est la bascule garde-fou → **réparation intégrée (option A)**. ⚠️ non-officiel, **backup obligatoire**, Rekordbox fermé.
 - **Normalisation loudness** (option, OFF par défaut).
 
@@ -186,6 +188,13 @@ dans ce jalon (voir M8) — en V1 l'utilisateur est prévenu et décide.
 ## Pipeline batch & automatisation (transverse, dès M1)
 
 **Modèle mental :** l'app n'est pas un outil "track par track" — c'est un **pipeline avec queue de décisions**. L'analyse tourne en fond sans intervention ; le DJ ne touche que les décisions ambiguës.
+
+**Décision cadrage — le batch est AUTO par défaut, piloté par des règles fixées à l'avance.**
+L'utilisateur configure ses règles une fois (Réglages) ; ensuite le pipeline applique sans
+popup et ne remonte en revue que les cas hors-règle / ambigus. La revue manuelle est
+l'exception, pas le mode normal. **Invariant dur : un vrai MP3 (≥ seuil, non transcodé)
+n'est JAMAIS upscalé** vers lossless — il reste sur son rail lossy, converti seulement si
+besoin de conformité CDJ (jamais AIFF/WAV depuis un MP3).
 
 ### Worker background (M1+)
 - Dès qu'un fichier arrive via le watcher → **analyse auto-déclenchée** (M2) sans clic.
@@ -240,11 +249,16 @@ Les règles auto s'appliquent sans popup ; un journal d'actions (DB `actions`) p
 - **Packaging/signing** : code-sign Windows + notarization macOS, auto-update Tauri — **dans le périmètre V1** (app diffusée gratuitement dès la sortie). Site vitrine inclus.
 
 ## Points encore ouverts (à trancher en cours de route)
-- Mode batch auto vs revue (équilibre par défaut) · canal `master.db` (timing de la réparation intégrée).
+- **Réparation Rekordbox intégrée (écriture `master.db`/XML)** : feature **gelée tant que
+  des tests réels sur Rekordbox** n'ont pas validé le comportement (dédup playlists,
+  réparation des liens cassés au changement de chemin, intégrité après backup/restore).
+  On ne fixe pas l'API/le flux avant d'avoir mesuré sur de vraies bibliothèques.
 
 **Tranchés au brainstorm (voir Décisions de cadrage) :** nom (Sift) · MP3 < 320 (seuil
 configurable, badge, re-sourcer par défaut) · biblio existante (nettoyage actif V1) ·
-Rekordbox (garde-fou V1, réparation plus tard) · diffusion (gratuite, signing + site V1).
+Rekordbox (garde-fou V1, réparation plus tard, **gelée jusqu'aux tests**) · diffusion
+(gratuite, signing + site V1) · **mode batch = auto par règles** (défaut) · **vrai MP3
+jamais upscalé**.
 
 ## Séquencement / rationale
 `M0→M1→M2` posent le socle + le cœur lecture. **M4 clôt la première boucle utile** (on peut s'en servir). **M5 finit le MVP.** Phase B (M6-M7) ajoute confort et Rekordbox sûr. M8 (risqué) reste isolé et optionnel, derrière backups.
