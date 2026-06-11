@@ -1,10 +1,22 @@
-# Plan d'implémentation — DJ Assistant
+# Plan d'implémentation — Sift
 
-> App desktop Windows + Mac. Source de vérité fonctionnelle : la spec
-> (`App prépa sons DJ.md`, vault Obsidian). Ce document découpe la construction en
-> **jalons livrables** : à chaque jalon l'app est lançable et fait quelque chose de
+> **Sift** — app desktop Windows + Mac de prép sono DJ (nom de travail ; domaine à
+> décider plus tard, la marque ≠ le domaine complet). Source de vérité fonctionnelle :
+> la spec (`App prépa sons DJ.md`, vault Obsidian). Ce document découpe la construction
+> en **jalons livrables** : à chaque jalon l'app est lançable et fait quelque chose de
 > réel. La maquette `index.html` actuelle sert de **référence UI** et de base au shell
 > frontend (à câbler sur le vrai backend).
+
+## Décisions de cadrage (brainstorm 2026-06)
+
+| Sujet | Décision |
+|---|---|
+| **Périmètre V1** | Backlog (~15 000 fichiers) **ET** flux Soulseek hebdo. Le pipeline doit encaisser un import massif dès la V1 — pas seulement le flux entrant. |
+| **Biblio existante** | Nettoyage **actif** dès la V1 : doublons internes, fakes, tronqués sont scannés **et traités** (pas seulement indexés en lecture seule). ⚠️ Ceci tire une partie de l'ancien M8 dans le MVP — voir garde-fou Rekordbox. |
+| **Sécurité Rekordbox** | **Garde-fou d'abord (V1)** : l'app lit le XML/`master.db` en lecture seule, détecte si un fichier est référencé par une playlist et **avertit avant** toute action dessus (suppression/ré-encodage). **Réparation intégrée des chemins (A) repoussée** à une phase ultérieure (met à jour Rekordbox automatiquement). |
+| **MP3 < 320 authentique** | **Badge bitrate toujours affiché.** **Seuil configurable** dans Réglages (défaut 320). Sous le seuil → **proposé en re-sourcer par défaut**, mais l'utilisateur garde le choix de ranger quand même (zone grise assumée, pas de blocage). |
+| **Diffusion** | Publique et **gratuite** → **code-sign Windows + notarization macOS + auto-update Tauri + site** entrent dans le **périmètre V1** (plus repoussés « avant diffusion »). |
+| **Nom** | **Sift** (verbe : tamiser/trier — cœur de l'app). Domaine TBD. |
 
 ## Pile (confirmée par la spec)
 
@@ -51,7 +63,7 @@ Un seul décodage FFmpeg → **huit sorties** :
 | 1 | Peaks waveform (JSON) | → wavesurfer |
 | 2 | FFT bins fréq/temps | → spectrogramme canvas |
 | 3 | Fréquence de coupure | → **verdict fake** (seuil réglable ; zone grise = soumis) |
-| 4 | Qualité réelle | → rail lossless vs lossy confirmé |
+| 4 | Qualité réelle + **bitrate réel** | → rail lossless vs lossy confirmé ; **badge bitrate toujours affiché**. Vrai MP3 sous le **seuil configurable** (défaut 320, Réglages) → proposé en re-sourcer par défaut, mais rangeable au choix (zone grise assumée). |
 | 5 | Écrêtage (clip_runs, clip_pct, true_peak_dBTP) | → **intégrité dynamique** (rips vinyle trop chauds) |
 | 6 | **Troncature / fichier incomplet** | → fin abrupte (énergie ne retombe pas) OU erreur décodage FFmpeg en fin de fichier ; durée < attendue |
 | 7 | **Silence tête/queue** | → lead-in/run-out parasites → proposer trim |
@@ -130,6 +142,13 @@ Sur rail lossy uniquement : bitrate comme tiebreaker final.
 - Détection doublons entre fichiers **et** « **déjà dans ta biblio** ».
 - Comparaison N versions → recommande le gagnant → confirmation.
 
+**Nettoyage actif de la biblio existante (décision V1) :** le scan doublons/fakes/tronqués
+s'applique aussi aux ~15 000 fichiers **déjà rangés**, pas seulement aux nouveaux. Avant
+toute action destructive (suppression/ré-encodage) sur un fichier existant, **garde-fou
+Rekordbox** : lecture seule du XML/`master.db`, détection de référence en playlist,
+avertissement explicite. La **réparation automatique des chemins** Rekordbox n'est PAS
+dans ce jalon (voir M8) — en V1 l'utilisateur est prévenu et décide.
+
 **Livrable :** 🎯 **MVP complet.**
 
 ---
@@ -148,8 +167,10 @@ Sur rail lossy uniquement : bitrate comme tiebreaker final.
 - Fichiers corrompus/tronqués · clipping.
 
 ## M8 — Profond & rétroactif (Phase ultérieure, isolé, risqué)
-- **Rekordbox `master.db`** (pyrekordbox) : remplacement in-situ, **dédup des playlists existantes**, **réparation/prévention des liens cassés** (chemin change au changement de format). ⚠️ non-officiel, **backup obligatoire**, Rekordbox fermé.
-- **Mode rétroactif** sur la biblio existante (⚠️ touche des fichiers déjà en playlists).
+> Note cadrage : le **scan + traitement** de la biblio existante est remonté en V1 (M5)
+> avec garde-fou lecture seule. Ce qui reste ici = la **réparation automatique** qui
+> *écrit* dans Rekordbox, plus risquée.
+- **Rekordbox `master.db`** (pyrekordbox) : remplacement in-situ, **dédup des playlists existantes**, **réparation/prévention des liens cassés** (chemin change au changement de format) — c'est la bascule garde-fou → **réparation intégrée (option A)**. ⚠️ non-officiel, **backup obligatoire**, Rekordbox fermé.
 - **Normalisation loudness** (option, OFF par défaut).
 
 ---
@@ -216,10 +237,14 @@ Les règles auto s'appliquent sans popup ; un journal d'actions (DB `actions`) p
 - **Contrats IPC** typés (Rust ↔ front) versionnés ; le front ne fait jamais d'I/O fichier.
 - **Tests** : caractérisation FFmpeg/verdict (M2), équivalence avant/après conversion (M4), fingerprint sur même morceau multi-format (M5).
 - **Sécurité fichiers** : toute action passe par le journal `actions` + corbeille réversible ; jamais de suppression sèche.
-- **Packaging/signing** : code-sign Windows + notarization macOS, auto-update Tauri — à activer avant diffusion publique.
+- **Packaging/signing** : code-sign Windows + notarization macOS, auto-update Tauri — **dans le périmètre V1** (app diffusée gratuitement dès la sortie). Site vitrine inclus.
 
 ## Points encore ouverts (à trancher en cours de route)
-- Nom de l'app · mode batch auto vs revue · canal `master.db` · que faire d'un vrai MP3 < 320.
+- Mode batch auto vs revue (équilibre par défaut) · canal `master.db` (timing de la réparation intégrée).
+
+**Tranchés au brainstorm (voir Décisions de cadrage) :** nom (Sift) · MP3 < 320 (seuil
+configurable, badge, re-sourcer par défaut) · biblio existante (nettoyage actif V1) ·
+Rekordbox (garde-fou V1, réparation plus tard) · diffusion (gratuite, signing + site V1).
 
 ## Séquencement / rationale
 `M0→M1→M2` posent le socle + le cœur lecture. **M4 clôt la première boucle utile** (on peut s'en servir). **M5 finit le MVP.** Phase B (M6-M7) ajoute confort et Rekordbox sûr. M8 (risqué) reste isolé et optionnel, derrière backups.
