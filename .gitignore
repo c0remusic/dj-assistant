@@ -5,6 +5,11 @@ node_modules/
 dist/
 .vercel/
 
+# rust / tauri
+src-tauri/target/
+src-tauri/binaries/
+src-tauri/gen/
+
 # logs
 *.log
 npm-debug.log*
