@@ -84,6 +84,7 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-text-info)}
     <div class="nv" data-view="biblio" title="Bibliothèque"><i class="ti ti-folders" aria-hidden="true"></i></div>
     <div class="nv" data-view="rkb" title="Rekordbox"><i class="ti ti-refresh" aria-hidden="true"></i></div>
     <div class="nv" data-view="cle" title="Formater la clé"><i class="ti ti-usb" aria-hidden="true"></i></div>
+    <div class="nv" data-view="ecarts" title="Écartés / À re-sourcer"><i class="ti ti-alert-circle" aria-hidden="true"></i></div>
     <div class="nv" data-view="reglages" style="margin-top:auto" title="Réglages"><i class="ti ti-settings" aria-hidden="true"></i></div>
   </div>
   <div id="content" style="flex:1;min-width:0;display:flex"></div>
@@ -117,7 +118,9 @@ function openLink(u){window.open(u,'_blank','noopener');}
     {a:"Lil Louis",t:"French Kiss",lbl:"FFRR",yr:1989,fmt:"WAV · 24",dur:"9:55",fake:false,file:"french kiss FULL.wav",real:"conforme",gen:"Acid House"},
     {a:"Octave One",t:"Blackwater",lbl:"430 West",yr:2002,fmt:"AIFF · 16",dur:"6:45",fake:false,file:"octave one - blackwater.aiff",real:"conforme",gen:"Detroit Techno"}
   ];
-  T.forEach(function(x,i){x.status="pending";x.folder=null;
+  T[1].status="resource";T[1].ecartReason="fake";   // Larry Heard — transcodé
+  T[4].status="resource";T[4].ecartReason="truncated"; // Theo Parrish — tronqué
+  T.forEach(function(x,i){if(!x.status)x.status="pending";x.folder=null;
     x.wave=[];for(var k=0;k<32;k++){var h=18+Math.round(Math.abs(Math.sin((k+i*3)*0.7))*60+((k*7+i*13)%15));x.wave.push(h>96?96:h);}
     x.spec=[];for(var m=0;m<32;m++){var b=56+((m*5+i*11)%40);if(x.fake&&m>22)b=10+((m*3)%14);x.spec.push(b);}});
   var LIB=[["Mr. Fingers — Can You Feel It","AIFF","120","7:48","30521"],["Chez Damier — Can You Feel It","AIFF","122","7:02","41822"],["Marshall Jefferson — Move Your Body","MP3","118","6:30","18743"],["Lil Louis — French Kiss","WAV","120","9:55","9210"],["Robert Owens — Bring Down the Walls","AIFF","121","7:30","55190"],["Fingers Inc. — Distant Planet","AIFF","119","8:10","73004"]];
@@ -135,7 +138,7 @@ function openLink(u){window.open(u,'_blank','noopener');}
   function block(){content.style.display="block";content.style.padding="14px 16px";}
   function render(){Array.prototype.forEach.call(nav.querySelectorAll('.nv'),function(n){n.classList.toggle('on',n.dataset.view===view);});
     if(view==="revue")return revMode==="batch"?renderBatch():renderRevue();
-    if(view==="dash")return renderDash();if(view==="home")return renderHome();if(view==="biblio")return renderBiblio();if(view==="rkb")return renderRkb();if(view==="cle")return renderCle();return renderReglages();}
+    if(view==="dash")return renderDash();if(view==="home")return renderHome();if(view==="biblio")return renderBiblio();if(view==="rkb")return renderRkb();if(view==="cle")return renderCle();if(view==="ecarts")return renderEcarts();return renderReglages();}
   function renderHome(){block();
     content.innerHTML='<div class="h1">Accueil</div><div class="col-h">Dossiers surveillés (source)</div>'
       +'<div class="srow"><span class="v"><i class="ti ti-folder" aria-hidden="true"></i> ~/Downloads/soulseek</span><span style="display:flex;align-items:center;gap:9px"><span style="font-size:11px;color:var(--color-text-info)">8 nouveaux</span><span class="tog"></span></span></div>'
@@ -230,6 +233,46 @@ function openLink(u){window.open(u,'_blank','noopener');}
       +'<div style="display:flex;gap:12px"><div style="width:120px;flex:none"><div class="col-h">Dossiers</div>'+['House 412','Techno 318','Disco/Edits 196','Ambient 142','Breakbeat 98'].map(function(s,i){var p=s.split(' '),n=p.pop();return '<div class="fld'+(i===0?' on':'')+'" style="justify-content:space-between"><span>'+p.join(' ')+'</span><span style="font-size:11px;opacity:.7">'+n+'</span></div>';}).join('')+'</div>'
       +'<div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:13px;font-weight:500">House</span><span style="font-size:11px;color:var(--color-text-tertiary)">412 morceaux</span></div>'+rows+player+'</div></div>';
   }
+  function renderEcarts(){block();
+    var ecarts=T.filter(function(x){return x.status==="resource"||x.status==="trash";});
+    var filterR=ecarts.filter(function(x){return x.status==="resource";});
+    var filterT=ecarts.filter(function(x){return x.status==="trash";});
+    function slsk(x){return x.a+' '+x.t;}
+    function reasonLabel(x){
+      if(x.ecartReason==="truncated")return '<span class="pill" style="background:var(--color-background-warning);color:var(--color-text-warning);flex:none"><i class="ti ti-cut" style="font-size:9px" aria-hidden="true"></i> tronqué</span>';
+      if(x.ecartReason==="duplicate")return '<span class="pill" style="background:var(--color-background-secondary);color:var(--color-text-secondary);flex:none"><i class="ti ti-copy" style="font-size:9px" aria-hidden="true"></i> doublon</span>';
+      return '<span class="pill" style="background:var(--color-background-danger);color:var(--color-text-danger);flex:none"><i class="ti ti-alert-triangle" style="font-size:9px" aria-hidden="true"></i> faux</span>';
+    }
+    var rows=ecarts.map(function(x,idx){
+      var qi=T.indexOf(x);
+      var isRes=x.status==="resource";
+      var q=encodeURIComponent(slsk(x));
+      return '<div class="lr" style="align-items:center;gap:7px;padding:7px 4px">'
+        +'<div style="flex:1;min-width:0"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;font-weight:500">'+x.a+' — '+x.t+'</div>'
+        +'<div style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+x.file+'</div></div>'
+        +reasonLabel(x)
+        +(isRes
+          ?'<button class="lk" data-act="ebeatport" data-i="'+qi+'" title="Chercher sur Beatport"><i class="ti ti-player-play" style="font-size:12px;color:#01c6a2" aria-hidden="true"></i></button>'
+          +'<button class="lk" data-act="ebandcamp" data-i="'+qi+'" title="Chercher sur Bandcamp"><i class="ti ti-music" style="font-size:12px;color:#1da0c3" aria-hidden="true"></i></button>'
+          :'')
+        +'<button class="lk" data-act="etrash" data-i="'+qi+'" title="Corbeille"><i class="ti ti-trash" style="font-size:12px;color:var(--color-text-tertiary)" aria-hidden="true"></i></button>'
+        +'</div>';
+    }).join('');
+    var allSlsk=filterR.map(slsk).join('\n');
+    content.innerHTML='<div class="h1">Écartés</div>'
+      +'<div style="display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap">'
+      +'<span class="pill" style="background:var(--color-background-danger);color:var(--color-text-danger)"><i class="ti ti-alert-circle" style="font-size:10px" aria-hidden="true"></i> '+filterR.length+' à re-sourcer</span>'
+      +'<span class="pill"><i class="ti ti-trash" style="font-size:10px" aria-hidden="true"></i> '+filterT.length+' en attente corbeille</span>'
+      +'</div>'
+      +(rows||'<div style="font-size:12px;color:var(--color-text-tertiary)">Aucun fichier écarté.</div>')
+      +(filterR.length?'<div style="margin-top:13px;padding-top:11px;border-top:0.5px solid var(--color-border-tertiary);display:flex;flex-wrap:wrap;gap:8px;align-items:center">'
+        +'<span style="font-size:11px;color:var(--color-text-tertiary)">Re-sourcer</span>'
+        +'<button data-act="eslsk" data-txt="'+encodeURIComponent(allSlsk)+'" title="Format Soulseek : Artiste Titre"><i class="ti ti-brand-soulseek" style="font-size:13px;vertical-align:-2px" aria-hidden="true"></i> Copier liste Soulseek ('+filterR.length+')</button>'
+        +'<span style="font-size:10px;color:var(--color-text-tertiary)">ou chercher à l\'achat :</span>'
+        +'<button data-act="eallbeatport" title="Ouvrir Beatport pour chaque fichier"><i class="ti ti-player-play" style="font-size:12px;vertical-align:-2px;color:#01c6a2" aria-hidden="true"></i> Beatport</button>'
+        +'<button data-act="eallbandcamp" title="Ouvrir Bandcamp pour chaque fichier"><i class="ti ti-music" style="font-size:12px;vertical-align:-2px;color:#1da0c3" aria-hidden="true"></i> Bandcamp</button>'
+        +'</div>':'');
+  }
   function renderCle(){block();
     content.innerHTML='<div class="h1">Formater la clé</div><div style="display:flex;gap:8px;align-items:flex-start;background:var(--color-background-warning);border-radius:var(--border-radius-md);padding:9px 12px;margin-bottom:14px;font-size:11px;color:var(--color-text-warning)"><i class="ti ti-alert-triangle" style="font-size:15px;flex:none" aria-hidden="true"></i><span>Volumes <strong>amovibles uniquement</strong> — le formatage <strong>efface tout</strong>.</span></div><div class="col-h">Volume</div><div class="srow"><span class="v"><i class="ti ti-usb" aria-hidden="true"></i> USB DJ — 28 Go <span style="color:var(--color-text-tertiary)">(FAT32)</span></span><i class="ti ti-circle-check" style="color:var(--color-text-info);font-size:16px" aria-hidden="true"></i></div><div class="srow"><span class="v"><i class="ti ti-usb" aria-hidden="true"></i> SSD Samsung T7 — 500 Go <span style="color:var(--color-text-tertiary)">(exFAT)</span></span><i class="ti ti-circle" style="color:var(--color-text-tertiary);font-size:16px" aria-hidden="true"></i></div><div class="col-h" style="margin-top:14px">Format</div><div style="display:flex;gap:8px;margin-bottom:14px"><span class="chip on">FAT32 — compat tous CDJ</span><span class="chip">exFAT — CDJ récents</span></div><div style="display:flex;align-items:center;gap:9px"><div style="flex:1;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:6px 10px;font-size:12px;color:var(--color-text-tertiary)">tape « USB DJ » pour confirmer</div><button style="color:var(--color-text-danger);border-color:var(--color-border-danger)">Formater</button></div>';
   }
@@ -254,6 +297,12 @@ function openLink(u){window.open(u,'_blank','noopener');}
     else if(act==='brange'){for(var k in sel){if(sel[k]&&T[k].status==="pending"){T[k].status="filed";T[k].folder=selFolder;}}sel={};rkbSynced=false;render();}
     else if(act==='bjeter'){for(var k2 in sel){if(sel[k2]&&T[k2].status==="pending")T[k2].status=T[k2].fake?"resource":"trash";}sel={};render();}
     else if(act==='rksync'){rkbSynced=true;render();}
+    else if(act==='etrash'){T[+el.dataset.i].status="trash";renderEcarts();}
+    else if(act==='ebeatport'){var ex=T[+el.dataset.i];openLink('https://www.beatport.com/search?q='+encodeURIComponent(ex.a+' '+ex.t));}
+    else if(act==='ebandcamp'){var ex2=T[+el.dataset.i];openLink('https://bandcamp.com/search?q='+encodeURIComponent(ex2.a+' '+ex2.t));}
+    else if(act==='eslsk'){navigator.clipboard.writeText(decodeURIComponent(el.dataset.txt)).catch(function(){});var btn=el;btn.textContent='✓ Copié';setTimeout(function(){renderEcarts();},1200);}
+    else if(act==='eallbeatport'){T.filter(function(x){return x.status==="resource";}).forEach(function(x){openLink('https://www.beatport.com/search?q='+encodeURIComponent(x.a+' '+x.t));});}
+    else if(act==='eallbandcamp'){T.filter(function(x){return x.status==="resource";}).forEach(function(x){openLink('https://bandcamp.com/search?q='+encodeURIComponent(x.a+' '+x.t));});}
     else if(act==='bplay'){var i=+el.dataset.i;if(bibPlaying===i){bibPlaying=-1;}else{bibPlaying=i;bibPos=0.3;}renderBiblio();}
     else if(act==='bseek'){var r2=el.getBoundingClientRect();bibPos=Math.min(1,Math.max(0,(e.clientX-r2.left)/r2.width));renderBiblio();}
     else if(act==='link'){var parts=LIB[+el.dataset.i][0].split(/\s*[—–-]\s*/);var q=parts.length>1?parts[0]+' '+parts[1]:parts[0];openLink('https://www.discogs.com/search/?type=release&q='+encodeURIComponent(q));}
