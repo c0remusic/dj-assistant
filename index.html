@@ -28,12 +28,12 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--color-background
 .pitch{font-size:12px;line-height:1.45;color:var(--color-text-secondary);margin:0;flex:none}
 .pitch strong{color:var(--color-text-primary);font-weight:600}
 .sub{font-size:11px;color:var(--color-text-tertiary);margin:0;flex:none}
-.pa{flex:1;min-height:0;display:flex;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);overflow:hidden;font-size:12px}
-.frow{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;flex:none}
-.fcard{display:flex;flex-direction:column;align-items:flex-start;gap:3px;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:7px 9px}
-.fcard>i{font-size:15px;color:var(--color-text-info)}
-.fcard b{font-size:10px;font-weight:600;line-height:1.3;color:var(--color-text-primary)}
-.fcard span{display:none}
+.pa{height:calc(100vh - 310px);min-height:260px;flex:none;display:flex;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);overflow:hidden;font-size:12px}
+.frow{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;flex:none}
+.fcard{display:flex;gap:9px;align-items:flex-start;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:8px 10px}
+.fcard>i{font-size:16px;color:var(--color-text-info);flex:none;margin-top:1px}
+.fcard b{display:block;font-size:11px;font-weight:600;margin-bottom:2px}
+.fcard span{display:block;font-size:10px;line-height:1.4;color:var(--color-text-secondary)}
 .sb{width:46px;flex:none;display:flex;flex-direction:column;gap:3px;padding:10px 6px;background:var(--color-background-secondary);border-right:0.5px solid var(--color-border-tertiary);align-items:center}
 .nv{width:32px;height:32px;border-radius:var(--border-radius-md);display:flex;align-items:center;justify-content:center;color:var(--color-text-secondary);cursor:pointer}
 .nv.on{background:var(--color-background-info);color:var(--color-text-info)}.nv i{font-size:16px}
