@@ -26,24 +26,33 @@ function verdictBadge(v: AnalysisReport["verdict"]): string {
   return `<span style="display:inline-block;padding:4px 12px;border-radius:6px;font-weight:600;font-size:14px;color:${fg};background:${bg};border:1px solid ${fg}">${label}</span>`;
 }
 
-/** Draws the peaks envelope as a mirrored waveform — MAX over each pixel's bucket so no
- * transient between sample points is skipped (avoids the "sparse/excerpt" look). */
+/** Draws the peaks envelope as spaced, mirrored bars (Serato/Rekordbox-style) — readable
+ * rather than a solid block. Each bar = MAX over its time bucket. */
 function drawWaveform(canvas: HTMLCanvasElement, peaks: number[]) {
   const ctx = canvas.getContext("2d");
   if (!ctx || peaks.length === 0) return;
   const w = canvas.width, h = canvas.height, mid = h / 2;
   ctx.clearRect(0, 0, w, h);
+
+  const BAR = 3, GAP = 1; // px (canvas-internal); ~180 bars across 720
+  const slot = BAR + GAP;
+  const nBars = Math.floor(w / slot);
+  const per = peaks.length / nBars;
+
+  // faint center line
+  ctx.fillStyle = "rgba(237,233,224,.12)";
+  ctx.fillRect(0, mid - 0.5, w, 1);
+
   ctx.fillStyle = "#8ecce8";
-  const per = peaks.length / w; // peaks per pixel column
-  for (let x = 0; x < w; x++) {
-    const start = Math.floor(x * per);
-    const end = Math.max(start + 1, Math.floor((x + 1) * per));
+  for (let b = 0; b < nBars; b++) {
+    const start = Math.floor(b * per);
+    const end = Math.max(start + 1, Math.floor((b + 1) * per));
     let m = 0;
     for (let i = start; i < end && i < peaks.length; i++) {
       if (peaks[i] > m) m = peaks[i];
     }
-    const bar = m * mid;
-    ctx.fillRect(x, mid - bar, 1, Math.max(1, bar * 2));
+    const bar = Math.max(1, m * (mid - 1));
+    ctx.fillRect(b * slot, mid - bar, BAR, bar * 2);
   }
 }
 
