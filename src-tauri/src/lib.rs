@@ -5,6 +5,7 @@ mod encode;
 mod ffmpeg;
 mod filing;
 mod ipc;
+mod ipc_filing;
 mod library;
 mod naming;
 mod queue;
@@ -53,7 +54,19 @@ pub fn run() {
             ipc::rescan_source,
             ipc::set_source_watched,
             ipc::analyze_path,
-            ipc::analysis_progress
+            ipc::analysis_progress,
+            ipc_filing::reconcile,
+            ipc_filing::file_track,
+            ipc_filing::file_batch,
+            ipc_filing::reject_track,
+            ipc_filing::trash_track,
+            ipc_filing::list_bins,
+            ipc_filing::create_bin,
+            ipc_filing::undo_last,
+            ipc_filing::revert_batch,
+            ipc_filing::list_journal,
+            ipc_filing::get_setting,
+            ipc_filing::set_setting
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
