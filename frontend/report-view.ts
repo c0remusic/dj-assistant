@@ -54,6 +54,12 @@ const esc = (s: string) =>
   );
 const fmt = (n: number, d = 1) => (Number.isFinite(n) ? n.toFixed(d) : String(n));
 
+function spectroCaption(v: AnalysisReport["verdict"]): string {
+  if (v === "fake") return "coupure nette = probable transcodage";
+  if (v === "grey") return "à inspecter visuellement";
+  return "énergie pleine bande = encodage conforme";
+}
+
 function verdictBadge(v: AnalysisReport["verdict"]): string {
   const map = {
     ok: ["ti-shield-check", "Authentique", "var(--color-background-success)", "var(--color-text-success)"],
@@ -119,8 +125,7 @@ function reportHtml(r: AnalysisReport, closeBtn: boolean): string {
         <div style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;margin-top:2px">${esc(r.path)}</div></div>
       ${closeBtn ? '<button class="sift-close" style="flex:none;font-size:13px;padding:4px 10px">fermer</button>' : ""}
     </div>
-    <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px;flex-wrap:wrap">${verdictBadge(r.verdict)}
-      <span style="font-size:11px;color:var(--color-text-tertiary)">déclaré <span class="pill">${esc(r.declared_format)}</span> ${r.declared_rail}${r.declared_bitrate ? " · " + r.declared_bitrate + " kbps" : ""}</span></div>
+    <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px;flex-wrap:wrap">${verdictBadge(r.verdict)}</div>
 
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:11px;padding:8px 11px;min-height:80px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)">
       <div style="flex:none;align-self:stretch;width:62px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center">
@@ -128,19 +133,22 @@ function reportHtml(r: AnalysisReport, closeBtn: boolean): string {
         <span class="sift-time" title="Cliquer : écoulé ⇄ restant" style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);white-space:nowrap;font-family:var(--font-mono);font-size:9px;color:var(--color-text-secondary);cursor:pointer;transition:color .15s;display:inline-flex;align-items:center;justify-content:center;gap:3px"><span class="sift-time-val">0:00 / 0:00</span></span>
       </div>
       <div class="sift-wave" style="flex:1;min-width:0;align-self:center;cursor:pointer"></div>
-      <div style="flex:none;align-self:stretch;width:62px;position:relative;display:flex;align-items:center;justify-content:center">
-        <span style="position:absolute;top:0;left:0;right:0;text-align:center;font-size:8px;letter-spacing:.05em;text-transform:uppercase;color:var(--color-text-tertiary)">tempo</span>
-        <input class="sift-tempo" type="range" min="-8" max="8" step="1" value="0" title="Tempo — double-clic = reset" aria-label="Tempo" style="writing-mode:vertical-lr;direction:rtl;width:22px;height:38px">
-        <span class="sift-tempo-out" style="position:absolute;right:2px;top:50%;transform:translateY(-50%);font-family:var(--font-mono);font-size:8px;color:var(--color-text-secondary)">0%</span>
-        <button class="sift-key" title="Key-lock : le tempo ne change pas le pitch (off = varispeed)" style="position:absolute;bottom:0;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:1px 8px;font-size:8px;letter-spacing:.05em;text-transform:uppercase">key</button>
+      <div style="flex:none;align-self:stretch;width:64px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:6px;padding:3px 0">
+        <span style="font-size:8px;letter-spacing:.05em;text-transform:uppercase;color:var(--color-text-tertiary)">tempo</span>
+        <div style="flex:1;min-height:0;display:flex;align-items:center;gap:4px">
+          <input class="sift-tempo" type="range" min="-8" max="8" step="1" value="0" title="Tempo — double-clic = reset" aria-label="Tempo" style="writing-mode:vertical-lr;direction:rtl;width:22px;height:100%;max-height:42px">
+          <span class="sift-tempo-out" style="font-family:var(--font-mono);font-size:8px;color:var(--color-text-secondary);width:22px">0%</span>
+        </div>
+        <button class="sift-key" title="Key-lock : le tempo ne change pas le pitch (off = varispeed)" style="border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:2px 8px;font-size:8px;letter-spacing:.05em;text-transform:uppercase">key</button>
       </div>
     </div>
     <div style="margin-bottom:11px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);overflow:hidden">
       <button class="sift-sg-toggle" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 11px;background:var(--color-background-secondary);border:none;color:var(--color-text-primary);cursor:pointer;font-size:11px;text-align:left">
-        <span style="display:flex;align-items:center;gap:8px"><span class="sift-sg-caret" style="display:inline-block;transition:transform .25s;color:var(--color-text-tertiary)">▸</span> Spectrogramme <span style="color:var(--color-text-tertiary)">— preuve visuelle de la coupure</span></span>
+        <span style="display:flex;align-items:center;gap:8px"><span class="sift-sg-caret" style="display:inline-block;transition:transform .25s;color:var(--color-text-tertiary)">▸</span> Encodage &amp; spectrogramme</span>
         <span class="sift-sg-hint" style="font-size:11px;color:var(--color-text-info);flex:none">afficher</span>
       </button>
       <div class="sift-sg-body" style="max-height:0;overflow:hidden;transition:max-height .3s ease">
+        <div style="padding:8px 11px;font-size:10px;color:var(--color-text-tertiary);border-bottom:0.5px solid var(--color-border-tertiary);line-height:1.5">Déclaré <span class="pill">${esc(r.declared_format)}</span> ${r.declared_rail}${r.declared_bitrate ? " · " + r.declared_bitrate + " kbps" : ""} · coupure ${fmt(r.cutoff_hz, 0)} Hz — ${spectroCaption(r.verdict)}</div>
         <canvas class="sift-sg" width="720" height="180" style="width:100%;display:block;background:#000"></canvas>
       </div>
     </div>

@@ -148,7 +148,8 @@ async function renderQueue() {
           )}</span><i class="ti ti-chevron-right" style="flex:none;color:var(--color-text-tertiary);font-size:14px"></i></div>`,
       )
       .join("") ||
-      '<div style="font-size:12px;color:var(--color-text-tertiary);padding:6px 4px">File vide.</div>');
+      '<div style="font-size:12px;color:var(--color-text-tertiary);padding:6px 4px">File vide.</div>') +
+    '<div style="margin-top:8px;border:1px dashed var(--color-border-secondary);border-radius:var(--border-radius-md);padding:9px;text-align:center;font-size:10px;color:var(--color-text-tertiary);line-height:1.4"><i class="ti ti-music" style="font-size:14px;display:block;margin-bottom:2px"></i>glisser des fichiers audio ici</div>';
 
   // Live destination bins + neutral detail prompt (replace the mockup's hardcoded ones).
   const fldz = document.getElementById("fldz");
