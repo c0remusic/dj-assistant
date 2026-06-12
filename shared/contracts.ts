@@ -67,3 +67,47 @@ export interface AnalysisReport {
   tags_cdj_ok: boolean;
   has_cover: boolean;
 }
+
+// ---- M4 filing loop (mirror of naming.rs / encode.rs / library.rs / actions.rs) ----
+
+/** Output rail shapes. Serde-renamed on the Rust side (see encode.rs Target). */
+export type Target = "mp3_320" | "aiff_16_44";
+
+/** How sure reconciliation is about the metadata — green files in one click. */
+export type Confidence = "green" | "yellow";
+
+/** Canonical {artist,title,version} that drives BOTH the output filename and the tags. */
+export interface Canonical {
+  artist: string;
+  title: string;
+  version: string | null;
+  confidence: Confidence;
+}
+
+/** A destination folder under the library root (recursive). */
+export interface Bin {
+  rel: string; // forward-slash path relative to root, e.g. "House/Deep"
+  name: string; // last component
+  depth: number; // 1 = direct child
+}
+
+/** Result of filing one track. */
+export interface FileResult {
+  path: string;
+  batch_id: string;
+}
+
+/** Result of filing a batch: how many filed, and the ids left needing validation. */
+export interface BatchResult {
+  filed: number;
+  needs_validation: number[];
+}
+
+/** One consultable undo-journal entry (a live batch, summarized by its latest action). */
+export interface JournalEntry {
+  batch_id: string;
+  track_id: number | null;
+  kind: "convert" | "move" | "trash" | "reject";
+  to_path: string | null;
+  ts: string;
+}
