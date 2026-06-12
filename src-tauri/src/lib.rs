@@ -6,6 +6,7 @@ mod queue;
 mod scanner;
 mod sources;
 mod watcher;
+mod worker;
 
 use std::sync::Mutex;
 use tauri::Manager;
@@ -29,6 +30,8 @@ pub fn run() {
             app.manage(Mutex::new(conn));
             watcher::init_state(app.handle());
             watcher::start_all(app.handle());
+            worker::init(app.handle());
+            worker::refill(app.handle());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -42,7 +45,8 @@ pub fn run() {
             ipc::list_queue,
             ipc::rescan_source,
             ipc::set_source_watched,
-            ipc::analyze_path
+            ipc::analyze_path,
+            ipc::analysis_progress
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

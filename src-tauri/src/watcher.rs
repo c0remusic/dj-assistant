@@ -158,5 +158,6 @@ fn handle_events(app: &AppHandle, source_id: i64, res: DebounceEventResult) {
     drop(conn);
     if touched {
         app.emit("queue:changed", ()).ok();
+        crate::worker::refill(app);
     }
 }

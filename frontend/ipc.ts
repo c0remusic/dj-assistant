@@ -6,6 +6,7 @@ import type {
   Source,
   QueueItem,
   AnalysisReport,
+  AnalysisProgress,
 } from "../shared/contracts";
 
 export const appInfo = (): Promise<AppInfo> => invoke("app_info");
@@ -31,6 +32,14 @@ export const analyzePath = (
 ): Promise<AnalysisReport> =>
   invoke("analyze_path", { path, withSpectrogram });
 
+/** Background-analysis progress (pending analysed / total pending). */
+export const analysisProgress = (): Promise<AnalysisProgress> =>
+  invoke("analysis_progress");
+
 /** Subscribe to backend "queue:changed" pings. Returns an unlisten fn. */
 export const onQueueChanged = (cb: () => void): Promise<UnlistenFn> =>
   listen("queue:changed", () => cb());
+
+/** Subscribe to "analysis:changed" pings (a track just got analysed). */
+export const onAnalysisChanged = (cb: () => void): Promise<UnlistenFn> =>
+  listen("analysis:changed", () => cb());

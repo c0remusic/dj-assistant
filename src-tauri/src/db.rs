@@ -65,6 +65,16 @@ const MIGRATIONS: &[&str] = &[
     CREATE INDEX idx_tracks_source ON tracks(source_id);
     CREATE INDEX idx_tracks_status ON tracks(status);
     "#,
+    // v3 — M2b analysis worker: report columns missing from v1 + the "analyzed" marker.
+    r#"
+    ALTER TABLE tracks ADD COLUMN cutoff_hz REAL;
+    ALTER TABLE tracks ADD COLUMN dual_mono INTEGER;     -- 0/1
+    ALTER TABLE tracks ADD COLUMN container_ok INTEGER;  -- 0/1
+    ALTER TABLE tracks ADD COLUMN codec_error TEXT;
+    ALTER TABLE tracks ADD COLUMN id3_version TEXT;
+    ALTER TABLE tracks ADD COLUMN analyzed_at TEXT;      -- NULL = not yet analysed
+    CREATE INDEX idx_tracks_analyzed ON tracks(analyzed_at);
+    "#,
 ];
 
 /// Applies any migrations the DB hasn't seen yet, tracked via PRAGMA user_version.
@@ -150,6 +160,22 @@ mod tests {
             .map(|r| r.unwrap())
             .collect();
         for c in ["source_id", "filename", "size_bytes", "mtime"] {
+            assert!(cols.contains(&c.to_string()), "tracks missing column {c}");
+        }
+    }
+
+    #[test]
+    fn tracks_has_m2b_columns() {
+        let conn = Connection::open_in_memory().unwrap();
+        run_migrations(&conn).unwrap();
+        let cols: Vec<String> = conn
+            .prepare("SELECT name FROM pragma_table_info('tracks')")
+            .unwrap()
+            .query_map([], |r| r.get::<_, String>(0))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+        for c in ["cutoff_hz", "dual_mono", "container_ok", "codec_error", "id3_version", "analyzed_at"] {
             assert!(cols.contains(&c.to_string()), "tracks missing column {c}");
         }
     }
