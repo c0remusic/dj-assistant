@@ -1,3 +1,4 @@
+mod actions;
 pub mod analysis;
 mod db;
 mod encode;

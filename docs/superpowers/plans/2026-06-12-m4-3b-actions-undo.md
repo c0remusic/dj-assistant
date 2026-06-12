@@ -114,7 +114,9 @@ mod tests {
     #[test]
     fn record_inserts_a_row() {
         let conn = db();
-        let id = record(&conn, "b1", Some(7), "move", Some("/a"), Some("/b")).unwrap();
+        // track_id None: record() is exercised independently of any track row (FK-safe;
+        // foreign_keys is enforced on these connections, so a fake track_id would violate it)
+        let id = record(&conn, "b1", None, "move", Some("/a"), Some("/b")).unwrap();
         assert!(id > 0);
         let (kind, undone): (String, i64) = conn
             .query_row(
@@ -348,9 +350,13 @@ Expected: FAIL — `cannot find function revert_batch`.
 
 - [ ] **Step 3: Implement `revert_batch`**
 
-Add above the test module:
+Add above the test module (the `ActionRow` alias avoids clippy's `type_complexity` lint on
+the 5-tuple — define it near the top imports):
 
 ```rust
+/// A raw action row as loaded for reverting: (id, track_id, type, from_path, to_path).
+type ActionRow = (i64, Option<i64>, String, Option<String>, Option<String>);
+
 /// Reverse a whole user action (all live rows of `batch_id`), newest-first, then set the
 /// track back to `pending` (folder cleared) and mark the rows `undone`. Blocked if the
 /// batch has no live rows, or if a newer live action on the same track exists outside it.
@@ -360,7 +366,7 @@ pub fn revert_batch(conn: &Connection, batch_id: &str) -> Result<(), RevertError
         "SELECT id, track_id, type, from_path, to_path FROM actions
          WHERE batch_id=?1 AND undone=0 ORDER BY id DESC",
     )?;
-    let rows: Vec<(i64, Option<i64>, String, Option<String>, Option<String>)> = stmt
+    let rows: Vec<ActionRow> = stmt
         .query_map(params![batch_id], |r| {
             Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
         })?
