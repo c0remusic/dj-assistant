@@ -75,6 +75,16 @@ const MIGRATIONS: &[&str] = &[
     ALTER TABLE tracks ADD COLUMN analyzed_at TEXT;      -- NULL = not yet analysed
     CREATE INDEX idx_tracks_analyzed ON tracks(analyzed_at);
     "#,
+    // v4 — M4 filing loop: per-track target/confidence, version metadata, undo bookkeeping
+    // on actions, and a key/value settings store (library root, filename template, purge).
+    r#"
+    ALTER TABLE tracks ADD COLUMN target_format TEXT;     -- 'mp3_320' | 'aiff_16_44'
+    ALTER TABLE tracks ADD COLUMN confidence TEXT;        -- 'green' | 'yellow'
+    ALTER TABLE metadata ADD COLUMN version TEXT;         -- 'Original Mix', 'Remix'…
+    ALTER TABLE actions ADD COLUMN undone INTEGER NOT NULL DEFAULT 0;  -- 0/1
+    ALTER TABLE actions ADD COLUMN batch_id TEXT;         -- groups one filing's rows
+    CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    "#,
 ];
 
 /// Applies any migrations the DB hasn't seen yet, tracked via PRAGMA user_version.
@@ -129,7 +139,7 @@ mod tests {
     fn migrations_create_all_tables() {
         let conn = Connection::open_in_memory().unwrap();
         run_migrations(&conn).unwrap();
-        assert_eq!(table_count(&conn).unwrap(), 5);
+        assert_eq!(table_count(&conn).unwrap(), 6); // v4 adds `settings`
     }
 
     #[test]
@@ -137,7 +147,7 @@ mod tests {
         let conn = Connection::open_in_memory().unwrap();
         run_migrations(&conn).unwrap();
         run_migrations(&conn).unwrap(); // second run must not error or duplicate
-        assert_eq!(table_count(&conn).unwrap(), 5);
+        assert_eq!(table_count(&conn).unwrap(), 6);
     }
 
     #[test]
@@ -178,5 +188,40 @@ mod tests {
         for c in ["cutoff_hz", "dual_mono", "container_ok", "codec_error", "id3_version", "analyzed_at"] {
             assert!(cols.contains(&c.to_string()), "tracks missing column {c}");
         }
+    }
+
+    #[test]
+    fn tracks_has_m4_columns() {
+        let conn = Connection::open_in_memory().unwrap();
+        run_migrations(&conn).unwrap();
+        let cols: Vec<String> = conn
+            .prepare("SELECT name FROM pragma_table_info('tracks')")
+            .unwrap()
+            .query_map([], |r| r.get::<_, String>(0))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+        for c in ["target_format", "confidence"] {
+            assert!(cols.contains(&c.to_string()), "tracks missing column {c}");
+        }
+    }
+
+    #[test]
+    fn actions_and_settings_have_m4_shape() {
+        let conn = Connection::open_in_memory().unwrap();
+        run_migrations(&conn).unwrap();
+        let acols: Vec<String> = conn
+            .prepare("SELECT name FROM pragma_table_info('actions')")
+            .unwrap()
+            .query_map([], |r| r.get::<_, String>(0))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+        for c in ["undone", "batch_id"] {
+            assert!(acols.contains(&c.to_string()), "actions missing column {c}");
+        }
+        // settings table exists and is writable
+        conn.execute("INSERT INTO settings(key,value) VALUES('k','v')", [])
+            .expect("settings table usable");
     }
 }
