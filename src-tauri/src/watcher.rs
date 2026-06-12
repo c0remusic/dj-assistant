@@ -44,8 +44,22 @@ pub fn start_all(app: &AppHandle) {
     }
 }
 
+/// Strips Windows verbatim/extended-length prefixes (`\\?\C:\…`, `\\?\UNC\…`). `notify`
+/// (ReadDirectoryChangesW) silently fails to watch verbatim paths, so we normalise here.
+fn strip_verbatim(p: &str) -> String {
+    if let Some(rest) = p.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{rest}")
+    } else if let Some(rest) = p.strip_prefix(r"\\?\") {
+        rest.to_string()
+    } else {
+        p.to_string()
+    }
+}
+
 /// Starts a recursive debounced watcher on `path` for `source_id`. Replaces any existing one.
 pub fn start(app: &AppHandle, source_id: i64, path: &str) {
+    let path = strip_verbatim(path);
+    let path = path.as_str();
     if !std::path::Path::new(path).is_dir() {
         log::warn!("watch skipped, not a dir: {path}");
         return;
@@ -67,6 +81,7 @@ pub fn start(app: &AppHandle, source_id: i64, path: &str) {
         log::error!("watch failed for {path}: {e}");
         return;
     }
+    log::info!("watching source {source_id} at {path}");
     {
         let watchers = app.state::<Watchers>();
         if let Ok(mut map) = watchers.0.lock() {
@@ -96,6 +111,7 @@ fn handle_events(app: &AppHandle, source_id: i64, res: DebounceEventResult) {
             return;
         }
     };
+    log::info!("watch batch: {} event(s) for source {source_id}", events.len());
     let state = app.state::<Mutex<Connection>>();
     let Ok(conn) = state.lock() else { return };
     let mut touched = false;

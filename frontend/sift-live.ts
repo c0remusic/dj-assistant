@@ -6,6 +6,7 @@ import {
   removeSource,
   listQueue,
   onQueueChanged,
+  setSourceWatched,
 } from "./ipc";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { Source, QueueItem } from "../shared/contracts";
@@ -34,11 +35,18 @@ async function renderHomeSources() {
       const warn = s.accessible
         ? ""
         : ' <span style="color:var(--color-text-danger);font-size:11px">⚠ inaccessible</span>';
+      const watch = `<span class="tog${s.watched ? "" : " off"}" data-sift="togglewatch" data-id="${
+        s.id
+      }" data-watched="${s.watched ? "1" : "0"}" title="${
+        s.watched ? "Surveillance active — cliquer pour suspendre" : "Surveillance suspendue — cliquer pour activer"
+      }"></span>`;
+      const count = s.pending_count
+        ? `${s.pending_count} nouveau${s.pending_count > 1 ? "x" : ""}`
+        : "à jour";
+      const countColor = s.pending_count ? "var(--color-text-info)" : "var(--color-text-tertiary)";
       return `<div class="srow"><span class="v"><i class="ti ti-folder"></i> ${esc(
         s.path,
-      )}${warn}</span><span style="display:flex;align-items:center;gap:9px"><span style="font-size:11px;color:var(--color-text-info)">${
-        s.pending_count
-      } en file</span><button data-sift="rmsrc" data-id="${s.id}" style="font-size:11px;padding:2px 7px;color:var(--color-text-danger)">retirer</button></span></div>`;
+      )}${warn}</span><span style="display:flex;align-items:center;gap:9px"><span style="font-size:11px;color:${countColor}">${count}</span>${watch}<button data-sift="rmsrc" data-id="${s.id}" style="font-size:11px;padding:2px 7px;color:var(--color-text-danger)">retirer</button></span></div>`;
     })
     .join("");
 
@@ -50,15 +58,29 @@ async function renderHomeSources() {
     (rows || '<div style="font-size:12px;color:var(--color-text-tertiary)">Aucun dossier surveillé.</div>') +
     '<div style="margin:8px 0 0"><button data-sift="addsrc"><i class="ti ti-plus" style="font-size:13px;vertical-align:-2px"></i> ajouter un dossier</button></div>';
 
-  content
-    .querySelectorAll<HTMLButtonElement>("button")
-    .forEach((b) => {
-      if (b.textContent && b.textContent.includes("ajouter un dossier") && !b.dataset.sift) {
-        b.closest("div")?.style.setProperty("display", "none");
-      }
-    });
-
-  content.querySelector(".home-left")?.appendChild(panel);
+  // Hide the WHOLE mockup "Dossiers surveillés" block (its hardcoded counts never change):
+  // the .col-h header + every following sibling up to the next .col-h. Insert the real
+  // panel in its place.
+  const left = content.querySelector(".home-left");
+  if (!left) return;
+  let insertBefore: Element | null = null;
+  let hiding = false;
+  for (const child of Array.from(left.children)) {
+    const isColH = child.classList.contains("col-h");
+    if (isColH && child.textContent?.trim() === "Dossiers surveillés") {
+      hiding = true;
+      (child as HTMLElement).style.display = "none";
+      continue;
+    }
+    if (hiding && isColH) {
+      // reached the next section ("Répartition par dossier") — stop, drop the panel here.
+      insertBefore = child;
+      hiding = false;
+      continue;
+    }
+    if (hiding) (child as HTMLElement).style.display = "none";
+  }
+  left.insertBefore(panel, insertBefore);
 }
 
 /** Replaces the mockup queue list with real pending items (Revue screen). */
@@ -115,6 +137,12 @@ export function installLiveWiring() {
     } else if (act === "rmsrc") {
       e.stopPropagation();
       void removeSource(Number(el.dataset.id)).then(refresh);
+    } else if (act === "togglewatch") {
+      e.stopPropagation();
+      void setSourceWatched(
+        Number(el.dataset.id),
+        el.dataset.watched !== "1",
+      ).then(refresh);
     }
   });
 

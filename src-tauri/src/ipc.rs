@@ -97,6 +97,27 @@ pub fn list_queue(conn: State<'_, Mutex<Connection>>) -> Result<Vec<queue::Queue
     queue::list_pending(&conn).map_err(|e| e.to_string())
 }
 
+/// Enables/disables live watching for a source: persists the flag and starts or stops
+/// the watcher accordingly.
+#[tauri::command]
+pub fn set_source_watched(
+    app: AppHandle,
+    conn: State<'_, Mutex<Connection>>,
+    id: i64,
+    watched: bool,
+) -> Result<(), String> {
+    let path = {
+        let conn = conn.lock().map_err(|e| e.to_string())?;
+        sources::set_watched(&conn, id, watched).map_err(|e| e.to_string())?
+    };
+    if watched {
+        crate::watcher::start(&app, id, &path);
+    } else {
+        crate::watcher::stop(&app, id);
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub fn rescan_source(app: AppHandle, id: i64) -> Result<(), String> {
     spawn_scan(app, id);

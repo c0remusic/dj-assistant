@@ -15,6 +15,7 @@ export interface Source {
   path: string;
   pending_count: number;
   accessible: boolean;
+  watched: boolean;
 }
 
 export interface QueueItem {

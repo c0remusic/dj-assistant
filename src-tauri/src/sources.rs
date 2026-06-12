@@ -3,6 +3,19 @@ use rusqlite::Connection;
 use serde::Serialize;
 use std::path::Path;
 
+/// Strips Windows verbatim/extended-length prefixes (`\\?\C:\…`, `\\?\UNC\…`) that
+/// `std::fs::canonicalize` emits — keeps stored paths consistent with what `notify`
+/// reports for live events (it can't watch verbatim paths).
+fn strip_verbatim(p: &str) -> String {
+    if let Some(rest) = p.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{rest}")
+    } else if let Some(rest) = p.strip_prefix(r"\\?\") {
+        rest.to_string()
+    } else {
+        p.to_string()
+    }
+}
+
 /// A watched folder as shown on the Accueil screen.
 #[derive(Debug, Serialize, PartialEq)]
 pub struct Source {
@@ -10,13 +23,14 @@ pub struct Source {
     pub path: String,
     pub pending_count: i64,
     pub accessible: bool,
+    pub watched: bool,
 }
 
 /// Canonicalises `path` (so disk-scan and live-watch keys stay consistent), inserts it,
 /// and returns the new source id. If the path is already a source, returns the existing id.
 pub fn add(conn: &Connection, path: &str) -> rusqlite::Result<i64> {
     let canon = std::fs::canonicalize(path)
-        .map(|p| p.to_string_lossy().into_owned())
+        .map(|p| strip_verbatim(&p.to_string_lossy()))
         .unwrap_or_else(|_| path.to_string());
     conn.execute(
         "INSERT INTO sources (path, watched, created_at) VALUES (?1, 1, datetime('now'))
@@ -34,7 +48,8 @@ pub fn add(conn: &Connection, path: &str) -> rusqlite::Result<i64> {
 pub fn list(conn: &Connection) -> rusqlite::Result<Vec<Source>> {
     let mut stmt = conn.prepare(
         "SELECT s.id, s.path,
-                (SELECT count(*) FROM tracks t WHERE t.source_id=s.id AND t.status='pending')
+                (SELECT count(*) FROM tracks t WHERE t.source_id=s.id AND t.status='pending'),
+                s.watched
          FROM sources s ORDER BY s.id",
     )?;
     let rows = stmt.query_map([], |r| {
@@ -45,6 +60,7 @@ pub fn list(conn: &Connection) -> rusqlite::Result<Vec<Source>> {
             path,
             pending_count: r.get(2)?,
             accessible,
+            watched: r.get::<_, i64>(3)? != 0,
         })
     })?;
     rows.collect()
@@ -55,6 +71,20 @@ pub fn list(conn: &Connection) -> rusqlite::Result<Vec<Source>> {
 pub fn remove(conn: &Connection, id: i64) -> rusqlite::Result<()> {
     conn.execute("DELETE FROM sources WHERE id=?1", rusqlite::params![id])?;
     Ok(())
+}
+
+/// Toggles live watching for a source (persists the `watched` flag). Returns the source path
+/// so the caller can start/stop the live watcher.
+pub fn set_watched(conn: &Connection, id: i64, watched: bool) -> rusqlite::Result<String> {
+    conn.execute(
+        "UPDATE sources SET watched=?2 WHERE id=?1",
+        rusqlite::params![id, watched as i64],
+    )?;
+    conn.query_row(
+        "SELECT path FROM sources WHERE id=?1",
+        rusqlite::params![id],
+        |r| r.get(0),
+    )
 }
 
 #[cfg(test)]

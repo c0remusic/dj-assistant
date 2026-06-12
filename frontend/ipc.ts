@@ -14,6 +14,8 @@ export const removeSource = (id: number): Promise<void> =>
 export const listQueue = (): Promise<QueueItem[]> => invoke("list_queue");
 export const rescanSource = (id: number): Promise<void> =>
   invoke("rescan_source", { id });
+export const setSourceWatched = (id: number, watched: boolean): Promise<void> =>
+  invoke("set_source_watched", { id, watched });
 
 /** Subscribe to backend "queue:changed" pings. Returns an unlisten fn. */
 export const onQueueChanged = (cb: () => void): Promise<UnlistenFn> =>
