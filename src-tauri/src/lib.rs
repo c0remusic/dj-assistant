@@ -3,6 +3,7 @@ pub mod analysis;
 mod db;
 mod encode;
 mod ffmpeg;
+mod filing;
 mod ipc;
 mod library;
 mod naming;
