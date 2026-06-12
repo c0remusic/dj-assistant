@@ -146,7 +146,7 @@ export function renderBins(fldz: HTMLElement): void {
     (tree ||
       '<div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:4px">Aucun dossier — crée-en un.</div>') +
     newRow +
-    '<div data-fil="drop" style="margin-top:10px;border:1px dashed var(--color-border-secondary);border-radius:var(--border-radius-md);padding:9px;text-align:center;font-size:10px;color:var(--color-text-tertiary);line-height:1.4"><i class="ti ti-folder-plus" style="font-size:14px;display:block;margin-bottom:2px"></i>glisser un dossier ici pour l\'ajouter</div>';
+    '<div data-fil="drop" class="sift-drop" style="margin-top:10px;border:1px dashed var(--color-border-secondary);border-radius:var(--border-radius-md);padding:9px;text-align:center;font-size:10px;color:var(--color-text-tertiary);line-height:1.4;transition:border-color .15s,color .15s"><i class="ti ti-folder-plus" style="font-size:14px;display:block;margin-bottom:2px"></i>glisser un dossier ici pour le surveiller</div>';
 
   fldz.querySelectorAll<HTMLElement>('[data-fil="caret"]').forEach((el) =>
     el.addEventListener("click", (e) => {
@@ -191,10 +191,13 @@ function defaultTarget(rail: string): Target {
 const TARGET_LABEL: Record<Target, string> = {
   mp3_320: "MP3 320",
   aiff_16_44: "AIFF",
+  wav_16_44: "WAV",
 };
 
 function targetExt(t: Target): string {
-  return t === "mp3_320" ? "mp3" : "aiff";
+  if (t === "mp3_320") return "mp3";
+  if (t === "wav_16_44") return "wav";
+  return "aiff";
 }
 
 /** Live filename preview from the edited canonical + chosen target. */
@@ -224,7 +227,7 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
       ? '<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--color-text-success)"><i class="ti ti-circle-check" style="font-size:11px"></i> métadonnées sûres</span>'
       : '<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--color-text-warning)"><i class="ti ti-alert-circle" style="font-size:11px"></i> à vérifier</span>';
 
-  const chips = (["mp3_320", "aiff_16_44"] as Target[])
+  const chips = (["mp3_320", "aiff_16_44", "wav_16_44"] as Target[])
     .map((t) => {
       const on = (state.target ?? defaultTarget(rail)) === t ? " on" : "";
       return `<span class="chip${on}" data-fil="fmt" data-t="${t}">${TARGET_LABEL[t]}</span>`;

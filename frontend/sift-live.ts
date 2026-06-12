@@ -9,8 +9,10 @@ import {
   onAnalysisChanged,
   analysisProgress,
   setSourceWatched,
+  importPaths,
 } from "./ipc";
 import { open } from "@tauri-apps/plugin-dialog";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import {
   openFilingInto,
   refreshBins,
@@ -149,7 +151,7 @@ async function renderQueue() {
       )
       .join("") ||
       '<div style="font-size:12px;color:var(--color-text-tertiary);padding:6px 4px">File vide.</div>') +
-    '<div style="margin-top:8px;border:1px dashed var(--color-border-secondary);border-radius:var(--border-radius-md);padding:9px;text-align:center;font-size:10px;color:var(--color-text-tertiary);line-height:1.4"><i class="ti ti-music" style="font-size:14px;display:block;margin-bottom:2px"></i>glisser des fichiers audio ici</div>';
+    '<div class="sift-drop" style="margin-top:8px;border:1px dashed var(--color-border-secondary);border-radius:var(--border-radius-md);padding:9px;text-align:center;font-size:10px;color:var(--color-text-tertiary);line-height:1.4;transition:border-color .15s,color .15s"><i class="ti ti-music" style="font-size:14px;display:block;margin-bottom:2px"></i>glisser des fichiers ou dossiers ici</div>';
 
   // Live destination bins + neutral detail prompt (replace the mockup's hardcoded ones).
   const fldz = document.getElementById("fldz");
@@ -175,10 +177,39 @@ async function refresh() {
   await renderQueue();
 }
 
+/** Highlight the dashed drop zones while a file/folder is dragged over the window. */
+function setDropActive(on: boolean) {
+  document.querySelectorAll<HTMLElement>(".sift-drop").forEach((el) => {
+    el.style.borderColor = on ? "var(--color-text-info)" : "var(--color-border-secondary)";
+    el.style.color = on ? "var(--color-text-info)" : "var(--color-text-tertiary)";
+  });
+}
+
+/** OS drag-drop: directories → watched sources, audio files → pending queue items. */
+async function installDragDrop() {
+  try {
+    await getCurrentWebview().onDragDropEvent((ev) => {
+      const p = ev.payload;
+      if (p.type === "drop") {
+        setDropActive(false);
+        if (p.paths.length)
+          void importPaths(p.paths).catch((e) => console.error("import_paths failed", e));
+      } else if (p.type === "enter" || p.type === "over") {
+        setDropActive(true);
+      } else {
+        setDropActive(false);
+      }
+    });
+  } catch (e) {
+    console.error("drag-drop init failed", e);
+  }
+}
+
 export function installLiveWiring() {
   window.__siftHome = renderHomeSources;
   window.__siftQueue = renderQueue;
   installUndoShortcut();
+  void installDragDrop();
 
   document.getElementById("pa")?.addEventListener("click", (e) => {
     // queue item → open the live filing pane (report + editor + actions) in #mid

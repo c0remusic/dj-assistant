@@ -55,6 +55,7 @@ pub fn run() {
             ipc::set_source_watched,
             ipc::analyze_path,
             ipc::analysis_progress,
+            ipc::import_paths,
             ipc_filing::reconcile,
             ipc_filing::file_track,
             ipc_filing::file_batch,

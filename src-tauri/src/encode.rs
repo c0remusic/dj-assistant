@@ -12,13 +12,15 @@ use lofty::file::AudioFile;
 use lofty::probe::Probe;
 use serde::{Deserialize, Serialize};
 
-/// The two output shapes. Lossless rail → AIFF 16-bit/44.1; lossy rail → MP3 320 CBR.
+/// The output shapes. Lossless rail → AIFF or WAV 16-bit/44.1; lossy rail → MP3 320 CBR.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Target {
     #[serde(rename = "mp3_320")]
     Mp3320,
     #[serde(rename = "aiff_16_44")]
     Aiff1644,
+    #[serde(rename = "wav_16_44")]
+    Wav1644,
 }
 
 impl Target {
@@ -27,6 +29,7 @@ impl Target {
         match self {
             Target::Mp3320 => "mp3",
             Target::Aiff1644 => "aiff",
+            Target::Wav1644 => "wav",
         }
     }
 
@@ -34,7 +37,7 @@ impl Target {
     pub fn rail(self) -> Rail {
         match self {
             Target::Mp3320 => Rail::Lossy,
-            Target::Aiff1644 => Rail::Lossless,
+            Target::Aiff1644 | Target::Wav1644 => Rail::Lossless,
         }
     }
 }
@@ -88,20 +91,22 @@ fn ext_of(path: &str) -> String {
 /// target = .aif/.aiff at 44.1 kHz / 16-bit.
 pub fn is_conformant(path: &str, target: Target) -> bool {
     let ext = ext_of(path);
+    let pcm_16_44 = |containers: &[&str]| -> bool {
+        if !containers.contains(&ext.as_str()) {
+            return false;
+        }
+        match Probe::open(path).and_then(|p| p.read()) {
+            Ok(t) => {
+                let props = t.properties();
+                props.sample_rate() == Some(44100) && props.bit_depth() == Some(16)
+            }
+            Err(_) => false,
+        }
+    };
     match target {
         Target::Mp3320 => ext == "mp3",
-        Target::Aiff1644 => {
-            if ext != "aif" && ext != "aiff" {
-                return false;
-            }
-            match Probe::open(path).and_then(|p| p.read()) {
-                Ok(t) => {
-                    let props = t.properties();
-                    props.sample_rate() == Some(44100) && props.bit_depth() == Some(16)
-                }
-                Err(_) => false,
-            }
-        }
+        Target::Aiff1644 => pcm_16_44(&["aif", "aiff"]),
+        Target::Wav1644 => pcm_16_44(&["wav"]),
     }
 }
 
@@ -112,6 +117,7 @@ pub fn encode(src: &str, dst: &str, target: Target) -> Result<(), EncodeError> {
     let codec_args: &[&str] = match target {
         Target::Mp3320 => &["-vn", "-c:a", "libmp3lame", "-b:a", "320k", "-ar", "44100"],
         Target::Aiff1644 => &["-vn", "-c:a", "pcm_s16be", "-ar", "44100"],
+        Target::Wav1644 => &["-vn", "-c:a", "pcm_s16le", "-ar", "44100"],
     };
 
     let mut child = FfmpegCommand::new()
@@ -172,6 +178,22 @@ mod tests {
     fn target_ext_matches() {
         assert_eq!(Target::Mp3320.ext(), "mp3");
         assert_eq!(Target::Aiff1644.ext(), "aiff");
+        assert_eq!(Target::Wav1644.ext(), "wav");
+        assert_eq!(Target::Wav1644.rail(), Rail::Lossless);
+    }
+
+    #[test]
+    fn encodes_flac_to_conformant_wav() {
+        let Some(src) = fixture("real_lossless.flac") else {
+            eprintln!("skip: no fixture");
+            return;
+        };
+        crate::ffmpeg::init_ffmpeg_path();
+        let dir = tempfile::tempdir().unwrap();
+        let dst = dir.path().join("out.wav");
+        let dst = dst.to_str().unwrap();
+        encode(&src, dst, Target::Wav1644).expect("encode wav");
+        assert!(is_conformant(dst, Target::Wav1644), "encoded WAV must be 16-bit/44.1");
     }
 
     #[test]

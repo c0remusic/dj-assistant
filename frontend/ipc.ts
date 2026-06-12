@@ -111,3 +111,10 @@ export const getSetting = (key: string): Promise<string | null> =>
 /** Write one app setting (e.g. the library root). */
 export const setSetting = (key: string, value: string): Promise<void> =>
   invoke("set_setting", { key, value });
+
+/** Import OS-dropped paths: directories become watched sources, audio files become pending
+ * queue items. Returns how many of each were added. */
+export const importPaths = (
+  paths: string[],
+): Promise<{ files_added: number; folders_added: number }> =>
+  invoke("import_paths", { paths });
