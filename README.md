@@ -12,7 +12,7 @@
 | Jalon | Statut |
 |---|---|
 | **M0 — Scaffolding** | ✅ **fait** — Tauri v2 boote, FFmpeg sidecar bundlé (`ffmpeg-sidecar`), SQLite + migrations, IPC typé, CI Win+Mac |
-| M1 — Watcher + file « à traiter » | à venir |
+| **M1 — Watcher + file « à traiter »** | ✅ **fait** — multi-dossiers, scan complet + diff, watcher live (`notify`), file = `tracks pending`, UI Accueil (sources + warning Completed) + Revue câblées |
 | M2 — Analyseur (waveform/spectro/verdict) ⭐ | à venir |
 | M3+ | voir [`docs/plan-implementation.md`](docs/plan-implementation.md) |
 
