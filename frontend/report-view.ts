@@ -123,14 +123,19 @@ function reportHtml(r: AnalysisReport, closeBtn: boolean): string {
         <canvas class="sift-sg" width="720" height="180" style="width:100%;display:block;background:#000"></canvas>
       </div>
     </div>
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:13px;padding:8px 10px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)">
-      <button class="sift-play" title="Lecture / pause" style="flex:none;width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;padding:0"><i class="ti ti-player-play" style="font-size:14px"></i></button>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;padding:9px 11px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)">
+      <button class="sift-play" title="Lecture / pause" style="flex:none;width:32px;height:32px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;padding:0"><i class="ti ti-player-play" style="font-size:14px"></i></button>
       <div class="sift-wave" style="flex:1;min-width:0;cursor:pointer"></div>
-      <span class="sift-time" title="Cliquer : écoulé ⇄ restant" style="flex:none;font-family:var(--font-mono);font-size:10px;color:var(--color-text-secondary);min-width:74px;text-align:right;cursor:pointer;transition:color .15s">0:00 / 0:00</span>
-      <div style="flex:none;display:flex;flex-direction:column;align-items:center;gap:2px">
-        <input class="sift-tempo" type="range" min="-8" max="8" step="1" value="0" title="Tempo — double-clic = reset" aria-label="Tempo" style="writing-mode:vertical-lr;direction:rtl;width:16px;height:34px">
-        <span class="sift-tempo-out" style="font-family:var(--font-mono);font-size:9px;color:var(--color-text-tertiary)">0%</span>
-        <button class="sift-keylock" title="Key-lock : le tempo ne change pas le pitch" style="font-size:8px;padding:1px 5px;line-height:1.4;border-radius:4px;display:inline-flex;align-items:center;gap:3px"><i class="ti ti-lock" style="font-size:10px"></i>key</button>
+      <div style="flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:7px">
+        <span class="sift-time" title="Cliquer : écoulé ⇄ restant" style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-secondary);cursor:pointer;transition:color .15s">0:00 / 0:00</span>
+        <div style="display:flex;align-items:center;gap:9px">
+          <input class="sift-tempo" type="range" min="-8" max="8" step="1" value="0" title="Tempo — double-clic = reset" aria-label="Tempo" style="width:82px">
+          <span class="sift-tempo-out pill" style="min-width:44px;justify-content:center;font-family:var(--font-mono)">0%</span>
+          <div style="display:flex;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);overflow:hidden">
+            <button class="sift-key" title="Key-lock — le tempo ne change pas le pitch" style="border:none;border-radius:0;padding:4px 9px;font-size:11px;display:inline-flex;align-items:center;gap:4px"><i class="ti ti-lock" style="font-size:11px"></i>key</button>
+            <button class="sift-vari" title="Varispeed — le tempo change le pitch (effet vinyle)" style="border:none;border-radius:0;padding:4px 9px;font-size:11px;display:inline-flex;align-items:center;gap:4px;border-left:0.5px solid var(--color-border-tertiary)"><i class="ti ti-lock-open" style="font-size:11px"></i>vari</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -184,21 +189,28 @@ function mountPlayer(root: HTMLElement, r: AnalysisReport) {
     const i = playBtn?.querySelector("i");
     if (i) i.className = `ti ti-${name}`;
   };
-  const keyBtn = root.querySelector<HTMLButtonElement>(".sift-keylock");
+  const keyEl = root.querySelector<HTMLButtonElement>(".sift-key");
+  const variEl = root.querySelector<HTMLButtonElement>(".sift-vari");
   let keyLock = true; // DJ default: tempo doesn't move the pitch (browser time-stretch)
   const applyRate = () => ws.setPlaybackRate(1 + Number(tempo?.value || 0) / 100, keyLock);
-  const refreshKey = () => {
-    if (!keyBtn) return;
-    keyBtn.innerHTML = keyLock
-      ? '<i class="ti ti-lock" style="font-size:10px"></i>key'
-      : '<i class="ti ti-lock-open" style="font-size:10px"></i>vari';
-    keyBtn.style.color = keyLock ? "var(--color-text-info)" : "var(--color-text-tertiary)";
-    keyBtn.title = keyLock
-      ? "Key-lock ON — le tempo ne change pas le pitch (cliquer pour varispeed)"
-      : "Varispeed — le tempo change le pitch comme un vinyle (cliquer pour key-lock)";
+  const segActive = (el: HTMLElement | null, on: boolean) => {
+    if (!el) return;
+    el.style.background = on ? "var(--color-background-info)" : "transparent";
+    el.style.color = on ? "var(--color-text-info)" : "var(--color-text-tertiary)";
   };
-  keyBtn?.addEventListener("click", () => {
-    keyLock = !keyLock;
+  const refreshKey = () => {
+    segActive(keyEl, keyLock);
+    segActive(variEl, !keyLock);
+  };
+  keyEl?.addEventListener("click", () => {
+    if (keyLock) return;
+    keyLock = true;
+    refreshKey();
+    applyRate();
+  });
+  variEl?.addEventListener("click", () => {
+    if (!keyLock) return;
+    keyLock = false;
     refreshKey();
     applyRate();
   });
