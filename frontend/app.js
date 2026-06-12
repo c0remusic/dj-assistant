@@ -66,6 +66,7 @@ function openLink(u){window.open(u,'_blank','noopener');}
       +dossiers
       +(filed?'<div class="col-h" style="margin-top:12px">Répartition par dossier</div>'+bars:'');
     content.innerHTML='<div class="home-body"><div class="home-left">'+leftHtml+'</div></div>';
+    if(window.__siftHome)window.__siftHome();
   }
 
   function renderRevue(){
@@ -94,6 +95,7 @@ function openLink(u){window.open(u,'_blank','noopener');}
       function mv(e2){qw=Math.min(380,Math.max(140,w0+(e2.clientX-x0)));document.getElementById('qcol').style.width=qw+'px';}
       function up(){document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);}
       document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);});
+    if(window.__siftQueue)window.__siftQueue();
   }
 
   function renderMid(){var mid=document.getElementById('mid');if(!mid)return;
