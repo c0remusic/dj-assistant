@@ -15,12 +15,12 @@ const fmt = (n: number, d = 1) => (Number.isFinite(n) ? n.toFixed(d) : String(n)
 
 function verdictBadge(v: AnalysisReport["verdict"]): string {
   const map = {
-    ok: ["✓ Authentique", "#5cc97a", "#1f3a24"],
-    fake: ["✗ Fake / sur-encodé", "#ff6b6b", "#3a1f1f"],
-    grey: ["? Zone grise", "#f0c060", "#3a331f"],
+    ok: ["✓ Authentique", "var(--color-background-success)", "var(--color-text-success)"],
+    fake: ["✗ Fake / sur-encodé", "var(--color-background-danger)", "var(--color-text-danger)"],
+    grey: ["? Zone grise", "var(--color-background-warning)", "var(--color-text-warning)"],
   } as const;
-  const [label, fg, bg] = map[v];
-  return `<span style="display:inline-block;padding:4px 12px;border-radius:6px;font-weight:600;font-size:14px;color:${fg};background:${bg};border:1px solid ${fg}">${label}</span>`;
+  const [label, bg, fg] = map[v];
+  return `<span style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:var(--border-radius-md);font-weight:600;font-size:12px;color:${fg};background:${bg}">${label}</span>`;
 }
 
 function drawWaveform(canvas: HTMLCanvasElement, peaks: number[]) {
@@ -86,7 +86,7 @@ function peaksCoverage(r: AnalysisReport): string {
 }
 
 function row(label: string, value: string): string {
-  return `<div style="display:flex;justify-content:space-between;gap:16px;padding:3px 0;border-bottom:1px solid rgba(237,233,224,.08)"><span style="color:var(--color-text-tertiary)">${label}</span><span style="font-family:monospace;text-align:right">${value}</span></div>`;
+  return `<div style="display:flex;justify-content:space-between;gap:16px;padding:3px 0;border-bottom:0.5px solid var(--color-border-tertiary)"><span style="color:var(--color-text-tertiary)">${label}</span><span style="font-family:var(--font-mono);text-align:right;color:var(--color-text-secondary)">${value}</span></div>`;
 }
 
 /** The report's inner HTML (no positioning chrome). `closeBtn` adds a "fermer" button. */
@@ -94,25 +94,25 @@ function reportHtml(r: AnalysisReport, closeBtn: boolean): string {
   const yn = (b: boolean) => (b ? "oui" : "non");
   const name = r.path.split(/[\\/]/).pop() || r.path;
   return `
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px">
-      <div><div style="font-size:14px;font-weight:600;word-break:break-all">${esc(name)}</div>
-        <div style="font-size:10px;color:var(--color-text-tertiary);word-break:break-all;margin-top:2px">${esc(r.path)}</div></div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px">
+      <div style="min-width:0"><div style="font-size:13px;font-weight:600;word-break:break-all;color:var(--color-text-primary)">${esc(name)}</div>
+        <div style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;margin-top:2px">${esc(r.path)}</div></div>
       ${closeBtn ? '<button class="sift-close" style="flex:none;font-size:13px;padding:4px 10px">fermer</button>' : ""}
     </div>
-    <div style="margin-bottom:14px">${verdictBadge(r.verdict)}
-      <span style="margin-left:10px;font-size:12px;color:var(--color-text-tertiary)">déclaré ${esc(r.declared_format)} · ${r.declared_rail}${r.declared_bitrate ? " · " + r.declared_bitrate + " kbps" : ""}</span></div>
+    <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px;flex-wrap:wrap">${verdictBadge(r.verdict)}
+      <span style="font-size:11px;color:var(--color-text-tertiary)">déclaré <span class="pill">${esc(r.declared_format)}</span> ${r.declared_rail}${r.declared_bitrate ? " · " + r.declared_bitrate + " kbps" : ""}</span></div>
 
-    <div style="margin-bottom:12px;border:1px solid rgba(237,233,224,.12);border-radius:8px;overflow:hidden">
-      <button class="sift-sg-toggle" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:rgba(237,233,224,.04);border:none;color:#ede9e0;cursor:pointer;font-size:12px;text-align:left">
+    <div style="margin-bottom:11px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);overflow:hidden">
+      <button class="sift-sg-toggle" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 11px;background:var(--color-background-secondary);border:none;color:var(--color-text-primary);cursor:pointer;font-size:11px;text-align:left">
         <span style="display:flex;align-items:center;gap:8px"><span class="sift-sg-caret" style="display:inline-block;transition:transform .25s;color:var(--color-text-tertiary)">▸</span> Spectrogramme <span style="color:var(--color-text-tertiary)">— preuve visuelle de la coupure</span></span>
-        <span class="sift-sg-hint" style="font-size:11px;color:#FFdc82;flex:none">afficher</span>
+        <span class="sift-sg-hint" style="font-size:11px;color:var(--color-text-info);flex:none">afficher</span>
       </button>
       <div class="sift-sg-body" style="max-height:0;overflow:hidden;transition:max-height .3s ease">
         <canvas class="sift-sg" width="720" height="180" style="width:100%;display:block;background:#000"></canvas>
       </div>
     </div>
-    <div style="font-size:11px;color:var(--color-text-tertiary);margin:0 0 4px">Waveform</div>
-    <canvas class="sift-wf" width="720" height="70" style="width:100%;border-radius:6px;background:#101418;margin-bottom:14px"></canvas>
+    <div style="font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--color-text-tertiary);margin:0 0 4px">Waveform</div>
+    <canvas class="sift-wf" width="720" height="64" style="width:100%;border-radius:var(--border-radius-md);background:var(--color-background-secondary);margin-bottom:13px"></canvas>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 28px;font-size:12px">
       ${row("Verdict", r.verdict)}
@@ -213,12 +213,13 @@ export async function openReportModal(path: string) {
   });
   document.body.appendChild(ov);
   const name = path.split(/[\\/]/).pop() || path;
-  ov.innerHTML = `<div style="background:#1a1a1a;color:#ede9e0;border-radius:12px;padding:22px 26px;font-size:13px;box-shadow:0 12px 48px rgba(0,0,0,.5)">⏳ Analyse de <strong>${esc(name)}</strong>…</div>`;
+  const cardCss =
+    "background:var(--color-background-primary);color:var(--color-text-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-lg,12px);box-shadow:0 12px 48px rgba(0,0,0,.5)";
+  ov.innerHTML = `<div style="${cardCss};padding:22px 26px;font-size:13px">⏳ Analyse de <strong>${esc(name)}</strong>…</div>`;
   try {
     const r = await analyzePath(path, false);
     const card = document.createElement("div");
-    card.style.cssText =
-      "background:#1a1a1a;color:#ede9e0;border:1px solid rgba(237,233,224,.15);border-radius:12px;max-width:760px;width:100%;max-height:90vh;overflow:auto;padding:20px;box-shadow:0 12px 48px rgba(0,0,0,.5)";
+    card.style.cssText = `${cardCss};max-width:760px;width:100%;max-height:90vh;overflow:auto;padding:20px`;
     card.innerHTML = reportHtml(r, true);
     ov.innerHTML = "";
     ov.appendChild(card);
@@ -226,6 +227,6 @@ export async function openReportModal(path: string) {
     wireReport(card, r);
   } catch (e) {
     console.error("analyze_path failed", e);
-    ov.innerHTML = `<div style="background:#1a1a1a;color:#ff6b6b;border-radius:12px;padding:22px 26px;font-size:13px">Analyse échouée : ${esc(String(e))}</div>`;
+    ov.innerHTML = `<div style="${cardCss};padding:22px 26px;font-size:13px;color:var(--color-text-danger)">Analyse échouée : ${esc(String(e))}</div>`;
   }
 }
