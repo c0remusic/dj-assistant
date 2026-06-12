@@ -27,7 +27,10 @@ function ensureStyles() {
   if (document.getElementById("sift-report-style")) return;
   const st = document.createElement("style");
   st.id = "sift-report-style";
-  st.textContent = ".sift-time:hover{color:var(--color-text-primary)}";
+  st.textContent =
+    ".sift-time:hover{color:var(--color-text-primary)!important}" +
+    "@keyframes sift-spin{to{transform:rotate(360deg)}}" +
+    ".sift-spin{display:inline-block;animation:sift-spin 1s linear infinite}";
   document.head.appendChild(st);
 }
 
@@ -45,12 +48,12 @@ const fmt = (n: number, d = 1) => (Number.isFinite(n) ? n.toFixed(d) : String(n)
 
 function verdictBadge(v: AnalysisReport["verdict"]): string {
   const map = {
-    ok: ["✓ Authentique", "var(--color-background-success)", "var(--color-text-success)"],
-    fake: ["✗ Fake / sur-encodé", "var(--color-background-danger)", "var(--color-text-danger)"],
-    grey: ["? Zone grise", "var(--color-background-warning)", "var(--color-text-warning)"],
+    ok: ["ti-shield-check", "Authentique", "var(--color-background-success)", "var(--color-text-success)"],
+    fake: ["ti-alert-triangle", "Fake / sur-encodé", "var(--color-background-danger)", "var(--color-text-danger)"],
+    grey: ["ti-help-circle", "Zone grise", "var(--color-background-warning)", "var(--color-text-warning)"],
   } as const;
-  const [label, bg, fg] = map[v];
-  return `<span style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:var(--border-radius-md);font-weight:600;font-size:12px;color:${fg};background:${bg}">${label}</span>`;
+  const [icon, label, bg, fg] = map[v];
+  return `<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:var(--border-radius-md);font-weight:600;font-size:12px;color:${fg};background:${bg}"><i class="ti ${icon}" style="font-size:13px"></i>${label}</span>`;
 }
 
 function drawSpectrogram(canvas: HTMLCanvasElement, r: AnalysisReport) {
@@ -127,7 +130,7 @@ function reportHtml(r: AnalysisReport, closeBtn: boolean): string {
       <div style="flex:none;display:flex;flex-direction:column;align-items:center;gap:2px">
         <input class="sift-tempo" type="range" min="-8" max="8" step="1" value="0" title="Tempo — double-clic = reset" aria-label="Tempo" style="writing-mode:vertical-lr;direction:rtl;width:16px;height:34px">
         <span class="sift-tempo-out" style="font-family:var(--font-mono);font-size:9px;color:var(--color-text-tertiary)">0%</span>
-        <button class="sift-keylock" title="Key-lock : le tempo ne change pas le pitch" style="font-size:8px;padding:1px 5px;line-height:1.4;border-radius:4px">🔒 key</button>
+        <button class="sift-keylock" title="Key-lock : le tempo ne change pas le pitch" style="font-size:8px;padding:1px 5px;line-height:1.4;border-radius:4px;display:inline-flex;align-items:center;gap:3px"><i class="ti ti-lock" style="font-size:10px"></i>key</button>
       </div>
     </div>
 
@@ -186,7 +189,9 @@ function mountPlayer(root: HTMLElement, r: AnalysisReport) {
   const applyRate = () => ws.setPlaybackRate(1 + Number(tempo?.value || 0) / 100, keyLock);
   const refreshKey = () => {
     if (!keyBtn) return;
-    keyBtn.textContent = keyLock ? "🔒 key" : "↯ vari";
+    keyBtn.innerHTML = keyLock
+      ? '<i class="ti ti-lock" style="font-size:10px"></i>key'
+      : '<i class="ti ti-lock-open" style="font-size:10px"></i>vari';
     keyBtn.style.color = keyLock ? "var(--color-text-info)" : "var(--color-text-tertiary)";
     keyBtn.title = keyLock
       ? "Key-lock ON — le tempo ne change pas le pitch (cliquer pour varispeed)"
@@ -283,8 +288,9 @@ export function renderReportInto(container: HTMLElement, r: AnalysisReport) {
 /** Loads (no spectrogram) and renders inline into `container`, with a loading state. */
 export async function openReportInto(container: HTMLElement, path: string) {
   destroyPlayer();
+  ensureStyles();
   const name = path.split(/[\\/]/).pop() || path;
-  container.innerHTML = `<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--color-text-tertiary);font-size:13px">⏳ Analyse de ${esc(name)}…</div>`;
+  container.innerHTML = `<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;color:var(--color-text-tertiary);font-size:13px"><i class="ti ti-loader-2 sift-spin"></i>Analyse de ${esc(name)}…</div>`;
   try {
     const r = await analyzePath(path, false);
     renderReportInto(container, r);
@@ -299,6 +305,7 @@ const OVERLAY_ID = "sift-report-overlay";
 /** Modal version, for the debug button (a file not in the queue). */
 export async function openReportModal(path: string) {
   destroyPlayer();
+  ensureStyles();
   document.getElementById(OVERLAY_ID)?.remove();
   const ov = document.createElement("div");
   ov.id = OVERLAY_ID;
@@ -314,7 +321,7 @@ export async function openReportModal(path: string) {
   const name = path.split(/[\\/]/).pop() || path;
   const cardCss =
     "background:var(--color-background-primary);color:var(--color-text-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-lg,12px);box-shadow:0 12px 48px rgba(0,0,0,.5)";
-  ov.innerHTML = `<div style="${cardCss};padding:22px 26px;font-size:13px">⏳ Analyse de <strong>${esc(name)}</strong>…</div>`;
+  ov.innerHTML = `<div style="${cardCss};padding:22px 26px;font-size:13px;display:flex;align-items:center;gap:8px"><i class="ti ti-loader-2 sift-spin"></i>Analyse de <strong>${esc(name)}</strong>…</div>`;
   try {
     const r = await analyzePath(path, false);
     const card = document.createElement("div");

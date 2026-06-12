@@ -16,7 +16,7 @@ async function pickAndAnalyze() {
 export function installTestButton() {
   const btn = document.createElement("button");
   btn.id = "sift-test-btn";
-  btn.textContent = "🔬 Tester l'analyse";
+  btn.innerHTML = '<i class="ti ti-test-pipe" style="font-size:14px;vertical-align:-2px"></i> Tester l\'analyse';
   btn.style.cssText =
     "position:fixed;right:16px;bottom:16px;z-index:9998;padding:9px 14px;font-size:13px;font-weight:600;border-radius:8px;background:#FFdc82;color:#1a1a1a;border:none;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.35)";
   btn.addEventListener("click", () => void pickAndAnalyze());
