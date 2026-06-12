@@ -115,7 +115,7 @@ function reportHtml(r: AnalysisReport, closeBtn: boolean): string {
       <span style="font-size:11px;color:var(--color-text-tertiary)">déclaré <span class="pill">${esc(r.declared_format)}</span> ${r.declared_rail}${r.declared_bitrate ? " · " + r.declared_bitrate + " kbps" : ""}</span></div>
 
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:11px;padding:8px 11px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)">
-      <div style="flex:none;display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div style="flex:none;align-self:stretch;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:4px">
         <button class="sift-play" title="Lecture / pause" style="flex:none;width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;padding:0"><i class="ti ti-player-play" style="font-size:13px"></i></button>
         <span class="sift-time" title="Cliquer : écoulé ⇄ restant" style="font-family:var(--font-mono);font-size:9px;color:var(--color-text-secondary);cursor:pointer;transition:color .15s;display:inline-flex;align-items:center;gap:3px"><i class="ti ti-arrows-left-right" style="font-size:9px"></i><span class="sift-time-val">0:00 / 0:00</span></span>
       </div>
