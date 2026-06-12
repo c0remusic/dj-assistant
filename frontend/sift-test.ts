@@ -117,10 +117,14 @@ function showReport(r: AnalysisReport) {
       <div style="margin-bottom:14px">${verdictBadge(r.verdict)}
         <span style="margin-left:10px;font-size:12px;color:var(--color-text-tertiary)">déclaré ${esc(r.declared_format)} · ${r.declared_rail}${r.declared_bitrate ? " · " + r.declared_bitrate + " kbps" : ""}</span></div>
 
-      <div style="font-size:11px;color:var(--color-text-tertiary);margin:0 0 4px">Spectrogramme (ligne rouge = coupure détectée)</div>
-      <div id="sift-sg-wrap" style="position:relative;margin-bottom:10px">
-        <canvas id="sift-sg" width="720" height="180" style="width:100%;border-radius:6px;background:#000;display:block"></canvas>
-        <button id="sift-load-sg" style="position:absolute;inset:0;margin:auto;width:fit-content;height:fit-content;padding:9px 14px;font-size:13px;border-radius:8px;background:rgba(255,220,130,.95);color:#1a1a1a;border:none;cursor:pointer">🌈 Charger le spectrogramme</button>
+      <div id="sift-sg-section" style="margin-bottom:12px;border:1px solid rgba(237,233,224,.12);border-radius:8px;overflow:hidden">
+        <button id="sift-sg-toggle" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:rgba(237,233,224,.04);border:none;color:#ede9e0;cursor:pointer;font-size:12px;text-align:left">
+          <span style="display:flex;align-items:center;gap:8px"><span id="sift-sg-caret" style="display:inline-block;transition:transform .25s;color:var(--color-text-tertiary)">▸</span> Spectrogramme <span style="color:var(--color-text-tertiary)">— preuve visuelle de la coupure</span></span>
+          <span id="sift-sg-hint" style="font-size:11px;color:#FFdc82;flex:none">afficher</span>
+        </button>
+        <div id="sift-sg-body" style="max-height:0;overflow:hidden;transition:max-height .3s ease">
+          <canvas id="sift-sg" width="720" height="180" style="width:100%;display:block;background:#000"></canvas>
+        </div>
       </div>
       <div style="font-size:11px;color:var(--color-text-tertiary);margin:0 0 4px">Waveform</div>
       <canvas id="sift-wf" width="720" height="70" style="width:100%;border-radius:6px;background:#101418;margin-bottom:14px"></canvas>
@@ -155,27 +159,45 @@ function showReport(r: AnalysisReport) {
   drawWaveform(document.getElementById("sift-wf") as HTMLCanvasElement, r.peaks);
 
   const sgCanvas = document.getElementById("sift-sg") as HTMLCanvasElement;
-  const loadBtn = document.getElementById("sift-load-sg") as HTMLButtonElement;
-  if (r.spectrogram.frames > 0) {
-    // already have the grid → draw it, no button
-    loadBtn.style.display = "none";
-    drawSpectrogram(sgCanvas, r);
-  } else {
-    // on-demand: re-run with the heavy display grid only when asked
-    loadBtn.addEventListener("click", async () => {
-      loadBtn.textContent = "⏳ calcul…";
-      loadBtn.disabled = true;
+  const toggle = document.getElementById("sift-sg-toggle") as HTMLButtonElement;
+  const body = document.getElementById("sift-sg-body") as HTMLElement;
+  const caret = document.getElementById("sift-sg-caret") as HTMLElement;
+  const hint = document.getElementById("sift-sg-hint") as HTMLElement;
+
+  let open = false;
+  let loaded = false;
+  let busy = false;
+
+  toggle.addEventListener("click", async () => {
+    if (busy) return;
+    if (open) {
+      open = false;
+      body.style.maxHeight = "0";
+      caret.style.transform = "";
+      hint.textContent = "afficher";
+      return;
+    }
+    // opening: load the heavy grid on first open only
+    if (!loaded) {
+      busy = true;
+      hint.textContent = "calcul…";
       try {
-        const full = await analyzePath(r.path, true);
-        loadBtn.style.display = "none";
+        const full = r.spectrogram.frames > 0 ? r : await analyzePath(r.path, true);
         drawSpectrogram(sgCanvas, full);
+        loaded = true;
       } catch (e) {
         console.error("spectrogram analyze failed", e);
-        loadBtn.textContent = "échec — réessayer";
-        loadBtn.disabled = false;
+        hint.textContent = "échec — réessayer";
+        busy = false;
+        return;
       }
-    });
-  }
+      busy = false;
+    }
+    open = true;
+    caret.style.transform = "rotate(90deg)";
+    hint.textContent = "masquer";
+    body.style.maxHeight = body.scrollHeight + "px";
+  });
 }
 
 async function pickAndAnalyze(btn: HTMLButtonElement) {
