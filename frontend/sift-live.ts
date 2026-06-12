@@ -8,56 +8,11 @@ import {
   onQueueChanged,
   onAnalysisChanged,
   analysisProgress,
-  analyzePath,
   setSourceWatched,
 } from "./ipc";
 import { open } from "@tauri-apps/plugin-dialog";
-import { renderReportInto } from "./report-view";
-import type { Source, QueueItem, AnalysisReport } from "../shared/contracts";
-
-// The currently-opened track in the Revue #mid pane (survives re-renders).
-let selectedPath: string | null = null;
-let selectedReport: AnalysisReport | null = null;
-
-const MID_PLACEHOLDER =
-  '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px;color:var(--color-text-tertiary);padding:20px"><i class="ti ti-click" style="font-size:24px"></i><div style="font-size:12px">Sélectionne un morceau dans la file<br>pour voir son analyse.</div></div>';
-
-/** Owns the #mid pane in Tauri mode: shows the selected real report, or a placeholder —
- * never the mockup player/Discogs detail. Restores after the mockup's renderMid clobbers it. */
-function paintMid(items: QueueItem[]) {
-  const mid = document.getElementById("mid");
-  if (!mid) return;
-  // selection gone from the queue (filed/removed) → reset
-  if (selectedPath && !items.some((it) => it.path === selectedPath)) {
-    selectedPath = null;
-    selectedReport = null;
-  }
-  if (selectedReport) {
-    if (!mid.querySelector(".sift-wf")) renderReportInto(mid, selectedReport);
-  } else {
-    mid.innerHTML = MID_PLACEHOLDER;
-  }
-}
-
-async function selectQueueItem(path: string) {
-  const mid = document.getElementById("mid");
-  if (!mid) return;
-  selectedPath = path;
-  selectedReport = null;
-  const name = path.split(/[\\/]/).pop() || path;
-  mid.innerHTML = `<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--color-text-tertiary);font-size:13px">⏳ Analyse de ${esc(name)}…</div>`;
-  try {
-    const r = await analyzePath(path, false);
-    if (selectedPath !== path) return; // a newer click won
-    selectedReport = r;
-    renderReportInto(mid, r);
-  } catch (e) {
-    console.error("analyze_path failed", e);
-    if (selectedPath === path) {
-      mid.innerHTML = `<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--color-text-danger);font-size:13px">Analyse échouée.</div>`;
-    }
-  }
-}
+import { openReportInto } from "./report-view";
+import type { Source, QueueItem } from "../shared/contracts";
 
 const VERDICT_DOT: Record<string, [string, string]> = {
   ok: ["#5cc97a", "authentique"],
@@ -184,17 +139,6 @@ async function renderQueue() {
       )
       .join("") ||
       '<div style="font-size:12px;color:var(--color-text-tertiary);padding:6px 4px">File vide.</div>');
-
-  // keep the clicked row highlighted across re-renders
-  if (selectedPath) {
-    ql.querySelector(`.qi[data-path="${cssEscape(selectedPath)}"]`)?.classList.add("cur");
-  }
-  paintMid(items);
-}
-
-/** Minimal CSS.escape fallback for attribute selectors (paths contain \ and spaces). */
-function cssEscape(s: string): string {
-  return (window.CSS && CSS.escape ? CSS.escape(s) : s.replace(/["\\]/g, "\\$&"));
 }
 
 async function pickAndAddFolder() {
@@ -223,9 +167,12 @@ export function installLiveWiring() {
     const qi = (e.target as HTMLElement).closest<HTMLElement>(".qi[data-path]");
     if (qi?.dataset.path) {
       e.stopPropagation();
+      const mid = document.getElementById("mid");
+      // highlight the active row
       document.querySelectorAll(".qi.cur").forEach((n) => n.classList.remove("cur"));
       qi.classList.add("cur");
-      void selectQueueItem(qi.dataset.path);
+      if (mid) void openReportInto(mid, qi.dataset.path);
+      else void import("./report-view").then((m) => m.openReportModal(qi.dataset.path!));
       return;
     }
     const el = (e.target as HTMLElement).closest<HTMLElement>("[data-sift]");
