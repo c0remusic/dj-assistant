@@ -1,6 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { AppInfo, DbHealth, Source, QueueItem } from "../shared/contracts";
+import type {
+  AppInfo,
+  DbHealth,
+  Source,
+  QueueItem,
+  AnalysisReport,
+} from "../shared/contracts";
 
 export const appInfo = (): Promise<AppInfo> => invoke("app_info");
 export const dbHealth = (): Promise<DbHealth> => invoke("db_health");
@@ -16,6 +22,10 @@ export const rescanSource = (id: number): Promise<void> =>
   invoke("rescan_source", { id });
 export const setSourceWatched = (id: number, watched: boolean): Promise<void> =>
   invoke("set_source_watched", { id, watched });
+
+/** Debug: run the M2a analysis engine on a file path and return the full report. */
+export const analyzePath = (path: string): Promise<AnalysisReport> =>
+  invoke("analyze_path", { path });
 
 /** Subscribe to backend "queue:changed" pings. Returns an unlisten fn. */
 export const onQueueChanged = (cb: () => void): Promise<UnlistenFn> =>
