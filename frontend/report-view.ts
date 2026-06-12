@@ -3,9 +3,30 @@
 // (debug button on an arbitrary picked file). Queries are scoped to a root element so
 // inline + modal can't clash on ids.
 import { analyzePath } from "./ipc";
+import { convertFileSrc } from "@tauri-apps/api/core";
+import WaveSurfer from "wavesurfer.js";
 import type { AnalysisReport } from "../shared/contracts";
 
 const PEAKS_WINDOW = 512; // must match analysis::PEAKS_WINDOW
+
+// Single live player at a time — destroyed before any re-render so audio never lingers.
+let currentWs: WaveSurfer | null = null;
+function destroyPlayer() {
+  if (currentWs) {
+    try {
+      currentWs.destroy();
+    } catch {
+      /* already gone */
+    }
+    currentWs = null;
+  }
+}
+
+const mmss = (s: number) => {
+  if (!Number.isFinite(s)) return "0:00";
+  const m = Math.floor(s / 60);
+  return `${m}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+};
 
 const esc = (s: string) =>
   s.replace(/[&<>"]/g, (c) =>
@@ -21,27 +42,6 @@ function verdictBadge(v: AnalysisReport["verdict"]): string {
   } as const;
   const [label, bg, fg] = map[v];
   return `<span style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:var(--border-radius-md);font-weight:600;font-size:12px;color:${fg};background:${bg}">${label}</span>`;
-}
-
-function drawWaveform(canvas: HTMLCanvasElement, peaks: number[]) {
-  const ctx = canvas.getContext("2d");
-  if (!ctx || peaks.length === 0) return;
-  const w = canvas.width, h = canvas.height, mid = h / 2;
-  ctx.clearRect(0, 0, w, h);
-  const BAR = 3, GAP = 1, slot = BAR + GAP;
-  const nBars = Math.floor(w / slot);
-  const per = peaks.length / nBars;
-  ctx.fillStyle = "rgba(237,233,224,.12)";
-  ctx.fillRect(0, mid - 0.5, w, 1);
-  ctx.fillStyle = "#8ecce8";
-  for (let b = 0; b < nBars; b++) {
-    const start = Math.floor(b * per);
-    const end = Math.max(start + 1, Math.floor((b + 1) * per));
-    let m = 0;
-    for (let i = start; i < end && i < peaks.length; i++) if (peaks[i] > m) m = peaks[i];
-    const bar = Math.max(1, m * (mid - 1));
-    ctx.fillRect(b * slot, mid - bar, BAR, bar * 2);
-  }
 }
 
 function drawSpectrogram(canvas: HTMLCanvasElement, r: AnalysisReport) {
@@ -111,8 +111,15 @@ function reportHtml(r: AnalysisReport, closeBtn: boolean): string {
         <canvas class="sift-sg" width="720" height="180" style="width:100%;display:block;background:#000"></canvas>
       </div>
     </div>
-    <div style="font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--color-text-tertiary);margin:0 0 4px">Waveform</div>
-    <canvas class="sift-wf" width="720" height="64" style="width:100%;border-radius:var(--border-radius-md);background:var(--color-background-secondary);margin-bottom:13px"></canvas>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:13px;padding:8px 10px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)">
+      <button class="sift-play" title="Lecture / pause" style="flex:none;width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;padding:0"><i class="ti ti-player-play" style="font-size:14px"></i></button>
+      <div class="sift-wave" style="flex:1;min-width:0;cursor:pointer"></div>
+      <span class="sift-time" style="flex:none;font-family:var(--font-mono);font-size:10px;color:var(--color-text-secondary);min-width:74px;text-align:right">0:00 / 0:00</span>
+      <div style="flex:none;display:flex;flex-direction:column;align-items:center;gap:1px">
+        <input class="sift-tempo" type="range" min="-8" max="8" step="1" value="0" title="Tempo (varispeed — change le pitch)" aria-label="Tempo" style="writing-mode:vertical-lr;direction:rtl;width:16px;height:34px">
+        <span class="sift-tempo-out" style="font-family:var(--font-mono);font-size:9px;color:var(--color-text-tertiary)">0%</span>
+      </div>
+    </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 28px;font-size:12px">
       ${row("Verdict", r.verdict)}
@@ -136,10 +143,56 @@ function reportHtml(r: AnalysisReport, closeBtn: boolean): string {
     ${r.codec_error ? `<div style="margin-top:12px;font-size:11px;color:#ff6b6b">codec error: ${esc(r.codec_error)}</div>` : ""}`;
 }
 
-/** Wires the canvases + spectrogram toggle inside `root` (scoped — no global ids). */
+/** Mounts a wavesurfer player on the report's player row (varispeed tempo for now). */
+function mountPlayer(root: HTMLElement, r: AnalysisReport) {
+  const container = root.querySelector<HTMLElement>(".sift-wave");
+  const playBtn = root.querySelector<HTMLButtonElement>(".sift-play");
+  const timeEl = root.querySelector<HTMLElement>(".sift-time");
+  const tempo = root.querySelector<HTMLInputElement>(".sift-tempo");
+  const tempoOut = root.querySelector<HTMLElement>(".sift-tempo-out");
+  if (!container) return;
+
+  destroyPlayer();
+  const ws = WaveSurfer.create({
+    container,
+    height: 56,
+    waveColor: "rgba(142,204,232,.45)",
+    progressColor: "#8ecce8",
+    cursorColor: "#FFdc82",
+    normalize: true,
+    url: convertFileSrc(r.path),
+    peaks: r.peaks.length ? [r.peaks] : undefined,
+    duration: r.duration_sec || undefined,
+  });
+  currentWs = ws;
+
+  const setIcon = (name: string) => {
+    const i = playBtn?.querySelector("i");
+    if (i) i.className = `ti ti-${name}`;
+  };
+  const applyRate = () => ws.setPlaybackRate(1 + Number(tempo?.value || 0) / 100, false); // false = varispeed
+  const updateTime = () => {
+    if (timeEl) timeEl.textContent = `${mmss(ws.getCurrentTime())} / ${mmss(ws.getDuration())}`;
+  };
+  ws.on("ready", () => {
+    applyRate();
+    updateTime();
+  });
+  ws.on("timeupdate", updateTime);
+  ws.on("play", () => setIcon("player-pause"));
+  ws.on("pause", () => setIcon("player-play"));
+  ws.on("finish", () => setIcon("player-play"));
+  ws.on("error", (e) => console.error("wavesurfer error", e));
+  playBtn?.addEventListener("click", () => void ws.playPause());
+  tempo?.addEventListener("input", () => {
+    if (tempoOut) tempoOut.textContent = `${Number(tempo.value) > 0 ? "+" : ""}${tempo.value}%`;
+    applyRate();
+  });
+}
+
+/** Wires the player + spectrogram toggle inside `root` (scoped — no global ids). */
 function wireReport(root: HTMLElement, r: AnalysisReport) {
-  const wf = root.querySelector<HTMLCanvasElement>(".sift-wf");
-  if (wf) drawWaveform(wf, r.peaks);
+  mountPlayer(root, r);
 
   const sg = root.querySelector<HTMLCanvasElement>(".sift-sg");
   const toggle = root.querySelector<HTMLButtonElement>(".sift-sg-toggle");
@@ -188,6 +241,7 @@ export function renderReportInto(container: HTMLElement, r: AnalysisReport) {
 
 /** Loads (no spectrogram) and renders inline into `container`, with a loading state. */
 export async function openReportInto(container: HTMLElement, path: string) {
+  destroyPlayer();
   const name = path.split(/[\\/]/).pop() || path;
   container.innerHTML = `<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--color-text-tertiary);font-size:13px">⏳ Analyse de ${esc(name)}…</div>`;
   try {
@@ -203,13 +257,17 @@ const OVERLAY_ID = "sift-report-overlay";
 
 /** Modal version, for the debug button (a file not in the queue). */
 export async function openReportModal(path: string) {
+  destroyPlayer();
   document.getElementById(OVERLAY_ID)?.remove();
   const ov = document.createElement("div");
   ov.id = OVERLAY_ID;
   ov.style.cssText =
     "position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:24px";
   ov.addEventListener("click", (e) => {
-    if (e.target === ov) ov.remove();
+    if (e.target === ov) {
+      destroyPlayer();
+      ov.remove();
+    }
   });
   document.body.appendChild(ov);
   const name = path.split(/[\\/]/).pop() || path;
@@ -223,7 +281,10 @@ export async function openReportModal(path: string) {
     card.innerHTML = reportHtml(r, true);
     ov.innerHTML = "";
     ov.appendChild(card);
-    card.querySelector(".sift-close")?.addEventListener("click", () => ov.remove());
+    card.querySelector(".sift-close")?.addEventListener("click", () => {
+      destroyPlayer();
+      ov.remove();
+    });
     wireReport(card, r);
   } catch (e) {
     console.error("analyze_path failed", e);
