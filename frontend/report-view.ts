@@ -184,9 +184,15 @@ function mountPlayer(root: HTMLElement, r: AnalysisReport) {
   ws.on("finish", () => setIcon("player-play"));
   ws.on("error", (e) => console.error("wavesurfer error", e));
   playBtn?.addEventListener("click", () => void ws.playPause());
-  tempo?.addEventListener("input", () => {
-    if (tempoOut) tempoOut.textContent = `${Number(tempo.value) > 0 ? "+" : ""}${tempo.value}%`;
+  const refreshTempo = () => {
+    if (tempoOut) tempoOut.textContent = `${Number(tempo!.value) > 0 ? "+" : ""}${tempo!.value}%`;
     applyRate();
+  };
+  tempo?.addEventListener("input", refreshTempo);
+  // double-click the fader → reset tempo/pitch to 0
+  tempo?.addEventListener("dblclick", () => {
+    tempo.value = "0";
+    refreshTempo();
   });
 }
 
