@@ -84,7 +84,8 @@ pub fn upsert_file(conn: &Connection, source_id: i64, f: &DiskFile) -> rusqlite:
         Some((size, mtime)) if size == f.size_bytes && mtime == f.mtime => Ok(false),
         Some(_) => {
             conn.execute(
-                "UPDATE tracks SET filename=?2, size_bytes=?3, mtime=?4, source_id=?5, status='pending'
+                "UPDATE tracks SET filename=?2, size_bytes=?3, mtime=?4, source_id=?5,
+                        status='pending', analyzed_at=NULL
                  WHERE path=?1",
                 rusqlite::params![f.path, f.filename, f.size_bytes, f.mtime, source_id],
             )?;
@@ -230,6 +231,26 @@ mod tests {
             .query_row("SELECT status FROM tracks WHERE filename='change.wav'", [], |r| r.get(0))
             .unwrap();
         assert_eq!(status, "pending");
+    }
+
+    #[test]
+    fn changed_file_clears_analyzed_marker() {
+        let (conn, sid) = db_with_source();
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+        let p = root.join("t.wav");
+        fs::write(&p, b"123").unwrap();
+        reconcile(&conn, sid, root).unwrap();
+        // pretend it was analysed
+        conn.execute("UPDATE tracks SET analyzed_at=datetime('now'), verdict='ok'", []).unwrap();
+
+        // content changes → re-pending AND analyzed_at cleared (forces re-analysis)
+        fs::write(&p, b"123456789").unwrap();
+        reconcile(&conn, sid, root).unwrap();
+        let analyzed: Option<String> = conn
+            .query_row("SELECT analyzed_at FROM tracks WHERE filename='t.wav'", [], |r| r.get(0))
+            .unwrap();
+        assert!(analyzed.is_none(), "analyzed_at must reset when the file changes");
     }
 
     #[test]

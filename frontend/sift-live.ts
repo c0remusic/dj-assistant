@@ -6,10 +6,26 @@ import {
   removeSource,
   listQueue,
   onQueueChanged,
+  onAnalysisChanged,
+  analysisProgress,
   setSourceWatched,
 } from "./ipc";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { Source, QueueItem } from "../shared/contracts";
+
+const VERDICT_DOT: Record<string, [string, string]> = {
+  ok: ["#5cc97a", "authentique"],
+  fake: ["#ff6b6b", "fake (transcodé)"],
+  grey: ["#f0c060", "zone grise"],
+};
+function verdictDot(v: string | null): string {
+  if (v && VERDICT_DOT[v]) {
+    const [c, title] = VERDICT_DOT[v];
+    return `<span title="${title}" style="flex:none;width:9px;height:9px;border-radius:50%;background:${c}"></span>`;
+  }
+  // not analysed yet
+  return `<span title="en attente d'analyse" style="flex:none;width:9px;height:9px;border-radius:50%;border:1.5px solid var(--color-text-tertiary);box-sizing:border-box"></span>`;
+}
 
 const esc = (s: string) =>
   s.replace(/[&<>"]/g, (c) =>
@@ -94,16 +110,34 @@ async function renderQueue() {
     console.error("listQueue failed", e);
     return;
   }
+  let progressHtml = "";
+  try {
+    const p = await analysisProgress();
+    if (p.total > 0) {
+      const pct = Math.round((p.done / p.total) * 100);
+      const label =
+        p.done >= p.total
+          ? `${p.total} analysé${p.total > 1 ? "s" : ""}`
+          : `${p.done} / ${p.total} analysés`;
+      progressHtml = `<div style="margin:0 0 8px"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--color-text-tertiary);margin-bottom:3px"><span>Analyse en fond</span><span>${label}</span></div><div style="height:4px;border-radius:2px;background:rgba(237,233,224,.12);overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--color-text-info,#8ecce8);transition:width .3s"></div></div></div>`;
+    }
+  } catch (e) {
+    console.error("analysisProgress failed", e);
+  }
+
   ql.innerHTML =
-    items
+    progressHtml +
+    (items
       .map(
         (it) =>
-          `<div class="qi"><i class="ti ti-circle"></i><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(
+          `<div class="qi" style="display:flex;align-items:center;gap:8px">${verdictDot(
+            it.verdict,
+          )}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(
             it.filename || it.path,
           )}</span></div>`,
       )
       .join("") ||
-    '<div style="font-size:12px;color:var(--color-text-tertiary);padding:6px 4px">File vide.</div>';
+      '<div style="font-size:12px;color:var(--color-text-tertiary);padding:6px 4px">File vide.</div>');
 }
 
 async function pickAndAddFolder() {
@@ -147,6 +181,14 @@ export function installLiveWiring() {
   });
 
   void onQueueChanged(refresh);
+
+  // Analysis pings can arrive several times per second — debounce the queue redraw.
+  let t: ReturnType<typeof setTimeout> | undefined;
+  void onAnalysisChanged(() => {
+    clearTimeout(t);
+    t = setTimeout(() => void renderQueue(), 300);
+  });
+
   void refresh();
 }
 

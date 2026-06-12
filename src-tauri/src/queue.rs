@@ -2,19 +2,20 @@
 use rusqlite::Connection;
 use serde::Serialize;
 
-/// One row in the live queue. No analysis fields yet (M2+).
+/// One row in the live queue. `verdict` is NULL until the worker (M2b) analyses it.
 #[derive(Debug, Serialize, PartialEq)]
 pub struct QueueItem {
     pub id: i64,
     pub path: String,
     pub filename: Option<String>,
     pub source_id: Option<i64>,
+    pub verdict: Option<String>,
 }
 
 /// All pending tracks, oldest first.
 pub fn list_pending(conn: &Connection) -> rusqlite::Result<Vec<QueueItem>> {
     let mut stmt = conn.prepare(
-        "SELECT id, path, filename, source_id FROM tracks
+        "SELECT id, path, filename, source_id, verdict FROM tracks
          WHERE status='pending' ORDER BY id",
     )?;
     let rows = stmt.query_map([], |r| {
@@ -23,6 +24,7 @@ pub fn list_pending(conn: &Connection) -> rusqlite::Result<Vec<QueueItem>> {
             path: r.get(1)?,
             filename: r.get(2)?,
             source_id: r.get(3)?,
+            verdict: r.get(4)?,
         })
     })?;
     rows.collect()

@@ -88,6 +88,7 @@ pub fn remove_source(
     }
     crate::watcher::stop(&app, id);
     app.emit("queue:changed", ()).ok();
+    crate::worker::refill(&app);
     Ok(())
 }
 
@@ -124,8 +125,23 @@ pub fn rescan_source(app: AppHandle, id: i64) -> Result<(), String> {
     Ok(())
 }
 
+#[derive(Serialize)]
+pub struct AnalysisProgress {
+    pub done: i64,
+    pub total: i64,
+}
+
+/// Background-analysis progress: how many pending tracks are already analysed, out of total.
+#[tauri::command]
+pub fn analysis_progress(
+    conn: State<'_, Mutex<Connection>>,
+) -> Result<AnalysisProgress, String> {
+    let conn = conn.lock().map_err(|e| e.to_string())?;
+    let (done, total) = crate::worker::progress(&conn).map_err(|e| e.to_string())?;
+    Ok(AnalysisProgress { done, total })
+}
+
 /// Debug command: run the M2a analysis engine on a path and return the full report.
-/// Auto-triggering (worker) + DB caching land in M2b.
 #[tauri::command]
 pub fn analyze_path(
     path: String,
@@ -167,5 +183,6 @@ fn spawn_scan(app: AppHandle, source_id: i64) {
         }
         crate::watcher::start(&app, source_id, &path);
         app.emit("queue:changed", ()).ok();
+        crate::worker::refill(&app);
     });
 }

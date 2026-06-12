@@ -23,6 +23,12 @@ export interface QueueItem {
   path: string;
   filename: string | null;
   source_id: number | null;
+  verdict: "ok" | "fake" | "grey" | null;
+}
+
+export interface AnalysisProgress {
+  done: number;
+  total: number;
 }
 
 export interface Spectrogram {
