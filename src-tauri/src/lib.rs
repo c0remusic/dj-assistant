@@ -41,7 +41,8 @@ pub fn run() {
             ipc::remove_source,
             ipc::list_queue,
             ipc::rescan_source,
-            ipc::set_source_watched
+            ipc::set_source_watched,
+            ipc::analyze_path
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

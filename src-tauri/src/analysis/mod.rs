@@ -70,6 +70,91 @@ pub struct AnalysisReport {
     pub has_cover: bool,
 }
 
+use dynamics::{ClipAccumulator, DcAccumulator, TruePeakAccumulator};
+use peaks::PeaksAccumulator;
+use phase::PhaseAccumulator;
+use spectrum::SpectrumAccumulator;
+use structure::{SilenceAccumulator, TruncationAccumulator};
+
+const FFT_SIZE: usize = 4096;
+const PEAKS_WINDOW: usize = 512; // ~11.6 ms @ 44.1k
+const CLIP_THRESHOLD: f32 = 0.99;
+const CLIP_MIN_RUN: usize = 3;
+const SILENCE_THRESHOLD: f32 = 0.001; // ~ -60 dBFS
+
+/// Runs the full analysis: one decode, all analyzers in a single streaming pass.
+pub fn analyze(path: &str) -> Result<AnalysisReport, String> {
+    // declared properties / tags (no decode)
+    let tag = tags::read(path);
+    let target_ch = if tag.channels >= 2 { 2 } else { 1 };
+
+    let sr = 44100u32;
+    let mut dc = DcAccumulator::new();
+    let mut clip = ClipAccumulator::new(CLIP_THRESHOLD, CLIP_MIN_RUN);
+    let mut tp = TruePeakAccumulator::new();
+    let mut sil = SilenceAccumulator::new(sr, SILENCE_THRESHOLD);
+    let mut trunc = TruncationAccumulator::new(sr);
+    let mut pk = PeaksAccumulator::new(PEAKS_WINDOW);
+    let mut spec = SpectrumAccumulator::new(sr, FFT_SIZE);
+    let mut ph = PhaseAccumulator::new();
+
+    let info = decode::decode_pcm(path, target_ch, |block| {
+        if target_ch == 2 {
+            ph.push(block); // interleaved L,R
+            let mono: Vec<f32> = block
+                .chunks_exact(2)
+                .map(|lr| 0.5 * (lr[0] + lr[1]))
+                .collect();
+            dc.push(&mono); clip.push(&mono); tp.push(&mono);
+            sil.push(&mono); trunc.push(&mono); pk.push(&mono); spec.push(&mono);
+        } else {
+            dc.push(block); clip.push(block); tp.push(block);
+            sil.push(block); trunc.push(block); pk.push(block); spec.push(block);
+        }
+    })?;
+
+    let (clip_runs, clip_pct) = clip.finish();
+    let (silence_head_ms, silence_tail_ms) = sil.finish();
+    let truncated = trunc.finish(info.codec_error.is_some());
+    let spec_res = spec.finish();
+    let phase_correlation = if target_ch == 2 { ph.correlation() } else { 0.0 };
+    let dual_mono = target_ch == 2 && ph.dual_mono();
+
+    let declared_format = std::path::Path::new(path)
+        .extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+
+    let cutoff_hz = spec_res.cutoff_hz;
+    let verdict = verdict::verdict(cutoff_hz, tag.declared_rail);
+
+    Ok(AnalysisReport {
+        path: path.to_string(),
+        sample_rate: info.sample_rate,
+        channels: info.channels,
+        duration_sec: tag.duration_sec,
+        declared_format,
+        declared_bitrate: tag.declared_bitrate,
+        declared_rail: tag.declared_rail,
+        cutoff_hz,
+        verdict,
+        peaks: pk.finish(),
+        spectrogram: spec_res.spectrogram,
+        clip_runs,
+        clip_pct,
+        true_peak_dbtp: tp.finish(),
+        dc_offset: dc.finish(),
+        phase_correlation,
+        dual_mono,
+        container_ok: info.codec_error.is_none(),
+        codec_error: info.codec_error,
+        truncated,
+        silence_head_ms,
+        silence_tail_ms,
+        id3_version: tag.id3_version,
+        tags_cdj_ok: tag.tags_cdj_ok,
+        has_cover: tag.has_cover,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
