@@ -84,8 +84,7 @@ async function renderHomeSources() {
     '<div class="col-h" style="margin-top:12px">Dossiers surveillés</div>' +
     '<div style="display:flex;gap:8px;align-items:flex-start;background:var(--color-background-warning);border-radius:var(--border-radius-md);padding:8px 11px;margin:0 0 8px;font-size:11px;color:var(--color-text-warning)"><i class="ti ti-info-circle" style="font-size:14px;flex:none"></i><span>Pointe Sift sur ton dossier <strong>Completed</strong> (pas <em>Incomplete</em>) — les fichiers en cours de téléchargement ne doivent pas entrer dans la file.</span></div>' +
     (rows || '<div style="font-size:12px;color:var(--color-text-tertiary)">Aucun dossier surveillé.</div>') +
-    '<div style="margin:8px 0 0"><button data-sift="addsrc"><i class="ti ti-plus" style="font-size:13px;vertical-align:-2px"></i> ajouter un dossier</button></div>' +
-    '<div class="sift-drop" style="margin-top:8px;border:1px dashed var(--color-border-secondary);border-radius:var(--border-radius-md);padding:9px;text-align:center;font-size:10px;color:var(--color-text-tertiary);line-height:1.4;transition:border-color .15s,color .15s"><i class="ti ti-folder" style="font-size:14px;display:block;margin-bottom:2px"></i>glisser un dossier à surveiller</div>';
+    '<div style="margin:8px 0 0"><button data-sift="addsrc"><i class="ti ti-plus" style="font-size:13px;vertical-align:-2px"></i> ajouter un dossier</button></div>';
 
   // Hide the WHOLE mockup "Dossiers surveillés" block (its hardcoded counts never change):
   // the .col-h header + every following sibling up to the next .col-h. Insert the real
@@ -151,8 +150,7 @@ async function renderQueue() {
           )}</span><i class="ti ti-chevron-right" style="flex:none;color:var(--color-text-tertiary);font-size:14px"></i></div>`,
       )
       .join("") ||
-      '<div style="font-size:12px;color:var(--color-text-tertiary);padding:6px 4px">File vide.</div>') +
-    '<div class="sift-drop" style="margin-top:8px;border:1px dashed var(--color-border-secondary);border-radius:var(--border-radius-md);padding:9px;text-align:center;font-size:10px;color:var(--color-text-tertiary);line-height:1.4;transition:border-color .15s,color .15s"><i class="ti ti-music" style="font-size:14px;display:block;margin-bottom:2px"></i>glisser des fichiers ou dossiers ici</div>';
+      '<div style="font-size:12px;color:var(--color-text-tertiary);padding:6px 4px">File vide.</div>');
 
   // Live destination bins + neutral detail prompt (replace the mockup's hardcoded ones).
   const fldz = document.getElementById("fldz");
@@ -178,37 +176,46 @@ async function refresh() {
   await renderQueue();
 }
 
-/** Highlight the static dashed drop zones while dragging over the window. */
-function setDropActive(on: boolean) {
-  document.querySelectorAll<HTMLElement>(".sift-drop").forEach((el) => {
-    el.style.borderColor = on ? "var(--color-text-info)" : "var(--color-border-secondary)";
-    el.style.color = on ? "var(--color-text-info)" : "var(--color-text-tertiary)";
-  });
+// One-time style: while dragging, an existing zone gets an outline + an overlaid hint
+// (::after with the zone's data-dz text). No permanent dashed box — the hint shows only
+// during a drag, on the real folder/queue boxes, saving space.
+function ensureDropStyle() {
+  if (document.getElementById("sift-dz-style")) return;
+  const s = document.createElement("style");
+  s.id = "sift-dz-style";
+  s.textContent =
+    ".sift-dz-on{position:relative;outline:1.5px dashed var(--color-text-info);outline-offset:-4px;border-radius:var(--border-radius-md)}" +
+    ".sift-dz-on::after{content:attr(data-dz);position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:10px;font-size:11px;color:var(--color-text-info);background:rgba(20,20,24,.55);border-radius:var(--border-radius-md);pointer-events:none;z-index:50}";
+  document.head.appendChild(s);
 }
 
-/** Lazily-created full-window drag overlay. `pointer-events:none` so elementFromPoint can
- * still resolve the zone under the cursor. Visible only while dragging — covers every view
- * (incl. Biblio) without per-view hooks. */
-function dropOverlay(): HTMLElement {
-  let o = document.getElementById("sift-drop-ov");
-  if (!o) {
-    o = document.createElement("div");
-    o.id = "sift-drop-ov";
-    o.style.cssText =
-      "position:fixed;inset:0;z-index:9990;pointer-events:none;display:none;align-items:center;justify-content:center;background:rgba(20,20,24,.35)";
-    o.innerHTML =
-      '<div style="background:var(--color-background-secondary);border:1.5px dashed var(--color-text-info);border-radius:var(--border-radius-lg,12px);padding:18px 24px;font-size:12px;color:var(--color-text-info);text-align:center;max-width:70%"><i class="ti ti-upload" style="font-size:20px;display:block;margin-bottom:6px"></i>Déposer ici — <b>fichiers</b> → file d\'attente · <b>dossiers</b> → surveillés <span style="opacity:.7">(ou destination dans « Où on va »)</span></div>';
-    document.body.appendChild(o);
+// Existing boxes that double as drop targets, with the hint each shows while dragging.
+const DROP_ZONES: [string, string][] = [
+  ["#fldz", "Déposer un dossier ici — nouvelle destination"],
+  ["#ql", "Déposer des fichiers audio ici"],
+  ["#sift-sources", "Déposer un dossier à surveiller"],
+];
+
+/** Toggle the drag hint/outline on the relevant existing boxes. Falls back to #content
+ * (e.g. Bibliothèque) when none of the named zones are on screen. */
+function setDropActive(on: boolean) {
+  ensureDropStyle();
+  document.querySelectorAll<HTMLElement>(".sift-dz-on").forEach((el) => {
+    el.classList.remove("sift-dz-on");
+    el.removeAttribute("data-dz");
+  });
+  if (!on) return;
+  const present = DROP_ZONES.filter(([sel]) => document.querySelector(sel));
+  const targets: [string, string][] = present.length
+    ? present
+    : [["#content", "Déposer des fichiers (→ file) ou dossiers (→ surveillés)"]];
+  for (const [sel, label] of targets) {
+    const el = document.querySelector<HTMLElement>(sel);
+    if (el) {
+      el.classList.add("sift-dz-on");
+      el.dataset.dz = label;
+    }
   }
-  return o;
-}
-function showDrop() {
-  dropOverlay().style.display = "flex";
-  setDropActive(true);
-}
-function hideDrop() {
-  dropOverlay().style.display = "none";
-  setDropActive(false);
 }
 
 /** "dest" when the cursor is over the bins column (#fldz), else "source". */
@@ -225,15 +232,15 @@ async function installDragDrop() {
     await getCurrentWebview().onDragDropEvent((ev) => {
       const p = ev.payload;
       if (p.type === "drop") {
-        hideDrop();
+        setDropActive(false);
         if (p.paths.length)
           void importPaths(p.paths, dropModeAt(p.position)).catch((e) =>
             console.error("import_paths failed", e),
           );
       } else if (p.type === "enter" || p.type === "over") {
-        showDrop();
+        setDropActive(true);
       } else {
-        hideDrop();
+        setDropActive(false);
       }
     });
   } catch (e) {
