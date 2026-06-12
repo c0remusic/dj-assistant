@@ -71,7 +71,7 @@ export interface AnalysisReport {
 // ---- M4 filing loop (mirror of naming.rs / encode.rs / library.rs / actions.rs) ----
 
 /** Output rail shapes. Serde-renamed on the Rust side (see encode.rs Target). */
-export type Target = "mp3_320" | "aiff_16_44";
+export type Target = "mp3_320" | "aiff_16_44" | "wav_16_44";
 
 /** How sure reconciliation is about the metadata — green files in one click. */
 export type Confidence = "green" | "yellow";

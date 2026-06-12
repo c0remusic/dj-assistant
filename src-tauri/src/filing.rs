@@ -190,6 +190,7 @@ pub fn file_track(
     let target_str = match target {
         Target::Mp3320 => "mp3_320",
         Target::Aiff1644 => "aiff_16_44",
+        Target::Wav1644 => "wav_16_44",
     };
     conn.execute(
         "UPDATE tracks SET status='filed', folder=?2, target_format=?3, confidence=?4 WHERE id=?1",

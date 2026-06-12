@@ -126,6 +126,58 @@ pub fn rescan_source(app: AppHandle, id: i64) -> Result<(), String> {
 }
 
 #[derive(Serialize)]
+pub struct ImportResult {
+    pub files_added: usize,
+    pub folders_added: usize,
+}
+
+/// Import OS-dropped paths: each directory becomes a watched source (scanned in the
+/// background, like `add_source`); each audio file is inserted as a pending queue item
+/// (deduped by path). Non-audio files are ignored. Emits `queue:changed`.
+#[tauri::command]
+pub fn import_paths(
+    app: AppHandle,
+    conn: State<'_, Mutex<Connection>>,
+    paths: Vec<String>,
+) -> Result<ImportResult, String> {
+    let mut files_added = 0usize;
+    let mut folders_added = 0usize;
+    let mut scan_ids: Vec<i64> = Vec::new();
+    {
+        let conn = conn.lock().map_err(|e| e.to_string())?;
+        for p in &paths {
+            let pb = std::path::Path::new(p);
+            if pb.is_dir() {
+                if let Ok(id) = sources::add(&conn, p) {
+                    folders_added += 1;
+                    scan_ids.push(id);
+                }
+            } else if scanner::is_audio(pb) {
+                let filename = pb
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("")
+                    .to_string();
+                files_added += conn
+                    .execute(
+                        "INSERT INTO tracks (path, filename, status, created_at)
+                         VALUES (?1, ?2, 'pending', datetime('now'))
+                         ON CONFLICT(path) DO NOTHING",
+                        rusqlite::params![p, filename],
+                    )
+                    .map_err(|e| e.to_string())?;
+            }
+        }
+    }
+    for id in scan_ids {
+        spawn_scan(app.clone(), id);
+    }
+    app.emit("queue:changed", ()).ok();
+    crate::worker::refill(&app);
+    Ok(ImportResult { files_added, folders_added })
+}
+
+#[derive(Serialize)]
 pub struct AnalysisProgress {
     pub done: i64,
     pub total: i64,
