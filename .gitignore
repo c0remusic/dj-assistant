@@ -24,3 +24,6 @@ Thumbs.db
 .idea/
 .vscode/
 .claude/
+
+# installed agent skills (per-machine tooling, not project code)
+.github/skills/

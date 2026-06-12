@@ -7,11 +7,11 @@
 //! until then it is unused by the binary, hence the module-level dead_code allow.
 #![allow(dead_code)]
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// How sure we are about the reconciled metadata. Green = file in one click; Yellow =
 /// surface for a quick validation pass before committing.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Confidence {
     Green,
@@ -20,7 +20,7 @@ pub enum Confidence {
 
 /// The reconciled, canonical metadata for one track. Both the output filename and the
 /// embedded tags are derived from this — they can never diverge.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Canonical {
     pub artist: String,
     pub title: String,

@@ -10,10 +10,10 @@ use ffmpeg_sidecar::command::FfmpegCommand;
 use ffmpeg_sidecar::event::{FfmpegEvent, LogLevel};
 use lofty::file::AudioFile;
 use lofty::probe::Probe;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// The two output shapes. Lossless rail → AIFF 16-bit/44.1; lossy rail → MP3 320 CBR.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Target {
     #[serde(rename = "mp3_320")]
     Mp3320,
