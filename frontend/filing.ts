@@ -325,7 +325,13 @@ function toast(message: string, undo: boolean): void {
   document.body.appendChild(el);
   el.querySelector('[data-fil="undo"]')?.addEventListener("click", () => {
     el.remove();
-    void undoLast().catch((e) => console.error("undo failed", e));
+    void undoLast()
+      .then(() => {
+        // the just-filed track is back in the queue — clear the stale detail pane
+        const mid = document.getElementById("mid");
+        if (mid) clearPane(mid);
+      })
+      .catch((e) => console.error("undo failed", e));
   });
   setTimeout(() => el.remove(), 6000);
 }

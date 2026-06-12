@@ -134,12 +134,18 @@ pub fn revert_batch(conn: &Connection, batch_id: &str) -> Result<(), RevertError
         revert_one_fs(kind, from_path.as_deref(), to_path.as_deref())?;
     }
 
-    // Restore track + mark rows undone.
+    // Restore track + mark rows undone. Also clear the filing-time columns so the re-queued
+    // track carries no stale target/confidence, and drop the metadata row written at filing
+    // time so a later reconcile starts fresh. (analyzed_at is left intact — the file is
+    // unchanged, so its analysis/verdict stay valid and need no recompute.) Note: the
+    // embedded tag write done at filing time is NOT reversed (no tag action is journaled).
     if let Some(tid) = track_id {
         conn.execute(
-            "UPDATE tracks SET status='pending', folder=NULL WHERE id=?1",
+            "UPDATE tracks SET status='pending', folder=NULL, target_format=NULL, confidence=NULL
+             WHERE id=?1",
             params![tid],
         )?;
+        conn.execute("DELETE FROM metadata WHERE track_id=?1", params![tid])?;
     }
     conn.execute(
         "UPDATE actions SET undone=1 WHERE batch_id=?1 AND undone=0",
@@ -283,7 +289,8 @@ mod tests {
     /// Insert a filed track + its convert/move batch, with the file physically at `to`.
     fn seed_filed(conn: &Connection, dir: &Path, batch: &str) -> (i64, std::path::PathBuf, std::path::PathBuf) {
         conn.execute(
-            "INSERT INTO tracks(path, status, folder) VALUES(?1, 'filed', 'House')",
+            "INSERT INTO tracks(path, status, folder, target_format, confidence)
+             VALUES(?1, 'filed', 'House', 'aiff_16_44', 'green')",
             params![format!("{}/orig.mp3", dir.display())],
         )
         .unwrap();
@@ -312,6 +319,12 @@ mod tests {
             .unwrap();
         assert_eq!(status, "pending");
         assert_eq!(folder, None);
+        // filing-time columns cleared on undo
+        let (tf, cf): (Option<String>, Option<String>) = conn
+            .query_row("SELECT target_format, confidence FROM tracks WHERE id=?1", params![track_id], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap();
+        assert_eq!(tf, None);
+        assert_eq!(cf, None);
         // rows marked undone
         let live: i64 = conn
             .query_row("SELECT count(*) FROM actions WHERE batch_id='b1' AND undone=0", [], |r| r.get(0))
