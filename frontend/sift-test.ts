@@ -6,6 +6,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import type { AnalysisReport } from "../shared/contracts";
 
 const AUDIO_EXTS = ["mp3", "flac", "wav", "aif", "aiff", "m4a", "aac", "ogg", "opus"];
+const PEAKS_WINDOW = 512; // must match analysis::PEAKS_WINDOW (mono samples per peak)
 
 const esc = (s: string) =>
   s.replace(/[&<>"]/g, (c) =>
@@ -25,18 +26,24 @@ function verdictBadge(v: AnalysisReport["verdict"]): string {
   return `<span style="display:inline-block;padding:4px 12px;border-radius:6px;font-weight:600;font-size:14px;color:${fg};background:${bg};border:1px solid ${fg}">${label}</span>`;
 }
 
-/** Draws the peaks envelope as a mirrored waveform. */
+/** Draws the peaks envelope as a mirrored waveform — MAX over each pixel's bucket so no
+ * transient between sample points is skipped (avoids the "sparse/excerpt" look). */
 function drawWaveform(canvas: HTMLCanvasElement, peaks: number[]) {
   const ctx = canvas.getContext("2d");
   if (!ctx || peaks.length === 0) return;
   const w = canvas.width, h = canvas.height, mid = h / 2;
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = "#8ecce8";
-  const step = peaks.length / w;
+  const per = peaks.length / w; // peaks per pixel column
   for (let x = 0; x < w; x++) {
-    const p = peaks[Math.floor(x * step)] || 0;
-    const bar = p * mid;
-    ctx.fillRect(x, mid - bar, 1, bar * 2);
+    const start = Math.floor(x * per);
+    const end = Math.max(start + 1, Math.floor((x + 1) * per));
+    let m = 0;
+    for (let i = start; i < end && i < peaks.length; i++) {
+      if (peaks[i] > m) m = peaks[i];
+    }
+    const bar = m * mid;
+    ctx.fillRect(x, mid - bar, 1, Math.max(1, bar * 2));
   }
 }
 
@@ -76,6 +83,15 @@ function drawSpectrogram(canvas: HTMLCanvasElement, r: AnalysisReport) {
     ctx.font = "11px monospace";
     ctx.fillText(`cutoff ${(r.cutoff_hz / 1000).toFixed(1)} kHz`, 6, Math.max(12, y - 4));
   }
+}
+
+/** Diagnostic: how much of the track the peaks actually cover, vs the declared duration.
+ * If "couvert" << "durée", the decode stopped early (not just a rendering issue). */
+function peaksCoverage(r: AnalysisReport): string {
+  const sr = r.sample_rate || 44100;
+  const covered = (r.peaks.length * PEAKS_WINDOW) / sr;
+  const pct = r.duration_sec > 0 ? (covered / r.duration_sec) * 100 : 0;
+  return `${r.peaks.length} pts ≈ ${covered.toFixed(1)}s / ${r.duration_sec.toFixed(1)}s (${pct.toFixed(0)}%)`;
 }
 
 function row(label: string, value: string): string {
@@ -123,6 +139,7 @@ function showReport(r: AnalysisReport) {
         ${row("Pochette", yn(r.has_cover))}
         ${row("Version ID3", r.id3_version || "—")}
         ${row("Sample rate", r.sample_rate + " Hz")}
+        ${row("Peaks (couverture)", peaksCoverage(r))}
       </div>
       ${r.codec_error ? `<div style="margin-top:12px;font-size:11px;color:#ff6b6b">codec error: ${esc(r.codec_error)}</div>` : ""}
     </div>`;
