@@ -1,6 +1,7 @@
 mod db;
 mod ffmpeg;
 mod ipc;
+mod queue;
 mod scanner;
 mod sources;
 
