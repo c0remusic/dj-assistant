@@ -78,7 +78,7 @@ const MIGRATIONS: &[&str] = &[
     // v4 — M4 filing loop: per-track target/confidence, version metadata, undo bookkeeping
     // on actions, and a key/value settings store (library root, filename template, purge).
     r#"
-    ALTER TABLE tracks ADD COLUMN target_format TEXT;     -- 'mp3_320' | 'aiff_16_44'
+    ALTER TABLE tracks ADD COLUMN target_format TEXT;     -- 'mp3_320' | 'aiff_16_44' | 'wav_16_44'
     ALTER TABLE tracks ADD COLUMN confidence TEXT;        -- 'green' | 'yellow'
     ALTER TABLE metadata ADD COLUMN version TEXT;         -- 'Original Mix', 'Remix'…
     ALTER TABLE actions ADD COLUMN undone INTEGER NOT NULL DEFAULT 0;  -- 0/1
