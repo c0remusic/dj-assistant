@@ -11,8 +11,17 @@ import {
   setSourceWatched,
 } from "./ipc";
 import { open } from "@tauri-apps/plugin-dialog";
-import { openReportInto } from "./report-view";
+import {
+  openFilingInto,
+  refreshBins,
+  ensureMidPrompt,
+  installUndoShortcut,
+} from "./filing";
 import type { Source, QueueItem } from "../shared/contracts";
+
+// Latest live queue items, kept so a queue-row click can recover the full item (id +
+// verdict) the filing pane needs.
+let currentItems: QueueItem[] = [];
 
 const VERDICT_DOT: Record<string, [string, string]> = {
   ok: ["#5cc97a", "authentique"],
@@ -111,6 +120,7 @@ async function renderQueue() {
     console.error("listQueue failed", e);
     return;
   }
+  currentItems = items;
   let progressHtml = "";
   try {
     const p = await analysisProgress();
@@ -131,7 +141,7 @@ async function renderQueue() {
     (items
       .map(
         (it) =>
-          `<div class="qi" data-path="${esc(it.path)}" title="Voir le rapport d'analyse" style="display:flex;align-items:center;gap:8px;cursor:pointer">${verdictDot(
+          `<div class="qi" data-id="${it.id}" data-path="${esc(it.path)}" title="Écouter et ranger" style="display:flex;align-items:center;gap:8px;cursor:pointer">${verdictDot(
             it.verdict,
           )}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(
             it.filename || it.path,
@@ -139,6 +149,12 @@ async function renderQueue() {
       )
       .join("") ||
       '<div style="font-size:12px;color:var(--color-text-tertiary);padding:6px 4px">File vide.</div>');
+
+  // Live destination bins + neutral detail prompt (replace the mockup's hardcoded ones).
+  const fldz = document.getElementById("fldz");
+  if (fldz) void refreshBins(fldz);
+  const mid = document.getElementById("mid");
+  if (mid) ensureMidPrompt(mid);
 }
 
 async function pickAndAddFolder() {
@@ -161,18 +177,22 @@ async function refresh() {
 export function installLiveWiring() {
   window.__siftHome = renderHomeSources;
   window.__siftQueue = renderQueue;
+  installUndoShortcut();
 
   document.getElementById("pa")?.addEventListener("click", (e) => {
-    // queue item → render its analysis report inline in the #mid pane
-    const qi = (e.target as HTMLElement).closest<HTMLElement>(".qi[data-path]");
-    if (qi?.dataset.path) {
+    // queue item → open the live filing pane (report + editor + actions) in #mid
+    const qi = (e.target as HTMLElement).closest<HTMLElement>(".qi[data-id]");
+    if (qi?.dataset.id) {
       e.stopPropagation();
+      const id = Number(qi.dataset.id);
+      const item = currentItems.find((it) => it.id === id);
       const mid = document.getElementById("mid");
       // highlight the active row
       document.querySelectorAll(".qi.cur").forEach((n) => n.classList.remove("cur"));
       qi.classList.add("cur");
-      if (mid) void openReportInto(mid, qi.dataset.path);
-      else void import("./report-view").then((m) => m.openReportModal(qi.dataset.path!));
+      if (item && mid) void openFilingInto(mid, item);
+      else if (qi.dataset.path)
+        void import("./report-view").then((m) => m.openReportModal(qi.dataset.path!));
       return;
     }
     const el = (e.target as HTMLElement).closest<HTMLElement>("[data-sift]");
