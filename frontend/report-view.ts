@@ -30,7 +30,15 @@ function ensureStyles() {
   st.textContent =
     ".sift-time:hover{color:var(--color-text-primary)!important}" +
     "@keyframes sift-spin{to{transform:rotate(360deg)}}" +
-    ".sift-spin{display:inline-block;animation:sift-spin 1s linear infinite}";
+    ".sift-spin{display:inline-block;animation:sift-spin 1s linear infinite}" +
+    // Custom tempo thumb: grey at neutral, blue once nudged either way (accent-color only
+    // tints the fill on one side of 0, so we colour the thumb explicitly via a class).
+    ".sift-tempo{-webkit-appearance:none;appearance:none;background:transparent;cursor:pointer}" +
+    ".sift-tempo::-webkit-slider-runnable-track{width:4px;border-radius:3px;background:var(--color-border-secondary)}" +
+    // Turntable-style pitch-fader cap: wide flat handle with a centre marker line, recentred
+    // on the thin track (margin-left = (track − thumb) / 2).
+    ".sift-tempo::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:20px;height:9px;margin-left:-8px;border-radius:2px;border:0.5px solid var(--color-border-secondary);background:linear-gradient(var(--color-text-tertiary) 0 44%,rgba(0,0,0,.5) 44% 56%,var(--color-text-tertiary) 56% 100%)}" +
+    ".sift-tempo.sift-active::-webkit-slider-thumb{background:linear-gradient(var(--color-text-info) 0 44%,rgba(0,0,0,.5) 44% 56%,var(--color-text-info) 56% 100%)}";
   document.head.appendChild(st);
 }
 
@@ -114,17 +122,17 @@ function reportHtml(r: AnalysisReport, closeBtn: boolean): string {
     <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px;flex-wrap:wrap">${verdictBadge(r.verdict)}
       <span style="font-size:11px;color:var(--color-text-tertiary)">déclaré <span class="pill">${esc(r.declared_format)}</span> ${r.declared_rail}${r.declared_bitrate ? " · " + r.declared_bitrate + " kbps" : ""}</span></div>
 
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:11px;padding:8px 11px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)">
-      <div style="flex:none;align-self:stretch;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:4px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:11px;padding:8px 11px;min-height:80px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)">
+      <div style="flex:none;align-self:stretch;width:62px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center">
         <button class="sift-play" title="Lecture / pause" style="flex:none;width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;padding:0"><i class="ti ti-player-play" style="font-size:13px"></i></button>
-        <span class="sift-time" title="Cliquer : écoulé ⇄ restant" style="font-family:var(--font-mono);font-size:9px;color:var(--color-text-secondary);cursor:pointer;transition:color .15s;display:inline-flex;align-items:center;gap:3px"><i class="ti ti-arrows-left-right" style="font-size:9px"></i><span class="sift-time-val">0:00 / 0:00</span></span>
+        <span class="sift-time" title="Cliquer : écoulé ⇄ restant" style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);white-space:nowrap;font-family:var(--font-mono);font-size:9px;color:var(--color-text-secondary);cursor:pointer;transition:color .15s;display:inline-flex;align-items:center;justify-content:center;gap:3px"><span class="sift-time-val">0:00 / 0:00</span></span>
       </div>
       <div class="sift-wave" style="flex:1;min-width:0;align-self:center;cursor:pointer"></div>
-      <div style="flex:none;display:flex;flex-direction:column;align-items:center;gap:4px">
-        <span style="font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:var(--color-text-tertiary)">tempo</span>
-        <input class="sift-tempo" type="range" min="-8" max="8" step="1" value="0" title="Tempo — double-clic = reset" aria-label="Tempo" style="writing-mode:vertical-lr;direction:rtl;width:14px;height:38px">
-        <span class="sift-tempo-out" style="font-family:var(--font-mono);font-size:9px;color:var(--color-text-secondary);min-width:34px;text-align:center">0%</span>
-        <button class="sift-key" title="Key-lock : le tempo ne change pas le pitch (off = varispeed)" style="border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:2px 11px;font-size:9px;letter-spacing:.05em;text-transform:uppercase">key</button>
+      <div style="flex:none;align-self:stretch;width:62px;position:relative;display:flex;align-items:center;justify-content:center">
+        <span style="position:absolute;top:0;left:0;right:0;text-align:center;font-size:8px;letter-spacing:.05em;text-transform:uppercase;color:var(--color-text-tertiary)">tempo</span>
+        <input class="sift-tempo" type="range" min="-8" max="8" step="1" value="0" title="Tempo — double-clic = reset" aria-label="Tempo" style="writing-mode:vertical-lr;direction:rtl;width:22px;height:38px">
+        <span class="sift-tempo-out" style="position:absolute;right:2px;top:50%;transform:translateY(-50%);font-family:var(--font-mono);font-size:8px;color:var(--color-text-secondary)">0%</span>
+        <button class="sift-key" title="Key-lock : le tempo ne change pas le pitch (off = varispeed)" style="position:absolute;bottom:0;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:1px 8px;font-size:8px;letter-spacing:.05em;text-transform:uppercase">key</button>
       </div>
     </div>
     <div style="margin-bottom:11px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);overflow:hidden">
@@ -225,10 +233,14 @@ function mountPlayer(root: HTMLElement, r: AnalysisReport) {
   ws.on("error", (e) => console.error("wavesurfer error", e));
   playBtn?.addEventListener("click", () => void ws.playPause());
   const refreshTempo = () => {
-    if (tempoOut) tempoOut.textContent = `${Number(tempo!.value) > 0 ? "+" : ""}${tempo!.value}%`;
+    const v = Number(tempo!.value);
+    if (tempoOut) tempoOut.textContent = `${v > 0 ? "+" : ""}${v}%`;
+    // grey at neutral (0), coloured once nudged
+    tempo!.classList.toggle("sift-active", v !== 0);
     applyRate();
   };
   tempo?.addEventListener("input", refreshTempo);
+  refreshTempo();
   // double-click the fader → reset tempo/pitch to 0
   tempo?.addEventListener("dblclick", () => {
     tempo.value = "0";
