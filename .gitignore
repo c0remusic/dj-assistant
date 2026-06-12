@@ -10,6 +10,10 @@ src-tauri/target/
 src-tauri/binaries/
 src-tauri/gen/
 
+# generated test fixtures (regenerate via scripts/make-fixtures.mjs)
+src-tauri/fixtures/*
+!src-tauri/fixtures/README.md
+
 # logs
 *.log
 npm-debug.log*
