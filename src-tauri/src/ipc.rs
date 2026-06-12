@@ -131,24 +131,44 @@ pub struct ImportResult {
     pub folders_added: usize,
 }
 
-/// Import OS-dropped paths: each directory becomes a watched source (scanned in the
-/// background, like `add_source`); each audio file is inserted as a pending queue item
-/// (deduped by path). Non-audio files are ignored. Emits `queue:changed`.
+/// Import OS-dropped paths. Audio files always become pending queue items (deduped by
+/// path). Directories depend on `mode`: `"dest"` registers each as a destination bin under
+/// the library root (used when dropping onto "Où on va"); anything else (`"source"`,
+/// default) adds each as a watched source, scanned in the background. Emits `queue:changed`.
 #[tauri::command]
 pub fn import_paths(
     app: AppHandle,
     conn: State<'_, Mutex<Connection>>,
     paths: Vec<String>,
+    mode: Option<String>,
 ) -> Result<ImportResult, String> {
+    let as_dest = mode.as_deref() == Some("dest");
     let mut files_added = 0usize;
     let mut folders_added = 0usize;
     let mut scan_ids: Vec<i64> = Vec::new();
     {
         let conn = conn.lock().map_err(|e| e.to_string())?;
+        let dest_root = if as_dest {
+            crate::settings::get(&conn, crate::settings::LIBRARY_ROOT)
+                .ok()
+                .flatten()
+                .filter(|p| !p.trim().is_empty())
+                .map(std::path::PathBuf::from)
+        } else {
+            None
+        };
         for p in &paths {
             let pb = std::path::Path::new(p);
             if pb.is_dir() {
-                if let Ok(id) = sources::add(&conn, p) {
+                if as_dest {
+                    // register a new destination bin named after the dropped folder
+                    if let Some(root) = &dest_root {
+                        let name = pb.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                        if !name.is_empty() && crate::library::create_bin(root, "", name).is_ok() {
+                            folders_added += 1;
+                        }
+                    }
+                } else if let Ok(id) = sources::add(&conn, p) {
                     folders_added += 1;
                     scan_ids.push(id);
                 }

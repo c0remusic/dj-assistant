@@ -116,5 +116,6 @@ export const setSetting = (key: string, value: string): Promise<void> =>
  * queue items. Returns how many of each were added. */
 export const importPaths = (
   paths: string[],
+  mode: "source" | "dest" = "source",
 ): Promise<{ files_added: number; folders_added: number }> =>
-  invoke("import_paths", { paths });
+  invoke("import_paths", { paths, mode });
