@@ -92,7 +92,38 @@ async function makeBin(fldz: HTMLElement, name: string): Promise<void> {
   }
 }
 
-/** Render the destination column (#fldz): root picker when unset, else live bin chips. */
+// Which parent bins are expanded in the tree (rel paths).
+const expanded = new Set<string>();
+
+/** Direct children of `rel` (one level deeper). */
+function binChildren(rel: string): Bin[] {
+  const depth = rel.split("/").length;
+  return state.bins.filter((b) => b.depth === depth + 1 && b.rel.startsWith(rel + "/"));
+}
+
+/** Recursive HTML for one bin row + its children when expanded. Folders only, with a
+ * caret toggle for nodes that have sub-folders. */
+function binNodeHtml(b: Bin): string {
+  const kids = binChildren(b.rel);
+  const isOpen = expanded.has(b.rel);
+  const on = b.rel === state.binRel ? " on" : "";
+  const indent = (b.depth - 1) * 13;
+  const caret = kids.length
+    ? `<span data-fil="caret" data-rel="${esc(b.rel)}" title="${isOpen ? "Replier" : "Déplier"}" style="display:inline-block;width:14px;text-align:center;cursor:pointer;color:var(--color-text-tertiary);transition:transform .2s;${
+        isOpen ? "transform:rotate(90deg)" : ""
+      }">▸</span>`
+    : '<span style="display:inline-block;width:14px;flex:none"></span>';
+  let html = `<div class="fld${on}" data-fil="bin" data-rel="${esc(b.rel)}" title="${esc(
+    b.rel,
+  )}" style="padding-left:${6 + indent}px;display:flex;align-items:center;gap:4px">${caret}<i class="ti ti-folder" style="font-size:13px;flex:none;color:var(--color-text-tertiary)"></i><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(
+    b.name,
+  )}</span></div>`;
+  if (kids.length && isOpen) html += kids.map(binNodeHtml).join("");
+  return html;
+}
+
+/** Render the destination column (#fldz): root picker when unset, else a collapsible
+ * folder tree (top-level always shown, sub-folders behind a caret toggle). */
 export function renderBins(fldz: HTMLElement): void {
   if (!state.rootSet) {
     fldz.innerHTML =
@@ -104,25 +135,28 @@ export function renderBins(fldz: HTMLElement): void {
     return;
   }
 
-  const chips = state.bins
-    .map((b) => {
-      const indent = (b.depth - 1) * 12;
-      const on = b.rel === state.binRel ? " on" : "";
-      return `<div class="fld${on}" data-fil="bin" data-rel="${esc(b.rel)}" style="padding-left:${
-        8 + indent
-      }px" title="${esc(b.rel)}">${esc(b.name)}</div>`;
-    })
-    .join("");
+  const roots = state.bins.filter((b) => b.depth === 1);
+  const tree = roots.map(binNodeHtml).join("");
 
   const newRow = state.creating
     ? '<input data-fil="newin" placeholder="nom du dossier…" style="width:100%;font-size:12px;padding:5px 7px;margin-top:2px">'
     : '<div class="fld" data-fil="newbin" style="color:var(--color-text-tertiary)"><i class="ti ti-plus" style="font-size:14px"></i> nouveau</div>';
 
   fldz.innerHTML =
-    (chips ||
+    (tree ||
       '<div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:4px">Aucun dossier — crée-en un.</div>') +
-    newRow;
+    newRow +
+    '<div data-fil="drop" style="margin-top:10px;border:1px dashed var(--color-border-secondary);border-radius:var(--border-radius-md);padding:9px;text-align:center;font-size:10px;color:var(--color-text-tertiary);line-height:1.4"><i class="ti ti-folder-plus" style="font-size:14px;display:block;margin-bottom:2px"></i>glisser un dossier ici pour l\'ajouter</div>';
 
+  fldz.querySelectorAll<HTMLElement>('[data-fil="caret"]').forEach((el) =>
+    el.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const rel = el.dataset.rel || "";
+      if (expanded.has(rel)) expanded.delete(rel);
+      else expanded.add(rel);
+      renderBins(fldz);
+    }),
+  );
   fldz.querySelectorAll<HTMLElement>('[data-fil="bin"]').forEach((el) =>
     el.addEventListener("click", () => {
       state.binRel = el.dataset.rel || null;
@@ -213,6 +247,7 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
     `<input data-fil="version" placeholder="Version" value="${esc(c.version ?? "")}" style="${inputCss};width:96px">` +
     `</div>` +
     `<div class="sift-fil-prev" style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;line-height:1.5;margin-bottom:8px">→ ${esc(previewName())}</div>` +
+    `<div style="margin-bottom:9px;padding-top:7px;border-top:0.5px solid var(--color-border-tertiary)"><div style="display:grid;grid-template-columns:auto 1fr auto 1fr;gap:3px 8px;font-size:10px;align-items:center"><span style="color:var(--color-text-tertiary)">Label</span><span style="color:var(--color-text-tertiary)">—</span><span style="color:var(--color-text-tertiary)">Année</span><span style="color:var(--color-text-tertiary)">—</span><span style="color:var(--color-text-tertiary)">Genre</span><span style="color:var(--color-text-tertiary)">—</span><span style="color:var(--color-text-tertiary)">BPM</span><span style="color:var(--color-text-tertiary)">—</span></div><div style="font-size:9px;color:var(--color-text-tertiary);margin-top:4px"><i class="ti ti-download" style="font-size:9px;vertical-align:-1px"></i> enrichissement Discogs à venir</div></div>` +
     `<div style="display:flex;gap:8px">` +
     `<button data-fil="ranger" style="flex:1;background:var(--color-background-info);color:var(--color-text-info);border:none;font-weight:500"><i class="ti ti-corner-down-left" style="font-size:12px;vertical-align:-2px"></i> Ranger → <span class="sift-fil-bin">${esc(state.binRel || "—")}</span></button>` +
     secondary +
