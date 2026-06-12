@@ -114,16 +114,7 @@ function reportHtml(r: AnalysisReport, closeBtn: boolean): string {
     <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px;flex-wrap:wrap">${verdictBadge(r.verdict)}
       <span style="font-size:11px;color:var(--color-text-tertiary)">déclaré <span class="pill">${esc(r.declared_format)}</span> ${r.declared_rail}${r.declared_bitrate ? " · " + r.declared_bitrate + " kbps" : ""}</span></div>
 
-    <div style="margin-bottom:11px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);overflow:hidden">
-      <button class="sift-sg-toggle" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 11px;background:var(--color-background-secondary);border:none;color:var(--color-text-primary);cursor:pointer;font-size:11px;text-align:left">
-        <span style="display:flex;align-items:center;gap:8px"><span class="sift-sg-caret" style="display:inline-block;transition:transform .25s;color:var(--color-text-tertiary)">▸</span> Spectrogramme <span style="color:var(--color-text-tertiary)">— preuve visuelle de la coupure</span></span>
-        <span class="sift-sg-hint" style="font-size:11px;color:var(--color-text-info);flex:none">afficher</span>
-      </button>
-      <div class="sift-sg-body" style="max-height:0;overflow:hidden;transition:max-height .3s ease">
-        <canvas class="sift-sg" width="720" height="180" style="width:100%;display:block;background:#000"></canvas>
-      </div>
-    </div>
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;padding:9px 11px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:11px;padding:9px 11px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)">
       <button class="sift-play" title="Lecture / pause" style="flex:none;width:32px;height:32px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;padding:0"><i class="ti ti-player-play" style="font-size:14px"></i></button>
       <div class="sift-wave" style="flex:1;min-width:0;cursor:pointer"></div>
       <div style="flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:7px">
@@ -136,6 +127,15 @@ function reportHtml(r: AnalysisReport, closeBtn: boolean): string {
             <button class="sift-vari" title="Varispeed — le tempo change le pitch (effet vinyle)" style="border:none;border-radius:0;padding:4px 9px;font-size:11px;display:inline-flex;align-items:center;gap:4px;border-left:0.5px solid var(--color-border-tertiary)"><i class="ti ti-lock-open" style="font-size:11px"></i>vari</button>
           </div>
         </div>
+      </div>
+    </div>
+    <div style="margin-bottom:11px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);overflow:hidden">
+      <button class="sift-sg-toggle" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 11px;background:var(--color-background-secondary);border:none;color:var(--color-text-primary);cursor:pointer;font-size:11px;text-align:left">
+        <span style="display:flex;align-items:center;gap:8px"><span class="sift-sg-caret" style="display:inline-block;transition:transform .25s;color:var(--color-text-tertiary)">▸</span> Spectrogramme <span style="color:var(--color-text-tertiary)">— preuve visuelle de la coupure</span></span>
+        <span class="sift-sg-hint" style="font-size:11px;color:var(--color-text-info);flex:none">afficher</span>
+      </button>
+      <div class="sift-sg-body" style="max-height:0;overflow:hidden;transition:max-height .3s ease">
+        <canvas class="sift-sg" width="720" height="180" style="width:100%;display:block;background:#000"></canvas>
       </div>
     </div>
 
