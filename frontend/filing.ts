@@ -28,8 +28,9 @@ const esc = (s: string) =>
 /** Shared, mutable Revue state for the current filing session. */
 interface RevueState {
   rootSet: boolean;
+  rootPath: string | null; // absolute library root (for the root tree node label)
   bins: Bin[];
-  binRel: string | null; // selected destination (relative to root)
+  binRel: string | null; // selected destination ("" = root, relative to root otherwise)
   creating: boolean; // "+ nouveau" inline input open
   track: QueueItem | null; // currently open track
   canonical: Canonical | null; // reconciled (then user-edited) metadata
@@ -38,6 +39,7 @@ interface RevueState {
 
 const state: RevueState = {
   rootSet: false,
+  rootPath: null,
   bins: [],
   binRel: null,
   creating: false,
@@ -50,12 +52,16 @@ const state: RevueState = {
 async function loadBins(): Promise<void> {
   try {
     const root = await getSetting(LIBRARY_ROOT);
+    state.rootPath = root ?? null;
     state.rootSet = !!(root && root.trim());
     state.bins = state.rootSet ? await listBins() : [];
-    if (state.binRel && !state.bins.some((b) => b.rel === state.binRel)) {
+    if (state.rootSet) expanded.add(""); // root open by default
+    // Drop a stale selection (a real bin that vanished); "" (root) is always valid.
+    if (state.binRel && state.binRel !== "" && !state.bins.some((b) => b.rel === state.binRel)) {
       state.binRel = null;
     }
-    if (!state.binRel && state.bins.length) state.binRel = state.bins[0].rel;
+    // Default to filing at the root until the user picks a sub-folder.
+    if (state.rootSet && state.binRel === null) state.binRel = "";
   } catch (e) {
     console.error("loadBins failed", e);
     state.rootSet = false;
@@ -92,31 +98,47 @@ async function makeBin(fldz: HTMLElement, name: string): Promise<void> {
   }
 }
 
-// Which parent bins are expanded in the tree (rel paths).
+// Which folders are expanded in the tree. "" = the library root node.
 const expanded = new Set<string>();
 
-/** Direct children of `rel` (one level deeper). */
-function binChildren(rel: string): Bin[] {
+/** Display name of the library root (last path segment), for the root tree node. */
+function rootName(): string {
+  if (!state.rootPath) return "Bibliothèque";
+  return state.rootPath.split(/[\\/]/).filter(Boolean).pop() || state.rootPath;
+}
+
+/** Human label for the current destination selection. */
+function binLabel(): string {
+  if (state.binRel === null) return "—";
+  if (state.binRel === "") return rootName();
+  return state.binRel;
+}
+
+/** Direct children of `rel` ("" = the root → its top-level bins). */
+function childrenOf(rel: string): Bin[] {
+  if (rel === "") return state.bins.filter((b) => b.depth === 1);
   const depth = rel.split("/").length;
   return state.bins.filter((b) => b.depth === depth + 1 && b.rel.startsWith(rel + "/"));
 }
 
-/** Recursive HTML for one bin row + its children when expanded. Folders only, with a
- * caret toggle for nodes that have sub-folders. */
-function binNodeHtml(b: Bin): string {
-  const kids = binChildren(b.rel);
-  const isOpen = expanded.has(b.rel);
-  const on = b.rel === state.binRel ? " on" : "";
-  const indent = (b.depth - 1) * 13;
+/** Recursive HTML for one tree node + its children when expanded. The root (depth 0,
+ * rel "") sits at the top; folders nest under it, each with a caret when it has
+ * sub-folders. Selecting a node sets it as the filing destination. */
+function binNodeHtml(node: { rel: string; name: string; depth: number }): string {
+  const kids = childrenOf(node.rel);
+  const isOpen = expanded.has(node.rel);
+  const on = node.rel === state.binRel ? " on" : "";
+  const indent = node.depth * 13;
   const caret = kids.length
-    ? `<span data-fil="caret" data-rel="${esc(b.rel)}" title="${isOpen ? "Replier" : "Déplier"}" style="display:inline-block;width:14px;text-align:center;cursor:pointer;color:var(--color-text-tertiary);transition:transform .2s;${
+    ? `<span data-fil="caret" data-rel="${esc(node.rel)}" title="${isOpen ? "Replier" : "Déplier"}" style="display:inline-block;width:14px;text-align:center;cursor:pointer;color:var(--color-text-tertiary);transition:transform .2s;${
         isOpen ? "transform:rotate(90deg)" : ""
       }">▸</span>`
     : '<span style="display:inline-block;width:14px;flex:none"></span>';
-  let html = `<div class="fld${on}" data-fil="bin" data-rel="${esc(b.rel)}" title="${esc(
-    b.rel,
-  )}" style="padding-left:${6 + indent}px;display:flex;align-items:center;gap:4px">${caret}<i class="ti ti-folder" style="font-size:13px;flex:none;color:var(--color-text-tertiary)"></i><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(
-    b.name,
+  const icon = node.depth === 0 ? "ti-database" : "ti-folder";
+  let html = `<div class="fld${on}" data-fil="bin" data-rel="${esc(node.rel)}" title="${esc(
+    node.rel || node.name,
+  )}" style="padding-left:${6 + indent}px;display:flex;align-items:center;gap:4px">${caret}<i class="ti ${icon}" style="font-size:13px;flex:none;color:var(--color-text-tertiary)"></i><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(
+    node.name,
   )}</span></div>`;
   if (kids.length && isOpen) html += kids.map(binNodeHtml).join("");
   return html;
@@ -135,16 +157,19 @@ export function renderBins(fldz: HTMLElement): void {
     return;
   }
 
-  const roots = state.bins.filter((b) => b.depth === 1);
-  const tree = roots.map(binNodeHtml).join("");
+  const tree = binNodeHtml({ rel: "", name: rootName(), depth: 0 });
+  const emptyNote =
+    state.bins.length === 0 && expanded.has("")
+      ? '<div style="font-size:10px;color:var(--color-text-tertiary);padding:2px 0 2px 33px">vide — crée un dossier</div>'
+      : "";
 
   const newRow = state.creating
     ? '<input data-fil="newin" placeholder="nom du dossier…" style="width:100%;font-size:12px;padding:5px 7px;margin-top:2px">'
     : '<div class="fld" data-fil="newbin" style="color:var(--color-text-tertiary)"><i class="ti ti-plus" style="font-size:14px"></i> nouveau</div>';
 
   fldz.innerHTML =
-    (tree ||
-      '<div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:4px">Aucun dossier — crée-en un.</div>') +
+    tree +
+    emptyNote +
     newRow +
     '<div data-fil="drop" class="sift-drop" style="margin-top:10px;border:1px dashed var(--color-border-secondary);border-radius:var(--border-radius-md);padding:9px;text-align:center;font-size:10px;color:var(--color-text-tertiary);line-height:1.4;transition:border-color .15s,color .15s"><i class="ti ti-folder-plus" style="font-size:14px;display:block;margin-bottom:2px"></i>glisser un dossier ici pour le surveiller</div>';
 
@@ -159,7 +184,7 @@ export function renderBins(fldz: HTMLElement): void {
   );
   fldz.querySelectorAll<HTMLElement>('[data-fil="bin"]').forEach((el) =>
     el.addEventListener("click", () => {
-      state.binRel = el.dataset.rel || null;
+      state.binRel = el.dataset.rel ?? null;
       renderBins(fldz);
       refreshFootButton();
     }),
@@ -212,7 +237,7 @@ function previewName(): string {
 /** Re-render just the Ranger button label (bin can change while a track is open). */
 function refreshFootButton(): void {
   const btn = document.querySelector<HTMLElement>('[data-fil="ranger"] .sift-fil-bin');
-  if (btn) btn.textContent = state.binRel || "—";
+  if (btn) btn.textContent = binLabel();
 }
 
 /** Render the filing footer (editor + format + actions) into `foot`. */
@@ -252,7 +277,7 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
     `<div class="sift-fil-prev" style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;line-height:1.5;margin-bottom:8px">→ ${esc(previewName())}</div>` +
     `<div style="margin-bottom:9px;padding-top:7px;border-top:0.5px solid var(--color-border-tertiary)"><div style="display:grid;grid-template-columns:auto 1fr auto 1fr;gap:3px 8px;font-size:10px;align-items:center"><span style="color:var(--color-text-tertiary)">Label</span><span style="color:var(--color-text-tertiary)">—</span><span style="color:var(--color-text-tertiary)">Année</span><span style="color:var(--color-text-tertiary)">—</span><span style="color:var(--color-text-tertiary)">Genre</span><span style="color:var(--color-text-tertiary)">—</span><span style="color:var(--color-text-tertiary)">BPM</span><span style="color:var(--color-text-tertiary)">—</span></div><div style="font-size:9px;color:var(--color-text-tertiary);margin-top:4px"><i class="ti ti-download" style="font-size:9px;vertical-align:-1px"></i> enrichissement Discogs à venir</div></div>` +
     `<div style="display:flex;gap:8px">` +
-    `<button data-fil="ranger" style="flex:1;background:var(--color-background-info);color:var(--color-text-info);border:none;font-weight:500"><i class="ti ti-corner-down-left" style="font-size:12px;vertical-align:-2px"></i> Ranger → <span class="sift-fil-bin">${esc(state.binRel || "—")}</span></button>` +
+    `<button data-fil="ranger" style="flex:1;background:var(--color-background-info);color:var(--color-text-info);border:none;font-weight:500"><i class="ti ti-corner-down-left" style="font-size:12px;vertical-align:-2px"></i> Ranger → <span class="sift-fil-bin">${esc(binLabel())}</span></button>` +
     secondary +
     `</div>`;
 
@@ -312,7 +337,7 @@ function toast(message: string, undo: boolean): void {
 /** Ranger the current track into the selected bin. */
 async function doRanger(mid: HTMLElement): Promise<void> {
   if (!state.track || !state.canonical) return;
-  if (!state.binRel) {
+  if (state.binRel === null) {
     toast("Choisis un dossier de destination.", false);
     return;
   }
