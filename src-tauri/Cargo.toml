@@ -33,3 +33,11 @@ lofty = "0.22.2"
 
 [dev-dependencies]
 tempfile = "3.27.0"
+
+# Audio DSP is unusably slow in an unoptimised debug build (rustfft + per-sample loops).
+# Optimise dependencies fully, and our own code lightly, while keeping dev compile fast.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
