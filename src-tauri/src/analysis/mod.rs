@@ -83,7 +83,10 @@ const CLIP_MIN_RUN: usize = 3;
 const SILENCE_THRESHOLD: f32 = 0.001; // ~ -60 dBFS
 
 /// Runs the full analysis: one decode, all analyzers in a single streaming pass.
-pub fn analyze(path: &str) -> Result<AnalysisReport, String> {
+/// `with_spectrogram`: build the (heavy) display spectrogram grid. The verdict and all
+/// scalar signals are identical either way — only the display grid is gated. Batch (M2b)
+/// passes false; the Revue UI / debug overlay pass true on demand.
+pub fn analyze(path: &str, with_spectrogram: bool) -> Result<AnalysisReport, String> {
     let started = std::time::Instant::now();
     // declared properties / tags (no decode)
     let tag = tags::read(path);
@@ -96,7 +99,7 @@ pub fn analyze(path: &str) -> Result<AnalysisReport, String> {
     let mut sil = SilenceAccumulator::new(sr, SILENCE_THRESHOLD);
     let mut trunc = TruncationAccumulator::new(sr);
     let mut pk = PeaksAccumulator::new(PEAKS_WINDOW);
-    let mut spec = SpectrumAccumulator::new(sr, FFT_SIZE);
+    let mut spec = SpectrumAccumulator::new(sr, FFT_SIZE, with_spectrogram);
     let mut ph = PhaseAccumulator::new();
 
     let info = decode::decode_pcm(path, target_ch, |block| {
@@ -128,11 +131,12 @@ pub fn analyze(path: &str) -> Result<AnalysisReport, String> {
     let verdict = verdict::verdict(cutoff_hz, tag.declared_rail);
 
     log::info!(
-        "analyze {} : {} ms (decode+dsp, {} ch, {:.1}s)",
+        "analyze {} : {} ms (decode+dsp, {} ch, {:.1}s, spectro={})",
         path,
         started.elapsed().as_millis(),
         info.channels,
-        tag.duration_sec
+        tag.duration_sec,
+        with_spectrogram
     );
 
     Ok(AnalysisReport {

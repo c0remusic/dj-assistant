@@ -127,8 +127,11 @@ pub fn rescan_source(app: AppHandle, id: i64) -> Result<(), String> {
 /// Debug command: run the M2a analysis engine on a path and return the full report.
 /// Auto-triggering (worker) + DB caching land in M2b.
 #[tauri::command]
-pub fn analyze_path(path: String) -> Result<crate::analysis::AnalysisReport, String> {
-    crate::analysis::analyze(&path)
+pub fn analyze_path(
+    path: String,
+    with_spectrogram: bool,
+) -> Result<crate::analysis::AnalysisReport, String> {
+    crate::analysis::analyze(&path, with_spectrogram)
 }
 
 /// Runs a reconcile for `source_id` on a background thread (walkdir is blocking IO),

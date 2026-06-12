@@ -25,11 +25,15 @@ pub struct SpectrumAccumulator {
     frames_total: u64,
     spec_stride: u64,
     spec_cols: Vec<Vec<u8>>,
+    collect_display: bool,
     bins: usize,
 }
 
 impl SpectrumAccumulator {
-    pub fn new(sr: u32, fft_size: usize) -> Self {
+    /// `collect_display`: when false, skips storing spectrogram columns entirely (the FFT
+    /// still runs for the LTAS/cutoff, so the verdict is unchanged — only the heavy display
+    /// grid is not built). The batch worker (M2b) passes false; the UI passes true.
+    pub fn new(sr: u32, fft_size: usize, collect_display: bool) -> Self {
         let mut planner = FftPlanner::<f32>::new();
         let fft = planner.plan_fft_forward(fft_size);
         let window: Vec<f32> = (0..fft_size)
@@ -47,6 +51,7 @@ impl SpectrumAccumulator {
             frames_total: 0,
             spec_stride: 4,
             spec_cols: Vec::new(),
+            collect_display,
             bins,
         }
     }
@@ -70,7 +75,7 @@ impl SpectrumAccumulator {
             self.ltas[k] += m2 as f64;
             mags[k] = m2;
         }
-        if self.frames_total % self.spec_stride == 0 {
+        if self.collect_display && self.frames_total % self.spec_stride == 0 {
             let col: Vec<u8> = mags.iter().map(|&m2| {
                 let db = if m2 <= 1e-12 { -100.0 } else { 10.0 * m2.log10() };
                 let clamped = db.clamp(-100.0, 0.0);
@@ -187,7 +192,7 @@ mod tests {
     #[test]
     fn cutoff_detected_near_hard_band_edge() {
         let sig = band_limited_tones(SR, 2.0, 6000.0);
-        let mut a = SpectrumAccumulator::new(SR, 4096);
+        let mut a = SpectrumAccumulator::new(SR, 4096, true);
         a.push(&sig);
         let report = a.finish();
         assert!(report.cutoff_hz > 5000.0 && report.cutoff_hz < 7500.0,
@@ -205,7 +210,7 @@ mod tests {
             seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
             sig.push((seed >> 8) as f32 / (1u32 << 24) as f32 * 2.0 - 1.0);
         }
-        let mut a = SpectrumAccumulator::new(SR, 4096);
+        let mut a = SpectrumAccumulator::new(SR, 4096, true);
         a.push(&sig);
         let report = a.finish();
         assert!(report.cutoff_hz > 18000.0, "cutoff {} should be near Nyquist", report.cutoff_hz);

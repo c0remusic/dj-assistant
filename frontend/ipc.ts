@@ -23,9 +23,13 @@ export const rescanSource = (id: number): Promise<void> =>
 export const setSourceWatched = (id: number, watched: boolean): Promise<void> =>
   invoke("set_source_watched", { id, watched });
 
-/** Debug: run the M2a analysis engine on a file path and return the full report. */
-export const analyzePath = (path: string): Promise<AnalysisReport> =>
-  invoke("analyze_path", { path });
+/** Debug: run the M2a analysis engine on a file path and return the full report.
+ * `withSpectrogram` builds the heavy display grid (verdict/scalars are identical either way). */
+export const analyzePath = (
+  path: string,
+  withSpectrogram = false,
+): Promise<AnalysisReport> =>
+  invoke("analyze_path", { path, withSpectrogram });
 
 /** Subscribe to backend "queue:changed" pings. Returns an unlisten fn. */
 export const onQueueChanged = (cb: () => void): Promise<UnlistenFn> =>
