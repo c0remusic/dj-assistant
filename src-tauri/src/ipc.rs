@@ -124,6 +124,13 @@ pub fn rescan_source(app: AppHandle, id: i64) -> Result<(), String> {
     Ok(())
 }
 
+/// Debug command: run the M2a analysis engine on a path and return the full report.
+/// Auto-triggering (worker) + DB caching land in M2b.
+#[tauri::command]
+pub fn analyze_path(path: String) -> Result<crate::analysis::AnalysisReport, String> {
+    crate::analysis::analyze(&path)
+}
+
 /// Runs a reconcile for `source_id` on a background thread (walkdir is blocking IO),
 /// then starts the live watcher and notifies the front. Errors are logged, not fatal.
 fn spawn_scan(app: AppHandle, source_id: i64) {

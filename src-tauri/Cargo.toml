@@ -28,6 +28,8 @@ ffmpeg-sidecar = "2.5.0"
 walkdir = "2.5.0"
 tauri-plugin-dialog = "2.7.1"
 notify-debouncer-full = "0.6.0"
+rustfft = "6.4.1"
+lofty = "0.22.2"
 
 [dev-dependencies]
 tempfile = "3.27.0"
