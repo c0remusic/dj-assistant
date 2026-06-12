@@ -114,19 +114,19 @@ function reportHtml(r: AnalysisReport, closeBtn: boolean): string {
     <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px;flex-wrap:wrap">${verdictBadge(r.verdict)}
       <span style="font-size:11px;color:var(--color-text-tertiary)">déclaré <span class="pill">${esc(r.declared_format)}</span> ${r.declared_rail}${r.declared_bitrate ? " · " + r.declared_bitrate + " kbps" : ""}</span></div>
 
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:11px;padding:9px 11px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)">
-      <button class="sift-play" title="Lecture / pause" style="flex:none;width:32px;height:32px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;padding:0"><i class="ti ti-player-play" style="font-size:14px"></i></button>
-      <div class="sift-wave" style="flex:1;min-width:0;cursor:pointer"></div>
-      <div style="flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:7px">
-        <span class="sift-time" title="Cliquer : écoulé ⇄ restant" style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-secondary);cursor:pointer;transition:color .15s;display:inline-flex;align-items:center;gap:4px"><i class="ti ti-arrows-left-right" style="font-size:10px"></i><span class="sift-time-val">0:00 / 0:00</span></span>
-        <div style="display:flex;align-items:center;gap:9px">
-          <span style="font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--color-text-tertiary)">tempo</span>
-          <input class="sift-tempo" type="range" min="-8" max="8" step="1" value="0" title="Tempo — double-clic = reset" aria-label="Tempo" style="width:78px">
-          <span class="sift-tempo-out pill" style="min-width:44px;justify-content:center;font-family:var(--font-mono)">0%</span>
-          <div style="display:flex;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);overflow:hidden">
-            <button class="sift-key" title="Key-lock — le tempo ne change pas le pitch" style="border:none;border-radius:0;padding:4px 9px;font-size:11px;display:inline-flex;align-items:center;gap:4px"><i class="ti ti-lock" style="font-size:11px"></i>key</button>
-            <button class="sift-vari" title="Varispeed — le tempo change le pitch (effet vinyle)" style="border:none;border-radius:0;padding:4px 9px;font-size:11px;display:inline-flex;align-items:center;gap:4px;border-left:0.5px solid var(--color-border-tertiary)"><i class="ti ti-lock-open" style="font-size:11px"></i>vari</button>
-          </div>
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:11px;padding:10px 12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)">
+      <div style="flex:none;display:flex;flex-direction:column;align-items:center;gap:6px">
+        <button class="sift-play" title="Lecture / pause" style="flex:none;width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;padding:0"><i class="ti ti-player-play" style="font-size:15px"></i></button>
+        <span class="sift-time" title="Cliquer : écoulé ⇄ restant" style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-secondary);cursor:pointer;transition:color .15s;display:inline-flex;align-items:center;gap:3px"><i class="ti ti-arrows-left-right" style="font-size:9px"></i><span class="sift-time-val">0:00 / 0:00</span></span>
+      </div>
+      <div class="sift-wave" style="flex:1;min-width:0;align-self:stretch;display:flex;align-items:center;cursor:pointer"></div>
+      <div style="flex:none;display:flex;flex-direction:column;align-items:center;gap:5px">
+        <span style="font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:var(--color-text-tertiary)">tempo</span>
+        <input class="sift-tempo" type="range" min="-8" max="8" step="1" value="0" title="Tempo — double-clic = reset" aria-label="Tempo" style="writing-mode:vertical-lr;direction:rtl;width:16px;height:52px">
+        <span class="sift-tempo-out pill" style="min-width:44px;justify-content:center;font-family:var(--font-mono)">0%</span>
+        <div style="display:flex;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);overflow:hidden">
+          <button class="sift-key" title="Key-lock — le tempo ne change pas le pitch" style="border:none;border-radius:0;padding:3px 8px;font-size:11px;display:inline-flex;align-items:center;gap:4px"><i class="ti ti-lock" style="font-size:11px"></i>key</button>
+          <button class="sift-vari" title="Varispeed — le tempo change le pitch (effet vinyle)" style="border:none;border-radius:0;padding:3px 8px;font-size:11px;display:inline-flex;align-items:center;gap:4px;border-left:0.5px solid var(--color-border-tertiary)"><i class="ti ti-lock-open" style="font-size:11px"></i>vari</button>
         </div>
       </div>
     </div>
