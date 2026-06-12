@@ -11,6 +11,7 @@ import {
   setSourceWatched,
 } from "./ipc";
 import { open } from "@tauri-apps/plugin-dialog";
+import { openReportFor } from "./report-view";
 import type { Source, QueueItem } from "../shared/contracts";
 
 const VERDICT_DOT: Record<string, [string, string]> = {
@@ -130,11 +131,11 @@ async function renderQueue() {
     (items
       .map(
         (it) =>
-          `<div class="qi" style="display:flex;align-items:center;gap:8px">${verdictDot(
+          `<div class="qi" data-path="${esc(it.path)}" title="Voir le rapport d'analyse" style="display:flex;align-items:center;gap:8px;cursor:pointer">${verdictDot(
             it.verdict,
           )}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(
             it.filename || it.path,
-          )}</span></div>`,
+          )}</span><i class="ti ti-chevron-right" style="flex:none;color:var(--color-text-tertiary);font-size:14px"></i></div>`,
       )
       .join("") ||
       '<div style="font-size:12px;color:var(--color-text-tertiary);padding:6px 4px">File vide.</div>');
@@ -162,6 +163,13 @@ export function installLiveWiring() {
   window.__siftQueue = renderQueue;
 
   document.getElementById("pa")?.addEventListener("click", (e) => {
+    // queue item → open its analysis report
+    const qi = (e.target as HTMLElement).closest<HTMLElement>(".qi[data-path]");
+    if (qi?.dataset.path) {
+      e.stopPropagation();
+      void openReportFor(qi.dataset.path);
+      return;
+    }
     const el = (e.target as HTMLElement).closest<HTMLElement>("[data-sift]");
     if (!el) return;
     const act = el.dataset.sift;
