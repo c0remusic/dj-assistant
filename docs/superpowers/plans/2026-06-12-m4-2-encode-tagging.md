@@ -288,6 +288,7 @@ Add to `mod tests`:
     #[test]
     fn encodes_flac_to_conformant_aiff() {
         let Some(src) = fixture("real_lossless.flac") else { eprintln!("skip: no fixture"); return; };
+        crate::ffmpeg::init_ffmpeg_path(); // point ffmpeg-sidecar at the bundled dev binary
         let dir = tempfile::tempdir().unwrap();
         let dst = dir.path().join("out.aiff");
         let dst = dst.to_str().unwrap();
@@ -299,6 +300,7 @@ Add to `mod tests`:
     #[test]
     fn encodes_flac_to_mp3_320() {
         let Some(src) = fixture("real_lossless.flac") else { eprintln!("skip: no fixture"); return; };
+        crate::ffmpeg::init_ffmpeg_path(); // point ffmpeg-sidecar at the bundled dev binary
         let dir = tempfile::tempdir().unwrap();
         let dst = dir.path().join("out.mp3");
         let dst = dst.to_str().unwrap();
@@ -343,7 +345,10 @@ pub fn encode(src: &str, dst: &str, target: Target) -> Result<(), EncodeError> {
     for ev in iter {
         match ev {
             FfmpegEvent::Log(LogLevel::Error, msg) => err = Some(msg),
-            FfmpegEvent::Error(msg) => err = Some(msg),
+            // ffmpeg-sidecar emits this synthetic event whenever no output stream is routed
+            // to stdout — always the case for file output. Not a real failure; the
+            // output-file check below is the source of truth.
+            FfmpegEvent::Error(msg) if msg != "No streams found" => err = Some(msg),
             _ => {}
         }
     }

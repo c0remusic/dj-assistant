@@ -1,11 +1,13 @@
 pub mod analysis;
 mod db;
+mod encode;
 mod ffmpeg;
 mod ipc;
 mod naming;
 mod queue;
 mod scanner;
 mod sources;
+mod tagging;
 mod watcher;
 mod worker;
 
