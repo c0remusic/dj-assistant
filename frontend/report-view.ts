@@ -1,17 +1,17 @@
-// Shared analysis-report view (Tauri only): a modal overlay with verdict, signals,
-// waveform and an on-demand spectrogram. Used by the debug button AND the Revue queue.
+// Shared analysis-report view (Tauri only): verdict, signals, waveform, on-demand
+// spectrogram. Can render inline into a container (Revue #mid pane) or as a modal
+// (debug button on an arbitrary picked file). Queries are scoped to a root element so
+// inline + modal can't clash on ids.
 import { analyzePath } from "./ipc";
 import type { AnalysisReport } from "../shared/contracts";
 
-const PEAKS_WINDOW = 512; // must match analysis::PEAKS_WINDOW (mono samples per peak)
+const PEAKS_WINDOW = 512; // must match analysis::PEAKS_WINDOW
 
 const esc = (s: string) =>
   s.replace(/[&<>"]/g, (c) =>
     c === "&" ? "&amp;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : "&quot;",
   );
-
-const fmt = (n: number, d = 1) =>
-  Number.isFinite(n) ? n.toFixed(d) : String(n);
+const fmt = (n: number, d = 1) => (Number.isFinite(n) ? n.toFixed(d) : String(n));
 
 function verdictBadge(v: AnalysisReport["verdict"]): string {
   const map = {
@@ -23,14 +23,12 @@ function verdictBadge(v: AnalysisReport["verdict"]): string {
   return `<span style="display:inline-block;padding:4px 12px;border-radius:6px;font-weight:600;font-size:14px;color:${fg};background:${bg};border:1px solid ${fg}">${label}</span>`;
 }
 
-/** Spaced, mirrored bars (Serato/Rekordbox-style) — readable rather than a solid block. */
 function drawWaveform(canvas: HTMLCanvasElement, peaks: number[]) {
   const ctx = canvas.getContext("2d");
   if (!ctx || peaks.length === 0) return;
   const w = canvas.width, h = canvas.height, mid = h / 2;
   ctx.clearRect(0, 0, w, h);
-  const BAR = 3, GAP = 1;
-  const slot = BAR + GAP;
+  const BAR = 3, GAP = 1, slot = BAR + GAP;
   const nBars = Math.floor(w / slot);
   const per = peaks.length / nBars;
   ctx.fillStyle = "rgba(237,233,224,.12)";
@@ -40,15 +38,12 @@ function drawWaveform(canvas: HTMLCanvasElement, peaks: number[]) {
     const start = Math.floor(b * per);
     const end = Math.max(start + 1, Math.floor((b + 1) * per));
     let m = 0;
-    for (let i = start; i < end && i < peaks.length; i++) {
-      if (peaks[i] > m) m = peaks[i];
-    }
+    for (let i = start; i < end && i < peaks.length; i++) if (peaks[i] > m) m = peaks[i];
     const bar = Math.max(1, m * (mid - 1));
     ctx.fillRect(b * slot, mid - bar, BAR, bar * 2);
   }
 }
 
-/** Spectrogram (mag_db, row-major by frame) + a red cutoff line. */
 function drawSpectrogram(canvas: HTMLCanvasElement, r: AnalysisReport) {
   const ctx = canvas.getContext("2d");
   const sg = r.spectrogram;
@@ -94,81 +89,66 @@ function row(label: string, value: string): string {
   return `<div style="display:flex;justify-content:space-between;gap:16px;padding:3px 0;border-bottom:1px solid rgba(237,233,224,.08)"><span style="color:var(--color-text-tertiary)">${label}</span><span style="font-family:monospace;text-align:right">${value}</span></div>`;
 }
 
-const OVERLAY_ID = "sift-report-overlay";
-
-function makeOverlay(): HTMLElement {
-  document.getElementById(OVERLAY_ID)?.remove();
-  const ov = document.createElement("div");
-  ov.id = OVERLAY_ID;
-  ov.style.cssText =
-    "position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:24px";
-  ov.addEventListener("click", (e) => {
-    if (e.target === ov) ov.remove();
-  });
-  document.body.appendChild(ov);
-  return ov;
-}
-
-/** Renders the full report into a modal overlay. */
-export function showReport(r: AnalysisReport) {
-  const ov = makeOverlay();
+/** The report's inner HTML (no positioning chrome). `closeBtn` adds a "fermer" button. */
+function reportHtml(r: AnalysisReport, closeBtn: boolean): string {
   const yn = (b: boolean) => (b ? "oui" : "non");
   const name = r.path.split(/[\\/]/).pop() || r.path;
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px">
+      <div><div style="font-size:14px;font-weight:600;word-break:break-all">${esc(name)}</div>
+        <div style="font-size:10px;color:var(--color-text-tertiary);word-break:break-all;margin-top:2px">${esc(r.path)}</div></div>
+      ${closeBtn ? '<button class="sift-close" style="flex:none;font-size:13px;padding:4px 10px">fermer</button>' : ""}
+    </div>
+    <div style="margin-bottom:14px">${verdictBadge(r.verdict)}
+      <span style="margin-left:10px;font-size:12px;color:var(--color-text-tertiary)">déclaré ${esc(r.declared_format)} · ${r.declared_rail}${r.declared_bitrate ? " · " + r.declared_bitrate + " kbps" : ""}</span></div>
 
-  ov.innerHTML = `
-    <div style="background:#1a1a1a;color:#ede9e0;border:1px solid rgba(237,233,224,.15);border-radius:12px;max-width:760px;width:100%;max-height:90vh;overflow:auto;padding:20px;box-shadow:0 12px 48px rgba(0,0,0,.5)">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px">
-        <div><div style="font-size:15px;font-weight:600;word-break:break-all">${esc(name)}</div>
-          <div style="font-size:11px;color:var(--color-text-tertiary);word-break:break-all;margin-top:2px">${esc(r.path)}</div></div>
-        <button id="sift-report-close" style="flex:none;font-size:13px;padding:4px 10px">fermer</button>
+    <div style="margin-bottom:12px;border:1px solid rgba(237,233,224,.12);border-radius:8px;overflow:hidden">
+      <button class="sift-sg-toggle" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:rgba(237,233,224,.04);border:none;color:#ede9e0;cursor:pointer;font-size:12px;text-align:left">
+        <span style="display:flex;align-items:center;gap:8px"><span class="sift-sg-caret" style="display:inline-block;transition:transform .25s;color:var(--color-text-tertiary)">▸</span> Spectrogramme <span style="color:var(--color-text-tertiary)">— preuve visuelle de la coupure</span></span>
+        <span class="sift-sg-hint" style="font-size:11px;color:#FFdc82;flex:none">afficher</span>
+      </button>
+      <div class="sift-sg-body" style="max-height:0;overflow:hidden;transition:max-height .3s ease">
+        <canvas class="sift-sg" width="720" height="180" style="width:100%;display:block;background:#000"></canvas>
       </div>
-      <div style="margin-bottom:14px">${verdictBadge(r.verdict)}
-        <span style="margin-left:10px;font-size:12px;color:var(--color-text-tertiary)">déclaré ${esc(r.declared_format)} · ${r.declared_rail}${r.declared_bitrate ? " · " + r.declared_bitrate + " kbps" : ""}</span></div>
+    </div>
+    <div style="font-size:11px;color:var(--color-text-tertiary);margin:0 0 4px">Waveform</div>
+    <canvas class="sift-wf" width="720" height="70" style="width:100%;border-radius:6px;background:#101418;margin-bottom:14px"></canvas>
 
-      <div style="margin-bottom:12px;border:1px solid rgba(237,233,224,.12);border-radius:8px;overflow:hidden">
-        <button id="sift-sg-toggle" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:rgba(237,233,224,.04);border:none;color:#ede9e0;cursor:pointer;font-size:12px;text-align:left">
-          <span style="display:flex;align-items:center;gap:8px"><span id="sift-sg-caret" style="display:inline-block;transition:transform .25s;color:var(--color-text-tertiary)">▸</span> Spectrogramme <span style="color:var(--color-text-tertiary)">— preuve visuelle de la coupure</span></span>
-          <span id="sift-sg-hint" style="font-size:11px;color:#FFdc82;flex:none">afficher</span>
-        </button>
-        <div id="sift-sg-body" style="max-height:0;overflow:hidden;transition:max-height .3s ease">
-          <canvas id="sift-sg" width="720" height="180" style="width:100%;display:block;background:#000"></canvas>
-        </div>
-      </div>
-      <div style="font-size:11px;color:var(--color-text-tertiary);margin:0 0 4px">Waveform</div>
-      <canvas id="sift-wf" width="720" height="70" style="width:100%;border-radius:6px;background:#101418;margin-bottom:14px"></canvas>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 28px;font-size:12px">
+      ${row("Verdict", r.verdict)}
+      ${row("Coupure", fmt(r.cutoff_hz, 0) + " Hz")}
+      ${row("Durée", fmt(r.duration_sec, 1) + " s")}
+      ${row("Canaux", String(r.channels) + (r.dual_mono ? " (dual-mono)" : ""))}
+      ${row("True-peak", fmt(r.true_peak_dbtp, 2) + " dBTP")}
+      ${row("DC offset", fmt(r.dc_offset, 5))}
+      ${row("Écrêtage", r.clip_runs + " runs / " + fmt(r.clip_pct, 2) + "%")}
+      ${row("Corrélation phase", fmt(r.phase_correlation, 3))}
+      ${row("Silence tête", r.silence_head_ms + " ms")}
+      ${row("Silence queue", r.silence_tail_ms + " ms")}
+      ${row("Tronqué", yn(r.truncated))}
+      ${row("Conteneur OK", yn(r.container_ok))}
+      ${row("Tags CDJ OK", yn(r.tags_cdj_ok))}
+      ${row("Pochette", yn(r.has_cover))}
+      ${row("Version ID3", r.id3_version || "—")}
+      ${row("Sample rate", r.sample_rate + " Hz")}
+      ${row("Peaks (couverture)", peaksCoverage(r))}
+    </div>
+    ${r.codec_error ? `<div style="margin-top:12px;font-size:11px;color:#ff6b6b">codec error: ${esc(r.codec_error)}</div>` : ""}`;
+}
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 28px;font-size:12px">
-        ${row("Verdict", r.verdict)}
-        ${row("Coupure", fmt(r.cutoff_hz, 0) + " Hz")}
-        ${row("Durée", fmt(r.duration_sec, 1) + " s")}
-        ${row("Canaux", String(r.channels) + (r.dual_mono ? " (dual-mono)" : ""))}
-        ${row("True-peak", fmt(r.true_peak_dbtp, 2) + " dBTP")}
-        ${row("DC offset", fmt(r.dc_offset, 5))}
-        ${row("Écrêtage", r.clip_runs + " runs / " + fmt(r.clip_pct, 2) + "%")}
-        ${row("Corrélation phase", fmt(r.phase_correlation, 3))}
-        ${row("Silence tête", r.silence_head_ms + " ms")}
-        ${row("Silence queue", r.silence_tail_ms + " ms")}
-        ${row("Tronqué", yn(r.truncated))}
-        ${row("Conteneur OK", yn(r.container_ok))}
-        ${row("Tags CDJ OK", yn(r.tags_cdj_ok))}
-        ${row("Pochette", yn(r.has_cover))}
-        ${row("Version ID3", r.id3_version || "—")}
-        ${row("Sample rate", r.sample_rate + " Hz")}
-        ${row("Peaks (couverture)", peaksCoverage(r))}
-      </div>
-      ${r.codec_error ? `<div style="margin-top:12px;font-size:11px;color:#ff6b6b">codec error: ${esc(r.codec_error)}</div>` : ""}
-    </div>`;
+/** Wires the canvases + spectrogram toggle inside `root` (scoped — no global ids). */
+function wireReport(root: HTMLElement, r: AnalysisReport) {
+  const wf = root.querySelector<HTMLCanvasElement>(".sift-wf");
+  if (wf) drawWaveform(wf, r.peaks);
 
-  document.getElementById("sift-report-close")?.addEventListener("click", () => ov.remove());
-  drawWaveform(document.getElementById("sift-wf") as HTMLCanvasElement, r.peaks);
+  const sg = root.querySelector<HTMLCanvasElement>(".sift-sg");
+  const toggle = root.querySelector<HTMLButtonElement>(".sift-sg-toggle");
+  const body = root.querySelector<HTMLElement>(".sift-sg-body");
+  const caret = root.querySelector<HTMLElement>(".sift-sg-caret");
+  const hint = root.querySelector<HTMLElement>(".sift-sg-hint");
+  if (!sg || !toggle || !body || !caret || !hint) return;
 
-  const sgCanvas = document.getElementById("sift-sg") as HTMLCanvasElement;
-  const toggle = document.getElementById("sift-sg-toggle") as HTMLButtonElement;
-  const body = document.getElementById("sift-sg-body") as HTMLElement;
-  const caret = document.getElementById("sift-sg-caret") as HTMLElement;
-  const hint = document.getElementById("sift-sg-hint") as HTMLElement;
   let open = false, loaded = false, busy = false;
-
   toggle.addEventListener("click", async () => {
     if (busy) return;
     if (open) {
@@ -183,7 +163,7 @@ export function showReport(r: AnalysisReport) {
       hint.textContent = "calcul…";
       try {
         const full = r.spectrogram.frames > 0 ? r : await analyzePath(r.path, true);
-        drawSpectrogram(sgCanvas, full);
+        drawSpectrogram(sg, full);
         loaded = true;
       } catch (e) {
         console.error("spectrogram analyze failed", e);
@@ -200,17 +180,52 @@ export function showReport(r: AnalysisReport) {
   });
 }
 
-/** Loads (analyses, no spectrogram) and shows the report for a path, with a loading state. */
-export async function openReportFor(path: string) {
-  const ov = makeOverlay();
+/** Renders the report INLINE into `container` (e.g. the Revue #mid pane). */
+export function renderReportInto(container: HTMLElement, r: AnalysisReport) {
+  container.innerHTML = `<div style="flex:1;overflow:auto;padding:2px 2px 8px">${reportHtml(r, false)}</div>`;
+  wireReport(container, r);
+}
+
+/** Loads (no spectrogram) and renders inline into `container`, with a loading state. */
+export async function openReportInto(container: HTMLElement, path: string) {
+  const name = path.split(/[\\/]/).pop() || path;
+  container.innerHTML = `<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--color-text-tertiary);font-size:13px">⏳ Analyse de ${esc(name)}…</div>`;
+  try {
+    const r = await analyzePath(path, false);
+    renderReportInto(container, r);
+  } catch (e) {
+    console.error("analyze_path failed", e);
+    container.innerHTML = `<div style="flex:1;display:flex;align-items:center;justify-content:center;color:#ff6b6b;font-size:13px">Analyse échouée : ${esc(String(e))}</div>`;
+  }
+}
+
+const OVERLAY_ID = "sift-report-overlay";
+
+/** Modal version, for the debug button (a file not in the queue). */
+export async function openReportModal(path: string) {
+  document.getElementById(OVERLAY_ID)?.remove();
+  const ov = document.createElement("div");
+  ov.id = OVERLAY_ID;
+  ov.style.cssText =
+    "position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:24px";
+  ov.addEventListener("click", (e) => {
+    if (e.target === ov) ov.remove();
+  });
+  document.body.appendChild(ov);
   const name = path.split(/[\\/]/).pop() || path;
   ov.innerHTML = `<div style="background:#1a1a1a;color:#ede9e0;border-radius:12px;padding:22px 26px;font-size:13px;box-shadow:0 12px 48px rgba(0,0,0,.5)">⏳ Analyse de <strong>${esc(name)}</strong>…</div>`;
   try {
     const r = await analyzePath(path, false);
-    showReport(r);
+    const card = document.createElement("div");
+    card.style.cssText =
+      "background:#1a1a1a;color:#ede9e0;border:1px solid rgba(237,233,224,.15);border-radius:12px;max-width:760px;width:100%;max-height:90vh;overflow:auto;padding:20px;box-shadow:0 12px 48px rgba(0,0,0,.5)";
+    card.innerHTML = reportHtml(r, true);
+    ov.innerHTML = "";
+    ov.appendChild(card);
+    card.querySelector(".sift-close")?.addEventListener("click", () => ov.remove());
+    wireReport(card, r);
   } catch (e) {
     console.error("analyze_path failed", e);
-    ov.innerHTML = `<div style="background:#1a1a1a;color:#ff6b6b;border-radius:12px;padding:22px 26px;font-size:13px">Analyse échouée : ${esc(String(e))}<div style="margin-top:10px"><button id="sift-report-close">fermer</button></div></div>`;
-    document.getElementById("sift-report-close")?.addEventListener("click", () => ov.remove());
+    ov.innerHTML = `<div style="background:#1a1a1a;color:#ff6b6b;border-radius:12px;padding:22px 26px;font-size:13px">Analyse échouée : ${esc(String(e))}</div>`;
   }
 }

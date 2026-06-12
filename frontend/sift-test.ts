@@ -1,7 +1,7 @@
 // Debug analysis tester — ACTIVE ONLY inside the Tauri app. Floating button → native file
 // picker → report overlay (shared with the Revue queue via report-view).
 import { open } from "@tauri-apps/plugin-dialog";
-import { openReportFor } from "./report-view";
+import { openReportModal } from "./report-view";
 
 const AUDIO_EXTS = ["mp3", "flac", "wav", "aif", "aiff", "m4a", "aac", "ogg", "opus"];
 
@@ -10,7 +10,7 @@ async function pickAndAnalyze() {
     multiple: false,
     filters: [{ name: "Audio", extensions: AUDIO_EXTS }],
   });
-  if (typeof sel === "string") void openReportFor(sel);
+  if (typeof sel === "string") void openReportModal(sel);
 }
 
 export function installTestButton() {

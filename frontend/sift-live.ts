@@ -11,7 +11,7 @@ import {
   setSourceWatched,
 } from "./ipc";
 import { open } from "@tauri-apps/plugin-dialog";
-import { openReportFor } from "./report-view";
+import { openReportInto } from "./report-view";
 import type { Source, QueueItem } from "../shared/contracts";
 
 const VERDICT_DOT: Record<string, [string, string]> = {
@@ -163,11 +163,16 @@ export function installLiveWiring() {
   window.__siftQueue = renderQueue;
 
   document.getElementById("pa")?.addEventListener("click", (e) => {
-    // queue item → open its analysis report
+    // queue item → render its analysis report inline in the #mid pane
     const qi = (e.target as HTMLElement).closest<HTMLElement>(".qi[data-path]");
     if (qi?.dataset.path) {
       e.stopPropagation();
-      void openReportFor(qi.dataset.path);
+      const mid = document.getElementById("mid");
+      // highlight the active row
+      document.querySelectorAll(".qi.cur").forEach((n) => n.classList.remove("cur"));
+      qi.classList.add("cur");
+      if (mid) void openReportInto(mid, qi.dataset.path);
+      else void import("./report-view").then((m) => m.openReportModal(qi.dataset.path!));
       return;
     }
     const el = (e.target as HTMLElement).closest<HTMLElement>("[data-sift]");
