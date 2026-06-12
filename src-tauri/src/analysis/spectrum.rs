@@ -86,31 +86,67 @@ impl SpectrumAccumulator {
         self.frames_total += 1;
     }
 
-    /// Detect the cutoff: scan bins from Nyquist downward; the cutoff is the top edge of
-    /// sustained energy (LTAS in dB above a floor set relative to the spectral peak).
+    /// Detect the cutoff as the **highest sharp cliff into the noise floor** in the LTAS.
+    ///
+    /// A lossy lowpass (MP3/AAC, or an encoder brickwall) leaves a steep drop from real
+    /// content down to the digital noise floor, with silence above it. We scan from just
+    /// below Nyquist downward and return the highest frequency where the level drops by
+    /// `DROP_DB` across a ~500 Hz band AND the side above that drop sits at the noise floor.
+    /// If no such cliff exists, the energy tapers all the way up → genuine full-band → Nyquist.
+    ///
+    /// This is robust to bass-heavy music: it keys off the *shape* (a cliff into silence),
+    /// not an absolute level relative to the (bass) spectral peak — which used to make quiet
+    /// but real treble look "absent" and under-report the cutoff.
     fn detect_cutoff(&self) -> f32 {
-        if self.frames_total == 0 { return 0.0; }
+        if self.frames_total == 0 || self.bins < 8 {
+            return 0.0;
+        }
         let hz_per_bin = self.sr as f32 / self.fft_size as f32;
-        let avg_db: Vec<f32> = self.ltas.iter().map(|&s| {
-            let avg = s / self.frames_total as f64;
-            if avg <= 1e-12 { -120.0 } else { 10.0 * (avg as f32).log10() }
-        }).collect();
-        let peak_db = avg_db.iter().cloned().fold(-120.0f32, f32::max);
-        let floor = peak_db - 50.0;
-        let run_needed = 3usize;
-        let mut run = 0usize;
-        for k in (1..self.bins).rev() {
-            if avg_db[k] > floor {
-                run += 1;
-                if run >= run_needed {
-                    let top_bin = k + run_needed - 1;
-                    return top_bin as f32 * hz_per_bin;
-                }
-            } else {
-                run = 0;
+        let nyq_hz = self.bins as f32 * hz_per_bin;
+
+        let avg_db: Vec<f32> = self
+            .ltas
+            .iter()
+            .map(|&s| {
+                let avg = s / self.frames_total as f64;
+                if avg <= 1e-12 { -120.0 } else { 10.0 * (avg as f32).log10() }
+            })
+            .collect();
+
+        // small moving-average smoother (~5 bins) to ignore spectral spikes
+        let win = 5usize;
+        let smooth = |k: usize| -> f32 {
+            let lo = k.saturating_sub(win);
+            let hi = (k + win + 1).min(self.bins);
+            avg_db[lo..hi].iter().sum::<f32>() / (hi - lo) as f32
+        };
+
+        // global noise floor = quietest smoothed level (the digital/quantisation floor)
+        let mut floor = f32::INFINITY;
+        for k in 1..self.bins {
+            let v = smooth(k);
+            if v < floor {
+                floor = v;
             }
         }
-        0.0
+
+        let band = ((500.0 / hz_per_bin).ceil() as usize).max(2);
+        const DROP_DB: f32 = 18.0; // a real cliff drops at least this much across the band
+        const FLOOR_TOL: f32 = 10.0; // the side above the cliff must collapse to ~the floor
+
+        let guard = band + win + 1;
+        if self.bins <= 2 * guard {
+            return nyq_hz;
+        }
+        for k in (guard..self.bins - guard).rev() {
+            let above = (k + 1..=k + band).map(smooth).sum::<f32>() / band as f32;
+            let below = (k - band..k).map(smooth).sum::<f32>() / band as f32;
+            if below - above >= DROP_DB && above <= floor + FLOOR_TOL {
+                return k as f32 * hz_per_bin;
+            }
+        }
+        // no cliff into silence anywhere → content reaches the top → genuine full-band
+        nyq_hz
     }
 
     pub fn finish(self) -> SpectrumResult {
