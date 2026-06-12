@@ -110,15 +110,51 @@ impl SpectrumAccumulator {
 
     pub fn finish(self) -> SpectrumResult {
         let cutoff_hz = self.detect_cutoff();
-        let frames = self.spec_cols.len();
-        let hz_per_bin = self.sr as f32 / self.fft_size as f32;
-        let sec_per_frame = (self.hop as f32 / self.sr as f32) * self.spec_stride as f32;
-        let mut mag_db = Vec::with_capacity(frames * self.bins);
-        for col in &self.spec_cols { mag_db.extend_from_slice(col); }
         SpectrumResult {
             cutoff_hz,
-            spectrogram: Spectrogram { frames, bins: self.bins, hz_per_bin, sec_per_frame, mag_db },
+            spectrogram: self.build_spectrogram(),
         }
+    }
+
+    /// Builds a display-sized spectrogram: caps time columns to `MAX_COLS` and pools the
+    /// frequency bins down to ~`DISPLAY_BINS` (max-pool). Keeps the UI payload small and
+    /// bounded regardless of track length. Cutoff detection is unaffected — it runs on the
+    /// full-resolution LTAS, not on these display columns.
+    fn build_spectrogram(&self) -> Spectrogram {
+        const MAX_COLS: usize = 800;
+        const DISPLAY_BINS: usize = 256;
+
+        let src_cols = self.spec_cols.len();
+        if src_cols == 0 || self.bins == 0 {
+            return Spectrogram { frames: 0, bins: 0, hz_per_bin: 0.0, sec_per_frame: 0.0, mag_db: vec![] };
+        }
+
+        let col_stride = src_cols.div_ceil(MAX_COLS).max(1);
+        let bin_pool = self.bins.div_ceil(DISPLAY_BINS).max(1);
+        let out_bins = self.bins.div_ceil(bin_pool);
+
+        let src_hz_per_bin = self.sr as f32 / self.fft_size as f32;
+        let hz_per_bin = src_hz_per_bin * bin_pool as f32;
+        let sec_per_frame =
+            (self.hop as f32 / self.sr as f32) * self.spec_stride as f32 * col_stride as f32;
+
+        let mut out_cols: Vec<Vec<u8>> = Vec::with_capacity(src_cols.div_ceil(col_stride));
+        let mut ci = 0;
+        while ci < src_cols {
+            let col = &self.spec_cols[ci];
+            let mut pooled = vec![0u8; out_bins];
+            for b in 0..self.bins {
+                let ob = b / bin_pool;
+                if col[b] > pooled[ob] { pooled[ob] = col[b]; }
+            }
+            out_cols.push(pooled);
+            ci += col_stride;
+        }
+
+        let frames = out_cols.len();
+        let mut mag_db = Vec::with_capacity(frames * out_bins);
+        for col in &out_cols { mag_db.extend_from_slice(col); }
+        Spectrogram { frames, bins: out_bins, hz_per_bin, sec_per_frame, mag_db }
     }
 }
 

@@ -84,6 +84,7 @@ const SILENCE_THRESHOLD: f32 = 0.001; // ~ -60 dBFS
 
 /// Runs the full analysis: one decode, all analyzers in a single streaming pass.
 pub fn analyze(path: &str) -> Result<AnalysisReport, String> {
+    let started = std::time::Instant::now();
     // declared properties / tags (no decode)
     let tag = tags::read(path);
     let target_ch = if tag.channels >= 2 { 2 } else { 1 };
@@ -125,6 +126,14 @@ pub fn analyze(path: &str) -> Result<AnalysisReport, String> {
 
     let cutoff_hz = spec_res.cutoff_hz;
     let verdict = verdict::verdict(cutoff_hz, tag.declared_rail);
+
+    log::info!(
+        "analyze {} : {} ms (decode+dsp, {} ch, {:.1}s)",
+        path,
+        started.elapsed().as_millis(),
+        info.channels,
+        tag.duration_sec
+    );
 
     Ok(AnalysisReport {
         path: path.to_string(),
