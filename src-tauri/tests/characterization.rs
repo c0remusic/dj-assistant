@@ -35,6 +35,15 @@ fn honest_320_mp3_is_not_fake() {
 }
 
 #[test]
+fn over_encoded_320_is_fake() {
+    let Some(p) = fixture("over_encoded_320.mp3") else { eprintln!("skip: no fixture"); return; };
+    let r = analyze(&p, false).expect("analyze");
+    assert_eq!(r.declared_rail, Rail::Lossy);
+    assert!(r.cutoff_hz < 18500.0, "real cutoff well below a genuine 320, got {}", r.cutoff_hz);
+    assert_eq!(r.verdict, Verdict::Fake, "declared 320 but cuts low → over-encoded fraud");
+}
+
+#[test]
 fn truncated_wav_is_flagged() {
     let Some(p) = fixture("truncated.wav") else { eprintln!("skip: no fixture"); return; };
     let r = analyze(&p, false).expect("analyze");

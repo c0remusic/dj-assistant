@@ -18,6 +18,8 @@ run(["-y", "-i", join(OUT, "real_lossless.flac"), "-b:a", "128k", join(OUT, "_tm
 run(["-y", "-i", join(OUT, "_tmp128.mp3"), "-ac", "2", join(OUT, "fake_lossless.flac")]);
 // 3) honest mp3 320
 run(["-y", "-i", join(OUT, "real_lossless.flac"), "-b:a", "320k", join(OUT, "real_320.mp3")]);
+// 3b) OVER-ENCODED 320: the 128k mp3 re-encoded UP to 320 (declared 320, real ~128 cutoff)
+run(["-y", "-i", join(OUT, "_tmp128.mp3"), "-b:a", "320k", join(OUT, "over_encoded_320.mp3")]);
 // 4) truncated: only first 1.5 s, abrupt cut, as WAV
 run(["-y", "-i", join(OUT, "real_lossless.flac"), "-t", "1.5", "-c:a", "pcm_s16le", join(OUT, "truncated.wav")]);
 // 5) silence head/tail: 1 s silence + 2 s tone + 1.5 s silence

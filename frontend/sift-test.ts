@@ -19,7 +19,7 @@ const fmt = (n: number, d = 1) =>
 function verdictBadge(v: AnalysisReport["verdict"]): string {
   const map = {
     ok: ["✓ Authentique", "#5cc97a", "#1f3a24"],
-    fake: ["✗ Fake (transcodé)", "#ff6b6b", "#3a1f1f"],
+    fake: ["✗ Fake / sur-encodé", "#ff6b6b", "#3a1f1f"],
     grey: ["? Zone grise", "#f0c060", "#3a331f"],
   } as const;
   const [label, fg, bg] = map[v];

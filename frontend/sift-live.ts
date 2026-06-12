@@ -15,7 +15,7 @@ import type { Source, QueueItem } from "../shared/contracts";
 
 const VERDICT_DOT: Record<string, [string, string]> = {
   ok: ["#5cc97a", "authentique"],
-  fake: ["#ff6b6b", "fake (transcodé)"],
+  fake: ["#ff6b6b", "fake / sur-encodé"],
   grey: ["#f0c060", "zone grise"],
 };
 function verdictDot(v: string | null): string {

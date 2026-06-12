@@ -128,7 +128,7 @@ pub fn analyze(path: &str, with_spectrogram: bool) -> Result<AnalysisReport, Str
         .extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
 
     let cutoff_hz = spec_res.cutoff_hz;
-    let verdict = verdict::verdict(cutoff_hz, tag.declared_rail);
+    let verdict = verdict::verdict(cutoff_hz, tag.declared_rail, tag.declared_bitrate);
 
     log::info!(
         "analyze {} : {} ms (decode+dsp, {} ch, {:.1}s, spectro={})",
