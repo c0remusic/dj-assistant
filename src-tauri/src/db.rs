@@ -55,6 +55,16 @@ const MIGRATIONS: &[&str] = &[
         watched INTEGER NOT NULL DEFAULT 1  -- bool 0/1
     );
     "#,
+    // v2 — M1 watcher/queue: link tracks to a source + cheap "seen" identity (size+mtime)
+    r#"
+    ALTER TABLE tracks ADD COLUMN source_id INTEGER REFERENCES sources(id) ON DELETE CASCADE;
+    ALTER TABLE tracks ADD COLUMN filename TEXT;
+    ALTER TABLE tracks ADD COLUMN size_bytes INTEGER;
+    ALTER TABLE tracks ADD COLUMN mtime INTEGER;
+    ALTER TABLE sources ADD COLUMN created_at TEXT;
+    CREATE INDEX idx_tracks_source ON tracks(source_id);
+    CREATE INDEX idx_tracks_status ON tracks(status);
+    "#,
 ];
 
 /// Applies any migrations the DB hasn't seen yet, tracked via PRAGMA user_version.
@@ -118,5 +128,29 @@ mod tests {
         run_migrations(&conn).unwrap();
         run_migrations(&conn).unwrap(); // second run must not error or duplicate
         assert_eq!(table_count(&conn).unwrap(), 5);
+    }
+
+    #[test]
+    fn migrations_reach_v2() {
+        let conn = Connection::open_in_memory().unwrap();
+        run_migrations(&conn).unwrap();
+        assert_eq!(schema_version(&conn).unwrap(), MIGRATIONS.len() as i64);
+        assert!(MIGRATIONS.len() >= 2, "M1 adds migration v2");
+    }
+
+    #[test]
+    fn tracks_has_m1_columns() {
+        let conn = Connection::open_in_memory().unwrap();
+        run_migrations(&conn).unwrap();
+        let cols: Vec<String> = conn
+            .prepare("SELECT name FROM pragma_table_info('tracks')")
+            .unwrap()
+            .query_map([], |r| r.get::<_, String>(0))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+        for c in ["source_id", "filename", "size_bytes", "mtime"] {
+            assert!(cols.contains(&c.to_string()), "tracks missing column {c}");
+        }
     }
 }

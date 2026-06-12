@@ -1,6 +1,10 @@
 mod db;
 mod ffmpeg;
 mod ipc;
+mod queue;
+mod scanner;
+mod sources;
+mod watcher;
 
 use std::sync::Mutex;
 use tauri::Manager;
@@ -8,6 +12,7 @@ use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -21,13 +26,21 @@ pub fn run() {
             std::fs::create_dir_all(&dir).ok();
             let conn = db::open(&dir.join("sift.db")).expect("db open failed");
             app.manage(Mutex::new(conn));
+            watcher::init_state(app.handle());
+            watcher::start_all(app.handle());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             ipc::app_info,
             ipc::db_health,
             ipc::ffmpeg_version,
-            ipc::report_smoke
+            ipc::report_smoke,
+            ipc::add_source,
+            ipc::list_sources,
+            ipc::remove_source,
+            ipc::list_queue,
+            ipc::rescan_source,
+            ipc::set_source_watched
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

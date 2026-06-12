@@ -9,3 +9,18 @@ export interface DbHealth {
   schema_version: number;
   tables: number;
 }
+
+export interface Source {
+  id: number;
+  path: string;
+  pending_count: number;
+  accessible: boolean;
+  watched: boolean;
+}
+
+export interface QueueItem {
+  id: number;
+  path: string;
+  filename: string | null;
+  source_id: number | null;
+}
