@@ -2,6 +2,7 @@ mod db;
 mod ffmpeg;
 mod ipc;
 mod scanner;
+mod sources;
 
 use std::sync::Mutex;
 use tauri::Manager;
