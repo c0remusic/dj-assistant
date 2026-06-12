@@ -155,7 +155,7 @@ pub fn file_track(
         return Err(FilingError::Upscale);
     }
 
-    let dest_dir = root.join(bin_rel);
+    let dest_dir = library::safe_join(root, bin_rel).map_err(FilingError::Io)?;
     std::fs::create_dir_all(&dest_dir).map_err(|e| FilingError::Io(e.to_string()))?;
     let filename = naming::render_filename(template, &canonical, target.ext());
     let dest = library::ensure_unique(&dest_dir.join(&filename));

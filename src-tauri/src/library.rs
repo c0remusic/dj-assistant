@@ -59,21 +59,47 @@ pub fn list_bins(root: &Path) -> Vec<Bin> {
     bins
 }
 
+/// Join `rel` under `root`, sanitizing every path segment and refusing anything that would
+/// escape the root: `..`, absolute paths, or drive prefixes (both `/` and `\` separators
+/// are accepted from the UI). Returns the contained absolute path. This is the single
+/// containment guard every filesystem-mutating command must funnel destinations through —
+/// `bin_rel` / `parent_rel` arrive from the (untrusted) webview and are otherwise free to
+/// point anywhere (`..\..\Startup`, `C:\Windows\…`), which `Path::join` would honour.
+pub fn safe_join(root: &Path, rel: &str) -> Result<PathBuf, String> {
+    let mut out = root.to_path_buf();
+    for raw in rel.split(['/', '\\']) {
+        if raw.is_empty() || raw == "." {
+            continue;
+        }
+        if raw == ".." {
+            return Err("path escapes the library root".into());
+        }
+        let safe = crate::naming::sanitize(raw);
+        if safe.is_empty() {
+            return Err("invalid path component".into());
+        }
+        out.push(safe);
+    }
+    Ok(out)
+}
+
 /// Create a new bin folder named `name` (sanitized) under `root/parent_rel`. `parent_rel`
-/// "" means directly under root. Returns the created Bin. Errors as a string on mkdir
-/// failure.
+/// "" means directly under root. Both `name` and every component of `parent_rel` are
+/// sanitized and contained under `root` (see `safe_join`). Returns the created Bin.
 pub fn create_bin(root: &Path, parent_rel: &str, name: &str) -> Result<Bin, String> {
     let safe = crate::naming::sanitize(name);
     if safe.is_empty() {
         return Err("empty bin name".into());
     }
-    let rel = if parent_rel.is_empty() {
-        safe.clone()
-    } else {
-        format!("{}/{}", parent_rel.trim_end_matches('/'), safe)
-    };
-    let abs = root.join(&rel);
+    let abs = safe_join(root, parent_rel)?.join(&safe);
     std::fs::create_dir_all(&abs).map_err(|e| format!("create bin: {e}"))?;
+    let rel = abs
+        .strip_prefix(root)
+        .map_err(|_| "bin outside root".to_string())?
+        .components()
+        .filter_map(|c| c.as_os_str().to_str())
+        .collect::<Vec<_>>()
+        .join("/");
     let depth = rel.split('/').count();
     Ok(Bin { rel, name: safe, depth })
 }
@@ -150,6 +176,29 @@ mod tests {
         assert_eq!(bin.rel, "Disco");
         assert_eq!(bin.depth, 1);
         assert!(root.join("Disco").is_dir());
+    }
+
+    #[test]
+    fn safe_join_contains_under_root() {
+        let root = Path::new("C:/lib");
+        // traversal (either separator) is refused
+        assert!(safe_join(root, "../evil").is_err());
+        assert!(safe_join(root, "House/../../x").is_err());
+        assert!(safe_join(root, "..\\evil").is_err());
+        // normal nested path is contained
+        let j = safe_join(root, "House/Deep").unwrap();
+        assert!(j.ends_with("Deep") && j.starts_with("C:/lib"));
+        // an absolute/drive-prefixed rel is sanitized into components under root, not honoured
+        let a = safe_join(root, "C:/Windows/System32").unwrap();
+        assert!(a.starts_with("C:/lib"));
+        // "" and "." resolve to the root itself
+        assert_eq!(safe_join(root, "").unwrap(), root.to_path_buf());
+    }
+
+    #[test]
+    fn create_bin_rejects_parent_traversal() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(create_bin(dir.path(), "../../etc", "evil").is_err());
     }
 
     #[test]
