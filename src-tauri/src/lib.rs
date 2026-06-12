@@ -2,6 +2,7 @@ pub mod analysis;
 mod db;
 mod ffmpeg;
 mod ipc;
+mod naming;
 mod queue;
 mod scanner;
 mod sources;
