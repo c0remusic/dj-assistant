@@ -167,11 +167,7 @@ export function renderBins(fldz: HTMLElement): void {
     ? '<input data-fil="newin" placeholder="nom du dossier…" style="width:100%;font-size:12px;padding:5px 7px;margin-top:2px">'
     : '<div class="fld" data-fil="newbin" style="color:var(--color-text-tertiary)"><i class="ti ti-plus" style="font-size:14px"></i> nouveau</div>';
 
-  fldz.innerHTML =
-    tree +
-    emptyNote +
-    newRow +
-    '<div data-fil="drop" class="sift-drop" style="margin-top:10px;border:1px dashed var(--color-border-secondary);border-radius:var(--border-radius-md);padding:9px;text-align:center;font-size:10px;color:var(--color-text-tertiary);line-height:1.4;transition:border-color .15s,color .15s"><i class="ti ti-folder-plus" style="font-size:14px;display:block;margin-bottom:2px"></i>glisser un dossier ici (nouvelle destination)</div>';
+  fldz.innerHTML = tree + emptyNote + newRow;
 
   fldz.querySelectorAll<HTMLElement>('[data-fil="caret"]').forEach((el) =>
     el.addEventListener("click", (e) => {
