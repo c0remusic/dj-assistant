@@ -121,6 +121,21 @@ Bonus même passe :
 
 **Livrable :** version « utilisable au quotidien » — la maquette devient réelle.
 
+**✅ État (2026-06-12) — M4 livré.** Backend complet et testé (97→98 tests `--lib` verts) :
+`naming.rs` · `encode.rs` · `tagging.rs` · `library.rs` · `filing.rs` · `actions.rs`
+(undo : un `batch_id` par action, revert gardé, LIFO + journal) · `settings.rs` · migration
+db v4 · surface IPC `ipc_filing.rs`. Front Revue live (`frontend/filing.ts` greffé sur la
+maquette, Tauri-only — la démo navigateur reste intacte) : arbre de dossiers repliable avec
+**nœud racine**, métadonnées éditables (préremplies par `reconcile`, badge confiance), aperçu
+de nom live, **« Sortir en » MP3 320 / AIFF / WAV** (défaut = rail source, garde anti-upscale),
+actions Ranger / Re-sourcer / Écarter, toast d'annulation + **Ctrl+Z**. **Drag-drop OS**
+dépendant de la zone (`import_paths` : fichiers→file, dossier sur « Où on va »→destination,
+ailleurs→source surveillée) avec hint affiché sur la case existante pendant le glisser.
+Détails : `docs/superpowers/plans/2026-06-12-m4-*.md` (1, 2, 3a-c, 4b).
+**Écarts vs ce plan, reportés :** `à-retélécharger.txt` → remplacé par copie Soulseek
+par-piste en **M4b** ; enrichissement métadonnées (Label/année/genre/BPM) → **M6 Discogs**
+(placeholder en attendant) ; vérif runtime de la boucle dans l'app Tauri = manuelle.
+
 ## M4b — Onglet Écartés
 
 Fichiers qui ne passent pas le tri : faux, tronqués, doublons perdants.
