@@ -114,17 +114,17 @@ function reportHtml(r: AnalysisReport, closeBtn: boolean): string {
     <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px;flex-wrap:wrap">${verdictBadge(r.verdict)}
       <span style="font-size:11px;color:var(--color-text-tertiary)">déclaré <span class="pill">${esc(r.declared_format)}</span> ${r.declared_rail}${r.declared_bitrate ? " · " + r.declared_bitrate + " kbps" : ""}</span></div>
 
-    <div style="display:flex;align-items:center;gap:14px;margin-bottom:11px;padding:10px 12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)">
-      <div style="flex:none;display:flex;flex-direction:column;align-items:center;gap:6px">
-        <button class="sift-play" title="Lecture / pause" style="flex:none;width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;padding:0"><i class="ti ti-player-play" style="font-size:15px"></i></button>
-        <span class="sift-time" title="Cliquer : écoulé ⇄ restant" style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-secondary);cursor:pointer;transition:color .15s;display:inline-flex;align-items:center;gap:3px"><i class="ti ti-arrows-left-right" style="font-size:9px"></i><span class="sift-time-val">0:00 / 0:00</span></span>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:11px;padding:8px 11px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)">
+      <div style="flex:none;display:flex;flex-direction:column;align-items:center;gap:4px">
+        <button class="sift-play" title="Lecture / pause" style="flex:none;width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;padding:0"><i class="ti ti-player-play" style="font-size:13px"></i></button>
+        <span class="sift-time" title="Cliquer : écoulé ⇄ restant" style="font-family:var(--font-mono);font-size:9px;color:var(--color-text-secondary);cursor:pointer;transition:color .15s;display:inline-flex;align-items:center;gap:3px"><i class="ti ti-arrows-left-right" style="font-size:9px"></i><span class="sift-time-val">0:00 / 0:00</span></span>
       </div>
       <div class="sift-wave" style="flex:1;min-width:0;align-self:center;cursor:pointer"></div>
-      <div style="flex:none;display:flex;flex-direction:column;align-items:center;gap:5px">
+      <div style="flex:none;display:flex;flex-direction:column;align-items:center;gap:4px">
         <span style="font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:var(--color-text-tertiary)">tempo</span>
-        <input class="sift-tempo" type="range" min="-8" max="8" step="1" value="0" title="Tempo — double-clic = reset" aria-label="Tempo" style="writing-mode:vertical-lr;direction:rtl;width:16px;height:52px">
-        <span class="sift-tempo-out pill" style="min-width:44px;justify-content:center;font-family:var(--font-mono)">0%</span>
-        <button class="sift-key" title="Key-lock : le tempo ne change pas le pitch (off = varispeed)" style="border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:3px 14px;font-size:11px">key</button>
+        <input class="sift-tempo" type="range" min="-8" max="8" step="1" value="0" title="Tempo — double-clic = reset" aria-label="Tempo" style="writing-mode:vertical-lr;direction:rtl;width:14px;height:38px">
+        <span class="sift-tempo-out" style="font-family:var(--font-mono);font-size:9px;color:var(--color-text-secondary);min-width:34px;text-align:center">0%</span>
+        <button class="sift-key" title="Key-lock : le tempo ne change pas le pitch (off = varispeed)" style="border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:2px 11px;font-size:9px;letter-spacing:.05em;text-transform:uppercase">key</button>
       </div>
     </div>
     <div style="margin-bottom:11px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);overflow:hidden">
@@ -172,7 +172,7 @@ function mountPlayer(root: HTMLElement, r: AnalysisReport) {
   destroyPlayer();
   const ws = WaveSurfer.create({
     container,
-    height: 56,
+    height: 46,
     waveColor: "rgba(142,204,232,.45)",
     progressColor: "#8ecce8",
     cursorColor: "#FFdc82",
