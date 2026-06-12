@@ -7,6 +7,12 @@ import type {
   QueueItem,
   AnalysisReport,
   AnalysisProgress,
+  Canonical,
+  Bin,
+  FileResult,
+  BatchResult,
+  JournalEntry,
+  Target,
 } from "../shared/contracts";
 
 export const appInfo = (): Promise<AppInfo> => invoke("app_info");
@@ -43,3 +49,65 @@ export const onQueueChanged = (cb: () => void): Promise<UnlistenFn> =>
 /** Subscribe to "analysis:changed" pings (a track just got analysed). */
 export const onAnalysisChanged = (cb: () => void): Promise<UnlistenFn> =>
   listen("analysis:changed", () => cb());
+
+// ---- M4 filing loop (mirror of ipc_filing.rs) ----
+
+/** Reconcile a track's tags + filename into the canonical record + confidence. */
+export const reconcile = (trackId: number): Promise<Canonical> =>
+  invoke("reconcile", { trackId });
+
+/** File one track into `binRel`. `target` overrides the rail default; `edited` overrides
+ * the reconciled metadata with the user's corrections. Resolves to the filed path. */
+export const fileTrack = (
+  trackId: number,
+  binRel: string,
+  target?: Target | null,
+  edited?: Canonical | null,
+): Promise<FileResult> =>
+  invoke("file_track", {
+    trackId,
+    binRel,
+    target: target ?? null,
+    edited: edited ?? null,
+  });
+
+/** File every green track of `trackIds` into `binRel`; yellow/errored ones come back in
+ * `needs_validation`. */
+export const fileBatch = (
+  trackIds: number[],
+  binRel: string,
+): Promise<BatchResult> => invoke("file_batch", { trackIds, binRel });
+
+/** Mark a track for re-sourcing (Écartés). */
+export const rejectTrack = (trackId: number): Promise<void> =>
+  invoke("reject_track", { trackId });
+
+/** Move a track's file to .sift-trash (reversible via undo). */
+export const trashTrack = (trackId: number): Promise<void> =>
+  invoke("trash_track", { trackId });
+
+/** All destination bins (recursive subdirs of the library root). */
+export const listBins = (): Promise<Bin[]> => invoke("list_bins");
+
+/** Create a new bin under `parentRel` ("" = root level). */
+export const createBin = (parentRel: string, name: string): Promise<Bin> =>
+  invoke("create_bin", { parentRel, name });
+
+/** Undo the most recent live batch (LIFO). Resolves to the reverted batch id, or null. */
+export const undoLast = (): Promise<string | null> => invoke("undo_last");
+
+/** Revert a specific batch by id (from the journal). */
+export const revertBatch = (batchId: string): Promise<void> =>
+  invoke("revert_batch", { batchId });
+
+/** Recent live (not-yet-undone) batches, newest first. */
+export const listJournal = (limit = 20): Promise<JournalEntry[]> =>
+  invoke("list_journal", { limit });
+
+/** Read one app setting (null when unset). */
+export const getSetting = (key: string): Promise<string | null> =>
+  invoke("get_setting", { key });
+
+/** Write one app setting (e.g. the library root). */
+export const setSetting = (key: string, value: string): Promise<void> =>
+  invoke("set_setting", { key, value });
