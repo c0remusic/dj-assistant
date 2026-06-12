@@ -218,10 +218,11 @@ function setDropActive(on: boolean) {
   }
 }
 
-/** "dest" when the cursor is over the bins column (#fldz), else "source". */
+/** "dest" when the cursor is over the bins column (#fldz), else "source". Tauri 2 emits the
+ * drop position already in logical (CSS) pixels — exactly what elementFromPoint expects, so
+ * no devicePixelRatio correction (dividing here double-corrected on HiDPI/scaled displays). */
 function dropModeAt(pos: { x: number; y: number }): "source" | "dest" {
-  const dpr = window.devicePixelRatio || 1;
-  const el = document.elementFromPoint(pos.x / dpr, pos.y / dpr);
+  const el = document.elementFromPoint(pos.x, pos.y);
   return el && el.closest("#fldz") ? "dest" : "source";
 }
 

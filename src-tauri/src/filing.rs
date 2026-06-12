@@ -167,16 +167,26 @@ pub fn file_track(
         tagging::write_tags(&source, &canonical.artist, &canonical.title)
             .map_err(FilingError::Tag)?;
         std::fs::rename(&source, &dest).map_err(|e| FilingError::Io(e.to_string()))?;
-        actions::record(conn, &batch_id, Some(track_id), "move", Some(&source), Some(&dest_str))
-            .map_err(|e| FilingError::Db(e.to_string()))?;
+        // If journaling fails AFTER the move, roll the file back so it is never lost/orphaned.
+        if let Err(e) =
+            actions::record(conn, &batch_id, Some(track_id), "move", Some(&source), Some(&dest_str))
+        {
+            let _ = std::fs::rename(&dest, &source);
+            return Err(FilingError::Db(e.to_string()));
+        }
     } else {
         // transcode into the bin, tag the result, then trash the original (mono-location)
         encode::encode(&source, &dest_str, target).map_err(|e| match e {
             EncodeError::Upscale => FilingError::Upscale,
             EncodeError::Ffmpeg(m) => FilingError::Encode(m),
         })?;
-        actions::record(conn, &batch_id, Some(track_id), "convert", Some(&source), Some(&dest_str))
-            .map_err(|e| FilingError::Db(e.to_string()))?;
+        // If journaling fails AFTER the encode, delete the orphan transcode (source untouched).
+        if let Err(e) =
+            actions::record(conn, &batch_id, Some(track_id), "convert", Some(&source), Some(&dest_str))
+        {
+            let _ = std::fs::remove_file(&dest_str);
+            return Err(FilingError::Db(e.to_string()));
+        }
         tagging::write_tags(&dest_str, &canonical.artist, &canonical.title)
             .map_err(FilingError::Tag)?;
         move_to_trash(conn, root, track_id, &batch_id, &source)?;
