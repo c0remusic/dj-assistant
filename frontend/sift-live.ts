@@ -84,7 +84,8 @@ async function renderHomeSources() {
     '<div class="col-h" style="margin-top:12px">Dossiers surveillés</div>' +
     '<div style="display:flex;gap:8px;align-items:flex-start;background:var(--color-background-warning);border-radius:var(--border-radius-md);padding:8px 11px;margin:0 0 8px;font-size:11px;color:var(--color-text-warning)"><i class="ti ti-info-circle" style="font-size:14px;flex:none"></i><span>Pointe Sift sur ton dossier <strong>Completed</strong> (pas <em>Incomplete</em>) — les fichiers en cours de téléchargement ne doivent pas entrer dans la file.</span></div>' +
     (rows || '<div style="font-size:12px;color:var(--color-text-tertiary)">Aucun dossier surveillé.</div>') +
-    '<div style="margin:8px 0 0"><button data-sift="addsrc"><i class="ti ti-plus" style="font-size:13px;vertical-align:-2px"></i> ajouter un dossier</button></div>';
+    '<div style="margin:8px 0 0"><button data-sift="addsrc"><i class="ti ti-plus" style="font-size:13px;vertical-align:-2px"></i> ajouter un dossier</button></div>' +
+    '<div class="sift-drop" style="margin-top:8px;border:1px dashed var(--color-border-secondary);border-radius:var(--border-radius-md);padding:9px;text-align:center;font-size:10px;color:var(--color-text-tertiary);line-height:1.4;transition:border-color .15s,color .15s"><i class="ti ti-folder" style="font-size:14px;display:block;margin-bottom:2px"></i>glisser un dossier à surveiller</div>';
 
   // Hide the WHOLE mockup "Dossiers surveillés" block (its hardcoded counts never change):
   // the .col-h header + every following sibling up to the next .col-h. Insert the real
@@ -177,7 +178,7 @@ async function refresh() {
   await renderQueue();
 }
 
-/** Highlight the dashed drop zones while a file/folder is dragged over the window. */
+/** Highlight the static dashed drop zones while dragging over the window. */
 function setDropActive(on: boolean) {
   document.querySelectorAll<HTMLElement>(".sift-drop").forEach((el) => {
     el.style.borderColor = on ? "var(--color-text-info)" : "var(--color-border-secondary)";
@@ -185,19 +186,54 @@ function setDropActive(on: boolean) {
   });
 }
 
-/** OS drag-drop: directories → watched sources, audio files → pending queue items. */
+/** Lazily-created full-window drag overlay. `pointer-events:none` so elementFromPoint can
+ * still resolve the zone under the cursor. Visible only while dragging — covers every view
+ * (incl. Biblio) without per-view hooks. */
+function dropOverlay(): HTMLElement {
+  let o = document.getElementById("sift-drop-ov");
+  if (!o) {
+    o = document.createElement("div");
+    o.id = "sift-drop-ov";
+    o.style.cssText =
+      "position:fixed;inset:0;z-index:9990;pointer-events:none;display:none;align-items:center;justify-content:center;background:rgba(20,20,24,.35)";
+    o.innerHTML =
+      '<div style="background:var(--color-background-secondary);border:1.5px dashed var(--color-text-info);border-radius:var(--border-radius-lg,12px);padding:18px 24px;font-size:12px;color:var(--color-text-info);text-align:center;max-width:70%"><i class="ti ti-upload" style="font-size:20px;display:block;margin-bottom:6px"></i>Déposer ici — <b>fichiers</b> → file d\'attente · <b>dossiers</b> → surveillés <span style="opacity:.7">(ou destination dans « Où on va »)</span></div>';
+    document.body.appendChild(o);
+  }
+  return o;
+}
+function showDrop() {
+  dropOverlay().style.display = "flex";
+  setDropActive(true);
+}
+function hideDrop() {
+  dropOverlay().style.display = "none";
+  setDropActive(false);
+}
+
+/** "dest" when the cursor is over the bins column (#fldz), else "source". */
+function dropModeAt(pos: { x: number; y: number }): "source" | "dest" {
+  const dpr = window.devicePixelRatio || 1;
+  const el = document.elementFromPoint(pos.x / dpr, pos.y / dpr);
+  return el && el.closest("#fldz") ? "dest" : "source";
+}
+
+/** OS drag-drop: audio files → queue; folders → watched source, or a destination bin when
+ * dropped on the "Où on va" column. */
 async function installDragDrop() {
   try {
     await getCurrentWebview().onDragDropEvent((ev) => {
       const p = ev.payload;
       if (p.type === "drop") {
-        setDropActive(false);
+        hideDrop();
         if (p.paths.length)
-          void importPaths(p.paths).catch((e) => console.error("import_paths failed", e));
+          void importPaths(p.paths, dropModeAt(p.position)).catch((e) =>
+            console.error("import_paths failed", e),
+          );
       } else if (p.type === "enter" || p.type === "over") {
-        setDropActive(true);
+        showDrop();
       } else {
-        setDropActive(false);
+        hideDrop();
       }
     });
   } catch (e) {

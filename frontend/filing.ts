@@ -171,7 +171,7 @@ export function renderBins(fldz: HTMLElement): void {
     tree +
     emptyNote +
     newRow +
-    '<div data-fil="drop" class="sift-drop" style="margin-top:10px;border:1px dashed var(--color-border-secondary);border-radius:var(--border-radius-md);padding:9px;text-align:center;font-size:10px;color:var(--color-text-tertiary);line-height:1.4;transition:border-color .15s,color .15s"><i class="ti ti-folder-plus" style="font-size:14px;display:block;margin-bottom:2px"></i>glisser un dossier ici pour le surveiller</div>';
+    '<div data-fil="drop" class="sift-drop" style="margin-top:10px;border:1px dashed var(--color-border-secondary);border-radius:var(--border-radius-md);padding:9px;text-align:center;font-size:10px;color:var(--color-text-tertiary);line-height:1.4;transition:border-color .15s,color .15s"><i class="ti ti-folder-plus" style="font-size:14px;display:block;margin-bottom:2px"></i>glisser un dossier ici (nouvelle destination)</div>';
 
   fldz.querySelectorAll<HTMLElement>('[data-fil="caret"]').forEach((el) =>
     el.addEventListener("click", (e) => {
