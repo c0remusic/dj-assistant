@@ -114,7 +114,7 @@ function reportHtml(r: AnalysisReport, closeBtn: boolean): string {
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:13px;padding:8px 10px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)">
       <button class="sift-play" title="Lecture / pause" style="flex:none;width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;padding:0"><i class="ti ti-player-play" style="font-size:14px"></i></button>
       <div class="sift-wave" style="flex:1;min-width:0;cursor:pointer"></div>
-      <span class="sift-time" style="flex:none;font-family:var(--font-mono);font-size:10px;color:var(--color-text-secondary);min-width:74px;text-align:right">0:00 / 0:00</span>
+      <span class="sift-time" title="Cliquer : écoulé ⇄ restant" style="flex:none;font-family:var(--font-mono);font-size:10px;color:var(--color-text-secondary);min-width:74px;text-align:right;cursor:pointer;border-bottom:1px dotted var(--color-border-secondary)">0:00 / 0:00</span>
       <div style="flex:none;display:flex;flex-direction:column;align-items:center;gap:1px">
         <input class="sift-tempo" type="range" min="-8" max="8" step="1" value="0" title="Tempo (varispeed — change le pitch)" aria-label="Tempo" style="writing-mode:vertical-lr;direction:rtl;width:16px;height:34px">
         <span class="sift-tempo-out" style="font-family:var(--font-mono);font-size:9px;color:var(--color-text-tertiary)">0%</span>
@@ -171,9 +171,17 @@ function mountPlayer(root: HTMLElement, r: AnalysisReport) {
     if (i) i.className = `ti ti-${name}`;
   };
   const applyRate = () => ws.setPlaybackRate(1 + Number(tempo?.value || 0) / 100, false); // false = varispeed
+  let showRemaining = false;
   const updateTime = () => {
-    if (timeEl) timeEl.textContent = `${mmss(ws.getCurrentTime())} / ${mmss(ws.getDuration())}`;
+    if (!timeEl) return;
+    const cur = ws.getCurrentTime(), dur = ws.getDuration();
+    const left = showRemaining ? `-${mmss(dur - cur)}` : mmss(cur);
+    timeEl.textContent = `${left} / ${mmss(dur)}`;
   };
+  timeEl?.addEventListener("click", () => {
+    showRemaining = !showRemaining;
+    updateTime();
+  });
   ws.on("ready", () => {
     applyRate();
     updateTime();
