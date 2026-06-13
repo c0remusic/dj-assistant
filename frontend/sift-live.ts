@@ -13,6 +13,7 @@ import {
 } from "./ipc";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   openFilingInto,
   refreshBins,
@@ -265,14 +266,53 @@ function injectLeanStyle() {
     '#nav .nv[data-view="biblio"],#nav .nv[data-view="rkb"],#nav .nv[data-view="cle"],' +
     '#nav .nv[data-view="ecarts"],#nav .nv[data-view="reglages"]{display:none!important}' +
     // Revue: batch mode + "traités" toggle aren't wired to the real backend yet
-    '[data-act="revmode"],[data-act="togglequeue"]{display:none!important}';
+    '[data-act="revmode"],[data-act="togglequeue"]{display:none!important}' +
+    // custom frameless titlebar (decorations are off in tauri.conf — Tauri only)
+    "#sift-titlebar{height:30px;flex:none;display:flex;align-items:center;justify-content:space-between;" +
+    "background:var(--color-background-tertiary);-webkit-user-select:none;user-select:none}" +
+    "#sift-tb-title{padding-left:13px;font-size:11px;letter-spacing:.04em;color:var(--color-text-tertiary)}" +
+    "#sift-tb-controls{display:flex;height:100%}" +
+    ".sift-win{width:44px;height:100%;display:flex;align-items:center;justify-content:center;border:none;" +
+    "background:transparent;color:var(--color-text-tertiary);cursor:pointer;border-radius:0;padding:0}" +
+    ".sift-win:hover{background:var(--color-background-secondary);color:var(--color-text-primary)}" +
+    ".sift-win-close:hover{background:#e81123;color:#fff}.sift-win i{font-size:15px}" +
+    // make room for the 30px bar: shrink the app shell so nothing is clipped
+    ".wrap{height:calc(100vh - 30px)!important}";
   document.head.appendChild(st);
+}
+
+/** Inject the custom window titlebar (the native one is off via decorations:false) and wire
+ * its minimise / maximise / close buttons. The bar + its title are drag regions. */
+function injectTitlebar() {
+  if (document.getElementById("sift-titlebar")) return;
+  const bar = document.createElement("div");
+  bar.id = "sift-titlebar";
+  bar.setAttribute("data-tauri-drag-region", "");
+  bar.innerHTML =
+    '<span id="sift-tb-title" data-tauri-drag-region>Sift</span>' +
+    '<div id="sift-tb-controls">' +
+    '<button class="sift-win" data-win="min" title="Réduire"><i class="ti ti-minus"></i></button>' +
+    '<button class="sift-win" data-win="max" title="Agrandir"><i class="ti ti-square"></i></button>' +
+    '<button class="sift-win sift-win-close" data-win="close" title="Fermer"><i class="ti ti-x"></i></button>' +
+    "</div>";
+  document.body.insertBefore(bar, document.body.firstChild);
+
+  const w = getCurrentWindow();
+  bar.querySelectorAll<HTMLElement>(".sift-win").forEach((b) =>
+    b.addEventListener("click", () => {
+      const act = b.dataset.win;
+      if (act === "min") void w.minimize();
+      else if (act === "max") void w.toggleMaximize();
+      else if (act === "close") void w.close();
+    }),
+  );
 }
 
 export function installLiveWiring() {
   window.__siftHome = renderHomeSources;
   window.__siftQueue = renderQueue;
   injectLeanStyle();
+  injectTitlebar();
   installUndoShortcut();
   void installDragDrop();
 
