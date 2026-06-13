@@ -148,6 +148,19 @@ Fichiers qui ne passent pas le tri : faux, tronqués, doublons perdants.
 
 ## M5 — Dédup par empreinte (fin du MVP)
 
+**✅ État (2026-06-13) — M5 (flux entrant) livré.** Conforme à l'architecture deux tiers
+ci-dessous, version **flux entrant** : `naming::name_key` (Tier 1, nom normalisé) +
+`dedup` (`name_dups` pour le badge file, `find_duplicate` qui confirme par le son) +
+`fingerprint` (Tier 2, `rusty-chromaprint`, empreinte **calculée à la demande** sur un match
+de nom puis mise en cache dans `tracks.fingerprint` — pas dans la passe d'analyse, plus léger).
+Front : badge doublon dans la file (avant d'ouvrir) + bannière en Revue (`both` = sûr,
+`name` = à vérifier). Validé sur fixtures : 2 encodages d'une même source matchent, audio
+différent non. 114 tests `--lib` verts. Détails : `docs/superpowers/specs/2026-06-13-m5-dedup-design.md`.
+**Reporté (M5b, onglet Bibliothèque) :** scan de la biblio existante (backfill des empreintes
+manquantes + index inversé + groupement + vue garder/jeter) ; doublons au **même son mais
+noms totalement différents** (le flux entrant part du nom). Le moteur (`name_key`,
+`similarity`, `compute_for_path`) est générique et réutilisable tel quel.
+
 ### Architecture deux tiers
 
 **Tier 1 — Candidats par nom (gratuit, sans décodage)**
