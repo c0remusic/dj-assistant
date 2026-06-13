@@ -270,8 +270,7 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
     `<input data-fil="title" placeholder="Titre" value="${esc(c.title)}" style="${inputCss}">` +
     `<input data-fil="version" placeholder="Version" value="${esc(c.version ?? "")}" style="${inputCss};width:96px">` +
     `</div>` +
-    `<div class="sift-fil-prev" style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;line-height:1.5;margin-bottom:8px">→ ${esc(previewName())}</div>` +
-    `<div style="margin-bottom:9px;padding-top:7px;border-top:0.5px solid var(--color-border-tertiary)"><div style="display:grid;grid-template-columns:auto 1fr auto 1fr;gap:3px 8px;font-size:10px;align-items:center"><span style="color:var(--color-text-tertiary)">Label</span><span style="color:var(--color-text-tertiary)">—</span><span style="color:var(--color-text-tertiary)">Année</span><span style="color:var(--color-text-tertiary)">—</span><span style="color:var(--color-text-tertiary)">Genre</span><span style="color:var(--color-text-tertiary)">—</span><span style="color:var(--color-text-tertiary)">BPM</span><span style="color:var(--color-text-tertiary)">—</span></div><div style="font-size:9px;color:var(--color-text-tertiary);margin-top:4px"><i class="ti ti-download" style="font-size:9px;vertical-align:-1px"></i> enrichissement Discogs à venir</div></div>` +
+    `<div class="sift-fil-prev" style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;line-height:1.5;margin-bottom:9px">→ ${esc(previewName())}</div>` +
     `<div style="display:flex;gap:8px">` +
     `<button data-fil="ranger" style="flex:1;background:var(--color-background-info);color:var(--color-text-info);border:none;font-weight:500"><i class="ti ti-corner-down-left" style="font-size:12px;vertical-align:-2px"></i> Ranger → <span class="sift-fil-bin">${esc(binLabel())}</span></button>` +
     secondary +
