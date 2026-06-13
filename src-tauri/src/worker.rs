@@ -63,7 +63,7 @@ pub fn persist_report(conn: &Connection, id: i64, r: &AnalysisReport) -> rusqlit
             clip_runs=?8, clip_pct=?9, true_peak_dbtp=?10, dc_offset=?11, phase_correlation=?12,
             dual_mono=?13, truncated=?14, silence_head_ms=?15, silence_tail_ms=?16,
             container_ok=?17, codec_error=?18, id3_version=?19, has_cover=?20, tags_cdj_ok=?21,
-            analyzed_at=datetime('now')
+            report_json=?22, analyzed_at=datetime('now')
          WHERE id=?1",
         rusqlite::params![
             id,
@@ -87,6 +87,8 @@ pub fn persist_report(conn: &Connection, id: i64, r: &AnalysisReport) -> rusqlit
             r.id3_version,
             r.has_cover as i64,
             r.tags_cdj_ok as i64,
+            // cache the report (spectrogram is empty here — computed on demand) for instant re-open
+            serde_json::to_string(r).unwrap_or_default(),
         ],
     )?;
     Ok(())

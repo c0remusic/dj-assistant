@@ -1,6 +1,6 @@
 //! M2a audio analysis engine. One FFmpeg decode → online accumulators → AnalysisReport.
 //! Pure: no DB writes, no UI. See docs/superpowers/specs/2026-06-12-m2a-analysis-engine-design.md
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 pub mod decode;
 pub mod dynamics;
@@ -12,7 +12,7 @@ pub mod tags;
 pub mod verdict;
 
 /// Real signal lineage, independent of the declared extension.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Rail {
     Lossless,
@@ -21,7 +21,7 @@ pub enum Rail {
 }
 
 /// Authenticity verdict, derived from cutoff + declared rail.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Verdict {
     Ok,
@@ -30,7 +30,7 @@ pub enum Verdict {
 }
 
 /// Time×frequency magnitude grid (dB, quantized to u8) for the UI spectrogram (M2c).
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Spectrogram {
     pub frames: usize,
     pub bins: usize,
@@ -41,7 +41,7 @@ pub struct Spectrogram {
 }
 
 /// The full analysis result for one file.
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AnalysisReport {
     pub path: String,
     pub sample_rate: u32,
