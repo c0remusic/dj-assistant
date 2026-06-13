@@ -22,7 +22,7 @@ pub fn write_tags(path: &str, artist: &str, title: &str) -> Result<(), String> {
     }
     let tag = tagged
         .primary_tag_mut()
-        .expect("primary tag present after insert");
+        .ok_or_else(|| "could not create a tag for this file".to_string())?;
 
     tag.set_artist(artist.to_string());
     tag.set_title(title.to_string());

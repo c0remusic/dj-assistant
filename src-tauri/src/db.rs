@@ -104,7 +104,11 @@ pub fn run_migrations(conn: &Connection) -> rusqlite::Result<()> {
 /// Opens (creating if needed) the DB at `path`, enables foreign keys, runs migrations.
 pub fn open(path: &std::path::Path) -> rusqlite::Result<Connection> {
     let conn = Connection::open(path)?;
-    conn.execute_batch("PRAGMA foreign_keys = ON;")?;
+    // WAL + a busy timeout so concurrent access waits instead of erroring (prep for moving
+    // off the single-connection model; harmless with one connection today).
+    conn.execute_batch(
+        "PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;",
+    )?;
     run_migrations(&conn)?;
     Ok(conn)
 }

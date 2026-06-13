@@ -135,11 +135,15 @@ pub fn encode(src: &str, dst: &str, target: Target) -> Result<(), EncodeError> {
     let mut err: Option<String> = None;
     for ev in iter {
         match ev {
-            FfmpegEvent::Log(LogLevel::Error, msg) => err = Some(msg),
+            FfmpegEvent::Log(LogLevel::Error, msg) => {
+                err.get_or_insert(msg); // keep the FIRST error (usually the most informative)
+            }
             // ffmpeg-sidecar emits this synthetic event whenever no output stream is routed
             // to stdout — always the case for file output. Not a real failure; the
             // output-file check below is the source of truth.
-            FfmpegEvent::Error(msg) if msg != "No streams found" => err = Some(msg),
+            FfmpegEvent::Error(msg) if msg != "No streams found" => {
+                err.get_or_insert(msg);
+            }
             _ => {}
         }
     }

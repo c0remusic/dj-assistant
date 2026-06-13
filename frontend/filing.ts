@@ -337,16 +337,37 @@ function toast(message: string, undo: boolean): void {
   setTimeout(() => el.remove(), 6000);
 }
 
+// One filing action at a time — guards against a double-click firing two encodes.
+let acting = false;
+
+/** Disable/enable the footer action buttons (visible feedback while an action runs). */
+function setActionsDisabled(mid: HTMLElement, disabled: boolean): void {
+  mid
+    .querySelectorAll<HTMLButtonElement>('[data-fil="ranger"],[data-fil="resource"],[data-fil="trash"]')
+    .forEach((b) => {
+      b.disabled = disabled;
+      b.style.opacity = disabled ? "0.55" : "";
+      b.style.pointerEvents = disabled ? "none" : "";
+    });
+}
+
 /** Ranger the current track into the selected bin. */
 async function doRanger(mid: HTMLElement): Promise<void> {
-  if (!state.track || !state.canonical) return;
+  if (!state.track || !state.canonical || acting) return;
   if (state.binRel === null) {
     toast("Choisis un dossier de destination.", false);
     return;
   }
+  const ranger = mid.querySelector<HTMLElement>('[data-fil="ranger"]');
+  const orig = ranger?.innerHTML ?? null;
+  acting = true;
+  setActionsDisabled(mid, true);
+  if (ranger)
+    ranger.innerHTML =
+      '<i class="ti ti-loader-2 sift-spin" style="font-size:12px;vertical-align:-2px"></i> Rangement…';
   try {
     await fileTrack(state.track.id, state.binRel, state.target, state.canonical);
-    toast(`Rangé → ${state.binRel}`, true);
+    toast(`Rangé → ${binLabel()}`, true);
     clearPane(mid);
   } catch (e) {
     const msg = String(e);
@@ -354,12 +375,18 @@ async function doRanger(mid: HTMLElement): Promise<void> {
     else if (msg.toLowerCase().includes("upscale")) toast("Refusé : pas d'upscale lossy → lossless.", false);
     else toast(`Échec du rangement : ${msg}`, false);
     console.error("file_track failed", e);
+    setActionsDisabled(mid, false);
+    if (ranger && orig != null) ranger.innerHTML = orig;
+  } finally {
+    acting = false;
   }
 }
 
 /** Re-sourcer (fake) or Écarter (trash) the current track. */
 async function doSecondary(mid: HTMLElement, kind: "resource" | "trash"): Promise<void> {
-  if (!state.track) return;
+  if (!state.track || acting) return;
+  acting = true;
+  setActionsDisabled(mid, true);
   try {
     if (kind === "resource") {
       await rejectTrack(state.track.id);
@@ -372,6 +399,9 @@ async function doSecondary(mid: HTMLElement, kind: "resource" | "trash"): Promis
   } catch (e) {
     toast(`Échec : ${String(e)}`, false);
     console.error(`${kind} failed`, e);
+    setActionsDisabled(mid, false);
+  } finally {
+    acting = false;
   }
 }
 
@@ -398,8 +428,13 @@ function dupBanner(m: DupMatch): string {
   return `<div style="display:flex;align-items:flex-start;gap:8px;background:${bg};border-radius:var(--border-radius-md);padding:8px 11px;margin-bottom:10px;font-size:11px"><i class="ti ti-copy" style="font-size:14px;flex:none;color:${fg}"></i><div style="min-width:0"><div style="font-weight:500;color:${fg}">${head}</div><div style="color:var(--color-text-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${where}</div></div></div>`;
 }
 
+// Bumped on every open; an in-flight open bails at its await points if a newer one started
+// (prevents a slow analyze/reconcile from clobbering the pane of a track opened since).
+let openSeq = 0;
+
 /** Render the analysis report + filing footer for `item` into the #mid pane. */
 export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise<void> {
+  const myseq = ++openSeq;
   state.track = item;
   state.target = null;
   state.canonical = null;
@@ -425,6 +460,7 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
 
   // Analysis report (player, spectrogram) — reuses the finished report view.
   await openReportInto(reportEl, item.path);
+  if (myseq !== openSeq) return; // a newer track was opened while we awaited
 
   // Reconcile metadata for the editable fields + confidence badge.
   let rail = "unknown";
@@ -434,6 +470,7 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
     console.error("reconcile failed", e);
     state.canonical = { artist: "", title: "", version: null, confidence: "yellow" };
   }
+  if (myseq !== openSeq) return;
   // Pull the analysed rail off the rendered report (data attribute set by report-view is
   // not available; default by extension instead).
   const ext = (item.path.split(".").pop() || "").toLowerCase();
