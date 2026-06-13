@@ -438,8 +438,18 @@ export async function refreshBins(fldz: HTMLElement): Promise<void> {
   renderBins(fldz);
 }
 
-/** Show the neutral "pick a track" prompt in #mid when nothing is open (replaces the
- * mockup's stale detail). No-op while a track is open so a queue refresh doesn't disrupt it. */
-export function ensureMidPrompt(mid: HTMLElement): void {
-  if (!state.track) clearPane(mid);
+/** Keep the detail pane in sync with the queue: if the open track is still pending, leave it
+ * untouched; otherwise auto-load the first pending track into #mid — so tracks load without a
+ * click, and after filing one the next opens automatically. Empty queue → neutral prompt.
+ * Returns the id now shown (for the caller to highlight its row), or null. */
+export function syncDetail(mid: HTMLElement, items: QueueItem[]): number | null {
+  if (state.track && items.some((it) => it.id === state.track!.id)) {
+    return state.track.id; // current pane still valid — don't disrupt it (e.g. analysis pings)
+  }
+  if (items.length) {
+    void openFilingInto(mid, items[0]);
+    return items[0].id;
+  }
+  clearPane(mid);
+  return null;
 }
