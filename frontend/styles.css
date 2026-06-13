@@ -37,8 +37,9 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--color-background
 .fcard>i{font-size:16px;color:var(--color-text-info);flex:none;margin-top:1px}
 .fcard b{display:block;font-size:11px;font-weight:600;margin-bottom:2px}
 .fcard span{display:block;font-size:10px;line-height:1.4;color:var(--color-text-secondary)}
-.sb{width:46px;flex:none;display:flex;flex-direction:column;gap:3px;padding:10px 6px;background:var(--color-background-secondary);border-right:0.5px solid var(--color-border-tertiary);align-items:center}
-.nv{width:32px;height:32px;border-radius:var(--border-radius-md);display:flex;align-items:center;justify-content:center;color:var(--color-text-secondary);cursor:pointer}
+.sb{width:62px;flex:none;display:flex;flex-direction:column;gap:3px;padding:10px 5px;background:var(--color-background-secondary);border-right:0.5px solid var(--color-border-tertiary);align-items:stretch}
+.nv{min-height:42px;border-radius:var(--border-radius-md);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:5px 2px;color:var(--color-text-secondary);cursor:pointer}
+.nv span{font-size:9px;letter-spacing:.01em;text-align:center;line-height:1.05}
 .nv.on{background:var(--color-background-info);color:var(--color-text-info)}.nv i{font-size:16px}
 .queue{flex:none;display:flex;flex-direction:column;padding:11px 8px;overflow:hidden}
 #ql{flex:1;min-height:0;overflow-y:auto}

@@ -22,6 +22,11 @@ function destroyPlayer() {
   }
 }
 
+/** Toggle play/pause on the current report player (for the Space keyboard shortcut). */
+export function togglePlay() {
+  void currentWs?.playPause();
+}
+
 // One-time hover styling for the clickable time display (inline styles can't do :hover).
 function ensureStyles() {
   if (document.getElementById("sift-report-style")) return;

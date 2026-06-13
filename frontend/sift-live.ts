@@ -25,6 +25,7 @@ import {
   refreshBins,
   syncDetail,
   installUndoShortcut,
+  installFilingKeys,
 } from "./filing";
 import type { Source, QueueItem } from "../shared/contracts";
 
@@ -441,6 +442,7 @@ export function installLiveWiring() {
   injectLeanStyle();
   injectTitlebar();
   installUndoShortcut();
+  installFilingKeys();
   installScrollAutohide();
   void installDragDrop();
 
