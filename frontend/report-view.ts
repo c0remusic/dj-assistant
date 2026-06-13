@@ -58,19 +58,18 @@ const fmt = (n: number, d = 1) => (Number.isFinite(n) ? n.toFixed(d) : String(n)
  * next to what it was declared as. */
 function realQuality(r: AnalysisReport): { label: string; bg: string; fg: string } {
   const khz = (r.cutoff_hz / 1000).toFixed(1);
-  // The file's real encoding bitrate (from the container) — a measured fact for lossy files;
-  // null for lossless. (The original *source* bitrate of a transcode is unrecoverable, so we
-  // show the measured cutoff rather than guessing it.)
-  const kbps = r.declared_bitrate ? `${r.declared_bitrate} kbps · ` : "";
+  // The file's real bitrate is the container's (shown in "annoncé"); repeating it here is
+  // redundant/misleading for a fake (the container rate isn't the real quality). The real
+  // measured evidence is the cutoff.
   if (r.verdict === "fake") {
     return {
-      label: `${kbps}coupé à ${khz} kHz`,
+      label: `coupé à ${khz} kHz`,
       bg: "var(--color-background-danger)",
       fg: "var(--color-text-danger)",
     };
   }
   if (r.verdict === "grey")
-    return { label: `${kbps}coupé à ${khz} kHz — à inspecter`, bg: "var(--color-background-warning)", fg: "var(--color-text-warning)" };
+    return { label: `coupé à ${khz} kHz — à inspecter`, bg: "var(--color-background-warning)", fg: "var(--color-text-warning)" };
   // genuine: describe the actual quality, not a yes/no
   const real =
     r.declared_rail === "lossless"
