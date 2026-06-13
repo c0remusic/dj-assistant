@@ -10,7 +10,7 @@ use crate::naming::{self, Canonical};
 use crate::{actions, library, tagging};
 use rusqlite::{params, Connection};
 use serde::Serialize;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Why filing could not complete (nothing is left half-filed on these — see ordering).
 #[derive(Debug, Clone, PartialEq)]
@@ -102,8 +102,18 @@ pub fn reconcile_track(conn: &Connection, track_id: i64) -> Result<Canonical, Fi
     Ok(naming::reconcile(&artist, &title, &stem))
 }
 
-/// Move `source` into `<root>/.sift-trash/<track_id>__<name>`, recording a `trash` action
-/// in `batch_id`. Returns the trash path.
+/// FS-only: move `source` into `<root>/.sift-trash/<track_id>__<name>` (collision-free).
+/// Returns the trash path. No DB — journaling is the caller's job.
+fn trash_file_fs(root: &Path, track_id: i64, source: &str) -> Result<String, FilingError> {
+    let trash_dir = root.join(".sift-trash");
+    std::fs::create_dir_all(&trash_dir).map_err(|e| FilingError::Io(e.to_string()))?;
+    let dest = library::ensure_unique(&trash_dir.join(format!("{track_id}__{}", file_name_of(source))));
+    std::fs::rename(source, &dest).map_err(|e| FilingError::Io(e.to_string()))?;
+    Ok(dest.to_string_lossy().to_string())
+}
+
+/// Trash a file AND journal it (used by `trash_track`, which is fast — no encode, so holding
+/// the DB lock across it is fine).
 fn move_to_trash(
     conn: &Connection,
     root: &Path,
@@ -111,15 +121,10 @@ fn move_to_trash(
     batch_id: &str,
     source: &str,
 ) -> Result<String, FilingError> {
-    let trash_dir = root.join(".sift-trash");
-    std::fs::create_dir_all(&trash_dir).map_err(|e| FilingError::Io(e.to_string()))?;
-    let dest = trash_dir.join(format!("{track_id}__{}", file_name_of(source)));
-    let dest = library::ensure_unique(&dest);
-    std::fs::rename(source, &dest).map_err(|e| FilingError::Io(e.to_string()))?;
-    let dest_str = dest.to_string_lossy().to_string();
-    actions::record(conn, batch_id, Some(track_id), "trash", Some(source), Some(&dest_str))
+    let dest = trash_file_fs(root, track_id, source)?;
+    actions::record(conn, batch_id, Some(track_id), "trash", Some(source), Some(&dest))
         .map_err(|e| FilingError::Db(e.to_string()))?;
-    Ok(dest_str)
+    Ok(dest)
 }
 
 /// Persist canonical metadata for a track (upsert into `metadata`).
@@ -132,9 +137,41 @@ fn save_metadata(conn: &Connection, track_id: i64, c: &Canonical) -> Result<(), 
     Ok(())
 }
 
-/// File one track into `bin_rel` under `root`. See module docs for the ordering and the
-/// mono-location / undo contract.
-pub fn file_track(
+/// A filing decided under the DB lock (phase 1), ready to run lock-free (phase 2) and then
+/// be committed under the lock (phase 3). Holding the connection across the multi-second
+/// ffmpeg encode would freeze every other DB user (analysis workers + all IPC); splitting
+/// lets the slow encode run lock-free. See `ipc_filing::file_track`.
+pub struct FilePlan {
+    track_id: i64,
+    batch_id: String,
+    source: String,
+    dest: String,
+    conformant: bool,
+    target: Target,
+    canonical: Canonical,
+    bin_rel: String,
+    root: PathBuf,
+}
+
+/// One filesystem effect performed in phase 2, to be journaled in phase 3.
+pub struct FsLog {
+    kind: &'static str,
+    from: String,
+    to: String,
+}
+
+/// The string value persisted in `tracks.target_format`.
+fn target_str(target: Target) -> &'static str {
+    match target {
+        Target::Mp3320 => "mp3_320",
+        Target::Aiff1644 => "aiff_16_44",
+        Target::Wav1644 => "wav_16_44",
+    }
+}
+
+/// Phase 1 (under the DB lock): resolve metadata + the collision-free destination and apply
+/// the no-upscale guard. No slow work — only fast DB reads and a `create_dir_all`.
+pub fn plan_file(
     conn: &Connection,
     root: &Path,
     template: &str,
@@ -142,7 +179,7 @@ pub fn file_track(
     bin_rel: &str,
     override_target: Option<Target>,
     edited: Option<Canonical>,
-) -> Result<FileResult, FilingError> {
+) -> Result<FilePlan, FilingError> {
     let source = track_path(conn, track_id)?;
     let canonical = match edited {
         Some(c) => c,
@@ -159,56 +196,113 @@ pub fn file_track(
     std::fs::create_dir_all(&dest_dir).map_err(|e| FilingError::Io(e.to_string()))?;
     let filename = naming::render_filename(template, &canonical, target.ext());
     let dest = library::ensure_unique(&dest_dir.join(&filename));
-    let dest_str = dest.to_string_lossy().to_string();
-    let batch_id = new_batch_id(track_id);
 
-    if encode::is_conformant(&source, target) {
+    Ok(FilePlan {
+        conformant: encode::is_conformant(&source, target),
+        source,
+        dest: dest.to_string_lossy().to_string(),
+        target,
+        canonical,
+        bin_rel: bin_rel.to_string(),
+        root: root.to_path_buf(),
+        batch_id: new_batch_id(track_id),
+        track_id,
+    })
+}
+
+/// Phase 2 (NO DB lock): the slow work — tag + move, or encode + tag + trash. Leaves the
+/// filesystem clean on its own failure (no orphan transcode). Returns the effects to journal.
+pub fn execute_file(plan: &FilePlan) -> Result<Vec<FsLog>, FilingError> {
+    let mut log = Vec::new();
+    if plan.conformant {
         // tag in place, then move the single physical file into the bin
-        tagging::write_tags(&source, &canonical.artist, &canonical.title)
+        tagging::write_tags(&plan.source, &plan.canonical.artist, &plan.canonical.title)
             .map_err(FilingError::Tag)?;
-        std::fs::rename(&source, &dest).map_err(|e| FilingError::Io(e.to_string()))?;
-        // If journaling fails AFTER the move, roll the file back so it is never lost/orphaned.
-        if let Err(e) =
-            actions::record(conn, &batch_id, Some(track_id), "move", Some(&source), Some(&dest_str))
-        {
-            let _ = std::fs::rename(&dest, &source);
-            return Err(FilingError::Db(e.to_string()));
-        }
+        std::fs::rename(&plan.source, &plan.dest).map_err(|e| FilingError::Io(e.to_string()))?;
+        log.push(FsLog { kind: "move", from: plan.source.clone(), to: plan.dest.clone() });
     } else {
         // transcode into the bin, tag the result, then trash the original (mono-location)
-        encode::encode(&source, &dest_str, target).map_err(|e| match e {
+        encode::encode(&plan.source, &plan.dest, plan.target).map_err(|e| match e {
             EncodeError::Upscale => FilingError::Upscale,
             EncodeError::Ffmpeg(m) => FilingError::Encode(m),
         })?;
-        // If journaling fails AFTER the encode, delete the orphan transcode (source untouched).
+        if let Err(e) = tagging::write_tags(&plan.dest, &plan.canonical.artist, &plan.canonical.title) {
+            let _ = std::fs::remove_file(&plan.dest); // drop the orphan transcode
+            return Err(FilingError::Tag(e));
+        }
+        log.push(FsLog { kind: "convert", from: plan.source.clone(), to: plan.dest.clone() });
+        match trash_file_fs(&plan.root, plan.track_id, &plan.source) {
+            Ok(trash) => log.push(FsLog { kind: "trash", from: plan.source.clone(), to: trash }),
+            Err(e) => {
+                let _ = std::fs::remove_file(&plan.dest);
+                return Err(e);
+            }
+        }
+    }
+    Ok(log)
+}
+
+/// Reverse phase-2 filesystem effects (newest first) — used when phase 3 cannot commit.
+fn rollback_fs(log: &[FsLog]) {
+    for fs in log.iter().rev() {
+        match fs.kind {
+            "move" | "trash" => {
+                let _ = std::fs::rename(&fs.to, &fs.from);
+            }
+            "convert" => {
+                let _ = std::fs::remove_file(&fs.to);
+            }
+            _ => {}
+        }
+    }
+}
+
+/// Phase 3 (under the DB lock): journal the effects + mark the track filed. On any DB error,
+/// reverse the filesystem effects and the partial journal so nothing is left half-filed.
+pub fn commit_file(conn: &Connection, plan: &FilePlan, log: Vec<FsLog>) -> Result<FileResult, FilingError> {
+    let undo = |conn: &Connection| {
+        rollback_fs(&log);
+        let _ = conn.execute("DELETE FROM actions WHERE batch_id=?1", params![plan.batch_id]);
+    };
+    for fs in &log {
         if let Err(e) =
-            actions::record(conn, &batch_id, Some(track_id), "convert", Some(&source), Some(&dest_str))
+            actions::record(conn, &plan.batch_id, Some(plan.track_id), fs.kind, Some(&fs.from), Some(&fs.to))
         {
-            let _ = std::fs::remove_file(&dest_str);
+            undo(conn);
             return Err(FilingError::Db(e.to_string()));
         }
-        tagging::write_tags(&dest_str, &canonical.artist, &canonical.title)
-            .map_err(FilingError::Tag)?;
-        move_to_trash(conn, root, track_id, &batch_id, &source)?;
     }
-
-    // mark filed + persist target/confidence/metadata
-    let conf = match canonical.confidence {
+    let conf = match plan.canonical.confidence {
         naming::Confidence::Green => "green",
         naming::Confidence::Yellow => "yellow",
     };
-    let target_str = match target {
-        Target::Mp3320 => "mp3_320",
-        Target::Aiff1644 => "aiff_16_44",
-        Target::Wav1644 => "wav_16_44",
-    };
-    conn.execute(
+    if let Err(e) = conn.execute(
         "UPDATE tracks SET status='filed', folder=?2, target_format=?3, confidence=?4 WHERE id=?1",
-        params![track_id, bin_rel, target_str, conf],
-    )?;
-    save_metadata(conn, track_id, &canonical)?;
+        params![plan.track_id, plan.bin_rel, target_str(plan.target), conf],
+    ) {
+        undo(conn);
+        return Err(FilingError::Db(e.to_string()));
+    }
+    save_metadata(conn, plan.track_id, &plan.canonical)?;
+    Ok(FileResult { path: plan.dest.clone(), batch_id: plan.batch_id.clone() })
+}
 
-    Ok(FileResult { path: dest_str, batch_id })
+/// File one track into `bin_rel` under `root`, holding `conn` throughout (used by tests and
+/// `file_batch`). The interactive IPC path (`ipc_filing::file_track`) instead runs the three
+/// phases with the lock released around the encode. See module docs for the ordering and the
+/// mono-location / undo contract.
+pub fn file_track(
+    conn: &Connection,
+    root: &Path,
+    template: &str,
+    track_id: i64,
+    bin_rel: &str,
+    override_target: Option<Target>,
+    edited: Option<Canonical>,
+) -> Result<FileResult, FilingError> {
+    let plan = plan_file(conn, root, template, track_id, bin_rel, override_target, edited)?;
+    let log = execute_file(&plan)?;
+    commit_file(conn, &plan, log)
 }
 
 /// File every green track of `track_ids` into `bin_rel`; leave yellow (or unreadable) ones

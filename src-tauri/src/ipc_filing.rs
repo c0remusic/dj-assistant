@@ -55,12 +55,20 @@ pub fn file_track(
     target: Option<Target>,
     edited: Option<Canonical>,
 ) -> Result<FileResult, String> {
-    let res = {
+    // Phase 1 under the lock: decide the plan (fast DB reads + guard + dest).
+    let plan = {
         let conn = conn.lock().map_err(|e| e.to_string())?;
         let root = library_root(&conn)?;
         let tmpl = template(&conn);
-        filing::file_track(&conn, &root, &tmpl, track_id, &bin_rel, target, edited)
+        filing::plan_file(&conn, &root, &tmpl, track_id, &bin_rel, target, edited)
             .map_err(|e| e.to_string())?
+    };
+    // Phase 2 WITHOUT the lock: the multi-second ffmpeg encode + file moves.
+    let log = filing::execute_file(&plan).map_err(|e| e.to_string())?;
+    // Phase 3 under the lock: journal + mark filed (rolls back the FS on a DB error).
+    let res = {
+        let conn = conn.lock().map_err(|e| e.to_string())?;
+        filing::commit_file(&conn, &plan, log).map_err(|e| e.to_string())?
     };
     app.emit("queue:changed", ()).ok();
     Ok(res)
