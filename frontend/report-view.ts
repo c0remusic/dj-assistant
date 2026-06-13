@@ -54,17 +54,28 @@ const esc = (s: string) =>
   );
 const fmt = (n: number, d = 1) => (Number.isFinite(n) ? n.toFixed(d) : String(n));
 
-/** The "real" quality derived from the verdict (vs the file's declared format). */
+/** The file's REAL quality (what the audio actually is), derived from the analysis — shown
+ * next to what it was declared as. */
 function realQuality(r: AnalysisReport): { label: string; bg: string; fg: string } {
-  if (r.verdict === "fake")
+  const khz = (r.cutoff_hz / 1000).toFixed(1);
+  if (r.verdict === "fake") {
+    const est = r.cutoff_hz < 16500 ? "≈128 kbps" : r.cutoff_hz < 19500 ? "≈192–256 kbps" : "ré-encodé";
     return {
-      label: `transcodé · coupure ${(r.cutoff_hz / 1000).toFixed(1)} kHz`,
+      label: `${est} · coupé à ${khz} kHz`,
       bg: "var(--color-background-danger)",
       fg: "var(--color-text-danger)",
     };
+  }
   if (r.verdict === "grey")
-    return { label: "incertain", bg: "var(--color-background-warning)", fg: "var(--color-text-warning)" };
-  return { label: "conforme", bg: "var(--color-background-success)", fg: "var(--color-text-success)" };
+    return { label: `coupé à ${khz} kHz — à inspecter`, bg: "var(--color-background-warning)", fg: "var(--color-text-warning)" };
+  // genuine: describe the actual quality, not a yes/no
+  const real =
+    r.declared_rail === "lossless"
+      ? "lossless · plein-bande"
+      : r.declared_bitrate
+        ? `${r.declared_bitrate} kbps réels`
+        : "qualité authentique";
+  return { label: real, bg: "var(--color-background-success)", fg: "var(--color-text-success)" };
 }
 
 function spectroCaption(v: AnalysisReport["verdict"]): string {
@@ -140,10 +151,10 @@ function reportHtml(r: AnalysisReport, closeBtn: boolean): string {
       ${closeBtn ? '<button class="sift-close" style="flex:none;font-size:13px;padding:4px 10px">fermer</button>' : ""}
     </div>
     <div style="display:flex;align-items:center;gap:7px;margin-bottom:12px;flex-wrap:wrap;font-size:11px">
-      <span style="font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--color-text-tertiary)">prétendu</span>
+      <span style="font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--color-text-tertiary)">annoncé</span>
       <span class="pill">${esc(r.declared_format)}${r.declared_bitrate ? " · " + r.declared_bitrate + " kbps" : ""}</span>
       <i class="ti ti-arrow-right" style="font-size:13px;color:var(--color-text-tertiary)"></i>
-      <span style="font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--color-text-tertiary)">réel</span>
+      <span style="font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--color-text-tertiary)">qualité réelle</span>
       <span class="pill" style="background:${rq.bg};color:${rq.fg}">${rq.label}</span>
       <i class="ti ti-arrow-right" style="font-size:13px;color:var(--color-text-tertiary)"></i>
       ${verdictBadge(r.verdict)}
