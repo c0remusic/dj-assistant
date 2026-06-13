@@ -190,8 +190,10 @@ function ensureDropStyle() {
 }
 
 // Existing boxes that double as drop targets, with the hint each shows while dragging.
+// ".dest" is the WHOLE "Où on va" column (header + #fldz) so a folder dropped anywhere in
+// that column registers as a destination — not just on the inner bin list.
 const DROP_ZONES: [string, string][] = [
-  ["#fldz", "Déposer un dossier ici — nouvelle destination"],
+  [".dest", "Déposer un dossier ici — nouvelle destination"],
   ["#ql", "Déposer des fichiers audio ici"],
   ["#sift-sources", "Déposer un dossier à surveiller"],
 ];
@@ -223,7 +225,7 @@ function setDropActive(on: boolean) {
  * no devicePixelRatio correction (dividing here double-corrected on HiDPI/scaled displays). */
 function dropModeAt(pos: { x: number; y: number }): "source" | "dest" {
   const el = document.elementFromPoint(pos.x, pos.y);
-  return el && el.closest("#fldz") ? "dest" : "source";
+  return el && el.closest(".dest") ? "dest" : "source";
 }
 
 /** OS drag-drop: audio files → queue; folders → watched source, or a destination bin when
