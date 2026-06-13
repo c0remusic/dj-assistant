@@ -64,13 +64,13 @@ function realQuality(r: AnalysisReport): { label: string; bg: string; fg: string
     hz >= 20000 ? 320 : hz >= 19000 ? 256 : hz >= 18000 ? 192 : hz >= 16500 ? 160 : 128;
   if (r.verdict === "fake") {
     return {
-      label: `≈ ${estKbps(r.cutoff_hz)} kbps`,
+      label: `MP3 ≈ ${estKbps(r.cutoff_hz)} kbps`,
       bg: "var(--color-background-danger)",
       fg: "var(--color-text-danger)",
     };
   }
   if (r.verdict === "grey")
-    return { label: `≈ ${estKbps(r.cutoff_hz)} kbps — à vérifier`, bg: "var(--color-background-warning)", fg: "var(--color-text-warning)" };
+    return { label: `MP3 ≈ ${estKbps(r.cutoff_hz)} kbps — à vérifier`, bg: "var(--color-background-warning)", fg: "var(--color-text-warning)" };
   // genuine: describe the actual quality, not a yes/no
   const real =
     r.declared_rail === "lossless"
