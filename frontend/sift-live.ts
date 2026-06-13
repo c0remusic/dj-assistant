@@ -413,6 +413,27 @@ function injectTitlebar() {
   );
 }
 
+/** Reveal a scroll area's thumb while it scrolls, then hide it ~700ms after it stops (the
+ * CSS keeps it hidden at rest). Capture-phase so it catches scrolling on any inner element. */
+function installScrollAutohide() {
+  const timers = new WeakMap<Element, ReturnType<typeof setTimeout>>();
+  document.addEventListener(
+    "scroll",
+    (e) => {
+      const el = e.target;
+      if (!(el instanceof Element)) return;
+      el.classList.add("sift-scrolling");
+      const prev = timers.get(el);
+      if (prev) clearTimeout(prev);
+      timers.set(
+        el,
+        setTimeout(() => el.classList.remove("sift-scrolling"), 700),
+      );
+    },
+    true,
+  );
+}
+
 export function installLiveWiring() {
   window.__siftHome = renderHomeSources;
   window.__siftQueue = renderQueue;
@@ -420,6 +441,7 @@ export function installLiveWiring() {
   injectLeanStyle();
   injectTitlebar();
   installUndoShortcut();
+  installScrollAutohide();
   void installDragDrop();
 
   document.getElementById("pa")?.addEventListener("click", (e) => {
