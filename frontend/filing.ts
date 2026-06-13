@@ -17,7 +17,7 @@ import {
 } from "./ipc";
 import type { DupMatch } from "../shared/contracts";
 import { open } from "@tauri-apps/plugin-dialog";
-import { openReportInto } from "./report-view";
+import { openReportInto, togglePlay } from "./report-view";
 import type { Bin, Canonical, Target, QueueItem } from "../shared/contracts";
 
 const LIBRARY_ROOT = "library_root";
@@ -478,6 +478,25 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
   else if (["mp3", "m4a", "aac", "ogg"].includes(ext)) rail = "lossy";
 
   renderFoot(footEl, mid, rail);
+}
+
+/** Keyboard shortcuts for the open track (Revue): Space = play/pause, Enter = Ranger,
+ * X = Écarter/Re-sourcer. Ignored while typing in a field, and only when a track is open. */
+export function installFilingKeys(): void {
+  document.addEventListener("keydown", (e) => {
+    const t = e.target as HTMLElement | null;
+    if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+    if (!state.track) return; // only with a track open (i.e. on Revue)
+    if (e.key === " ") {
+      e.preventDefault(); // also stops Space from activating a focused button
+      togglePlay();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      document.querySelector<HTMLElement>('[data-fil="ranger"]')?.click();
+    } else if (e.key === "x" || e.key === "X") {
+      document.querySelector<HTMLElement>('[data-fil="resource"],[data-fil="trash"]')?.click();
+    }
+  });
 }
 
 /** Wire a one-time global Ctrl+Z → undo (ignored while editing a field). */
