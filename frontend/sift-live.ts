@@ -259,6 +259,8 @@ function injectLeanStyle() {
   const st = document.createElement("style");
   st.id = "sift-lean-style";
   st.textContent =
+    // landing/demo copy in index.html: marketing pitch, demo disclaimer, feature cards row
+    ".pitch,.sub,.frow{display:none!important}" +
     // unbuilt nav tabs (Biblio, Rekordbox, Clé USB, Écartés, Réglages)
     '#nav .nv[data-view="biblio"],#nav .nv[data-view="rkb"],#nav .nv[data-view="cle"],' +
     '#nav .nv[data-view="ecarts"],#nav .nv[data-view="reglages"]{display:none!important}' +
