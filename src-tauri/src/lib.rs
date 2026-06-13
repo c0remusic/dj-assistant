@@ -6,6 +6,7 @@ mod ecartes;
 mod encode;
 mod ffmpeg;
 mod filing;
+mod fingerprint;
 mod ipc;
 mod ipc_filing;
 mod library;

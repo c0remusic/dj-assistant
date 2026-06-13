@@ -31,6 +31,7 @@ notify-debouncer-full = "0.6.0"
 rustfft = "6.4.1"
 lofty = "0.22.2"
 open = "5"
+rusty-chromaprint = "0.2"
 
 [dev-dependencies]
 tempfile = "3.27.0"

@@ -5,11 +5,14 @@
 //! `kind` from `name` to `both` when the sound agrees.
 #![allow(dead_code)]
 
-use crate::naming;
+use crate::{fingerprint, naming};
 use rusqlite::{params, Connection};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
+
+/// A candidate row loaded for matching: (id, path, status, folder, filename).
+type CandRow = (i64, String, String, Option<String>, Option<String>);
 
 /// A duplicate match for one track. `kind`: `name` (names agree) or `both` (name + sound).
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -80,14 +83,14 @@ pub fn find_duplicate(conn: &Connection, track_id: i64) -> rusqlite::Result<Opti
         "SELECT id, path, status, folder, filename FROM tracks
          WHERE status IN ('pending','filed') AND id<>?1",
     )?;
-    let rows: Vec<(i64, String, String, Option<String>, Option<String>)> = stmt
+    let rows: Vec<CandRow> = stmt
         .query_map(params![track_id], |r| {
             Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
         })?
         .collect::<rusqlite::Result<_>>()?;
 
     // Prefer a filed match (it's "already in your library") over another pending one.
-    let mut best: Option<(i64, String, Option<String>, Option<String>)> = None;
+    let mut best: Option<CandRow> = None;
     for (id, cand_path, status, folder, filename) in rows {
         if key_for_path(&cand_path) != key {
             continue;
@@ -95,25 +98,60 @@ pub fn find_duplicate(conn: &Connection, track_id: i64) -> rusqlite::Result<Opti
         let is_filed = status == "filed";
         let take = match &best {
             None => true,
-            Some((_, bstatus, _, _)) => is_filed && bstatus != "filed",
+            Some((_, _, bstatus, _, _)) => is_filed && bstatus != "filed",
         };
         if take {
-            best = Some((id, status, folder, filename));
-            // a filed match is the strongest by-name signal; stop early
+            best = Some((id, cand_path, status, folder, filename));
             if is_filed {
-                break;
+                break; // strongest by-name signal
             }
         }
     }
 
-    Ok(best.map(|(id, status, folder, filename)| DupMatch {
-        id,
-        status,
-        folder,
-        filename,
-        kind: "name".to_string(),
-        score: 1.0,
-    }))
+    let Some((id, cand_path, status, folder, filename)) = best else {
+        return Ok(None);
+    };
+
+    // Confirm by sound: compare cached/lazy fingerprints. `both` if the sound agrees, else
+    // `name` (names match but the recording differs, or audio unreadable — "à vérifier").
+    let (kind, score) =
+        match (get_or_compute_fp(conn, track_id, &path), get_or_compute_fp(conn, id, &cand_path)) {
+            (Some(fa), Some(fb)) => {
+                let s = fingerprint::similarity(&fa, &fb);
+                if s >= fingerprint::MATCH_THRESHOLD {
+                    ("both", s)
+                } else {
+                    ("name", s)
+                }
+            }
+            _ => ("name", 1.0),
+        };
+
+    Ok(Some(DupMatch { id, status, folder, filename, kind: kind.to_string(), score }))
+}
+
+/// Fetch a track's fingerprint from the `tracks.fingerprint` cache, or compute it from the
+/// file and cache it. `None` if the audio can't be fingerprinted (short/corrupt/missing).
+fn get_or_compute_fp(conn: &Connection, track_id: i64, path: &str) -> Option<Vec<u32>> {
+    let cached: Option<String> = conn
+        .query_row("SELECT fingerprint FROM tracks WHERE id=?1", params![track_id], |r| r.get(0))
+        .ok()
+        .flatten();
+    if let Some(s) = cached {
+        if !s.is_empty() {
+            return Some(fingerprint::decode(&s));
+        }
+    }
+    match fingerprint::compute_for_path(path) {
+        Ok(fp) => {
+            let _ = conn.execute(
+                "UPDATE tracks SET fingerprint=?2 WHERE id=?1",
+                params![track_id, fingerprint::encode(&fp)],
+            );
+            Some(fp)
+        }
+        Err(_) => None,
+    }
 }
 
 #[cfg(test)]
@@ -170,6 +208,39 @@ mod tests {
         assert_eq!(m.status, "filed");
         assert_eq!(m.folder.as_deref(), Some("House"));
         assert_eq!(m.kind, "name");
+    }
+
+    fn fixture(name: &str) -> Option<String> {
+        let p = format!("fixtures/{name}");
+        std::path::Path::new(&p).exists().then_some(p)
+    }
+
+    #[test]
+    fn find_duplicate_confirms_by_sound() {
+        // Two encodings of the same recording, named to share a name key → name match AND
+        // sound match → kind "both".
+        let (Some(mp3), Some(flac)) = (fixture("real_320.mp3"), fixture("real_lossless.flac"))
+        else {
+            eprintln!("skip: no fixtures");
+            return;
+        };
+        crate::ffmpeg::init_ffmpeg_path();
+        let conn = db();
+        let dir = tempfile::tempdir().unwrap();
+        let a = dir.path().join("Sweep Test - Tone.mp3");
+        let b = dir.path().join("Sweep Test - Tone.flac");
+        std::fs::copy(&mp3, &a).unwrap();
+        std::fs::copy(&flac, &b).unwrap();
+        let id_a = add(&conn, a.to_str().unwrap(), "pending");
+        let _id_b = add(&conn, b.to_str().unwrap(), "pending");
+
+        let m = find_duplicate(&conn, id_a).unwrap().unwrap();
+        assert_eq!(m.kind, "both", "same recording, same name → sound-confirmed");
+        // fingerprint cached on both after the comparison
+        let cached: Option<String> = conn
+            .query_row("SELECT fingerprint FROM tracks WHERE id=?1", params![id_a], |r| r.get(0))
+            .unwrap();
+        assert!(cached.is_some_and(|s| !s.is_empty()));
     }
 
     #[test]
