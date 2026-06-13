@@ -91,24 +91,17 @@ async function renderHomeSources() {
   // panel in its place.
   const left = content.querySelector(".home-left");
   if (!left) return;
-  let insertBefore: Element | null = null;
-  let hiding = false;
+  // Lean Tauri UI: keep only the page title + the real sources panel; hide all the mock
+  // home content (fictional stat cards, pending banner, per-folder breakdown).
+  let title: Element | null = null;
   for (const child of Array.from(left.children)) {
-    const isColH = child.classList.contains("col-h");
-    if (isColH && child.textContent?.trim() === "Dossiers surveillés") {
-      hiding = true;
-      (child as HTMLElement).style.display = "none";
+    if (!title && child.classList.contains("h1")) {
+      title = child;
       continue;
     }
-    if (hiding && isColH) {
-      // reached the next section ("Répartition par dossier") — stop, drop the panel here.
-      insertBefore = child;
-      hiding = false;
-      continue;
-    }
-    if (hiding) (child as HTMLElement).style.display = "none";
+    (child as HTMLElement).style.display = "none";
   }
-  left.insertBefore(panel, insertBefore);
+  left.insertBefore(panel, title ? title.nextSibling : left.firstChild);
 }
 
 /** Replaces the mockup queue list with real pending items (Revue screen). */
@@ -251,9 +244,26 @@ async function installDragDrop() {
   }
 }
 
+/** Lean Tauri UI: hide the mockup's not-yet-real surfaces (nav tabs + Revue toggles) so the
+ * app shows only what actually works — Accueil (sources) and Revue (queue/report/filing).
+ * Injected once; the demo (plain browser) never runs this, so its full mockup is untouched. */
+function injectLeanStyle() {
+  if (document.getElementById("sift-lean-style")) return;
+  const st = document.createElement("style");
+  st.id = "sift-lean-style";
+  st.textContent =
+    // unbuilt nav tabs (Biblio, Rekordbox, Clé USB, Écartés, Réglages)
+    '#nav .nv[data-view="biblio"],#nav .nv[data-view="rkb"],#nav .nv[data-view="cle"],' +
+    '#nav .nv[data-view="ecarts"],#nav .nv[data-view="reglages"]{display:none!important}' +
+    // Revue: batch mode + "traités" toggle aren't wired to the real backend yet
+    '[data-act="revmode"],[data-act="togglequeue"]{display:none!important}';
+  document.head.appendChild(st);
+}
+
 export function installLiveWiring() {
   window.__siftHome = renderHomeSources;
   window.__siftQueue = renderQueue;
+  injectLeanStyle();
   installUndoShortcut();
   void installDragDrop();
 
