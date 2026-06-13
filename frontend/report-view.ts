@@ -144,33 +144,38 @@ function reportHtml(r: AnalysisReport, closeBtn: boolean): string {
     </div>
     <div style="margin-bottom:11px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);overflow:hidden">
       <button class="sift-sg-toggle" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 11px;background:var(--color-background-secondary);border:none;color:var(--color-text-primary);cursor:pointer;font-size:11px;text-align:left">
-        <span style="display:flex;align-items:center;gap:8px"><span class="sift-sg-caret" style="display:inline-block;transition:transform .25s;color:var(--color-text-tertiary)">▸</span> Encodage &amp; spectrogramme</span>
+        <span style="display:flex;align-items:center;gap:8px"><span class="sift-sg-caret" style="display:inline-block;transition:transform .25s;color:var(--color-text-tertiary)">▸</span> Spectrogramme &amp; infos</span>
         <span class="sift-sg-hint" style="font-size:11px;color:var(--color-text-info);flex:none">afficher</span>
       </button>
       <div class="sift-sg-body" style="max-height:0;overflow:hidden;transition:max-height .3s ease">
         <div style="padding:8px 11px;font-size:10px;color:var(--color-text-tertiary);border-bottom:0.5px solid var(--color-border-tertiary);line-height:1.5">Déclaré <span class="pill">${esc(r.declared_format)}</span> ${r.declared_rail}${r.declared_bitrate ? " · " + r.declared_bitrate + " kbps" : ""} · coupure ${fmt(r.cutoff_hz, 0)} Hz — ${spectroCaption(r.verdict)}</div>
         <canvas class="sift-sg" width="720" height="180" style="width:100%;display:block;background:#000"></canvas>
+        <div style="padding:9px 11px;display:grid;grid-template-columns:1fr 1fr;gap:0 28px;font-size:12px">
+          ${row("Verdict", r.verdict)}
+          ${row("Coupure", fmt(r.cutoff_hz, 0) + " Hz")}
+          ${row("Durée", fmt(r.duration_sec, 1) + " s")}
+          ${row("Canaux", String(r.channels) + (r.dual_mono ? " (dual-mono)" : ""))}
+          ${row("True-peak", fmt(r.true_peak_dbtp, 2) + " dBTP")}
+          ${row("DC offset", fmt(r.dc_offset, 5))}
+          ${row("Écrêtage", r.clip_runs + " runs / " + fmt(r.clip_pct, 2) + "%")}
+          ${row("Corrélation phase", fmt(r.phase_correlation, 3))}
+          ${row("Silence tête", r.silence_head_ms + " ms")}
+          ${row("Silence queue", r.silence_tail_ms + " ms")}
+          ${row("Tronqué", yn(r.truncated))}
+          ${row("Conteneur OK", yn(r.container_ok))}
+          ${row("Sample rate", r.sample_rate + " Hz")}
+          ${row("Peaks (couverture)", peaksCoverage(r))}
+        </div>
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 28px;font-size:12px">
-      ${row("Verdict", r.verdict)}
-      ${row("Coupure", fmt(r.cutoff_hz, 0) + " Hz")}
-      ${row("Durée", fmt(r.duration_sec, 1) + " s")}
-      ${row("Canaux", String(r.channels) + (r.dual_mono ? " (dual-mono)" : ""))}
-      ${row("True-peak", fmt(r.true_peak_dbtp, 2) + " dBTP")}
-      ${row("DC offset", fmt(r.dc_offset, 5))}
-      ${row("Écrêtage", r.clip_runs + " runs / " + fmt(r.clip_pct, 2) + "%")}
-      ${row("Corrélation phase", fmt(r.phase_correlation, 3))}
-      ${row("Silence tête", r.silence_head_ms + " ms")}
-      ${row("Silence queue", r.silence_tail_ms + " ms")}
-      ${row("Tronqué", yn(r.truncated))}
-      ${row("Conteneur OK", yn(r.container_ok))}
-      ${row("Tags CDJ OK", yn(r.tags_cdj_ok))}
-      ${row("Pochette", yn(r.has_cover))}
-      ${row("Version ID3", r.id3_version || "—")}
-      ${row("Sample rate", r.sample_rate + " Hz")}
-      ${row("Peaks (couverture)", peaksCoverage(r))}
+    <div style="margin-bottom:4px">
+      <div style="font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:var(--color-text-tertiary);margin-bottom:5px">Tags</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 28px;font-size:12px">
+        ${row("Tags CDJ OK", yn(r.tags_cdj_ok))}
+        ${row("Pochette", yn(r.has_cover))}
+        ${row("Version ID3", r.id3_version || "—")}
+      </div>
     </div>
     ${r.codec_error ? `<div style="margin-top:12px;font-size:11px;color:#ff6b6b">codec error: ${esc(r.codec_error)}</div>` : ""}`;
 }
