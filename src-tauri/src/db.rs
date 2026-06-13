@@ -85,6 +85,11 @@ const MIGRATIONS: &[&str] = &[
     ALTER TABLE actions ADD COLUMN batch_id TEXT;         -- groups one filing's rows
     CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
     "#,
+    // v5 — cache the full analysis report (JSON, sans spectrogram) so re-opening an already-
+    // analysed track is instant (no re-decode). Cleared by the scanner when a file changes.
+    r#"
+    ALTER TABLE tracks ADD COLUMN report_json TEXT;
+    "#,
 ];
 
 /// Applies any migrations the DB hasn't seen yet, tracked via PRAGMA user_version.

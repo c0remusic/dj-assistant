@@ -230,14 +230,72 @@ pub fn analyze_path(
 ) -> Result<crate::analysis::AnalysisReport, String> {
     {
         let conn = conn.lock().map_err(|e| e.to_string())?;
-        let known = conn
-            .query_row("SELECT 1 FROM tracks WHERE path=?1 LIMIT 1", rusqlite::params![path], |_| Ok(()))
-            .is_ok();
-        if !known {
-            return Err("unknown track path".into());
+        let cached: Option<String> = conn
+            .query_row(
+                "SELECT report_json FROM tracks WHERE path=?1",
+                rusqlite::params![path],
+                |r| r.get::<_, Option<String>>(0),
+            )
+            .ok()
+            .flatten();
+        match cached {
+            // analysed already: serve the cached report instantly (no re-decode). The
+            // spectrogram is computed on demand, so a spectrogram request still re-analyses.
+            Some(json) if !json.is_empty() && !with_spectrogram => {
+                return serde_json::from_str(&json).map_err(|e| e.to_string());
+            }
+            // no cache → must still be a known track (security), then fall through to analyse
+            None => {
+                let known = conn
+                    .query_row("SELECT 1 FROM tracks WHERE path=?1 LIMIT 1", rusqlite::params![path], |_| Ok(()))
+                    .is_ok();
+                if !known {
+                    return Err("unknown track path".into());
+                }
+            }
+            _ => {}
         }
     }
-    crate::analysis::analyze(&path, with_spectrogram)
+    let report = crate::analysis::analyze(&path, with_spectrogram)?;
+    // self-heal the cache: store the freshly-computed report (without the heavy spectrogram)
+    // so the next open of this track is instant, even for tracks analysed before this cache.
+    if !with_spectrogram {
+        if let Ok(conn) = conn.lock() {
+            if let Ok(json) = serde_json::to_string(&report) {
+                let _ = conn.execute(
+                    "UPDATE tracks SET report_json=?2 WHERE path=?1",
+                    rusqlite::params![path, json],
+                );
+            }
+        }
+    }
+    Ok(report)
+}
+
+/// Return a filesystem path the webview's audio engine can actually play. Chromium plays
+/// mp3/wav/flac/m4a/ogg directly, but NOT AIFF — so for .aif/.aiff we transcode once to a
+/// cached temp WAV and return that. The caller wraps the result with convertFileSrc.
+#[tauri::command]
+pub fn playback_url(path: String) -> Result<String, String> {
+    let ext = std::path::Path::new(&path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if ext != "aif" && ext != "aiff" {
+        return Ok(path); // browser can play it as-is
+    }
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    path.hash(&mut h);
+    let dir = std::env::temp_dir().join("sift-play");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let out = dir.join(format!("{:x}.wav", h.finish()));
+    if !out.exists() {
+        crate::encode::encode(&path, &out.to_string_lossy(), crate::encode::Target::Wav1644)
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(out.to_string_lossy().to_string())
 }
 
 /// Open an external URL in the user's default browser (used by the Écartés buy links).

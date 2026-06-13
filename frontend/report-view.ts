@@ -3,7 +3,7 @@
 // (debug button on an arbitrary picked file). Queries are scoped to a root element so
 // inline + modal can't clash on ids.
 import { analyzePath } from "./ipc";
-import { convertFileSrc } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import WaveSurfer from "wavesurfer.js";
 import type { AnalysisReport } from "../shared/contracts";
 
@@ -59,9 +59,10 @@ const fmt = (n: number, d = 1) => (Number.isFinite(n) ? n.toFixed(d) : String(n)
 function realQuality(r: AnalysisReport): { label: string; bg: string; fg: string } {
   const khz = (r.cutoff_hz / 1000).toFixed(1);
   if (r.verdict === "fake") {
-    const est = r.cutoff_hz < 16500 ? "≈128 kbps" : r.cutoff_hz < 19500 ? "≈192–256 kbps" : "ré-encodé";
+    // The real source bitrate is lost in the transcode (not recoverable) — show the actual
+    // MEASURED ceiling instead of guessing a kbps range.
     return {
-      label: `${est} · coupé à ${khz} kHz`,
+      label: `coupé à ${khz} kHz`,
       bg: "var(--color-background-danger)",
       fg: "var(--color-text-danger)",
     };
@@ -217,8 +218,71 @@ function reportHtml(r: AnalysisReport, closeBtn: boolean): string {
     ${r.codec_error ? `<div style="margin-top:12px;font-size:11px;color:#ff6b6b">codec error: ${esc(r.codec_error)}</div>` : ""}`;
 }
 
+// One shared AudioContext for decoding formats the <audio> element can't play (AIFF).
+let decodeCtx: AudioContext | null = null;
+
+/** Wrap a decoded AudioBuffer as an in-memory 16-bit PCM WAV blob (lossless container swap;
+ * AIFF and WAV are both PCM). Lets wavesurfer's media element play AIFF content the browser
+ * decoded natively via Web Audio. */
+function audioBufferToWav(buf: AudioBuffer): Blob {
+  const numCh = buf.numberOfChannels;
+  const sr = buf.sampleRate;
+  const len = buf.length;
+  const blockAlign = numCh * 2;
+  const dataLen = len * blockAlign;
+  const ab = new ArrayBuffer(44 + dataLen);
+  const view = new DataView(ab);
+  const w = (off: number, s: string) => {
+    for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i));
+  };
+  w(0, "RIFF");
+  view.setUint32(4, 36 + dataLen, true);
+  w(8, "WAVE");
+  w(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, numCh, true);
+  view.setUint32(24, sr, true);
+  view.setUint32(28, sr * blockAlign, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, 16, true);
+  w(36, "data");
+  view.setUint32(40, dataLen, true);
+  const chans: Float32Array[] = [];
+  for (let c = 0; c < numCh; c++) chans.push(buf.getChannelData(c));
+  let off = 44;
+  for (let i = 0; i < len; i++) {
+    for (let c = 0; c < numCh; c++) {
+      const s = Math.max(-1, Math.min(1, chans[c][i]));
+      view.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+      off += 2;
+    }
+  }
+  return new Blob([ab], { type: "audio/wav" });
+}
+
+/** Load a file the browser can't play natively (AIFF) by decoding it with Web Audio and
+ * feeding the player a WAV blob. Falls back to the backend transcode if Web Audio refuses. */
+async function loadDecoded(ws: WaveSurfer, path: string): Promise<void> {
+  try {
+    const resp = await fetch(convertFileSrc(path));
+    const arr = await resp.arrayBuffer();
+    if (!decodeCtx) decodeCtx = new AudioContext();
+    const audioBuf = await decodeCtx.decodeAudioData(arr);
+    await ws.loadBlob(audioBufferToWav(audioBuf));
+  } catch (e) {
+    console.error("web-audio decode failed, falling back to transcode", e);
+    try {
+      const src = await invoke<string>("playback_url", { path });
+      await ws.load(convertFileSrc(src));
+    } catch (e2) {
+      console.error("playback fallback failed", e2);
+    }
+  }
+}
+
 /** Mounts a wavesurfer player on the report's player row (varispeed tempo for now). */
-function mountPlayer(root: HTMLElement, r: AnalysisReport) {
+async function mountPlayer(root: HTMLElement, r: AnalysisReport) {
   const container = root.querySelector<HTMLElement>(".sift-wave");
   const playBtn = root.querySelector<HTMLButtonElement>(".sift-play");
   const timeEl = root.querySelector<HTMLElement>(".sift-time");
@@ -228,6 +292,10 @@ function mountPlayer(root: HTMLElement, r: AnalysisReport) {
 
   ensureStyles();
   destroyPlayer();
+  // AIFF isn't playable by Chromium's <audio>, but its Web Audio engine decodes it natively —
+  // so decode AIFF in-browser and feed a WAV blob; other formats load directly.
+  const ext = (r.path.split(".").pop() || "").toLowerCase();
+  const needsDecode = ext === "aif" || ext === "aiff";
   const ws = WaveSurfer.create({
     container,
     height: 46,
@@ -235,11 +303,12 @@ function mountPlayer(root: HTMLElement, r: AnalysisReport) {
     progressColor: "#8ecce8",
     cursorColor: "#FFdc82",
     normalize: true,
-    url: convertFileSrc(r.path),
     peaks: r.peaks.length ? [r.peaks] : undefined,
     duration: r.duration_sec || undefined,
   });
   currentWs = ws;
+  if (needsDecode) void loadDecoded(ws, r.path);
+  else void ws.load(convertFileSrc(r.path));
 
   const setIcon = (name: string) => {
     const i = playBtn?.querySelector("i");
@@ -280,7 +349,11 @@ function mountPlayer(root: HTMLElement, r: AnalysisReport) {
   ws.on("play", () => setIcon("player-pause"));
   ws.on("pause", () => setIcon("player-play"));
   ws.on("finish", () => setIcon("player-play"));
-  ws.on("error", (e) => console.error("wavesurfer error", e));
+  ws.on("error", (e) => {
+    console.error("wavesurfer error", e);
+    // route to the Rust log so it shows in the dev console (webview console isn't readable here)
+    void invoke("report_smoke", { ok: false, detail: `wavesurfer ${r.path}: ${String(e)}` });
+  });
   playBtn?.addEventListener("click", () => void ws.playPause());
   const refreshTempo = () => {
     const v = Number(tempo!.value);
