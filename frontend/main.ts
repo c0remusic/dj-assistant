@@ -2,7 +2,6 @@ import "./app.js";
 import { invoke } from "@tauri-apps/api/core";
 import { appInfo, dbHealth, ffmpegVersion } from "./ipc";
 import { installLiveWiring } from "./sift-live";
-import { installTestButton } from "./sift-test";
 
 // Only exercise the IPC layer inside the Tauri app. In a plain browser (e.g. the
 // Vercel web demo) there is no Tauri runtime — skip it so the UI renders cleanly.
@@ -11,7 +10,6 @@ const inTauri =
 
 if (inTauri) {
   installLiveWiring();
-  installTestButton();
   (async () => {
     try {
       const info = await appInfo();
