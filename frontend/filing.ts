@@ -525,8 +525,14 @@ export async function refreshBins(fldz: HTMLElement): Promise<void> {
  * click, and after filing one the next opens automatically. Empty queue → neutral prompt.
  * Returns the id now shown (for the caller to highlight its row), or null. */
 export function syncDetail(mid: HTMLElement, items: QueueItem[]): number | null {
+  // Is our filing pane still in #mid? On navigation back to Revue, app.js re-draws its mock
+  // detail into #mid, so the pane is no longer ours and must be re-rendered — but on a mere
+  // queue/analysis refresh it's intact and we must NOT disrupt it (would restart playback).
+  const paneIsOurs = !!mid.querySelector(".sift-fil");
   if (state.track && items.some((it) => it.id === state.track!.id)) {
-    return state.track.id; // current pane still valid — don't disrupt it (e.g. analysis pings)
+    if (paneIsOurs) return state.track.id; // intact → leave it
+    void openFilingInto(mid, state.track); // app.js wiped it → restore the real pane
+    return state.track.id;
   }
   if (items.length) {
     void openFilingInto(mid, items[0]);
