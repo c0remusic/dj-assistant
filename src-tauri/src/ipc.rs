@@ -312,30 +312,33 @@ pub fn open_url(url: String) -> Result<(), String> {
 /// then starts the live watcher and notifies the front. Errors are logged, not fatal.
 fn spawn_scan(app: AppHandle, source_id: i64) {
     std::thread::spawn(move || {
-        let path: Option<String> = {
-            let state = app.state::<Mutex<Connection>>();
-            let conn = match state.lock() {
-                Ok(c) => c,
-                Err(_) => return,
-            };
-            conn.query_row(
+        // Use a SEPARATE connection: a full-folder walkdir + per-file upserts must not hold
+        // the shared Mutex<Connection> — doing so froze every IPC call and the analysis
+        // workers for the whole scan. WAL + busy_timeout let this second connection write
+        // concurrently (writers serialize briefly instead of erroring).
+        let db_path = match app.path().app_data_dir() {
+            Ok(d) => d.join("sift.db"),
+            Err(_) => return,
+        };
+        let conn = match Connection::open(&db_path) {
+            Ok(c) => c,
+            Err(e) => {
+                log::error!("scan: open db failed: {e}");
+                return;
+            }
+        };
+        let _ = conn.execute_batch("PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;");
+
+        let path: Option<String> = conn
+            .query_row(
                 "SELECT path FROM sources WHERE id=?1",
                 rusqlite::params![source_id],
                 |r| r.get(0),
             )
-            .ok()
-        };
+            .ok();
         let Some(path) = path else { return };
 
-        let result = {
-            let state = app.state::<Mutex<Connection>>();
-            let conn = match state.lock() {
-                Ok(c) => c,
-                Err(_) => return,
-            };
-            scanner::reconcile(&conn, source_id, std::path::Path::new(&path))
-        };
-        match result {
+        match scanner::reconcile(&conn, source_id, std::path::Path::new(&path)) {
             Ok(stats) => log::info!("scan source {source_id}: {stats:?}"),
             Err(e) => log::error!("scan source {source_id} failed: {e}"),
         }
