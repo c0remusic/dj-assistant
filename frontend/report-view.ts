@@ -57,19 +57,20 @@ const fmt = (n: number, d = 1) => (Number.isFinite(n) ? n.toFixed(d) : String(n)
 /** The file's REAL quality (what the audio actually is), derived from the analysis — shown
  * next to what it was declared as. */
 function realQuality(r: AnalysisReport): { label: string; bg: string; fg: string } {
-  const khz = (r.cutoff_hz / 1000).toFixed(1);
-  // The file's real bitrate is the container's (shown in "annoncé"); repeating it here is
-  // redundant/misleading for a fake (the container rate isn't the real quality). The real
-  // measured evidence is the cutoff.
+  // Real quality of a transcode, expressed as the equivalent MP3 bitrate inferred from the
+  // measured low-pass cutoff (LAME-style: 16k≈128, 17k≈160, 19k≈192, 20k≈256, 20.5k≈320).
+  // The exact cutoff stays in the foldable "infos" — here we show what the audio is worth.
+  const estKbps = (hz: number) =>
+    hz >= 20000 ? 320 : hz >= 19000 ? 256 : hz >= 18000 ? 192 : hz >= 16500 ? 160 : 128;
   if (r.verdict === "fake") {
     return {
-      label: `coupé à ${khz} kHz`,
+      label: `≈ ${estKbps(r.cutoff_hz)} kbps`,
       bg: "var(--color-background-danger)",
       fg: "var(--color-text-danger)",
     };
   }
   if (r.verdict === "grey")
-    return { label: `coupé à ${khz} kHz — à inspecter`, bg: "var(--color-background-warning)", fg: "var(--color-text-warning)" };
+    return { label: `≈ ${estKbps(r.cutoff_hz)} kbps — à vérifier`, bg: "var(--color-background-warning)", fg: "var(--color-text-warning)" };
   // genuine: describe the actual quality, not a yes/no
   const real =
     r.declared_rail === "lossless"
