@@ -35,10 +35,14 @@ fn verdict_str(v: Verdict) -> &'static str {
     }
 }
 
-/// Ids of tracks that still need analysis: pending and never analysed.
+/// Ids of tracks that still need analysis: pending and either never analysed OR analysed
+/// before the report cache existed (report_json NULL) — so every track ends up with a cached
+/// report and opening it is always instant. (`persist_failure` sets report_json='' so broken
+/// files don't loop here.)
 pub fn select_pending(conn: &Connection) -> rusqlite::Result<Vec<i64>> {
-    let mut stmt =
-        conn.prepare("SELECT id FROM tracks WHERE status='pending' AND analyzed_at IS NULL ORDER BY id")?;
+    let mut stmt = conn.prepare(
+        "SELECT id FROM tracks WHERE status='pending' AND (analyzed_at IS NULL OR report_json IS NULL) ORDER BY id",
+    )?;
     let rows = stmt.query_map([], |r| r.get::<_, i64>(0))?;
     rows.collect()
 }
@@ -96,8 +100,10 @@ pub fn persist_report(conn: &Connection, id: i64, r: &AnalysisReport) -> rusqlit
 
 /// Marks a track analysed-but-failed so the worker doesn't loop on a broken file.
 fn persist_failure(conn: &Connection, id: i64, err: &str) -> rusqlite::Result<()> {
+    // Set report_json='' (non-null sentinel) so this broken file isn't re-selected forever
+    // by select_pending's `report_json IS NULL` backfill clause.
     conn.execute(
-        "UPDATE tracks SET container_ok=0, codec_error=?2, analyzed_at=datetime('now') WHERE id=?1",
+        "UPDATE tracks SET container_ok=0, codec_error=?2, report_json='', analyzed_at=datetime('now') WHERE id=?1",
         rusqlite::params![id, err],
     )?;
     Ok(())
@@ -271,15 +277,16 @@ mod tests {
     }
 
     #[test]
-    fn select_pending_only_returns_unanalysed_pending() {
+    fn select_pending_returns_unanalysed_or_uncached() {
         let conn = db();
-        let a = add_pending(&conn, "a.flac");
-        let b = add_pending(&conn, "b.flac");
-        let c = add_pending(&conn, "c.flac");
-        // b already analysed, c filed
-        conn.execute("UPDATE tracks SET analyzed_at=datetime('now') WHERE id=?1", [b]).unwrap();
+        let a = add_pending(&conn, "a.flac"); // never analysed → selected
+        let b = add_pending(&conn, "b.flac"); // analysed + report cached → NOT selected
+        let c = add_pending(&conn, "c.flac"); // filed → NOT selected
+        let d = add_pending(&conn, "d.flac"); // analysed but no report cache → selected (backfill)
+        conn.execute("UPDATE tracks SET analyzed_at=datetime('now'), report_json='{}' WHERE id=?1", [b]).unwrap();
         conn.execute("UPDATE tracks SET status='filed' WHERE id=?1", [c]).unwrap();
-        assert_eq!(select_pending(&conn).unwrap(), vec![a]);
+        conn.execute("UPDATE tracks SET analyzed_at=datetime('now') WHERE id=?1", [d]).unwrap();
+        assert_eq!(select_pending(&conn).unwrap(), vec![a, d]);
     }
 
     #[test]

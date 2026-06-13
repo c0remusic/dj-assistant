@@ -420,14 +420,24 @@ export function renderReportInto(container: HTMLElement, r: AnalysisReport) {
   wireReport(container, r);
 }
 
-/** Loads (no spectrogram) and renders inline into `container`, with a loading state. */
+// In-session report cache (path → report). Backend already caches in the DB; this skips even
+// the IPC round-trip + loading spinner on revisits, so switching back to a track is instant.
+const reportCache = new Map<string, AnalysisReport>();
+
+/** Loads (no spectrogram) and renders inline into `container`. Instant when cached. */
 export async function openReportInto(container: HTMLElement, path: string) {
   destroyPlayer();
   ensureStyles();
+  const cached = reportCache.get(path);
+  if (cached) {
+    renderReportInto(container, cached);
+    return;
+  }
   const name = path.split(/[\\/]/).pop() || path;
   container.innerHTML = `<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;color:var(--color-text-tertiary);font-size:13px"><i class="ti ti-loader-2 sift-spin"></i>Analyse de ${esc(name)}…</div>`;
   try {
     const r = await analyzePath(path, false);
+    reportCache.set(path, r);
     renderReportInto(container, r);
   } catch (e) {
     console.error("analyze_path failed", e);
