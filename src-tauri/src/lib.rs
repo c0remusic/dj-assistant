@@ -1,6 +1,7 @@
 mod actions;
 pub mod analysis;
 mod db;
+mod ecartes;
 mod encode;
 mod ffmpeg;
 mod filing;
@@ -67,7 +68,10 @@ pub fn run() {
             ipc_filing::revert_batch,
             ipc_filing::list_journal,
             ipc_filing::get_setting,
-            ipc_filing::set_setting
+            ipc_filing::set_setting,
+            ipc_filing::list_ecartes,
+            ipc_filing::restore_track,
+            ipc_filing::purge_trash
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
