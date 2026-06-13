@@ -123,6 +123,9 @@ export const restoreTrack = (trackId: number): Promise<void> =>
 /** Permanently empty the bin. Returns how many tracks were purged. */
 export const purgeTrash = (): Promise<number> => invoke("purge_trash");
 
+/** Open an external http(s) URL in the default browser (Écartés buy links). */
+export const openUrl = (url: string): Promise<void> => invoke("open_url", { url });
+
 /** Import OS-dropped paths: directories become watched sources, audio files become pending
  * queue items. Returns how many of each were added. */
 export const importPaths = (

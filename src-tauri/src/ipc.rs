@@ -222,6 +222,16 @@ pub fn analyze_path(
     crate::analysis::analyze(&path, with_spectrogram)
 }
 
+/// Open an external URL in the user's default browser (used by the Écartés buy links).
+/// Only http(s) is accepted, so the command can't be coerced into launching a local program.
+#[tauri::command]
+pub fn open_url(url: String) -> Result<(), String> {
+    if !(url.starts_with("https://") || url.starts_with("http://")) {
+        return Err("only http(s) urls are allowed".into());
+    }
+    open::that(&url).map_err(|e| e.to_string())
+}
+
 /// Runs a reconcile for `source_id` on a background thread (walkdir is blocking IO),
 /// then starts the live watcher and notifies the front. Errors are logged, not fatal.
 fn spawn_scan(app: AppHandle, source_id: i64) {
