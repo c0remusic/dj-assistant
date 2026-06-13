@@ -219,12 +219,24 @@ pub fn analysis_progress(
     Ok(AnalysisProgress { done, total })
 }
 
-/// Debug command: run the M2a analysis engine on a path and return the full report.
+/// Run the analysis engine on a track and return the full report. Constrained to paths Sift
+/// already knows (present in `tracks`) so the webview can't turn this into an arbitrary
+/// file-read / decode oracle on any path on disk.
 #[tauri::command]
 pub fn analyze_path(
+    conn: State<'_, Mutex<Connection>>,
     path: String,
     with_spectrogram: bool,
 ) -> Result<crate::analysis::AnalysisReport, String> {
+    {
+        let conn = conn.lock().map_err(|e| e.to_string())?;
+        let known = conn
+            .query_row("SELECT 1 FROM tracks WHERE path=?1 LIMIT 1", rusqlite::params![path], |_| Ok(()))
+            .is_ok();
+        if !known {
+            return Err("unknown track path".into());
+        }
+    }
     crate::analysis::analyze(&path, with_spectrogram)
 }
 

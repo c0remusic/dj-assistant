@@ -85,7 +85,7 @@ pub fn upsert_file(conn: &Connection, source_id: i64, f: &DiskFile) -> rusqlite:
         Some(_) => {
             conn.execute(
                 "UPDATE tracks SET filename=?2, size_bytes=?3, mtime=?4, source_id=?5,
-                        status='pending', analyzed_at=NULL
+                        status='pending', analyzed_at=NULL, fingerprint=NULL
                  WHERE path=?1",
                 rusqlite::params![f.path, f.filename, f.size_bytes, f.mtime, source_id],
             )?;

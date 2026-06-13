@@ -117,6 +117,10 @@ pub fn purge_trash(conn: &Connection) -> Result<usize, String> {
             .map_err(|e| e.to_string())?;
         n += 1;
     }
+    // Sweep any trashed track without a live trash action (orphaned journal) so it doesn't
+    // linger in Écartés forever — there's no file path to delete, just clear the status.
+    conn.execute("UPDATE tracks SET status='purged' WHERE status='trash'", [])
+        .map_err(|e| e.to_string())?;
     Ok(n)
 }
 

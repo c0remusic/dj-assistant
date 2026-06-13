@@ -80,13 +80,17 @@ fn file_name_of(path: &str) -> String {
         .to_string()
 }
 
-/// A monotonic-ish batch id: track id + millis since epoch.
+/// A unique batch id: track id + millis + a process-monotonic counter, so two filings of the
+/// same track within the same millisecond (file → undo → re-file) can never share a batch_id.
 fn new_batch_id(track_id: i64) -> String {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static SEQ: AtomicU64 = AtomicU64::new(0);
     let ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis())
         .unwrap_or(0);
-    format!("{track_id}-{ms}")
+    let seq = SEQ.fetch_add(1, Ordering::Relaxed);
+    format!("{track_id}-{ms}-{seq}")
 }
 
 /// Reconcile a track's canonical metadata from its embedded tags + filename. Used to pick

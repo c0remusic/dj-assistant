@@ -180,6 +180,9 @@ pub fn name_key(artist: &str, title: &str) -> String {
             .collect();
         folded.split_whitespace().collect::<Vec<_>>().join(" ")
     }
+    // Space-join (no separator) ON PURPOSE: it lets "Larry Heard - Mystery of Love" match a
+    // file named "larry_heard mystery of love" with no " - " split — a common cross-naming
+    // duplicate. The theoretical ("","x") vs ("x","") collision is accepted as harmless here.
     format!("{} {}", norm(artist), norm(title)).trim().to_string()
 }
 
