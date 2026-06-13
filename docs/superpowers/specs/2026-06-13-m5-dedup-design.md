@@ -21,9 +21,12 @@ refonte.
   déjà par le nom**, calculer/comparer l'empreinte Chromaprint pour confirmer que c'est bien
   le même enregistrement. On ne calcule **pas** l'empreinte de tout le monde — seulement quand
   un nom concorde. L'empreinte calculée est mise en cache dans `tracks.fingerprint`.
-- `find_duplicate(track_id)` : (1) candidats par nom parmi `pending` + `filed` ; (2) pour
-  ceux-là, confirmer par le son. Renvoie le meilleur match + sa nature : `both` (nom **et**
-  son = sûr) ou `name` (noms concordent mais sons différents/indisponibles = à vérifier).
+- **Badge dans la file, AVANT d'ouvrir** : le filtre par nom marque les morceaux de la file
+  « à traiter » qui ont un homonyme (autre `pending` ou `filed`) — petit badge doublon sur la
+  ligne, instantané, sans calcul de son. On voit les doublons probables sans avoir à les ouvrir.
+- `find_duplicate(track_id)` : à l'ouverture, (1) candidats par nom parmi `pending` + `filed` ;
+  (2) pour ceux-là, confirmer par le son. Renvoie le meilleur match + sa nature : `both` (nom
+  **et** son = sûr) ou `name` (noms concordent mais sons différents/indisponibles = à vérifier).
 - Matcher acoustique générique (réutilisable par le futur scan biblio).
 - Signalement en Revue (bannière, formulée selon la nature) ; aucune action nouvelle
   (l'utilisateur Écarte ou Range).
@@ -74,14 +77,22 @@ vs un nom propre) — non attrapés ici puisqu'on part du nom ; relèvent du sca
        le son confirme, sinon `name`. `None` si aucun nom ne concorde.
   - S'il n'y a **aucun match de nom**, on ne touche pas au son → léger.
   - (M5b : `scan_library() -> Vec<DupGroup>` se posera ici, mêmes `name_key` + `best_match`.)
-- **IPC (`ipc_filing.rs`)** : `find_duplicate(track_id) -> Option<DupMatch>`.
+- **Badge file (par le nom, sans I/O)** : `name_dups(conn) -> HashSet<i64>` = les `pending`
+  dont la clé de nom (dérivée du **nom de fichier** via `parse_filename`, pas de lecture de
+  tags) coïncide avec un autre `pending` ou un `filed`. Pur travail sur la table `tracks`,
+  aucune lecture de fichier, aucune migration. Sert à marquer la liste « à traiter ».
+- **IPC (`ipc_filing.rs`)** : `find_duplicate(track_id) -> Option<DupMatch>`. La file expose
+  un flag `dup` par item (via `name_dups`).
 - **Worker / analyse :** *inchangé* — on **n'ajoute pas** le calcul d'empreinte à la passe
-  d'analyse. L'empreinte ne se calcule que lors d'un match de nom (et reste en cache ensuite).
+  d'analyse. L'empreinte ne se calcule que lors d'un match de nom à l'ouverture (puis cache).
 
 ### Frontend (`frontend/`)
 
-- `shared/contracts.ts` : `DupMatch { id, status, folder, filename, kind, score }`.
+- `shared/contracts.ts` : `DupMatch { id, status, folder, filename, kind, score }` ; `QueueItem`
+  gagne `dup: boolean` (homonyme par le nom).
 - `ipc.ts` : `findDuplicate(trackId)`.
+- **File « à traiter »** (`sift-live.ts renderQueue`) : afficher un petit badge doublon
+  (icône copie) sur les lignes dont `dup` est vrai — visible **avant** d'ouvrir le morceau.
 - `filing.ts` : à l'ouverture d'un morceau (`openFilingInto`), appeler `findDuplicate` ; si
   match, afficher une bannière en tête du `#mid` (style maquette `dupBanner`), formulée selon
   `kind` :
