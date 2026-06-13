@@ -1,10 +1,12 @@
 mod actions;
 pub mod analysis;
 mod db;
+mod dedup;
 mod ecartes;
 mod encode;
 mod ffmpeg;
 mod filing;
+mod fingerprint;
 mod ipc;
 mod ipc_filing;
 mod library;
@@ -72,7 +74,8 @@ pub fn run() {
             ipc_filing::set_setting,
             ipc_filing::list_ecartes,
             ipc_filing::restore_track,
-            ipc_filing::purge_trash
+            ipc_filing::purge_trash,
+            ipc_filing::find_duplicate
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

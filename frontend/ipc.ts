@@ -14,6 +14,7 @@ import type {
   JournalEntry,
   Target,
   EcarteItem,
+  DupMatch,
 } from "../shared/contracts";
 
 export const appInfo = (): Promise<AppInfo> => invoke("app_info");
@@ -125,6 +126,10 @@ export const purgeTrash = (): Promise<number> => invoke("purge_trash");
 
 /** Open an external http(s) URL in the default browser (Écartés buy links). */
 export const openUrl = (url: string): Promise<void> => invoke("open_url", { url });
+
+/** Best duplicate match for a track (by name; sound-confirmed when available), or null. */
+export const findDuplicate = (trackId: number): Promise<DupMatch | null> =>
+  invoke("find_duplicate", { trackId });
 
 /** Import OS-dropped paths: directories become watched sources, audio files become pending
  * queue items. Returns how many of each were added. */

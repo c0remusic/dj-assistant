@@ -150,6 +150,39 @@ pub fn render_filename(template: &str, c: &Canonical, ext: &str) -> String {
     format!("{}.{}", sanitize(&stem), ext)
 }
 
+/// Fold the common accented Latin letters to ASCII (no extra crate) so "Béatrice" and
+/// "Beatrice" key the same.
+fn fold_char(c: char) -> char {
+    match c {
+        'à' | 'â' | 'ä' | 'á' | 'ã' => 'a',
+        'ç' => 'c',
+        'é' | 'è' | 'ê' | 'ë' => 'e',
+        'î' | 'ï' | 'í' | 'ì' => 'i',
+        'ô' | 'ö' | 'ó' | 'ò' | 'õ' => 'o',
+        'ù' | 'û' | 'ü' | 'ú' => 'u',
+        'ñ' => 'n',
+        other => other,
+    }
+}
+
+/// A normalized key answering "is this the same track by name?": artist + title, accent-
+/// folded, lowercased, punctuation dropped, whitespace collapsed. Two spellings of the same
+/// track collapse to the same key; different titles stay distinct. Drives dedup's name pre-
+/// filter. Pure, no I/O.
+pub fn name_key(artist: &str, title: &str) -> String {
+    fn norm(s: &str) -> String {
+        // lowercase first (unicode-aware: É → é) so the accent fold catches both cases
+        let folded: String = s
+            .to_lowercase()
+            .chars()
+            .map(fold_char)
+            .map(|c| if c.is_alphanumeric() { c } else { ' ' })
+            .collect();
+        folded.split_whitespace().collect::<Vec<_>>().join(" ")
+    }
+    format!("{} {}", norm(artist), norm(title)).trim().to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -248,6 +281,21 @@ mod tests {
         // best guess falls back to the raw stem as the title so the user has something to edit
         assert_eq!(c.title, "01_audio_320");
         assert_eq!(c.artist, "");
+    }
+
+    #[test]
+    fn name_key_collapses_spellings_and_separates_titles() {
+        // same track, different spelling/punctuation/case/accents → same key
+        assert_eq!(
+            name_key("Larry Heard", "Mystery of Love"),
+            name_key("larry_heard", "Mystery  of  Love!"),
+        );
+        assert_eq!(name_key("Béatrice", "Été"), name_key("Beatrice", "Ete"));
+        // different titles → different keys
+        assert_ne!(
+            name_key("Larry Heard", "Mystery of Love"),
+            name_key("Larry Heard", "Can You Feel It"),
+        );
     }
 
     #[test]

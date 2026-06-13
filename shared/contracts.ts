@@ -24,6 +24,18 @@ export interface QueueItem {
   filename: string | null;
   source_id: number | null;
   verdict: "ok" | "fake" | "grey" | null;
+  /** Shares a name with another pending/filed track (dedup name pre-filter). */
+  dup: boolean;
+}
+
+/** Best duplicate match for a track. kind: "name" (names agree) or "both" (name + sound). */
+export interface DupMatch {
+  id: number;
+  status: string;
+  folder: string | null;
+  filename: string | null;
+  kind: "name" | "both";
+  score: number;
 }
 
 export interface AnalysisProgress {

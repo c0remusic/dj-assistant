@@ -95,7 +95,13 @@ pub fn remove_source(
 #[tauri::command]
 pub fn list_queue(conn: State<'_, Mutex<Connection>>) -> Result<Vec<queue::QueueItem>, String> {
     let conn = conn.lock().map_err(|e| e.to_string())?;
-    queue::list_pending(&conn).map_err(|e| e.to_string())
+    let mut items = queue::list_pending(&conn).map_err(|e| e.to_string())?;
+    // Annotate name-duplicate items so the queue can badge them before they're opened.
+    let dups = crate::dedup::name_dups(&conn).map_err(|e| e.to_string())?;
+    for it in &mut items {
+        it.dup = dups.contains(&it.id);
+    }
+    Ok(items)
 }
 
 /// Enables/disables live watching for a source: persists the flag and starts or stops
