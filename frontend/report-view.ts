@@ -54,6 +54,19 @@ const esc = (s: string) =>
   );
 const fmt = (n: number, d = 1) => (Number.isFinite(n) ? n.toFixed(d) : String(n));
 
+/** The "real" quality derived from the verdict (vs the file's declared format). */
+function realQuality(r: AnalysisReport): { label: string; bg: string; fg: string } {
+  if (r.verdict === "fake")
+    return {
+      label: `transcodé · coupure ${(r.cutoff_hz / 1000).toFixed(1)} kHz`,
+      bg: "var(--color-background-danger)",
+      fg: "var(--color-text-danger)",
+    };
+  if (r.verdict === "grey")
+    return { label: "incertain", bg: "var(--color-background-warning)", fg: "var(--color-text-warning)" };
+  return { label: "conforme", bg: "var(--color-background-success)", fg: "var(--color-text-success)" };
+}
+
 function spectroCaption(v: AnalysisReport["verdict"]): string {
   if (v === "fake") return "coupure nette = probable transcodage";
   if (v === "grey") return "à inspecter visuellement";
@@ -119,13 +132,22 @@ function row(label: string, value: string): string {
 function reportHtml(r: AnalysisReport, closeBtn: boolean): string {
   const yn = (b: boolean) => (b ? "oui" : "non");
   const name = r.path.split(/[\\/]/).pop() || r.path;
+  const rq = realQuality(r);
   return `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px">
       <div style="min-width:0"><div style="font-size:13px;font-weight:600;word-break:break-all;color:var(--color-text-primary)">${esc(name)}</div>
         <div style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;margin-top:2px">${esc(r.path)}</div></div>
       ${closeBtn ? '<button class="sift-close" style="flex:none;font-size:13px;padding:4px 10px">fermer</button>' : ""}
     </div>
-    <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px;flex-wrap:wrap">${verdictBadge(r.verdict)}</div>
+    <div style="display:flex;align-items:center;gap:7px;margin-bottom:12px;flex-wrap:wrap;font-size:11px">
+      <span style="font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--color-text-tertiary)">prétendu</span>
+      <span class="pill">${esc(r.declared_format)}${r.declared_bitrate ? " · " + r.declared_bitrate + " kbps" : ""}</span>
+      <i class="ti ti-arrow-right" style="font-size:13px;color:var(--color-text-tertiary)"></i>
+      <span style="font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--color-text-tertiary)">réel</span>
+      <span class="pill" style="background:${rq.bg};color:${rq.fg}">${rq.label}</span>
+      <i class="ti ti-arrow-right" style="font-size:13px;color:var(--color-text-tertiary)"></i>
+      ${verdictBadge(r.verdict)}
+    </div>
 
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:11px;padding:8px 11px;min-height:80px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)">
       <div style="flex:none;align-self:stretch;width:62px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center">
