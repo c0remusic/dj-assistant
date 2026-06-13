@@ -14,6 +14,7 @@ import {
   trashTrack,
   restoreTrack,
   purgeTrash,
+  openUrl,
 } from "./ipc";
 import type { EcarteItem } from "../shared/contracts";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -180,6 +181,25 @@ function ecSlsk(it: EcarteItem): string {
   return (it.filename || it.path).replace(/\.[^.]+$/, "");
 }
 
+// Buy-link stores: a search URL built from the track's query (q is already encoded).
+const EC_STORES: [string, (q: string) => string][] = [
+  ["Beatport", (q) => `https://www.beatport.com/search?q=${q}`],
+  ["Traxsource", (q) => `https://www.traxsource.com/search?term=${q}`],
+  ["Juno", (q) => `https://www.junodownload.com/search/?q%5Ball%5D%5B%5D=${q}`],
+  ["Bandcamp", (q) => `https://bandcamp.com/search?q=${q}`],
+  ["Amazon", (q) => `https://www.amazon.fr/s?k=${q}&i=digital-music`],
+  ["Apple Music", (q) => `https://music.apple.com/fr/search?term=${q}`],
+];
+
+/** Buy-link row for a track: store names that open a search in the default browser. */
+function ecStoreLinks(it: EcarteItem): string {
+  const q = encodeURIComponent(ecSlsk(it));
+  return EC_STORES.map(
+    ([label, fn]) =>
+      `<a data-ec="store" data-url="${encodeURIComponent(fn(q))}" style="font-size:10px;color:var(--color-text-info);cursor:pointer;text-decoration:none;white-space:nowrap">${label}</a>`,
+  ).join('<span style="color:var(--color-border-secondary);margin:0 3px">·</span>');
+}
+
 /** Live Écartés view: replaces #content with the real rejected (à re-sourcer) + trashed
  * tracks. Soulseek copy + send-to-bin / restore / empty-bin wired via the #pa handler. */
 async function renderEcartes() {
@@ -210,7 +230,9 @@ async function renderEcartes() {
           it,
         )}<button class="lk" data-ec="trash" data-id="${it.id}" title="Envoyer à la corbeille"><i class="ti ti-trash" style="font-size:12px;color:var(--color-text-tertiary)"></i></button></div><div style="margin-top:5px;display:flex;flex-wrap:wrap;align-items:center;gap:4px"><button data-ec="slsk" data-q="${esc(
           ecSlsk(it),
-        )}" style="font-size:10px;padding:2px 7px;color:var(--color-text-secondary)"><i class="ti ti-copy" style="font-size:10px;vertical-align:-1px"></i> Slsk</button></div></div>`,
+        )}" style="font-size:10px;padding:2px 7px;color:var(--color-text-secondary)"><i class="ti ti-copy" style="font-size:10px;vertical-align:-1px"></i> Slsk</button><span style="color:var(--color-border-secondary)">·</span>${ecStoreLinks(
+          it,
+        )}</div></div>`,
     )
     .join("");
 
@@ -431,6 +453,10 @@ export function installLiveWiring() {
         void restoreTrack(id).then(renderEcartes).catch((err) => console.error("restore failed", err));
       } else if (act === "purge") {
         void purgeTrash().then(renderEcartes).catch((err) => console.error("purge failed", err));
+      } else if (act === "store") {
+        void openUrl(decodeURIComponent(ec.dataset.url || "")).catch((err) =>
+          console.error("open_url failed", err),
+        );
       }
       return;
     }
