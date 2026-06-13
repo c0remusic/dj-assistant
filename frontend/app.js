@@ -261,6 +261,7 @@ function openLink(u){window.open(u,'_blank','noopener');}
       +'</div>'
       +(rows||'<div style="font-size:12px;color:var(--color-text-tertiary)">Aucun fichier écarté.</div>')
       ;
+    if(window.__siftEcarts)window.__siftEcarts();
   }
 
   function renderCle(){block();

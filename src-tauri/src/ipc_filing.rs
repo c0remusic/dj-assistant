@@ -11,6 +11,7 @@
 //! background analysis worker ever contends visibly, move the encode off the lock.
 
 use crate::actions::{self, JournalEntry};
+use crate::ecartes::{self, EcarteItem};
 use crate::encode::Target;
 use crate::filing::{self, BatchResult, FileResult};
 use crate::library::{self, Bin};
@@ -183,6 +184,39 @@ pub fn list_journal(
 ) -> Result<Vec<JournalEntry>, String> {
     let conn = conn.lock().map_err(|e| e.to_string())?;
     Ok(actions::list_journal(&conn, limit))
+}
+
+/// List the rejected/trashed tracks for the Écartés view.
+#[tauri::command]
+pub fn list_ecartes(conn: State<'_, Mutex<Connection>>) -> Result<Vec<EcarteItem>, String> {
+    let conn = conn.lock().map_err(|e| e.to_string())?;
+    ecartes::list_ecartes(&conn).map_err(|e| e.to_string())
+}
+
+/// Restore a trashed track's file and re-queue it (status pending).
+#[tauri::command]
+pub fn restore_track(
+    app: AppHandle,
+    conn: State<'_, Mutex<Connection>>,
+    track_id: i64,
+) -> Result<(), String> {
+    {
+        let conn = conn.lock().map_err(|e| e.to_string())?;
+        ecartes::restore_track(&conn, track_id)?;
+    }
+    app.emit("queue:changed", ()).ok();
+    Ok(())
+}
+
+/// Permanently empty the bin (delete trashed files). Returns how many were purged.
+#[tauri::command]
+pub fn purge_trash(app: AppHandle, conn: State<'_, Mutex<Connection>>) -> Result<usize, String> {
+    let n = {
+        let conn = conn.lock().map_err(|e| e.to_string())?;
+        ecartes::purge_trash(&conn)?
+    };
+    app.emit("queue:changed", ()).ok();
+    Ok(n)
 }
 
 /// Read one app setting (null when unset).

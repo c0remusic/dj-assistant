@@ -103,6 +103,18 @@ export interface BatchResult {
   needs_validation: number[];
 }
 
+/** One rejected/trashed track for the Écartés view. */
+export interface EcarteItem {
+  id: number;
+  path: string;
+  filename: string | null;
+  status: "resourcing" | "trash";
+  verdict: "ok" | "fake" | "grey" | null;
+  truncated: boolean;
+  artist: string;
+  title: string;
+}
+
 /** One consultable undo-journal entry (a live batch, summarized by its latest action). */
 export interface JournalEntry {
   batch_id: string;
