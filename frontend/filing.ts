@@ -232,6 +232,22 @@ function previewName(): string {
   return `${c.artist} - ${c.title}${ver}.${ext}`;
 }
 
+/** Clean display name from the (edited) canonical — what the file will be called. */
+function displayName(): string {
+  const c = state.canonical;
+  if (!c) return "";
+  const ver = c.version && c.version.trim() ? ` (${c.version.trim()})` : "";
+  return c.artist ? `${c.artist} — ${c.title}${ver}` : `${c.title}${ver}`;
+}
+
+/** Replace the report header's filename with the clean proposed name (raw path stays as the
+ * grey subtitle), so a messy source file shows its tidy target name. */
+function updateHeaderName(mid: HTMLElement): void {
+  const el = mid.querySelector<HTMLElement>(".sift-report-name");
+  const name = displayName();
+  if (el && name) el.textContent = name;
+}
+
 /** Re-render just the Ranger button label (bin can change while a track is open). */
 function refreshFootButton(): void {
   const btn = document.querySelector<HTMLElement>('[data-fil="ranger"] .sift-fil-bin');
@@ -288,6 +304,7 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
     state.canonical.version = v?.value.trim() ? v.value.trim() : null;
     const prev = foot.querySelector<HTMLElement>(".sift-fil-prev");
     if (prev) prev.textContent = `→ ${previewName()}`;
+    updateHeaderName(mid); // keep the report header's clean name in sync with edits
   };
   foot
     .querySelectorAll<HTMLInputElement>('[data-fil="artist"],[data-fil="title"],[data-fil="version"]')
@@ -478,6 +495,7 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
   else if (["mp3", "m4a", "aac", "ogg"].includes(ext)) rail = "lossy";
 
   renderFoot(footEl, mid, rail);
+  updateHeaderName(mid); // show the clean proposed name in the report header
 }
 
 /** Keyboard shortcuts for the open track (Revue): Space = play/pause, Enter = Ranger,

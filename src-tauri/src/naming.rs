@@ -109,14 +109,53 @@ pub fn reconcile(tag_artist: &str, tag_title: &str, stem: &str) -> Canonical {
             version: v.clone(),
             confidence: Confidence::Green,
         },
-        // neither clean -> yellow, best guess = raw stem as title for the user to edit
+        // neither clean -> yellow, best guess = a *cleaned* stem as title for the user to edit
         (false, None) => Canonical {
             artist: String::new(),
-            title: stem.trim().to_string(),
+            title: clean_stem(stem),
             version: None,
             confidence: Confidence::Yellow,
         },
     }
+}
+
+/// Best-effort tidy of a messy filename stem for the editable title prefill: drop a leading
+/// track number, replace underscores with spaces, remove `[bracketed]` junk (uploaders/labels)
+/// and quality tokens (320kbps, FLAC, kHz…), then collapse whitespace. Conservative — it only
+/// improves the starting point; the user still confirms (yellow).
+pub fn clean_stem(stem: &str) -> String {
+    let mut s = stem.replace('_', " ");
+    // drop [ ... ] segments
+    while let (Some(a), Some(b)) = (s.find('['), s.find(']')) {
+        if b > a {
+            s.replace_range(a..=b, " ");
+        } else {
+            break;
+        }
+    }
+    // strip a leading track number ("01 ", "1.", "12 - ") — only 1–3 digits + a separator
+    {
+        let t = s.trim_start();
+        let digits = t.chars().take_while(|c| c.is_ascii_digit()).count();
+        if (1..=3).contains(&digits) {
+            let rest = t[digits..].trim_start_matches([' ', '.', '-', ')', '_']);
+            if !rest.is_empty() && rest.len() < t.len() {
+                s = rest.to_string();
+            }
+        }
+    }
+    // drop quality/junk tokens word-by-word (case-insensitive)
+    const DROP: &[&str] = &[
+        "kbps", "320", "256", "192", "128", "flac", "wav", "aiff", "khz", "hz", "hq", "cbr", "vbr",
+    ];
+    let kept: Vec<&str> = s
+        .split_whitespace()
+        .filter(|w| {
+            let lw = w.to_lowercase();
+            !DROP.iter().any(|d| lw == *d)
+        })
+        .collect();
+    kept.join(" ").trim().to_string()
 }
 
 /// Replace characters illegal in Windows/macOS filenames with a space, then collapse
@@ -281,9 +320,16 @@ mod tests {
     fn neither_clean_is_yellow_best_guess() {
         let c = reconcile("", "", "01_audio_320");
         assert_eq!(c.confidence, Confidence::Yellow);
-        // best guess falls back to the raw stem as the title so the user has something to edit
-        assert_eq!(c.title, "01_audio_320");
+        // best guess: the stem cleaned (track no + "_" + quality token dropped)
+        assert_eq!(c.title, "audio");
         assert_eq!(c.artist, "");
+    }
+
+    #[test]
+    fn clean_stem_tidies_messy_filenames() {
+        assert_eq!(clean_stem("01_larry_heard_mystery_320"), "larry heard mystery");
+        assert_eq!(clean_stem("Some Title [DJ Uploader] FLAC"), "Some Title");
+        assert_eq!(clean_stem("1979 - something"), "1979 - something"); // 4 digits: not a track no
     }
 
     #[test]
