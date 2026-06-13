@@ -16,7 +16,7 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import {
   openFilingInto,
   refreshBins,
-  ensureMidPrompt,
+  syncDetail,
   installUndoShortcut,
 } from "./filing";
 import type { Source, QueueItem } from "../shared/contracts";
@@ -149,7 +149,14 @@ async function renderQueue() {
   const fldz = document.getElementById("fldz");
   if (fldz) void refreshBins(fldz);
   const mid = document.getElementById("mid");
-  if (mid) ensureMidPrompt(mid);
+  if (mid) {
+    // auto-load the current/first pending track into the main pane + highlight its row
+    const curId = syncDetail(mid, items);
+    document.querySelectorAll(".qi.cur").forEach((n) => n.classList.remove("cur"));
+    if (curId != null) {
+      document.querySelector(`.qi[data-id="${curId}"]`)?.classList.add("cur");
+    }
+  }
 }
 
 async function pickAndAddFolder() {
