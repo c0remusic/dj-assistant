@@ -143,22 +143,26 @@ function row(label: string, value: string): string {
 function reportHtml(r: AnalysisReport, closeBtn: boolean): string {
   const yn = (b: boolean) => (b ? "oui" : "non");
   const name = r.path.split(/[\\/]/).pop() || r.path;
+  // State chain. For a genuine file the declared format IS the reality, so showing both a
+  // "real quality" and the "authentic" badge is a redundant double-confirm — collapse to
+  // just [format · Authentique]. The annoncé → réel → verdict chain only appears when the
+  // reality differs from the claim (fake / grey).
   const rq = realQuality(r);
+  const declaredPill = `<span class="pill">${esc(r.declared_format)}${r.declared_bitrate ? " · " + r.declared_bitrate + " kbps" : ""}</span>`;
+  const lab = (t: string) =>
+    `<span style="font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--color-text-tertiary)">${t}</span>`;
+  const arrow = '<i class="ti ti-arrow-right" style="font-size:13px;color:var(--color-text-tertiary)"></i>';
+  const chainInner =
+    r.verdict === "ok"
+      ? `${declaredPill}${verdictBadge(r.verdict)}`
+      : `${lab("annoncé")}${declaredPill}${arrow}${lab("qualité réelle")}<span class="pill" style="background:${rq.bg};color:${rq.fg}">${rq.label}</span>${arrow}${verdictBadge(r.verdict)}`;
   return `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px">
       <div style="min-width:0"><div style="font-size:13px;font-weight:600;word-break:break-all;color:var(--color-text-primary)">${esc(name)}</div>
         <div style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;margin-top:2px">${esc(r.path)}</div></div>
       ${closeBtn ? '<button class="sift-close" style="flex:none;font-size:13px;padding:4px 10px">fermer</button>' : ""}
     </div>
-    <div style="display:flex;align-items:center;gap:7px;margin-bottom:12px;flex-wrap:wrap;font-size:11px">
-      <span style="font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--color-text-tertiary)">annoncé</span>
-      <span class="pill">${esc(r.declared_format)}${r.declared_bitrate ? " · " + r.declared_bitrate + " kbps" : ""}</span>
-      <i class="ti ti-arrow-right" style="font-size:13px;color:var(--color-text-tertiary)"></i>
-      <span style="font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--color-text-tertiary)">qualité réelle</span>
-      <span class="pill" style="background:${rq.bg};color:${rq.fg}">${rq.label}</span>
-      <i class="ti ti-arrow-right" style="font-size:13px;color:var(--color-text-tertiary)"></i>
-      ${verdictBadge(r.verdict)}
-    </div>
+    <div style="display:flex;align-items:center;gap:7px;margin-bottom:12px;flex-wrap:wrap;font-size:11px">${chainInner}</div>
 
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:11px;padding:8px 11px;min-height:80px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)">
       <div style="flex:none;align-self:stretch;width:62px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center">
