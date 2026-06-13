@@ -147,7 +147,11 @@ async function renderQueue() {
             it.verdict,
           )}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(
             it.filename || it.path,
-          )}</span><i class="ti ti-chevron-right" style="flex:none;color:var(--color-text-tertiary);font-size:14px"></i></div>`,
+          )}</span>${
+            it.dup
+              ? '<i class="ti ti-copy" title="Doublon possible (même nom)" style="flex:none;font-size:12px;color:var(--color-text-secondary)"></i>'
+              : ""
+          }<i class="ti ti-chevron-right" style="flex:none;color:var(--color-text-tertiary);font-size:14px"></i></div>`,
       )
       .join("") ||
       '<div style="font-size:12px;color:var(--color-text-tertiary);padding:6px 4px">File vide.</div>');

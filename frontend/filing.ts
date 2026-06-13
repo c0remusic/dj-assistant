@@ -13,7 +13,9 @@ import {
   getSetting,
   setSetting,
   undoLast,
+  findDuplicate,
 } from "./ipc";
+import type { DupMatch } from "../shared/contracts";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openReportInto } from "./report-view";
 import type { Bin, Canonical, Target, QueueItem } from "../shared/contracts";
@@ -382,6 +384,20 @@ function clearPane(mid: HTMLElement): void {
     '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--color-text-tertiary);font-size:12px;padding:20px;text-align:center">Sélectionne un morceau dans la file pour l\'écouter et le ranger.</div>';
 }
 
+/** Banner HTML for a duplicate match (filed = already in library, pending = dupe in queue;
+ * `both` = sound-confirmed, `name` = same name only → cautious wording). */
+function dupBanner(m: DupMatch): string {
+  const where =
+    m.status === "filed"
+      ? `Déjà rangé : ${esc((m.folder ? m.folder + "/" : "") + (m.filename || ""))}`
+      : `Doublon d'un fichier en file : ${esc(m.filename || "")}`;
+  const sure = m.kind === "both";
+  const fg = sure ? "var(--color-text-warning)" : "var(--color-text-tertiary)";
+  const bg = sure ? "var(--color-background-warning)" : "var(--color-background-secondary)";
+  const head = sure ? "Doublon" : "Possible doublon (même nom — à vérifier)";
+  return `<div style="display:flex;align-items:flex-start;gap:8px;background:${bg};border-radius:var(--border-radius-md);padding:8px 11px;margin-bottom:10px;font-size:11px"><i class="ti ti-copy" style="font-size:14px;flex:none;color:${fg}"></i><div style="min-width:0"><div style="font-weight:500;color:${fg}">${head}</div><div style="color:var(--color-text-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${where}</div></div></div>`;
+}
+
 /** Render the analysis report + filing footer for `item` into the #mid pane. */
 export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise<void> {
   state.track = item;
@@ -390,12 +406,22 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
 
   mid.innerHTML =
     '<div class="sift-fil" style="display:flex;flex-direction:column;height:100%;min-height:0">' +
+    '<div class="sift-fil-dup" style="flex:none"></div>' +
     '<div class="sift-fil-report" style="flex:1;min-height:0;overflow:auto"></div>' +
     '<div class="sift-fil-foot" style="flex:none;padding:10px 2px 2px;border-top:0.5px solid var(--color-border-tertiary)"></div>' +
     "</div>";
   const reportEl = mid.querySelector<HTMLElement>(".sift-fil-report");
   const footEl = mid.querySelector<HTMLElement>(".sift-fil-foot");
   if (!reportEl || !footEl) return;
+
+  // Duplicate check (by name, sound-confirmed when available) — fill the banner slot async.
+  void findDuplicate(item.id)
+    .then((m) => {
+      if (!m || state.track?.id !== item.id) return;
+      const slot = mid.querySelector<HTMLElement>(".sift-fil-dup");
+      if (slot) slot.innerHTML = dupBanner(m);
+    })
+    .catch((e) => console.error("find_duplicate failed", e));
 
   // Analysis report (player, spectrogram) — reuses the finished report view.
   await openReportInto(reportEl, item.path);

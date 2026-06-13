@@ -10,6 +10,10 @@ pub struct QueueItem {
     pub filename: Option<String>,
     pub source_id: Option<i64>,
     pub verdict: Option<String>,
+    /// True when this track shares a name with another pending/filed track (dedup name
+    /// pre-filter). Set by the IPC layer (see ipc::list_queue), default false.
+    #[serde(default)]
+    pub dup: bool,
 }
 
 /// All pending tracks, oldest first.
@@ -25,6 +29,7 @@ pub fn list_pending(conn: &Connection) -> rusqlite::Result<Vec<QueueItem>> {
             filename: r.get(2)?,
             source_id: r.get(3)?,
             verdict: r.get(4)?,
+            dup: false,
         })
     })?;
     rows.collect()

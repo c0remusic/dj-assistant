@@ -11,6 +11,7 @@
 //! background analysis worker ever contends visibly, move the encode off the lock.
 
 use crate::actions::{self, JournalEntry};
+use crate::dedup::{self, DupMatch};
 use crate::ecartes::{self, EcarteItem};
 use crate::encode::Target;
 use crate::filing::{self, BatchResult, FileResult};
@@ -184,6 +185,16 @@ pub fn list_journal(
 ) -> Result<Vec<JournalEntry>, String> {
     let conn = conn.lock().map_err(|e| e.to_string())?;
     Ok(actions::list_journal(&conn, limit))
+}
+
+/// Best duplicate match for a track (by name; sound-confirmed once the acoustic layer lands).
+#[tauri::command]
+pub fn find_duplicate(
+    conn: State<'_, Mutex<Connection>>,
+    track_id: i64,
+) -> Result<Option<DupMatch>, String> {
+    let conn = conn.lock().map_err(|e| e.to_string())?;
+    dedup::find_duplicate(&conn, track_id).map_err(|e| e.to_string())
 }
 
 /// List the rejected/trashed tracks for the Écartés view.
