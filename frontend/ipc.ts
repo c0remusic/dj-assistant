@@ -13,6 +13,7 @@ import type {
   BatchResult,
   JournalEntry,
   Target,
+  EcarteItem,
 } from "../shared/contracts";
 
 export const appInfo = (): Promise<AppInfo> => invoke("app_info");
@@ -111,6 +112,16 @@ export const getSetting = (key: string): Promise<string | null> =>
 /** Write one app setting (e.g. the library root). */
 export const setSetting = (key: string, value: string): Promise<void> =>
   invoke("set_setting", { key, value });
+
+/** Rejected/trashed tracks for the Écartés view. */
+export const listEcartes = (): Promise<EcarteItem[]> => invoke("list_ecartes");
+
+/** Restore a trashed track's file and re-queue it. */
+export const restoreTrack = (trackId: number): Promise<void> =>
+  invoke("restore_track", { trackId });
+
+/** Permanently empty the bin. Returns how many tracks were purged. */
+export const purgeTrash = (): Promise<number> => invoke("purge_trash");
 
 /** Import OS-dropped paths: directories become watched sources, audio files become pending
  * queue items. Returns how many of each were added. */

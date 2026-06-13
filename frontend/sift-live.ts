@@ -10,7 +10,12 @@ import {
   analysisProgress,
   setSourceWatched,
   importPaths,
+  listEcartes,
+  trashTrack,
+  restoreTrack,
+  purgeTrash,
 } from "./ipc";
+import type { EcarteItem } from "../shared/contracts";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -160,6 +165,80 @@ async function renderQueue() {
   }
 }
 
+/** Reason pill for an écarté track (truncated → tronqué, fake → faux, else à re-sourcer). */
+function ecReason(it: EcarteItem): string {
+  if (it.truncated)
+    return '<span class="pill" style="background:var(--color-background-warning);color:var(--color-text-warning);flex:none"><i class="ti ti-cut" style="font-size:9px"></i> tronqué</span>';
+  if (it.verdict === "fake")
+    return '<span class="pill" style="background:var(--color-background-danger);color:var(--color-text-danger);flex:none"><i class="ti ti-alert-triangle" style="font-size:9px"></i> faux</span>';
+  return '<span class="pill" style="background:var(--color-background-danger);color:var(--color-text-danger);flex:none"><i class="ti ti-alert-circle" style="font-size:9px"></i> à re-sourcer</span>';
+}
+
+/** The "Artiste Titre" string to paste into Soulseek (single space; no dash). */
+function ecSlsk(it: EcarteItem): string {
+  if (it.artist && it.title) return `${it.artist} ${it.title}`;
+  return (it.filename || it.path).replace(/\.[^.]+$/, "");
+}
+
+/** Live Écartés view: replaces #content with the real rejected (à re-sourcer) + trashed
+ * tracks. Soulseek copy + send-to-bin / restore / empty-bin wired via the #pa handler. */
+async function renderEcartes() {
+  const content = document.getElementById("content");
+  if (!content) return;
+  let items: EcarteItem[] = [];
+  try {
+    items = await listEcartes();
+  } catch (e) {
+    console.error("listEcartes failed", e);
+    return;
+  }
+  const res = items.filter((i) => i.status === "resourcing");
+  const trash = items.filter((i) => i.status === "trash");
+  const name = (it: EcarteItem) =>
+    esc(it.artist && it.title ? `${it.artist} — ${it.title}` : it.filename || it.path);
+  const fileLine = (it: EcarteItem) =>
+    `<div style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(
+      it.filename || it.path,
+    )}</div>`;
+
+  const resRows = res
+    .map(
+      (it) =>
+        `<div style="padding:7px 4px;border-bottom:0.5px solid var(--color-border-tertiary)"><div style="display:flex;align-items:center;gap:7px"><div style="flex:1;min-width:0"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;font-weight:500">${name(
+          it,
+        )}</div>${fileLine(it)}</div>${ecReason(
+          it,
+        )}<button class="lk" data-ec="trash" data-id="${it.id}" title="Envoyer à la corbeille"><i class="ti ti-trash" style="font-size:12px;color:var(--color-text-tertiary)"></i></button></div><div style="margin-top:5px;display:flex;flex-wrap:wrap;align-items:center;gap:4px"><button data-ec="slsk" data-q="${esc(
+          ecSlsk(it),
+        )}" style="font-size:10px;padding:2px 7px;color:var(--color-text-secondary)"><i class="ti ti-copy" style="font-size:10px;vertical-align:-1px"></i> Slsk</button></div></div>`,
+    )
+    .join("");
+
+  const trashRows = trash
+    .map(
+      (it) =>
+        `<div style="display:flex;align-items:center;gap:7px;padding:7px 4px;border-bottom:0.5px solid var(--color-border-tertiary)"><div style="flex:1;min-width:0"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px">${name(
+          it,
+        )}</div>${fileLine(it)}</div><button data-ec="restore" data-id="${it.id}" style="font-size:10px;padding:2px 8px;color:var(--color-text-info)">restaurer</button></div>`,
+    )
+    .join("");
+
+  content.innerHTML =
+    '<div class="h1">Écartés</div>' +
+    '<div style="display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap;align-items:center">' +
+    `<span class="pill" style="background:var(--color-background-danger);color:var(--color-text-danger)"><i class="ti ti-alert-circle" style="font-size:10px"></i> ${res.length} à re-sourcer</span>` +
+    `<span class="pill"><i class="ti ti-trash" style="font-size:10px"></i> ${trash.length} en corbeille</span>` +
+    (trash.length
+      ? `<button data-ec="purge" style="font-size:10px;padding:2px 8px;color:var(--color-text-danger)">Vider la corbeille (${trash.length})</button>`
+      : "") +
+    "</div>" +
+    (res.length ? `<div class="col-h">À re-sourcer</div>${resRows}` : "") +
+    (trash.length ? `<div class="col-h" style="margin-top:14px">Corbeille</div>${trashRows}` : "") +
+    (items.length === 0
+      ? '<div style="font-size:12px;color:var(--color-text-tertiary)">Aucun fichier écarté.</div>'
+      : "");
+}
+
 async function pickAndAddFolder() {
   const dir = await open({ directory: true, multiple: false });
   if (typeof dir === "string") {
@@ -262,9 +341,9 @@ function injectLeanStyle() {
   st.textContent =
     // landing/demo copy in index.html: marketing pitch, demo disclaimer, feature cards row
     ".pitch,.sub,.frow{display:none!important}" +
-    // unbuilt nav tabs (Biblio, Rekordbox, Clé USB, Écartés, Réglages)
+    // unbuilt nav tabs (Biblio, Rekordbox, Clé USB, Réglages) — Écartés is live now
     '#nav .nv[data-view="biblio"],#nav .nv[data-view="rkb"],#nav .nv[data-view="cle"],' +
-    '#nav .nv[data-view="ecarts"],#nav .nv[data-view="reglages"]{display:none!important}' +
+    '#nav .nv[data-view="reglages"]{display:none!important}' +
     // Revue: batch mode + "traités" toggle aren't wired to the real backend yet
     '[data-act="revmode"],[data-act="togglequeue"]{display:none!important}' +
     // custom frameless titlebar (decorations are off in tauri.conf — Tauri only)
@@ -311,6 +390,7 @@ function injectTitlebar() {
 export function installLiveWiring() {
   window.__siftHome = renderHomeSources;
   window.__siftQueue = renderQueue;
+  window.__siftEcarts = renderEcartes;
   injectLeanStyle();
   injectTitlebar();
   installUndoShortcut();
@@ -330,6 +410,28 @@ export function installLiveWiring() {
       if (item && mid) void openFilingInto(mid, item);
       else if (qi.dataset.path)
         void import("./report-view").then((m) => m.openReportModal(qi.dataset.path!));
+      return;
+    }
+    // Écartés actions (Soulseek copy / send-to-bin / restore / empty bin)
+    const ec = (e.target as HTMLElement).closest<HTMLElement>("[data-ec]");
+    if (ec) {
+      e.stopPropagation();
+      const act = ec.dataset.ec;
+      const id = Number(ec.dataset.id);
+      if (act === "slsk") {
+        void navigator.clipboard.writeText(ec.dataset.q || "").catch(() => {});
+        const prev = ec.innerHTML;
+        ec.innerHTML = '<i class="ti ti-check" style="font-size:10px;vertical-align:-1px"></i> Copié';
+        setTimeout(() => {
+          ec.innerHTML = prev;
+        }, 1200);
+      } else if (act === "trash") {
+        void trashTrack(id).then(renderEcartes).catch((err) => console.error("trash failed", err));
+      } else if (act === "restore") {
+        void restoreTrack(id).then(renderEcartes).catch((err) => console.error("restore failed", err));
+      } else if (act === "purge") {
+        void purgeTrash().then(renderEcartes).catch((err) => console.error("purge failed", err));
+      }
       return;
     }
     const el = (e.target as HTMLElement).closest<HTMLElement>("[data-sift]");
@@ -366,5 +468,6 @@ declare global {
   interface Window {
     __siftHome?: () => void;
     __siftQueue?: () => void;
+    __siftEcarts?: () => void;
   }
 }
