@@ -70,6 +70,9 @@ pub fn write_tags_full(
                 MimeType::Jpeg
             };
             let pic = Picture::new_unchecked(PictureType::CoverFront, Some(mime), None, bytes);
+            // Replace, don't accumulate: re-identifying a track must not leave the old cover
+            // embedded alongside the new one.
+            tag.remove_picture_type(PictureType::CoverFront);
             tag.push_picture(pic);
         }
     }
