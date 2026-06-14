@@ -174,6 +174,25 @@ fn track_match_score(track_title: &str, target_title: &str, target_version: Opti
     score
 }
 
+/// Best tracklist match for the target: the highest `track_match_score`, plus the matching
+/// track title when the score is positive. Used to (a) rank the release and (b) replace the
+/// release/EP title Discogs returns in search results with the actual TRACK title.
+fn best_track_match(
+    titles: &[String],
+    target_title: &str,
+    target_version: Option<&str>,
+) -> (i32, Option<String>) {
+    match titles
+        .iter()
+        .map(|t| (track_match_score(t, target_title, target_version), t))
+        .max_by_key(|(s, _)| *s)
+    {
+        Some((score, t)) if score > 0 => (score, Some(t.clone())),
+        Some((score, _)) => (score, None),
+        None => (0, None),
+    }
+}
+
 /// Re-rank candidates by their tracklist match score (primary), falling back to format
 /// relevance (secondary) and the original order (stable). `scores[i]` is the best tracklist
 /// match for `cands[i]` (0 when no tracklist was fetched or nothing matched).
@@ -236,23 +255,26 @@ impl MetadataProvider for Discogs {
             .map_err(map_ureq_err)?
             .into_json()
             .map_err(|e| ProviderError::Parse(e.to_string()))?;
-        let cands = parse_search(&v);
+        let mut cands = parse_search(&v);
 
         // Refine: for the top candidates, fetch their tracklist and score how well it contains
         // the exact mix (title + version). The release that actually holds this mix wins. Detail
         // calls are best-effort — a failed/rate-limited one just leaves that candidate unscored.
         let mut scores = vec![0i32; cands.len()];
-        for (i, c) in cands.iter().enumerate().take(TRACKLIST_PROBE) {
-            if c.release_id.is_empty() {
+        let probe = cands.len().min(TRACKLIST_PROBE);
+        for i in 0..probe {
+            if cands[i].release_id.is_empty() {
                 continue;
             }
-            match self.fetch_tracklist(&c.release_id) {
+            match self.fetch_tracklist(&cands[i].release_id) {
                 Ok(titles) => {
-                    scores[i] = titles
-                        .iter()
-                        .map(|t| track_match_score(t, &q.title, q.version.as_deref()))
-                        .max()
-                        .unwrap_or(0);
+                    let (score, matched) = best_track_match(&titles, &q.title, q.version.as_deref());
+                    scores[i] = score;
+                    // Discogs search returns the RELEASE title ("Artist - Space EP"); replace it
+                    // with the actual matching track title so we identify the track, not the EP.
+                    if let Some(track_title) = matched {
+                        cands[i].title = track_title;
+                    }
                 }
                 // Best-effort: a rate-limited/failed detail call just leaves this candidate
                 // unscored (ranking falls back to format relevance). Log the rate-limit so a
@@ -394,5 +416,27 @@ mod tests {
         assert_eq!(clean_artist("Cabaret Voltaire (Live)"), "Cabaret Voltaire (Live)");
         // multi-artist credit kept as-is, only the artifacts removed
         assert_eq!(clean_artist("Larry Heard* / Mr Fingers"), "Larry Heard / Mr Fingers");
+    }
+
+    #[test]
+    fn best_track_match_picks_the_track_not_the_ep() {
+        let titles = vec!["Intro".to_string(), "Sean".to_string(), "Outro".to_string()];
+        let (score, title) = best_track_match(&titles, "Sean", None);
+        assert!(score > 0);
+        assert_eq!(title.as_deref(), Some("Sean"));
+    }
+
+    #[test]
+    fn best_track_match_keeps_version_track_over_plain() {
+        let titles = vec!["Love Foolosophy".to_string(), "Love Foolosophy (Knee Deep Remix)".to_string()];
+        let (_score, title) = best_track_match(&titles, "Love Foolosophy", Some("Knee Deep Remix"));
+        assert_eq!(title.as_deref(), Some("Love Foolosophy (Knee Deep Remix)"));
+    }
+
+    #[test]
+    fn best_track_match_none_when_nothing_matches() {
+        let titles = vec!["Completely".to_string(), "Unrelated".to_string()];
+        let (_score, title) = best_track_match(&titles, "Sean", Some("Dub"));
+        assert_eq!(title, None);
     }
 }
