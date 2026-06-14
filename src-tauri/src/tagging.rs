@@ -5,13 +5,28 @@
 
 use lofty::config::WriteOptions;
 use lofty::file::TaggedFileExt;
+use lofty::picture::{MimeType, Picture, PictureType};
 use lofty::prelude::{Accessor, TagExt};
 use lofty::probe::Probe;
-use lofty::tag::Tag;
+use lofty::tag::{ItemKey, ItemValue, Tag, TagItem};
 
-/// Set artist + title on `path`, creating a native primary tag if none exists. Returns a
-/// human-readable error string on any lofty failure (read, or save).
+/// Back-compat: artist + title only (used where no rich metadata is available).
 pub fn write_tags(path: &str, artist: &str, title: &str) -> Result<(), String> {
+    write_tags_full(path, artist, title, None, None, &[], None)
+}
+
+/// Write the full canonical+enrichment set: artist, title, and optionally label, year,
+/// sub-genres (one Genre item per value), and an embedded front cover read from `cover_path`.
+/// Fields left None/empty are not touched. Returns a human-readable error on any lofty failure.
+pub fn write_tags_full(
+    path: &str,
+    artist: &str,
+    title: &str,
+    label: Option<&str>,
+    year: Option<i64>,
+    genres: &[String],
+    cover_path: Option<&str>,
+) -> Result<(), String> {
     let mut tagged = Probe::open(path)
         .and_then(|p| p.read())
         .map_err(|e| format!("read tags: {e}"))?;
@@ -26,6 +41,31 @@ pub fn write_tags(path: &str, artist: &str, title: &str) -> Result<(), String> {
 
     tag.set_artist(artist.to_string());
     tag.set_title(title.to_string());
+    if let Some(l) = label.filter(|s| !s.trim().is_empty()) {
+        tag.insert_text(ItemKey::Label, l.to_string());
+    }
+    if let Some(y) = year {
+        if y > 0 {
+            tag.set_year(y as u32);
+        }
+    }
+    if !genres.is_empty() {
+        tag.remove_key(&ItemKey::Genre);
+        for g in genres.iter().filter(|s| !s.trim().is_empty()) {
+            tag.push(TagItem::new(ItemKey::Genre, ItemValue::Text(g.clone())));
+        }
+    }
+    if let Some(cp) = cover_path {
+        if let Ok(bytes) = std::fs::read(cp) {
+            let mime = if cp.to_lowercase().ends_with(".png") {
+                MimeType::Png
+            } else {
+                MimeType::Jpeg
+            };
+            let pic = Picture::new_unchecked(PictureType::CoverFront, Some(mime), None, bytes);
+            tag.push_picture(pic);
+        }
+    }
 
     tag.save_to_path(path, WriteOptions::default())
         .map_err(|e| format!("save tags: {e}"))
@@ -48,7 +88,7 @@ pub fn read_artist_title(path: &str) -> (String, String) {
 
 #[cfg(test)]
 mod tests {
-    use super::{read_artist_title, write_tags};
+    use super::{read_artist_title, write_tags, write_tags_full};
     use lofty::file::TaggedFileExt;
     use lofty::probe::Probe;
     use lofty::tag::ItemKey;
@@ -96,5 +136,41 @@ mod tests {
         let (a, t) = read_artist_title(dst);
         assert_eq!(a, "Chez Damier");
         assert_eq!(t, "Can You Feel It");
+    }
+
+    #[test]
+    fn writes_label_year_genres_and_cover() {
+        let Some(src) = fixture("real_320.mp3") else {
+            eprintln!("skip: no fixture");
+            return;
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let dst = dir.path().join("full.mp3");
+        std::fs::copy(&src, &dst).unwrap();
+        let dst = dst.to_str().unwrap();
+
+        let cover = dir.path().join("c.jpg");
+        std::fs::write(&cover, b"\xFF\xD8\xFFimagedata").unwrap();
+
+        write_tags_full(
+            dst,
+            "Larry Heard",
+            "Mystery of Love",
+            Some("Alleviated"),
+            Some(1986),
+            &["Deep House".to_string(), "House".to_string()],
+            Some(cover.to_str().unwrap()),
+        )
+        .expect("write full tags");
+
+        use lofty::file::TaggedFileExt;
+        use lofty::probe::Probe;
+        use lofty::tag::ItemKey;
+        let tagged = Probe::open(dst).unwrap().read().unwrap();
+        let tag = tagged.primary_tag().expect("has tag");
+        assert_eq!(tag.get_string(&ItemKey::TrackArtist), Some("Larry Heard"));
+        let genres: Vec<_> = tag.get_strings(&ItemKey::Genre).collect();
+        assert!(genres.contains(&"Deep House"), "genres = {genres:?}");
+        assert!(!tag.pictures().is_empty(), "cover embedded");
     }
 }
