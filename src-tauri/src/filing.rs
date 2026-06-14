@@ -141,6 +141,15 @@ fn save_metadata(conn: &Connection, track_id: i64, c: &Canonical) -> Result<(), 
     Ok(())
 }
 
+/// Enrichment tag fields loaded once (under the lock) so phase 2 writes them without DB access.
+#[derive(Default, Clone)]
+pub struct TagExtras {
+    pub label: Option<String>,
+    pub year: Option<i64>,
+    pub genres: Vec<String>,
+    pub cover_path: Option<String>,
+}
+
 /// A filing decided under the DB lock (phase 1), ready to run lock-free (phase 2) and then
 /// be committed under the lock (phase 3). Holding the connection across the multi-second
 /// ffmpeg encode would freeze every other DB user (analysis workers + all IPC); splitting
@@ -155,6 +164,7 @@ pub struct FilePlan {
     canonical: Canonical,
     bin_rel: String,
     root: PathBuf,
+    extras: TagExtras,
 }
 
 /// One filesystem effect performed in phase 2, to be journaled in phase 3.
@@ -201,6 +211,19 @@ pub fn plan_file(
     let filename = naming::render_filename(template, &canonical, target.ext());
     let dest = library::ensure_unique(&dest_dir.join(&filename));
 
+    let extras = TagExtras {
+        label: conn
+            .query_row("SELECT label FROM metadata WHERE track_id=?1", params![track_id], |r| r.get::<_, Option<String>>(0))
+            .ok().flatten(),
+        year: conn
+            .query_row("SELECT year FROM metadata WHERE track_id=?1", params![track_id], |r| r.get::<_, Option<i64>>(0))
+            .ok().flatten(),
+        genres: crate::genres::get_genres(conn, track_id).unwrap_or_default(),
+        cover_path: conn
+            .query_row("SELECT cover_path FROM metadata WHERE track_id=?1", params![track_id], |r| r.get::<_, Option<String>>(0))
+            .ok().flatten(),
+    };
+
     Ok(FilePlan {
         conformant: encode::is_conformant(&source, target),
         source,
@@ -211,6 +234,7 @@ pub fn plan_file(
         root: root.to_path_buf(),
         batch_id: new_batch_id(track_id),
         track_id,
+        extras,
     })
 }
 
@@ -220,8 +244,11 @@ pub fn execute_file(plan: &FilePlan) -> Result<Vec<FsLog>, FilingError> {
     let mut log = Vec::new();
     if plan.conformant {
         // tag in place, then move the single physical file into the bin
-        tagging::write_tags(&plan.source, &plan.canonical.artist, &plan.canonical.title)
-            .map_err(FilingError::Tag)?;
+        tagging::write_tags_full(
+            &plan.source, &plan.canonical.artist, &plan.canonical.title,
+            plan.extras.label.as_deref(), plan.extras.year, &plan.extras.genres,
+            plan.extras.cover_path.as_deref(),
+        ).map_err(FilingError::Tag)?;
         std::fs::rename(&plan.source, &plan.dest).map_err(|e| FilingError::Io(e.to_string()))?;
         log.push(FsLog { kind: "move", from: plan.source.clone(), to: plan.dest.clone() });
     } else {
@@ -230,7 +257,11 @@ pub fn execute_file(plan: &FilePlan) -> Result<Vec<FsLog>, FilingError> {
             EncodeError::Upscale => FilingError::Upscale,
             EncodeError::Ffmpeg(m) => FilingError::Encode(m),
         })?;
-        if let Err(e) = tagging::write_tags(&plan.dest, &plan.canonical.artist, &plan.canonical.title) {
+        if let Err(e) = tagging::write_tags_full(
+            &plan.dest, &plan.canonical.artist, &plan.canonical.title,
+            plan.extras.label.as_deref(), plan.extras.year, &plan.extras.genres,
+            plan.extras.cover_path.as_deref(),
+        ) {
             let _ = std::fs::remove_file(&plan.dest); // drop the orphan transcode
             return Err(FilingError::Tag(e));
         }
@@ -503,5 +534,47 @@ mod tests {
         let status: String = conn.query_row("SELECT status FROM tracks WHERE id=?1", params![id], |r| r.get(0)).unwrap();
         assert_eq!(status, "trash");
         assert!(root.join(".sift-trash").read_dir().unwrap().count() >= 1);
+    }
+
+    #[test]
+    fn filing_writes_applied_genres_to_the_file() {
+        let conn = db();
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("lib");
+        std::fs::create_dir_all(root.join("House")).unwrap();
+        let Some((id, _src)) = seed_track(&conn, dir.path(), "real_320.mp3", "src.mp3") else {
+            eprintln!("skip: no fixture");
+            return;
+        };
+
+        // seed a Discogs identity for the track BEFORE filing
+        let cand = crate::metadata::Candidate {
+            artist: "Larry Heard".into(),
+            title: "Mystery of Love".into(),
+            label: Some("Alleviated".into()),
+            year: Some(1986),
+            styles: vec!["Deep House".into()],
+            country: None,
+            format: None,
+            cover_url: None,
+            release_id: "12345".into(),
+            source: "discogs".into(),
+        };
+        crate::metadata::apply_identity(&conn, id, &cand, None).unwrap();
+
+        let res = file_track(&conn, &root, "{artist} - {title}", id, "House", None, Some(Canonical {
+            artist: "Larry Heard".into(),
+            title: "Mystery of Love".into(),
+            version: None,
+            confidence: crate::naming::Confidence::Green,
+        })).unwrap();
+
+        use lofty::file::TaggedFileExt;
+        use lofty::probe::Probe;
+        use lofty::tag::ItemKey;
+        let tagged = Probe::open(&res.path).unwrap().read().unwrap();
+        let tag = tagged.primary_tag().unwrap();
+        let genre = tag.get_string(&ItemKey::Genre).unwrap_or("");
+        assert!(genre.contains("Deep House"), "filed file has applied genre; got {genre:?}");
     }
 }
