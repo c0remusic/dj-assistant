@@ -203,13 +203,19 @@ fn read_path(app: &AppHandle, id: i64) -> Option<String> {
 fn persist_result(app: &AppHandle, id: i64, path: &str, result: Result<AnalysisReport, String>) {
     let state = app.state::<Mutex<Connection>>();
     let Ok(conn) = state.lock() else { return };
-    let _ = match &result {
+    let written = match &result {
         Ok(rep) => persist_report(&conn, id, rep),
         Err(e) => {
             log::warn!("analyze failed for {path}: {e}");
             persist_failure(&conn, id, e)
         }
     };
+    // Don't drop the write silently: if the DB was busy/locked the track stays
+    // analysed_at=NULL and gets picked up again by the next refill (queue:changed/scan),
+    // but surface it so a persistent failure is visible rather than invisible.
+    if let Err(e) = written {
+        log::error!("persist failed for {path} (id {id}), will retry on next refill: {e}");
+    }
 }
 
 fn worker_loop(app: AppHandle, inner: Arc<(Mutex<Queue>, Condvar)>) {

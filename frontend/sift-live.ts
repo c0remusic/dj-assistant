@@ -48,8 +48,8 @@ function verdictDot(v: string | null): string {
 }
 
 const esc = (s: string) =>
-  s.replace(/[&<>"]/g, (c) =>
-    c === "&" ? "&amp;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : "&quot;",
+  s.replace(/[&<>"']/g, (c) =>
+    c === "&" ? "&amp;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : c === '"' ? "&quot;" : "&#39;",
   );
 
 /** Replaces app.js's mockup "Dossiers surveillés" block with real sources + warning. */
@@ -511,6 +511,9 @@ export function installLiveWiring() {
   // Analysis pings can arrive several times per second — debounce the queue redraw.
   let t: ReturnType<typeof setTimeout> | undefined;
   void onAnalysisChanged(() => {
+    // A report may have changed (re-analysed / replaced file) → drop the in-session cache so
+    // the next open re-fetches from the DB (the source of truth) instead of serving it stale.
+    void import("./report-view").then((m) => m.clearReportCache());
     clearTimeout(t);
     t = setTimeout(() => void renderQueue(), 300);
   });

@@ -23,8 +23,8 @@ import type { Bin, Canonical, Target, QueueItem } from "../shared/contracts";
 const LIBRARY_ROOT = "library_root";
 
 const esc = (s: string) =>
-  s.replace(/[&<>"]/g, (c) =>
-    c === "&" ? "&amp;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : "&quot;",
+  s.replace(/[&<>"']/g, (c) =>
+    c === "&" ? "&amp;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : c === '"' ? "&quot;" : "&#39;",
   );
 
 /** Shared, mutable Revue state for the current filing session. */
@@ -266,8 +266,13 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
       ? '<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--color-text-success)"><i class="ti ti-circle-check" style="font-size:11px"></i> métadonnées sûres</span>'
       : '<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--color-text-warning)"><i class="ti ti-alert-circle" style="font-size:11px"></i> à vérifier</span>';
 
+  const lossy = rail === "lossy";
   const chips = (["mp3_320", "aiff_16_44", "wav_16_44"] as Target[])
     .map((t) => {
+      // a lossy source can't be upscaled to lossless — disable AIFF/WAV (the backend refuses
+      // it anyway; greying it out prevents the dead-end click).
+      if (lossy && t !== "mp3_320")
+        return `<span class="chip" title="Pas d'upscale depuis un fichier lossy" style="opacity:.4;cursor:not-allowed">${TARGET_LABEL[t]}</span>`;
       const on = (state.target ?? defaultTarget(rail)) === t ? " on" : "";
       return `<span class="chip${on}" data-fil="fmt" data-t="${t}">${TARGET_LABEL[t]}</span>`;
     })
@@ -275,8 +280,8 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
 
   const fake = state.track?.verdict === "fake";
   const secondary = fake
-    ? '<button data-fil="resource" style="color:var(--color-text-warning)" title="Fichier faux — ira dans les écartés"><i class="ti ti-alert-triangle" style="font-size:12px;vertical-align:-2px"></i> Re-sourcer</button>'
-    : '<button data-fil="trash" style="color:var(--color-text-danger)" title="Envoyer à la corbeille"><i class="ti ti-trash" style="font-size:12px;vertical-align:-2px"></i> Écarter</button>';
+    ? '<button data-fil="resource" style="color:var(--color-text-warning)" title="Fichier faux — ira dans les écartés (touche X)"><span class="kbd">X</span> <i class="ti ti-alert-triangle" style="font-size:12px;vertical-align:-2px"></i> Re-sourcer</button>'
+    : '<button data-fil="trash" style="color:var(--color-text-danger)" title="Envoyer à la corbeille (touche X)"><span class="kbd">X</span> <i class="ti ti-trash" style="font-size:12px;vertical-align:-2px"></i> Écarter</button>';
 
   const inputCss =
     "font-size:12px;padding:4px 7px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);color:var(--color-text-primary);min-width:0";
@@ -290,7 +295,7 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
     `</div>` +
     `<div class="sift-fil-prev" style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;line-height:1.5;margin-bottom:9px">→ ${esc(previewName())}</div>` +
     `<div style="display:flex;gap:8px">` +
-    `<button data-fil="ranger" style="flex:1;background:var(--color-background-info);color:var(--color-text-info);border:none;font-weight:500"><i class="ti ti-corner-down-left" style="font-size:12px;vertical-align:-2px"></i> Ranger → <span class="sift-fil-bin">${esc(binLabel())}</span></button>` +
+    `<button data-fil="ranger" style="flex:1;background:var(--color-background-info);color:var(--color-text-info);border:none;font-weight:500"><i class="ti ti-corner-down-left" style="font-size:12px;vertical-align:-2px"></i> Ranger → <span class="sift-fil-bin">${esc(binLabel())}</span> <span class="kbd">⏎</span></button>` +
     secondary +
     `</div>`;
 
