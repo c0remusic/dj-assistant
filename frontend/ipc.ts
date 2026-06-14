@@ -138,3 +138,35 @@ export const importPaths = (
   mode: "source" | "dest" = "source",
 ): Promise<{ files_added: number; folders_added: number }> =>
   invoke("import_paths", { paths, mode });
+
+// ---- M6a Discogs identification ----
+
+export interface Candidate {
+  artist: string;
+  title: string;
+  label: string | null;
+  year: number | null;
+  styles: string[];
+  country: string | null;
+  format: string | null;
+  cover_url: string | null;
+  release_id: string;
+  source: string;
+}
+
+export interface AppliedIdentity {
+  canonical: { artist: string; title: string; version: string | null; confidence: string };
+  label: string | null;
+  year: number | null;
+  styles: string[];
+  cover_path: string | null;
+}
+
+/** Search Discogs for candidates matching the track. May reject with error codes:
+ * "NO_TOKEN", "RATE_LIMITED:<seconds>", "NETWORK:<msg>", "PARSE:<msg>". */
+export const identify = (trackId: number): Promise<Candidate[]> =>
+  invoke("identify", { trackId });
+
+/** Apply a chosen candidate: writes tags + downloads cover. Returns the applied identity. */
+export const applyIdentity = (trackId: number, candidate: Candidate): Promise<AppliedIdentity> =>
+  invoke("apply_identity_cmd", { trackId, candidate });

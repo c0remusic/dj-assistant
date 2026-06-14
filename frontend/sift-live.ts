@@ -15,6 +15,8 @@ import {
   restoreTrack,
   purgeTrash,
   openUrl,
+  getSetting,
+  setSetting,
 } from "./ipc";
 import type { EcarteItem } from "../shared/contracts";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -368,9 +370,8 @@ function injectLeanStyle() {
   st.textContent =
     // landing/demo copy in index.html: marketing pitch, demo disclaimer, feature cards row
     ".pitch,.sub,.frow{display:none!important}" +
-    // unbuilt nav tabs (Biblio, Rekordbox, Clé USB, Réglages) — Écartés is live now
-    '#nav .nv[data-view="biblio"],#nav .nv[data-view="rkb"],#nav .nv[data-view="cle"],' +
-    '#nav .nv[data-view="reglages"]{display:none!important}' +
+    // unbuilt nav tabs (Biblio, Rekordbox, Clé USB) — Écartés + Réglages are live now
+    '#nav .nv[data-view="biblio"],#nav .nv[data-view="rkb"],#nav .nv[data-view="cle"]{display:none!important}' +
     // Revue: batch mode + "traités" toggle aren't wired to the real backend yet
     '[data-act="revmode"],[data-act="togglequeue"]{display:none!important}' +
     // custom frameless titlebar (decorations are off in tauri.conf — Tauri only)
@@ -435,10 +436,79 @@ function installScrollAutohide() {
   );
 }
 
+/** Live Réglages view: injects the real Discogs token field below the mockup rows. */
+async function renderReglagesLive() {
+  const content = document.getElementById("content");
+  if (!content) return;
+
+  // Remove any previous live-settings block so we don't duplicate on re-render.
+  document.getElementById("sift-reglages-live")?.remove();
+
+  let token: string | null = null;
+  try {
+    token = await getSetting("discogs_token");
+  } catch (e) {
+    console.error("getSetting(discogs_token) failed", e);
+  }
+
+  const inputCss =
+    "font-size:12px;padding:4px 7px;background:var(--color-background-secondary);" +
+    "border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);" +
+    "color:var(--color-text-primary);width:100%;font-family:var(--font-mono)";
+
+  const block = document.createElement("div");
+  block.id = "sift-reglages-live";
+  block.style.cssText = "margin-top:14px";
+  block.innerHTML =
+    '<div class="col-h">Discogs</div>' +
+    '<div class="srow" style="flex-direction:column;align-items:flex-start;gap:6px;padding-bottom:10px">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;width:100%">' +
+    '<span style="font-size:12px">Token d\'identification</span>' +
+    '<a id="sift-discogs-link" style="font-size:11px;color:var(--color-text-info);cursor:pointer;text-decoration:none">' +
+    '<i class="ti ti-external-link" style="font-size:11px;vertical-align:-1px"></i> obtenir un token</a>' +
+    "</div>" +
+    `<input id="sift-discogs-token" type="password" placeholder="Token Discogs…" value="${esc(token ?? "")}" style="${inputCss}">` +
+    '<div id="sift-discogs-status" style="font-size:11px;color:var(--color-text-tertiary);min-height:14px"></div>' +
+    "</div>";
+
+  content.appendChild(block);
+
+  const inp = block.querySelector<HTMLInputElement>("#sift-discogs-token");
+  const status = block.querySelector<HTMLElement>("#sift-discogs-status");
+  const link = block.querySelector<HTMLElement>("#sift-discogs-link");
+
+  link?.addEventListener("click", () =>
+    void openUrl("https://www.discogs.com/settings/developers").catch((e) =>
+      console.error("openUrl failed", e),
+    ),
+  );
+
+  let saveTimer: ReturnType<typeof setTimeout> | undefined;
+  inp?.addEventListener("input", () => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(async () => {
+      const val = inp.value.trim();
+      try {
+        await setSetting("discogs_token", val);
+        if (status) {
+          status.textContent = val ? "Token enregistré." : "Token effacé.";
+          setTimeout(() => {
+            if (status) status.textContent = "";
+          }, 2000);
+        }
+      } catch (e) {
+        if (status) status.textContent = "Erreur lors de l'enregistrement.";
+        console.error("setSetting(discogs_token) failed", e);
+      }
+    }, 600);
+  });
+}
+
 export function installLiveWiring() {
   window.__siftHome = renderHomeSources;
   window.__siftQueue = renderQueue;
   window.__siftEcarts = renderEcartes;
+  window.__siftReglages = () => void renderReglagesLive();
   injectLeanStyle();
   injectTitlebar();
   installUndoShortcut();
@@ -526,5 +596,6 @@ declare global {
     __siftHome?: () => void;
     __siftQueue?: () => void;
     __siftEcarts?: () => void;
+    __siftReglages?: () => void;
   }
 }

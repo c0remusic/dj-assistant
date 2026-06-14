@@ -270,6 +270,7 @@ function openLink(u){window.open(u,'_blank','noopener');}
 
   function renderReglages(){block();var rows=[['Dossiers source','2 dossiers'],['Dossiers destination','6 genres'],['Format lossless','AIFF · 16-bit / 44,1 kHz'],['Format lossy','MP3 320 (pas d\'upscale)'],['Modèle de nommage','Artiste - Titre (Mix) [Label]'],['Sensibilité anti-fake','standard'],['Identification','tags → Discogs → manuel'],['Discogs','connecté'],['Intégration Rekordbox','XML (master.db désactivé)'],['Normalisation','désactivée']];
     content.innerHTML='<div class="h1">Réglages</div>'+rows.map(function(r){return '<div class="srow"><span>'+r[0]+'</span><span class="v">'+r[1]+' <i class="ti ti-chevron-right" style="font-size:14px;color:var(--color-text-tertiary)"></i></span></div>';}).join('');
+    if(window.__siftReglages)window.__siftReglages();
   }
 
   var pa=document.getElementById('pa');

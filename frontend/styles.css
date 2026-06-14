@@ -79,3 +79,14 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-text-info)}
 .home-body{display:flex;gap:14px;flex:1;min-height:0;overflow:hidden}
 .home-left{flex:1;min-width:0;overflow-y:auto;padding-right:4px}
 .home-right{width:200px;flex:none;overflow-y:auto}
+/* M6a — Discogs candidate picker */
+.sift-cands{margin-top:8px;display:flex;flex-direction:column;gap:4px}
+.sift-cands-msg{font-size:12px;color:var(--color-text-tertiary);padding:4px 2px}
+.sift-cand{display:flex;gap:8px;align-items:center;text-align:left;background:none;border:1px solid rgba(237,233,224,.12);border-radius:6px;padding:4px 6px;cursor:pointer;color:inherit;width:100%}
+.sift-cand:hover{border-color:rgba(237,233,224,.3)}
+.sift-cand img,.sift-cand-noart{width:36px;height:36px;border-radius:4px;object-fit:cover;display:grid;place-items:center;background:rgba(237,233,224,.06);flex:none}
+.sift-cand-meta{display:flex;flex-direction:column;min-width:0}
+.sift-cand-meta small{color:var(--color-text-tertiary)}
+.sift-cand-more summary{font-size:12px;color:var(--color-text-tertiary);cursor:pointer;padding:2px}
+@keyframes sift-spin{to{transform:rotate(360deg)}}
+.sift-spin{animation:sift-spin .7s linear infinite;display:inline-block}

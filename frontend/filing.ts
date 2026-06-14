@@ -14,9 +14,13 @@ import {
   setSetting,
   undoLast,
   findDuplicate,
+  identify,
+  applyIdentity,
 } from "./ipc";
+import type { Candidate, AppliedIdentity } from "./ipc";
 import type { DupMatch } from "../shared/contracts";
 import { open } from "@tauri-apps/plugin-dialog";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { openReportInto, togglePlay } from "./report-view";
 import type { Bin, Canonical, Target, QueueItem } from "../shared/contracts";
 
@@ -254,6 +258,135 @@ function refreshFootButton(): void {
   if (btn) btn.textContent = binLabel();
 }
 
+/** Build the cover thumbnail (or placeholder) for a candidate row. */
+function candCoverHtml(c: Candidate): string {
+  if (c.cover_url) {
+    return `<img src="${esc(c.cover_url)}" alt="" class="sift-cand-noart" loading="lazy">`;
+  }
+  return '<span class="sift-cand-noart"><i class="ti ti-vinyl" style="font-size:18px;color:var(--color-text-tertiary)"></i></span>';
+}
+
+/** Render one candidate button row. */
+function candRowHtml(c: Candidate, idx: number): string {
+  const sub = [c.label, c.year != null ? String(c.year) : null, c.styles.join(" · "), c.country]
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    `<button class="sift-cand" data-cand="${idx}">` +
+    candCoverHtml(c) +
+    `<span class="sift-cand-meta"><span>${esc(c.artist)} — ${esc(c.title)}</span>` +
+    (sub ? `<small>${esc(sub)}</small>` : "") +
+    `</span></button>`
+  );
+}
+
+/** Render candidates into the host container. */
+function renderCandidates(host: HTMLElement, list: Candidate[]): void {
+  if (list.length === 0) {
+    host.innerHTML = '<div class="sift-cands-msg">Rien sur Discogs.</div>';
+    return;
+  }
+  const [first, ...rest] = list;
+  const moreHtml = rest.length
+    ? `<details class="sift-cand-more"><summary>autres (${rest.length})</summary>${rest.map((c, i) => candRowHtml(c, i + 1)).join("")}</details>`
+    : "";
+  host.innerHTML = candRowHtml(first, 0) + moreHtml;
+}
+
+/** Apply an identity result to the editing fields + filename preview. */
+function onIdentityApplied(
+  applied: AppliedIdentity,
+  foot: HTMLElement,
+  mid: HTMLElement,
+): void {
+  if (!state.canonical) return;
+  state.canonical.artist = applied.canonical.artist;
+  state.canonical.title = applied.canonical.title;
+  state.canonical.version = applied.canonical.version;
+
+  // Update the editable inputs directly.
+  const aInp = foot.querySelector<HTMLInputElement>('[data-fil="artist"]');
+  const tInp = foot.querySelector<HTMLInputElement>('[data-fil="title"]');
+  const vInp = foot.querySelector<HTMLInputElement>('[data-fil="version"]');
+  if (aInp) aInp.value = applied.canonical.artist;
+  if (tInp) tInp.value = applied.canonical.title;
+  if (vInp) vInp.value = applied.canonical.version ?? "";
+
+  // Refresh the filename preview using the same logic as the input handler.
+  const prev = foot.querySelector<HTMLElement>(".sift-fil-prev");
+  if (prev) prev.textContent = `→ ${previewName()}`;
+  updateHeaderName(mid);
+
+  // Show the cover if we have a local path.
+  if (applied.cover_path) {
+    const covEl = mid.querySelector<HTMLImageElement>(".sift-report-cover");
+    if (covEl) {
+      covEl.src = convertFileSrc(applied.cover_path);
+      covEl.hidden = false;
+    }
+  }
+}
+
+/** Run the Discogs identify flow for the current track. */
+async function doIdentify(
+  btn: HTMLButtonElement,
+  host: HTMLElement,
+  foot: HTMLElement,
+  mid: HTMLElement,
+): Promise<void> {
+  if (!state.track) return;
+  const trackId = state.track.id;
+  const origLabel = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader-2 sift-spin" style="font-size:11px;vertical-align:-1px"></i> Recherche…';
+  host.hidden = false;
+  host.innerHTML = '<div class="sift-cands-msg">Recherche en cours…</div>';
+
+  let candidates: Candidate[] = [];
+  try {
+    candidates = await identify(trackId);
+    renderCandidates(host, candidates);
+
+    // Wire candidate clicks.
+    host.querySelectorAll<HTMLElement>("[data-cand]").forEach((el) => {
+      const idx = Number(el.dataset.cand);
+      el.addEventListener("click", () => {
+        const c = candidates[idx];
+        if (!c || !state.track) return;
+        el.style.opacity = "0.5";
+        el.style.pointerEvents = "none";
+        void applyIdentity(state.track.id, c)
+          .then((applied) => {
+            onIdentityApplied(applied, foot, mid);
+            host.hidden = true;
+          })
+          .catch((e) => {
+            el.style.opacity = "";
+            el.style.pointerEvents = "";
+            host.innerHTML = `<div class="sift-cands-msg">Erreur : ${esc(String(e))}</div>`;
+          });
+      });
+    });
+  } catch (err) {
+    const msg = String(err);
+    let human: string;
+    if (msg.includes("NO_TOKEN")) {
+      human = "Ajoute ton token Discogs dans Réglages.";
+    } else {
+      const rl = msg.match(/RATE_LIMITED:(\d+)/);
+      if (rl) {
+        human = `Discogs limite les requêtes — réessaie dans ${rl[1]}s.`;
+      } else {
+        human = "Discogs injoignable.";
+      }
+    }
+    host.innerHTML = `<div class="sift-cands-msg">${esc(human)}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = origLabel;
+  }
+}
+
 /** Render the filing footer (editor + format + actions) into `foot`. */
 function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
   const c = state.canonical;
@@ -293,7 +426,11 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
     `<input data-fil="title" placeholder="Titre" value="${esc(c.title)}" style="${inputCss}">` +
     `<input data-fil="version" placeholder="Version" value="${esc(c.version ?? "")}" style="${inputCss};width:96px">` +
     `</div>` +
-    `<div class="sift-fil-prev" style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;line-height:1.5;margin-bottom:9px">→ ${esc(previewName())}</div>` +
+    `<div class="sift-fil-prev" style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;line-height:1.5;margin-bottom:6px">→ ${esc(previewName())}</div>` +
+    `<div style="display:flex;align-items:center;gap:6px;margin-bottom:9px">` +
+    `<button data-fil="identifier" style="font-size:11px;padding:3px 9px;color:var(--color-text-secondary)"><i class="ti ti-search" style="font-size:11px;vertical-align:-1px"></i> Identifier</button>` +
+    `</div>` +
+    `<div class="sift-cands" hidden></div>` +
     `<div style="display:flex;gap:8px">` +
     `<button data-fil="ranger" style="flex:1;background:var(--color-background-info);color:var(--color-text-info);border:none;font-weight:500"><i class="ti ti-corner-down-left" style="font-size:12px;vertical-align:-2px"></i> Ranger → <span class="sift-fil-bin">${esc(binLabel())}</span> <span class="kbd">⏎</span></button>` +
     secondary +
@@ -331,6 +468,12 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
   foot
     .querySelector('[data-fil="trash"]')
     ?.addEventListener("click", () => void doSecondary(mid, "trash"));
+
+  const idBtn = foot.querySelector<HTMLButtonElement>('[data-fil="identifier"]');
+  const candsHost = foot.querySelector<HTMLElement>(".sift-cands");
+  if (idBtn && candsHost) {
+    idBtn.addEventListener("click", () => void doIdentify(idBtn, candsHost, foot, mid));
+  }
 }
 
 /** A transient toast at the bottom-right with an optional "Annuler" action. */
