@@ -90,6 +90,17 @@ const MIGRATIONS: &[&str] = &[
     r#"
     ALTER TABLE tracks ADD COLUMN report_json TEXT;
     "#,
+    // v6 — M6a Discogs identification: per-track sub-genres (Discogs "style"), multiple per
+    // track, ordered. metadata.genre stays for back-compat but track_genres is the source.
+    r#"
+    CREATE TABLE track_genres (
+        track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+        genre    TEXT NOT NULL,
+        ord      INTEGER NOT NULL,
+        PRIMARY KEY (track_id, genre)
+    );
+    CREATE INDEX idx_track_genres_track ON track_genres(track_id);
+    "#,
 ];
 
 /// Applies any migrations the DB hasn't seen yet, tracked via PRAGMA user_version.
@@ -148,7 +159,7 @@ mod tests {
     fn migrations_create_all_tables() {
         let conn = Connection::open_in_memory().unwrap();
         run_migrations(&conn).unwrap();
-        assert_eq!(table_count(&conn).unwrap(), 6); // v4 adds `settings`
+        assert_eq!(table_count(&conn).unwrap(), 7); // v4 adds `settings`, v6 adds `track_genres`
     }
 
     #[test]
@@ -156,7 +167,7 @@ mod tests {
         let conn = Connection::open_in_memory().unwrap();
         run_migrations(&conn).unwrap();
         run_migrations(&conn).unwrap(); // second run must not error or duplicate
-        assert_eq!(table_count(&conn).unwrap(), 6);
+        assert_eq!(table_count(&conn).unwrap(), 7);
     }
 
     #[test]

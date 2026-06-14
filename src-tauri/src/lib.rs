@@ -7,6 +7,7 @@ mod encode;
 mod ffmpeg;
 mod filing;
 mod fingerprint;
+mod genres;
 mod ipc;
 mod ipc_filing;
 mod library;
