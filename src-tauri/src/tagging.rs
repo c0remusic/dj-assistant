@@ -8,7 +8,7 @@ use lofty::file::TaggedFileExt;
 use lofty::picture::{MimeType, Picture, PictureType};
 use lofty::prelude::{Accessor, TagExt};
 use lofty::probe::Probe;
-use lofty::tag::{ItemKey, ItemValue, Tag, TagItem};
+use lofty::tag::{ItemKey, Tag};
 
 /// Back-compat: artist + title only (used where no rich metadata is available).
 pub fn write_tags(path: &str, artist: &str, title: &str) -> Result<(), String> {
@@ -16,7 +16,8 @@ pub fn write_tags(path: &str, artist: &str, title: &str) -> Result<(), String> {
 }
 
 /// Write the full canonical+enrichment set: artist, title, and optionally label, year,
-/// sub-genres (one Genre item per value), and an embedded front cover read from `cover_path`.
+/// genres (joined as "A; B" in one Genre field — multi-item doesn't round-trip on ID3),
+/// and an embedded front cover read from `cover_path`.
 /// Fields left None/empty are not touched. Returns a human-readable error on any lofty failure.
 pub fn write_tags_full(
     path: &str,
@@ -49,11 +50,17 @@ pub fn write_tags_full(
             tag.set_year(y as u32);
         }
     }
-    if !genres.is_empty() {
-        tag.remove_key(&ItemKey::Genre);
-        for g in genres.iter().filter(|s| !s.trim().is_empty()) {
-            tag.push(TagItem::new(ItemKey::Genre, ItemValue::Text(g.clone())));
-        }
+    // Genres are joined into one field ("Deep House; House"): multiple same-key items don't
+    // round-trip on ID3, and Rekordbox/CDJ read a single genre field. The structured per-genre
+    // list is kept in the DB (track_genres); the embedded tag gets the joined form.
+    let joined: String = genres
+        .iter()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join("; ");
+    if !joined.is_empty() {
+        tag.set_genre(joined);
     }
     if let Some(cp) = cover_path {
         if let Ok(bytes) = std::fs::read(cp) {
@@ -169,8 +176,8 @@ mod tests {
         let tagged = Probe::open(dst).unwrap().read().unwrap();
         let tag = tagged.primary_tag().expect("has tag");
         assert_eq!(tag.get_string(&ItemKey::TrackArtist), Some("Larry Heard"));
-        let genres: Vec<_> = tag.get_strings(&ItemKey::Genre).collect();
-        assert!(genres.contains(&"Deep House"), "genres = {genres:?}");
+        let genre = tag.get_string(&ItemKey::Genre).unwrap_or("");
+        assert!(genre.contains("Deep House") && genre.contains("House"), "genre = {genre:?}");
         assert!(!tag.pictures().is_empty(), "cover embedded");
     }
 }
