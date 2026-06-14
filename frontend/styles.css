@@ -82,13 +82,25 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-text-info)}
 /* M6a — Discogs candidate picker */
 .sift-cands{margin-top:8px;display:flex;flex-direction:column;gap:4px}
 .sift-cands-msg{font-size:12px;color:var(--color-text-tertiary);padding:4px 2px}
-.sift-cand{display:flex;gap:8px;align-items:center;text-align:left;background:none;border:1px solid rgba(237,233,224,.12);border-radius:6px;padding:4px 6px;cursor:pointer;color:inherit;width:100%}
-.sift-cand:hover{border-color:rgba(237,233,224,.3)}
-.sift-cand img,.sift-cand-noart{width:36px;height:36px;border-radius:4px;object-fit:cover;display:grid;place-items:center;background:rgba(237,233,224,.06);flex:none}
+/* [m10] error state: warning colour + icon (set in JS as .sift-cands-error) */
+.sift-cands-error{color:var(--color-text-warning)}
+/* [m7] use theme variable for subtle borders — not hardcoded rgba that's invisible on light bg */
+.sift-cand{display:flex;gap:8px;align-items:center;text-align:left;background:none;border:1px solid var(--color-border-tertiary);border-radius:6px;padding:4px 6px;cursor:pointer;color:inherit;width:100%}
+.sift-cand:hover{border-color:var(--color-border-secondary)}
+.sift-cand img,.sift-cand-noart{width:36px;height:36px;border-radius:4px;object-fit:cover;display:grid;place-items:center;background:var(--color-background-secondary);flex:none}
 .sift-cand-meta{display:flex;flex-direction:column;min-width:0}
 .sift-cand-meta small{color:var(--color-text-tertiary)}
-.sift-cand-more summary{font-size:12px;color:var(--color-text-tertiary);cursor:pointer;padding:2px}
+/* [I4] "autres" summary: looks like a clickable link, not a footnote */
+.sift-cand-more{margin-top:2px}
+.sift-cand-more-summary{font-size:12px;color:var(--color-text-info);cursor:pointer;padding:2px;list-style:none;display:inline-flex;align-items:center;gap:3px}
+.sift-cand-more-summary::-webkit-details-marker{display:none}
+.sift-cand-more[open] .sift-cand-more-summary{color:var(--color-text-secondary)}
+/* [C1] Identifier primary button: gold fill, stands out as the first action */
+.sift-id-btn{background:#FFdc82;border-color:rgba(0,0,0,.12);color:#1d1c1a;font-weight:500;font-size:12px;padding:5px 12px}
+.sift-id-btn:hover{background:#f0cc6a}
+/* [C3] "changer" / "Ouvrir Réglages" inline jump link */
+.sift-cand-jump{font-size:11px;padding:2px 8px;color:var(--color-text-info);border-color:var(--color-border-info)}
 @keyframes sift-spin{to{transform:rotate(360deg)}}
 .sift-spin{animation:sift-spin .7s linear infinite;display:inline-block}
 .sift-genres{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;margin-bottom:4px}
-.sift-genre-chip{font-size:11px;padding:2px 8px;border-radius:999px;background:rgba(142,204,232,.14);color:var(--color-text-info)}
+.sift-genre-chip{font-size:11px;padding:2px 8px;border-radius:999px;background:rgba(142,204,232,.14);color:var(--color-text-info);cursor:default}

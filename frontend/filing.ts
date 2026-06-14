@@ -268,7 +268,9 @@ function candCoverHtml(c: Candidate): string {
 
 /** Render one candidate button row. */
 function candRowHtml(c: Candidate, idx: number): string {
-  const sub = [c.label, c.year != null ? String(c.year) : null, c.styles.join(" · "), c.country, c.format]
+  // [I3] drop styles from the sub-line — they clutter pressing-identification scanning
+  // (shown as genre chips after applying; keep label, year, country, format)
+  const sub = [c.label, c.year != null ? String(c.year) : null, c.country, c.format]
     .filter(Boolean)
     .join(" · ");
   return (
@@ -281,23 +283,30 @@ function candRowHtml(c: Candidate, idx: number): string {
 }
 
 /** Render candidates into the host container. */
-function renderCandidates(host: HTMLElement, list: Candidate[]): void {
+function renderCandidates(host: HTMLElement, list: Candidate[], isError = false): void {
   if (list.length === 0) {
+    // [m10] neutral "no results" message — no warning styling
     host.innerHTML = '<div class="sift-cands-msg">Rien sur Discogs.</div>';
     return;
   }
   const [first, ...rest] = list;
+  // [I4] "N autres résultats" with a chevron and interactive affordance
   const moreHtml = rest.length
-    ? `<details class="sift-cand-more"><summary>autres (${rest.length})</summary>${rest.map((c, i) => candRowHtml(c, i + 1)).join("")}</details>`
+    ? `<details class="sift-cand-more"><summary class="sift-cand-more-summary">▸ ${rest.length} autre${rest.length > 1 ? "s" : ""} résultat${rest.length > 1 ? "s" : ""}</summary>${rest.map((c, i) => candRowHtml(c, i + 1)).join("")}</details>`
     : "";
   host.innerHTML = candRowHtml(first, 0) + moreHtml;
 }
 
-/** Apply an identity result to the editing fields + filename preview. */
+/** Apply an identity result to the editing fields + filename preview.
+ * [C3] `host` + `allCandidates` are kept so we can show a "changer" confirmation row
+ * instead of dead-ending (no new API call needed — re-renders from in-memory list). */
 function onIdentityApplied(
   applied: AppliedIdentity,
   foot: HTMLElement,
   mid: HTMLElement,
+  host: HTMLElement,
+  allCandidates: Candidate[],
+  idBtn: HTMLButtonElement,
 ): void {
   if (!state.canonical) return;
   state.canonical.artist = applied.canonical.artist;
@@ -328,11 +337,69 @@ function onIdentityApplied(
     }
   }
 
-  // Render genre/style chips.
+  // [m11] Render genre/style chips with tooltip so they read as informational Discogs tags
   const genEl = mid.querySelector<HTMLElement>(".sift-genres");
   if (genEl) {
-    genEl.innerHTML = applied.styles.map((s) => `<span class="sift-genre-chip">${esc(s)}</span>`).join("");
+    genEl.innerHTML = applied.styles
+      .map((s) => `<span class="sift-genre-chip" title="Sous-genres Discogs">${esc(s)}</span>`)
+      .join("");
   }
+
+  // [C3] Collapse candidate zone to a confirmation row + "changer" link (no dead-end).
+  // Re-labelling the Identifier button to "Ré-identifier" is also handled here.
+  const coverThumb = applied.cover_path
+    ? `<img src="${esc(convertFileSrc(applied.cover_path))}" alt="" style="width:28px;height:28px;border-radius:3px;object-fit:cover;flex:none">`
+    : `<span style="width:28px;height:28px;border-radius:3px;background:var(--color-background-secondary);display:inline-flex;align-items:center;justify-content:center;flex:none"><i class="ti ti-vinyl" style="font-size:14px;color:var(--color-text-tertiary)"></i></span>`;
+  host.hidden = false;
+  host.innerHTML =
+    `<div style="display:flex;align-items:center;gap:7px;padding:4px 2px">` +
+    coverThumb +
+    `<span style="flex:1;min-width:0;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">` +
+    `<span style="color:var(--color-text-secondary)">Identifié :</span> ${esc(applied.canonical.artist)} — ${esc(applied.canonical.title)}` +
+    `</span>` +
+    `<button class="sift-cand-jump" data-fil="cand-changer" style="font-size:11px;padding:2px 8px;flex:none">changer</button>` +
+    `</div>`;
+
+  const changerBtn = host.querySelector<HTMLElement>('[data-fil="cand-changer"]');
+  changerBtn?.addEventListener("click", () => {
+    // Re-show the full candidate list from memory (no new API call).
+    host.innerHTML = "";
+    renderCandidates(host, allCandidates);
+    wireCandidateClicks(host, allCandidates, foot, mid, idBtn);
+  });
+
+  // [C1] Relabel Identifier → Ré-identifier once an identity has been applied.
+  idBtn.innerHTML = '<i class="ti ti-refresh" style="font-size:11px;vertical-align:-1px"></i> Ré-identifier';
+}
+
+/** Wire clicks on rendered candidate buttons.
+ * Extracted so it can be called after initial render AND after "changer" re-shows the list. */
+function wireCandidateClicks(
+  host: HTMLElement,
+  candidates: Candidate[],
+  foot: HTMLElement,
+  mid: HTMLElement,
+  idBtn: HTMLButtonElement,
+): void {
+  host.querySelectorAll<HTMLElement>("[data-cand]").forEach((el) => {
+    const idx = Number(el.dataset.cand);
+    el.addEventListener("click", () => {
+      const c = candidates[idx];
+      if (!c || !state.track) return;
+      el.style.opacity = "0.5";
+      el.style.pointerEvents = "none";
+      void applyIdentity(state.track.id, c)
+        .then((applied) => {
+          onIdentityApplied(applied, foot, mid, host, candidates, idBtn);
+        })
+        .catch((e) => {
+          el.style.opacity = "";
+          el.style.pointerEvents = "";
+          // [m10] errors get a warning icon to distinguish from "no results"
+          host.innerHTML = `<div class="sift-cands-msg sift-cands-error"><i class="ti ti-alert-triangle" style="font-size:12px;vertical-align:-2px;margin-right:4px"></i>${esc(String(e))}</div>`;
+        });
+    });
+  });
 }
 
 /** Run the Discogs identify flow for the current track. */
@@ -354,41 +421,30 @@ async function doIdentify(
   try {
     candidates = await identify(trackId);
     renderCandidates(host, candidates);
-
-    // Wire candidate clicks.
-    host.querySelectorAll<HTMLElement>("[data-cand]").forEach((el) => {
-      const idx = Number(el.dataset.cand);
-      el.addEventListener("click", () => {
-        const c = candidates[idx];
-        if (!c || !state.track) return;
-        el.style.opacity = "0.5";
-        el.style.pointerEvents = "none";
-        void applyIdentity(state.track.id, c)
-          .then((applied) => {
-            onIdentityApplied(applied, foot, mid);
-            host.hidden = true;
-          })
-          .catch((e) => {
-            el.style.opacity = "";
-            el.style.pointerEvents = "";
-            host.innerHTML = `<div class="sift-cands-msg">Erreur : ${esc(String(e))}</div>`;
-          });
-      });
-    });
+    wireCandidateClicks(host, candidates, foot, mid, btn);
   } catch (err) {
     const msg = String(err);
-    let human: string;
     if (msg.includes("NO_TOKEN")) {
-      human = "Ajoute ton token Discogs dans Réglages.";
+      // [C2/m5] explain WHY + give a direct action to open Réglages
+      host.innerHTML =
+        `<div class="sift-cands-msg">Discogs limite les recherches anonymes — ajoute ton token (gratuit) dans Réglages.</div>` +
+        `<button class="sift-cand-jump" data-fil="goto-reglages" style="margin-top:5px;font-size:11px;padding:3px 9px">Ouvrir Réglages →</button>`;
+      const gotoBtn = host.querySelector<HTMLElement>('[data-fil="goto-reglages"]');
+      gotoBtn?.addEventListener("click", () => {
+        // Navigate to the Réglages view via the existing nav click handler in app.js
+        document.querySelector<HTMLElement>('[data-view="reglages"]')?.dispatchEvent(
+          new MouseEvent("click", { bubbles: true }),
+        );
+      });
     } else {
       const rl = msg.match(/RATE_LIMITED:(\d+)/);
       if (rl) {
-        human = `Discogs limite les requêtes — réessaie dans ${rl[1]}s.`;
+        host.innerHTML = `<div class="sift-cands-msg">Discogs limite les requêtes — réessaie dans ${rl[1]}s.</div>`;
       } else {
-        human = "Discogs injoignable.";
+        // [m10] network/server errors get a warning icon to distinguish from "no results"
+        host.innerHTML = `<div class="sift-cands-msg sift-cands-error"><i class="ti ti-alert-triangle" style="font-size:12px;vertical-align:-2px;margin-right:4px"></i>Discogs injoignable.</div>`;
       }
     }
-    host.innerHTML = `<div class="sift-cands-msg">${esc(human)}</div>`;
   } finally {
     btn.disabled = false;
     btn.innerHTML = origLabel;
@@ -402,10 +458,11 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
     foot.innerHTML = "";
     return;
   }
+  // [I6] Add tooltip to confidence badge so the colour is self-explanatory
   const badge =
     c.confidence === "green"
-      ? '<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--color-text-success)"><i class="ti ti-circle-check" style="font-size:11px"></i> métadonnées sûres</span>'
-      : '<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--color-text-warning)"><i class="ti ti-alert-circle" style="font-size:11px"></i> à vérifier</span>';
+      ? '<span title="Titre et artiste extraits avec confiance" style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--color-text-success)"><i class="ti ti-circle-check" style="font-size:11px"></i> métadonnées sûres</span>'
+      : '<span title="Le titre ou l\'artiste n\'a pas pu être extrait avec certitude — vérifie les champs" style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--color-text-warning)"><i class="ti ti-alert-circle" style="font-size:11px"></i> à vérifier</span>';
 
   const lossy = rail === "lossy";
   const chips = (["mp3_320", "aiff_16_44", "wav_16_44"] as Target[])
@@ -427,19 +484,22 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
   const inputCss =
     "font-size:12px;padding:4px 7px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);color:var(--color-text-primary);min-width:0";
 
+  // [C1] Identifier is the first action visible — placed above the inputs with a gold filled
+  // style so it reads as the primary entry point when reviewing a new track.
+  // [C2] title= explains what it does; label shows keyboard shortcut hint (I).
   foot.innerHTML =
     `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">${badge}<div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;color:var(--color-text-tertiary)">Sortir en</span>${chips}</div></div>` +
+    `<div style="display:flex;align-items:center;gap:6px;margin-bottom:7px">` +
+    `<button data-fil="identifier" class="sift-id-btn" title="Rechercher les métadonnées sur Discogs (cover, label, année, genres)"><i class="ti ti-search" style="font-size:12px;vertical-align:-1px"></i> Identifier <span class="kbd" style="font-size:9px;border-color:rgba(0,0,0,.18);color:rgba(0,0,0,.5)">I</span></button>` +
+    `</div>` +
+    `<div class="sift-cands" hidden></div>` +
     `<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:5px;margin-bottom:5px">` +
     `<input data-fil="artist" placeholder="Artiste" value="${esc(c.artist)}" style="${inputCss}">` +
     `<input data-fil="title" placeholder="Titre" value="${esc(c.title)}" style="${inputCss}">` +
     `<input data-fil="version" placeholder="Version" value="${esc(c.version ?? "")}" style="${inputCss};width:96px">` +
     `</div>` +
     `<div class="sift-fil-prev" style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;line-height:1.5;margin-bottom:6px">→ ${esc(previewName())}</div>` +
-    `<div class="sift-genres"></div>` +
-    `<div style="display:flex;align-items:center;gap:6px;margin-bottom:9px">` +
-    `<button data-fil="identifier" style="font-size:11px;padding:3px 9px;color:var(--color-text-secondary)"><i class="ti ti-search" style="font-size:11px;vertical-align:-1px"></i> Identifier</button>` +
-    `</div>` +
-    `<div class="sift-cands" hidden></div>` +
+    `<div class="sift-genres" style="margin-bottom:4px"></div>` +
     `<div style="display:flex;gap:8px">` +
     `<button data-fil="ranger" style="flex:1;background:var(--color-background-info);color:var(--color-text-info);border:none;font-weight:500"><i class="ti ti-corner-down-left" style="font-size:12px;vertical-align:-2px"></i> Ranger → <span class="sift-fil-bin">${esc(binLabel())}</span> <span class="kbd">⏎</span></button>` +
     secondary +
@@ -656,7 +716,8 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
 }
 
 /** Keyboard shortcuts for the open track (Revue): Space = play/pause, Enter = Ranger,
- * X = Écarter/Re-sourcer. Ignored while typing in a field, and only when a track is open. */
+ * X = Écarter/Re-sourcer, I = Identifier. Ignored while typing in a field, and only when
+ * a track is open. */
 export function installFilingKeys(): void {
   document.addEventListener("keydown", (e) => {
     const t = e.target as HTMLElement | null;
@@ -670,6 +731,9 @@ export function installFilingKeys(): void {
       document.querySelector<HTMLElement>('[data-fil="ranger"]')?.click();
     } else if (e.key === "x" || e.key === "X") {
       document.querySelector<HTMLElement>('[data-fil="resource"],[data-fil="trash"]')?.click();
+    } else if (e.key === "i" || e.key === "I") {
+      // [m9] I = trigger Identifier (same as clicking the button)
+      document.querySelector<HTMLButtonElement>('[data-fil="identifier"]')?.click();
     }
   });
 }

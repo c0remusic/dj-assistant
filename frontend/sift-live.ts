@@ -467,7 +467,7 @@ async function renderReglagesLive() {
     '<a id="sift-discogs-link" style="font-size:11px;color:var(--color-text-info);cursor:pointer;text-decoration:none">' +
     '<i class="ti ti-external-link" style="font-size:11px;vertical-align:-1px"></i> obtenir un token</a>' +
     "</div>" +
-    `<input id="sift-discogs-token" type="password" placeholder="Token Discogs…" value="${esc(token ?? "")}" style="${inputCss}">` +
+    `<input id="sift-discogs-token" type="text" placeholder="Token Discogs…" value="${esc(token ?? "")}" style="${inputCss}">` +
     '<div id="sift-discogs-status" style="font-size:11px;color:var(--color-text-tertiary);min-height:14px"></div>' +
     "</div>";
 
