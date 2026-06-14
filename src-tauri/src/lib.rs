@@ -10,6 +10,7 @@ mod fingerprint;
 mod genres;
 mod ipc;
 mod ipc_filing;
+mod ipc_identify;
 mod library;
 mod metadata;
 mod naming;
@@ -78,7 +79,9 @@ pub fn run() {
             ipc_filing::list_ecartes,
             ipc_filing::restore_track,
             ipc_filing::purge_trash,
-            ipc_filing::find_duplicate
+            ipc_filing::find_duplicate,
+            ipc_identify::identify,
+            ipc_identify::apply_identity_cmd
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -11,6 +11,8 @@ pub const LIBRARY_ROOT: &str = "library_root";
 pub const FILENAME_TEMPLATE: &str = "filename_template";
 /// Days a trashed file is kept in `.sift-trash` before purge.
 pub const TRASH_PURGE_DAYS: &str = "trash_purge_days";
+/// Discogs personal access token (entered in Réglages). Empty/unset = identification disabled.
+pub const DISCOGS_TOKEN: &str = "discogs_token";
 
 /// The default filename template when the setting is unset.
 pub const DEFAULT_TEMPLATE: &str = "{artist} - {title}{version}";
