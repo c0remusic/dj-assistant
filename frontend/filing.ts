@@ -302,7 +302,9 @@ function onIdentityApplied(
   if (!state.canonical) return;
   state.canonical.artist = applied.canonical.artist;
   state.canonical.title = applied.canonical.title;
-  state.canonical.version = applied.canonical.version;
+  // Keep the version (remix/dub) parsed from the local name: Discogs search doesn't reliably
+  // expose a per-track version, so identifying a track must NOT wipe its "(… Remix)" part.
+  const keptVersion = state.canonical.version;
 
   // Update the editable inputs directly.
   const aInp = foot.querySelector<HTMLInputElement>('[data-fil="artist"]');
@@ -310,7 +312,7 @@ function onIdentityApplied(
   const vInp = foot.querySelector<HTMLInputElement>('[data-fil="version"]');
   if (aInp) aInp.value = applied.canonical.artist;
   if (tInp) tInp.value = applied.canonical.title;
-  if (vInp) vInp.value = applied.canonical.version ?? "";
+  if (vInp) vInp.value = keptVersion ?? "";
 
   // Refresh the filename preview using the same logic as the input handler.
   const prev = foot.querySelector<HTMLElement>(".sift-fil-prev");
