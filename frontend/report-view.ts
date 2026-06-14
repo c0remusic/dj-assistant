@@ -166,7 +166,8 @@ function reportHtml(r: AnalysisReport, closeBtn: boolean): string {
       : `${lab("annoncé")}${declaredPill}${arrow}${lab("qualité réelle")}<span class="pill" style="background:${rq.bg};color:${rq.fg}">${rq.label}</span>${arrow}${verdictBadge(r.verdict)}`;
   return `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px">
-      <div style="min-width:0"><div class="sift-report-name" style="font-size:13px;font-weight:600;word-break:break-all;color:var(--color-text-primary)">${esc(name)}</div>
+      <img class="sift-report-cover" hidden alt="" style="width:40px;height:40px;border-radius:4px;object-fit:cover;flex:none">
+      <div style="min-width:0;flex:1"><div class="sift-report-name" style="font-size:13px;font-weight:600;word-break:break-all;color:var(--color-text-primary)">${esc(name)}</div>
         <div style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;margin-top:2px">${esc(r.path)}</div></div>
       ${closeBtn ? '<button class="sift-close" style="flex:none;font-size:13px;padding:4px 10px">fermer</button>' : ""}
     </div>

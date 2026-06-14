@@ -268,7 +268,7 @@ function candCoverHtml(c: Candidate): string {
 
 /** Render one candidate button row. */
 function candRowHtml(c: Candidate, idx: number): string {
-  const sub = [c.label, c.year != null ? String(c.year) : null, c.styles.join(" · "), c.country]
+  const sub = [c.label, c.year != null ? String(c.year) : null, c.styles.join(" · "), c.country, c.format]
     .filter(Boolean)
     .join(" · ");
   return (
@@ -324,6 +324,12 @@ function onIdentityApplied(
       covEl.src = convertFileSrc(applied.cover_path);
       covEl.hidden = false;
     }
+  }
+
+  // Render genre/style chips.
+  const genEl = mid.querySelector<HTMLElement>(".sift-genres");
+  if (genEl) {
+    genEl.innerHTML = applied.styles.map((s) => `<span class="sift-genre-chip">${esc(s)}</span>`).join("");
   }
 }
 
@@ -427,6 +433,7 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
     `<input data-fil="version" placeholder="Version" value="${esc(c.version ?? "")}" style="${inputCss};width:96px">` +
     `</div>` +
     `<div class="sift-fil-prev" style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;line-height:1.5;margin-bottom:6px">→ ${esc(previewName())}</div>` +
+    `<div class="sift-genres"></div>` +
     `<div style="display:flex;align-items:center;gap:6px;margin-bottom:9px">` +
     `<button data-fil="identifier" style="font-size:11px;padding:3px 9px;color:var(--color-text-secondary)"><i class="ti ti-search" style="font-size:11px;vertical-align:-1px"></i> Identifier</button>` +
     `</div>` +
