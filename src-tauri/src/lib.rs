@@ -11,6 +11,7 @@ mod genres;
 mod ipc;
 mod ipc_filing;
 mod library;
+mod metadata;
 mod naming;
 mod queue;
 mod scanner;
