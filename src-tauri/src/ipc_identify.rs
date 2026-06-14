@@ -30,7 +30,7 @@ pub fn identify(
             .map_err(|e| e.to_string())?
             .unwrap_or_default();
         let canonical = crate::filing::reconcile_track(&conn, track_id).map_err(|e| e.to_string())?;
-        (token, Query { artist: canonical.artist, title: canonical.title })
+        (token, Query { artist: canonical.artist, title: canonical.title, version: canonical.version })
     };
     if token.trim().is_empty() {
         return Err("NO_TOKEN".into());

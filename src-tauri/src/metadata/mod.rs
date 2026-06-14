@@ -10,10 +10,12 @@ use serde::{Deserialize, Serialize};
 use crate::naming::{Canonical, Confidence};
 use rusqlite::{params, Connection};
 
-/// What we search for: the track's current best-guess artist/title.
+/// What we search for: the track's current best-guess artist/title, plus the version
+/// (remix/dub) used to pick the matching release among a release's tracklist.
 pub struct Query {
     pub artist: String,
     pub title: String,
+    pub version: Option<String>,
 }
 
 /// A normalized identification result, ranked best-first by the provider.
