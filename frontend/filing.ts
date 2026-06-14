@@ -31,6 +31,11 @@ const esc = (s: string) =>
     c === "&" ? "&amp;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : c === '"' ? "&quot;" : "&#39;",
   );
 
+/** Capitalise the first letter of each word ("original mix" → "Original Mix"), leaving the rest
+ *  as-is so existing caps/acronyms ("2WFU Dub", "Knee Deep Remix") survive. */
+const titleCase = (s: string): string =>
+  s.replace(/(^|[\s(/-])([\p{L}\p{N}])/gu, (_, sep: string, ch: string) => sep + ch.toUpperCase());
+
 /** Shared, mutable Revue state for the current filing session. */
 interface RevueState {
   rootSet: boolean;
@@ -310,18 +315,25 @@ function onIdentityApplied(
 ): void {
   if (!state.canonical) return;
   state.canonical.artist = applied.canonical.artist;
-  state.canonical.title = applied.canonical.title;
-  // Keep the version (remix/dub) parsed from the local name: Discogs search doesn't reliably
-  // expose a per-track version, so identifying a track must NOT wipe its "(… Remix)" part.
-  const keptVersion = state.canonical.version;
+  // Split a trailing "(Version)" out of the Discogs title so it's never duplicated: the title
+  // field gets the clean base, the version field gets the mix. Prefer the version Discogs put
+  // in the title; otherwise keep the one parsed from the local name (Discogs search doesn't
+  // always expose a per-track version). Fixes e.g. "Love Foolosophy (Knee Deep Remix) (Knee
+  // Deep Remix)".
+  const m = applied.canonical.title.match(/^(.*?)\s*\(([^()]+)\)\s*$/);
+  const baseTitle = m ? m[1].trim() : applied.canonical.title.trim();
+  const rawVersion = (m ? m[2].trim() : null) ?? state.canonical.version;
+  const version = rawVersion ? titleCase(rawVersion) : null;
+  state.canonical.title = baseTitle;
+  state.canonical.version = version;
 
   // Update the editable inputs directly.
   const aInp = foot.querySelector<HTMLInputElement>('[data-fil="artist"]');
   const tInp = foot.querySelector<HTMLInputElement>('[data-fil="title"]');
   const vInp = foot.querySelector<HTMLInputElement>('[data-fil="version"]');
   if (aInp) aInp.value = applied.canonical.artist;
-  if (tInp) tInp.value = applied.canonical.title;
-  if (vInp) vInp.value = keptVersion ?? "";
+  if (tInp) tInp.value = baseTitle;
+  if (vInp) vInp.value = version ?? "";
 
   // Refresh the filename preview using the same logic as the input handler.
   const prev = foot.querySelector<HTMLElement>(".sift-fil-prev");
@@ -700,6 +712,9 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
   let rail = "unknown";
   try {
     state.canonical = await reconcile(item.id);
+    // Tidy the casing of a version parsed from a (often lowercase) filename: "original mix"
+    // → "Original Mix". Title/artist are left as reconciled.
+    if (state.canonical.version) state.canonical.version = titleCase(state.canonical.version);
   } catch (e) {
     console.error("reconcile failed", e);
     state.canonical = { artist: "", title: "", version: null, confidence: "yellow" };
