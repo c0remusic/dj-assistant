@@ -54,8 +54,8 @@ const mmss = (s: number) => {
 };
 
 const esc = (s: string) =>
-  s.replace(/[&<>"]/g, (c) =>
-    c === "&" ? "&amp;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : "&quot;",
+  s.replace(/[&<>"']/g, (c) =>
+    c === "&" ? "&amp;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : c === '"' ? "&quot;" : "&#39;",
   );
 const fmt = (n: number, d = 1) => (Number.isFinite(n) ? n.toFixed(d) : String(n));
 
@@ -174,7 +174,7 @@ function reportHtml(r: AnalysisReport, closeBtn: boolean): string {
 
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:11px;padding:8px 11px;min-height:80px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)">
       <div style="flex:none;align-self:stretch;width:62px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center">
-        <button class="sift-play" title="Lecture / pause" style="flex:none;width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;padding:0"><i class="ti ti-player-play" style="font-size:13px"></i></button>
+        <button class="sift-play" title="Lecture / pause (espace)" style="flex:none;width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;padding:0"><i class="ti ti-player-play" style="font-size:13px"></i></button>
         <span class="sift-time" title="Cliquer : écoulé ⇄ restant" style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);white-space:nowrap;font-family:var(--font-mono);font-size:9px;color:var(--color-text-secondary);cursor:pointer;transition:color .15s;display:inline-flex;align-items:center;justify-content:center;gap:3px"><span class="sift-time-val">0:00 / 0:00</span></span>
       </div>
       <div class="sift-wave" style="flex:1;min-width:0;align-self:center;cursor:pointer"></div>
@@ -271,16 +271,23 @@ function audioBufferToWav(buf: AudioBuffer): Blob {
 /** Load a file the browser can't play natively (AIFF) by decoding it with Web Audio and
  * feeding the player a WAV blob. Falls back to the backend transcode if Web Audio refuses. */
 async function loadDecoded(ws: WaveSurfer, path: string): Promise<void> {
+  // Each await yields the event loop; the user may switch tracks meanwhile, which
+  // destroys this ws and creates a new currentWs. Bail if we're no longer current,
+  // so we never call loadBlob/load on a destroyed instance.
   try {
     const resp = await fetch(convertFileSrc(path));
     const arr = await resp.arrayBuffer();
+    if (ws !== currentWs) return;
     if (!decodeCtx) decodeCtx = new AudioContext();
     const audioBuf = await decodeCtx.decodeAudioData(arr);
+    if (ws !== currentWs) return;
     await ws.loadBlob(audioBufferToWav(audioBuf));
   } catch (e) {
+    if (ws !== currentWs) return;
     console.error("web-audio decode failed, falling back to transcode", e);
     try {
       const src = await invoke<string>("playback_url", { path });
+      if (ws !== currentWs) return;
       await ws.load(convertFileSrc(src));
     } catch (e2) {
       console.error("playback fallback failed", e2);
@@ -431,10 +438,23 @@ export function renderReportInto(container: HTMLElement, r: AnalysisReport) {
 // the IPC round-trip + loading spinner on revisits, so switching back to a track is instant.
 const reportCache = new Map<string, AnalysisReport>();
 
+/** Drops the in-session cache so the next open re-fetches from the backend (DB is the source
+ *  of truth). Call when analysis results may have changed (e.g. the `analysis:changed` event)
+ *  so a re-analysed or replaced file isn't served stale. */
+export function clearReportCache(path?: string) {
+  if (path) reportCache.delete(path);
+  else reportCache.clear();
+}
+
+// Monotonic token: the latest openReportInto call wins. A slow analyse that resolves after the
+// user already switched tracks must not overwrite the newer content in the shared container.
+let openSeq = 0;
+
 /** Loads (no spectrogram) and renders inline into `container`. Instant when cached. */
 export async function openReportInto(container: HTMLElement, path: string) {
   destroyPlayer();
   ensureStyles();
+  const seq = ++openSeq;
   const cached = reportCache.get(path);
   if (cached) {
     renderReportInto(container, cached);
@@ -445,9 +465,11 @@ export async function openReportInto(container: HTMLElement, path: string) {
   try {
     const r = await analyzePath(path, false);
     reportCache.set(path, r);
+    if (seq !== openSeq) return; // user switched tracks while analysing — newer call owns the pane
     renderReportInto(container, r);
   } catch (e) {
     console.error("analyze_path failed", e);
+    if (seq !== openSeq) return;
     container.innerHTML = `<div style="flex:1;display:flex;align-items:center;justify-content:center;color:#ff6b6b;font-size:13px">Analyse échouée : ${esc(String(e))}</div>`;
   }
 }

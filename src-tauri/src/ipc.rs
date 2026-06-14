@@ -230,30 +230,31 @@ pub fn analyze_path(
 ) -> Result<crate::analysis::AnalysisReport, String> {
     {
         let conn = conn.lock().map_err(|e| e.to_string())?;
-        let cached: Option<String> = conn
-            .query_row(
-                "SELECT report_json FROM tracks WHERE path=?1",
-                rusqlite::params![path],
-                |r| r.get::<_, Option<String>>(0),
-            )
-            .ok()
-            .flatten();
-        match cached {
-            // analysed already: serve the cached report instantly (no re-decode). The
-            // spectrogram is computed on demand, so a spectrogram request still re-analyses.
-            Some(json) if !json.is_empty() && !with_spectrogram => {
-                return serde_json::from_str(&json).map_err(|e| e.to_string());
-            }
-            // no cache → must still be a known track (security), then fall through to analyse
-            None => {
-                let known = conn
-                    .query_row("SELECT 1 FROM tracks WHERE path=?1 LIMIT 1", rusqlite::params![path], |_| Ok(()))
-                    .is_ok();
-                if !known {
-                    return Err("unknown track path".into());
+        // ALWAYS require a known track first (security: not an arbitrary-file decode oracle),
+        // for every path that can reach analyse() — incl. spectrogram requests and tracks
+        // whose cache is the empty failure sentinel.
+        let known = conn
+            .query_row("SELECT 1 FROM tracks WHERE path=?1 LIMIT 1", rusqlite::params![path], |_| Ok(()))
+            .is_ok();
+        if !known {
+            return Err("unknown track path".into());
+        }
+        // Serve the cached report instantly (no re-decode), except when a spectrogram is
+        // requested (computed on demand, not cached).
+        if !with_spectrogram {
+            let cached: Option<String> = conn
+                .query_row(
+                    "SELECT report_json FROM tracks WHERE path=?1",
+                    rusqlite::params![path],
+                    |r| r.get::<_, Option<String>>(0),
+                )
+                .ok()
+                .flatten();
+            if let Some(json) = cached {
+                if !json.is_empty() {
+                    return serde_json::from_str(&json).map_err(|e| e.to_string());
                 }
             }
-            _ => {}
         }
     }
     let report = crate::analysis::analyze(&path, with_spectrogram)?;
@@ -291,7 +292,16 @@ pub fn playback_url(path: String) -> Result<String, String> {
     let dir = std::env::temp_dir().join("sift-play");
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let out = dir.join(format!("{:x}.wav", h.finish()));
-    if !out.exists() {
+    // Re-encode unless a cached WAV exists AND is newer than the source — so a replaced file
+    // (or a squatted/garbage temp at the predictable name) isn't served stale.
+    let fresh = match (std::fs::metadata(&out), std::fs::metadata(&path)) {
+        (Ok(o), Ok(s)) => match (o.modified(), s.modified()) {
+            (Ok(om), Ok(sm)) => om >= sm,
+            _ => false,
+        },
+        _ => false,
+    };
+    if !fresh {
         crate::encode::encode(&path, &out.to_string_lossy(), crate::encode::Target::Wav1644)
             .map_err(|e| e.to_string())?;
     }

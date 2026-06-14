@@ -81,3 +81,51 @@ bloquant des doublons). Frictions notées non traitées :
   classement. Gain d'efficacité DJ (heuristique #7).
 - **Bouton agrandir** de la titlebar ne bascule pas en « restaurer » quand maximisé (mineur).
 - Messages d'erreur de toast parfois bruts (`Échec : <raw>`) — à humaniser au cas par cas.
+
+---
+
+# Audit — round 2 (2026-06-14)
+
+Deuxième passe (3 agents : sécurité / archi / correctness) après que plusieurs différés du
+round 1 aient été livrés entre-temps (CSP stricte, scope asset, libellés nav, filage clavier
+Entrée/Écarter/Espace, lecture AIFF native, cache de rapport, scan hors-verrou, scrollbars).
+
+## ✅ Corrigé et mergé (round 2)
+
+**Sécurité**
+- `analyze_path` : la vérif « chemin connu » est désormais **inconditionnelle** — avant, elle
+  était sautée quand `with_spectrogram=true` ou quand le cache était le sentinelle d'échec
+  (`report_json=''`), rouvrant l'oracle de décodage de fichier arbitraire. (CRITICAL)
+- `playback_url` : ré-encode si le WAV en cache (chemin temp prévisible) est **plus vieux que
+  la source** — un fichier remplacé, ou un fichier squatté au nom prévisible, n'est plus servi
+  périmé. (SEC-001)
+- `esc()` (3 fichiers front) échappe aussi `'` → échappement complet des attributs HTML.
+
+**Correctness**
+- `loadDecoded` (lecteur AIFF) : s'interrompt à chacun de ses `await` si le morceau a changé
+  (`ws !== currentWs`) → ne `loadBlob`/`load` plus jamais sur un wavesurfer détruit (crash au
+  changement rapide de piste). (CRITICAL)
+- `openReportInto` : jeton monotone `openSeq` → une analyse lente qui résout après un changement
+  de piste n'écrase plus le pane du nouveau morceau. (HIGH)
+- `reportCache` (front) : vidé sur `analysis:changed` → un fichier ré-analysé/remplacé n'est plus
+  servi depuis le cache de session périmé (le backend/DB reste la source de vérité). (HIGH)
+- `persist_result` (worker) : une écriture DB échouée (ex. `SQLITE_BUSY`) est désormais
+  **journalisée en erreur** au lieu d'être avalée silencieusement — le morceau reste
+  `analyzed_at=NULL` et est repris au prochain refill. (HIGH, mitigation)
+
+## ⏳ Différé — round 2 (raison)
+
+1. **[ARCHI — top, toujours] Pool de connexions DB.** Le scan a sa propre `Connection` (hors du
+   `Mutex` partagé), donc l'UI ne gèle plus ; mais scan-écriture et worker-écriture peuvent
+   encore se télescoper sur `SQLITE_BUSY` (mitigé par `busy_timeout=5000` + log ci-dessus, pas
+   éliminé). Le vrai fix reste un pool r2d2 + retry/transaction. Gros changement, à faire posément.
+2. **[ARCHI] Découper `sift-live.ts`** (god-module ~520 l) — refactor de maintenabilité, risqué
+   à l'aveugle. (inchangé depuis round 1)
+3. **[QUALITÉ-AUDIO] Lecture AIFF en 16-bit pour l'aperçu.** `loadDecoded` ré-encode en WAV
+   16/44.1 pour wavesurfer → l'aperçu peut tronquer un AIFF 24-bit. C'est **voulu** (lecture
+   native demandée, pas de transcode backend ; et c'est un aperçu, pas la sortie rangée). Ne PAS
+   basculer sur un transcode backend unique sans ton aval (contredit « en natif »).
+4. **[CORRECTNESS] `clean_stem`** : le découpage d'octets du numéro de piste en tête est sûr
+   aujourd'hui (chiffres ASCII) — laissé tel quel, latent seulement.
+5. Restent ouverts du round 1 : `name_key` indexé (#4), undo des tags ré-écrits (#9), rail
+   renvoyé par le backend (#10), retrait des `#![allow(dead_code)]` (#8).
