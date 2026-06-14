@@ -1,6 +1,5 @@
 //! Per-track sub-genre list (Discogs "style"), stored ordered in `track_genres`. Replacing a
 //! track's genres is a full delete+insert so re-identifying never accumulates stale rows.
-#![allow(dead_code)]
 
 use rusqlite::{params, Connection};
 

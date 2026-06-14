@@ -1,7 +1,6 @@
 //! Metadata source abstraction. A `MetadataProvider` turns a `Query` into ranked `Candidate`s;
 //! `apply_identity` persists a chosen candidate into the DB. Discogs is the first provider
 //! (see discogs.rs); the trait keeps a future AcoustID/MusicBrainz provider a drop-in.
-#![allow(dead_code)]
 
 pub mod cover;
 pub mod discogs;
@@ -60,7 +59,7 @@ pub fn apply_identity(
          VALUES(?1,?2,?3,?4,?5,?6,?7,?8)
          ON CONFLICT(track_id) DO UPDATE SET
             artist=excluded.artist, title=excluded.title, label=excluded.label,
-            year=excluded.year, cover_path=COALESCE(excluded.cover_path, metadata.cover_path),
+            year=excluded.year, cover_path=excluded.cover_path,
             discogs_release_id=excluded.discogs_release_id, source=excluded.source",
         params![track_id, c.artist, c.title, c.label, c.year, cover_path, c.release_id, c.source],
     )?;

@@ -1,17 +1,33 @@
 //! Discogs implementation of MetadataProvider. The HTTP call (`search`) is a thin wrapper over
 //! `ureq`; the response→Candidate mapping (`parse_search`) is pure and unit-tested via a
 //! captured fixture, so the matching logic is covered without any network access.
-#![allow(dead_code)]
-
 use crate::metadata::{Candidate, MetadataProvider, ProviderError, Query};
 use serde_json::Value;
 use std::collections::HashSet;
+use std::time::Duration;
 
 const USER_AGENT: &str = concat!("Sift/", env!("CARGO_PKG_VERSION"));
+
+/// Per-request timeout: a stalled Discogs connection must never hang the IPC thread (which is
+/// where `identify` runs). ureq has no read timeout by default, so we set one explicitly.
+const HTTP_TIMEOUT: Duration = Duration::from_secs(15);
 
 /// How many top candidates get a tracklist look-up (one HTTP call each) to find the matching
 /// mix. Bounded to stay well under Discogs' 60 req/min while covering the realistic best hits.
 const TRACKLIST_PROBE: usize = 6;
+
+/// Map a ureq error to our typed ProviderError. Shared by every Discogs HTTP call so a 429
+/// (with Retry-After), a non-2xx status, and a transport failure are classified consistently.
+fn map_ureq_err(e: ureq::Error) -> ProviderError {
+    match e {
+        ureq::Error::Status(429, r) => {
+            let retry = r.header("Retry-After").and_then(|s| s.parse::<u64>().ok()).unwrap_or(60);
+            ProviderError::RateLimited { retry_after_s: retry }
+        }
+        ureq::Error::Status(code, _) => ProviderError::Network(format!("HTTP {code}")),
+        ureq::Error::Transport(t) => ProviderError::Network(t.to_string()),
+    }
+}
 
 pub struct Discogs {
     pub token: String,
@@ -176,32 +192,25 @@ impl Discogs {
     /// and simply doesn't refine that candidate (so a rate-limit on a detail call is non-fatal).
     fn fetch_tracklist(&self, release_id: &str) -> Result<Vec<String>, ProviderError> {
         let url = format!("https://api.discogs.com/releases/{release_id}");
-        let resp = ureq::get(&url)
+        let v: Value = ureq::get(&url)
+            .timeout(HTTP_TIMEOUT)
             .set("User-Agent", USER_AGENT)
             .set("Authorization", &format!("Discogs token={}", self.token))
-            .call();
-        match resp {
-            Ok(r) => {
-                let v: Value = r.into_json().map_err(|e| ProviderError::Parse(e.to_string()))?;
-                let titles = v
-                    .get("tracklist")
-                    .and_then(|x| x.as_array())
-                    .map(|a| {
-                        a.iter()
-                            .filter_map(|t| t.get("title").and_then(|x| x.as_str()))
-                            .map(|s| s.to_string())
-                            .collect()
-                    })
-                    .unwrap_or_default();
-                Ok(titles)
-            }
-            Err(ureq::Error::Status(429, r)) => {
-                let retry = r.header("Retry-After").and_then(|s| s.parse::<u64>().ok()).unwrap_or(60);
-                Err(ProviderError::RateLimited { retry_after_s: retry })
-            }
-            Err(ureq::Error::Status(code, _)) => Err(ProviderError::Network(format!("HTTP {code}"))),
-            Err(ureq::Error::Transport(t)) => Err(ProviderError::Network(t.to_string())),
-        }
+            .call()
+            .map_err(map_ureq_err)?
+            .into_json()
+            .map_err(|e| ProviderError::Parse(e.to_string()))?;
+        let titles = v
+            .get("tracklist")
+            .and_then(|x| x.as_array())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|t| t.get("title").and_then(|x| x.as_str()))
+                    .map(|s| s.to_string())
+                    .collect()
+            })
+            .unwrap_or_default();
+        Ok(titles)
     }
 }
 
@@ -216,25 +225,18 @@ impl MetadataProvider for Discogs {
         // `q` makes the title actually count and is far more forgiving.
         let search = format!("{} {}", q.artist, q.title);
         let search = search.trim();
-        let resp = ureq::get("https://api.discogs.com/database/search")
+        let v: Value = ureq::get("https://api.discogs.com/database/search")
+            .timeout(HTTP_TIMEOUT)
             .set("User-Agent", USER_AGENT)
             .set("Authorization", &format!("Discogs token={}", self.token))
             .query("type", "release")
             .query("q", search)
             .query("per_page", "8")
-            .call();
-        let cands = match resp {
-            Ok(r) => {
-                let v: Value = r.into_json().map_err(|e| ProviderError::Parse(e.to_string()))?;
-                parse_search(&v)
-            }
-            Err(ureq::Error::Status(429, r)) => {
-                let retry = r.header("Retry-After").and_then(|s| s.parse::<u64>().ok()).unwrap_or(60);
-                return Err(ProviderError::RateLimited { retry_after_s: retry });
-            }
-            Err(ureq::Error::Status(code, _)) => return Err(ProviderError::Network(format!("HTTP {code}"))),
-            Err(ureq::Error::Transport(t)) => return Err(ProviderError::Network(t.to_string())),
-        };
+            .call()
+            .map_err(map_ureq_err)?
+            .into_json()
+            .map_err(|e| ProviderError::Parse(e.to_string()))?;
+        let cands = parse_search(&v);
 
         // Refine: for the top candidates, fetch their tracklist and score how well it contains
         // the exact mix (title + version). The release that actually holds this mix wins. Detail
@@ -244,12 +246,21 @@ impl MetadataProvider for Discogs {
             if c.release_id.is_empty() {
                 continue;
             }
-            if let Ok(titles) = self.fetch_tracklist(&c.release_id) {
-                scores[i] = titles
-                    .iter()
-                    .map(|t| track_match_score(t, &q.title, q.version.as_deref()))
-                    .max()
-                    .unwrap_or(0);
+            match self.fetch_tracklist(&c.release_id) {
+                Ok(titles) => {
+                    scores[i] = titles
+                        .iter()
+                        .map(|t| track_match_score(t, &q.title, q.version.as_deref()))
+                        .max()
+                        .unwrap_or(0);
+                }
+                // Best-effort: a rate-limited/failed detail call just leaves this candidate
+                // unscored (ranking falls back to format relevance). Log the rate-limit so a
+                // sluggish search is diagnosable rather than looking like a normal result.
+                Err(ProviderError::RateLimited { .. }) => {
+                    log::warn!("Discogs tracklist rate-limited; ranking falls back to format relevance");
+                }
+                Err(_) => {}
             }
         }
         Ok(rank_by_match(cands, &scores))
@@ -372,5 +383,16 @@ mod tests {
         let scores = [0, 0];
         let ranked = rank_by_match(cands, &scores);
         assert_eq!(ranked[0].release_id, "single");
+    }
+
+    #[test]
+    fn clean_artist_strips_discogs_artifacts_but_keeps_real_parens() {
+        assert_eq!(clean_artist("Larry Heard*"), "Larry Heard");
+        assert_eq!(clean_artist("Aya (2)"), "Aya");
+        assert_eq!(clean_artist("A* B (3)"), "A B");
+        // a non-numeric parenthetical (e.g. a real suffix) is left intact
+        assert_eq!(clean_artist("Cabaret Voltaire (Live)"), "Cabaret Voltaire (Live)");
+        // multi-artist credit kept as-is, only the artifacts removed
+        assert_eq!(clean_artist("Larry Heard* / Mr Fingers"), "Larry Heard / Mr Fingers");
     }
 }

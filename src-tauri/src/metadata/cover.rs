@@ -1,9 +1,9 @@
 //! Cover-art cache. Covers are downloaded into a per-app cache dir keyed by Discogs release id
 //! so the same release isn't re-fetched. Download is best-effort: failures are non-fatal (the
 //! caller applies metadata anyway). Only the path mapping is unit-tested (no network in CI).
-#![allow(dead_code)]
 
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 /// The cache path for a release's cover. `release_id` is sanitized so it can't escape `dir`.
 pub fn cover_path(dir: &Path, release_id: &str) -> PathBuf {
@@ -24,6 +24,7 @@ pub fn download_cover(dir: &Path, release_id: &str, url: &str) -> Result<PathBuf
     }
     std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     let resp = ureq::get(url)
+        .timeout(Duration::from_secs(20))
         .set("User-Agent", concat!("Sift/", env!("CARGO_PKG_VERSION")))
         .call()
         .map_err(|e| e.to_string())?;

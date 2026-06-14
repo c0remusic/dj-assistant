@@ -48,6 +48,17 @@ pub fn apply_identity_cmd(
     track_id: i64,
     candidate: Candidate,
 ) -> Result<AppliedIdentity, String> {
+    // Gate to a known track before doing any work (network download / DB writes) — mirrors the
+    // implicit gate `identify` gets from reconcile_track, so a bogus id can't drive a fetch.
+    {
+        let conn = conn.lock().map_err(|e| e.to_string())?;
+        let known = conn
+            .query_row("SELECT 1 FROM tracks WHERE id=?1", rusqlite::params![track_id], |_| Ok(()))
+            .is_ok();
+        if !known {
+            return Err("unknown track id".into());
+        }
+    }
     let cover_path = candidate.cover_url.as_ref().and_then(|url| {
         let dir = app.path().app_cache_dir().ok()?.join("covers");
         metadata::cover::download_cover(&dir, &candidate.release_id, url)
