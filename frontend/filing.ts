@@ -704,25 +704,25 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
     })
     .catch((e) => console.error("find_duplicate failed", e));
 
-  // Analysis report (player, spectrogram) — reuses the finished report view.
-  await openReportInto(reportEl, item.path);
-  if (myseq !== openSeq) return; // a newer track was opened while we awaited
-
-  // Reconcile metadata for the editable fields + confidence badge.
-  let rail = "unknown";
-  try {
-    state.canonical = await reconcile(item.id);
-    // Tidy the casing of a version parsed from a (often lowercase) filename: "original mix"
-    // → "Original Mix". Title/artist are left as reconciled.
-    if (state.canonical.version) state.canonical.version = titleCase(state.canonical.version);
-  } catch (e) {
-    console.error("reconcile failed", e);
-    state.canonical = { artist: "", title: "", version: null, confidence: "yellow" };
-  }
+  // Analysis report and metadata reconcile are independent DB reads — run them in
+  // parallel so the footer renders as soon as both complete rather than sequentially.
+  const [, canonical] = await Promise.all([
+    openReportInto(reportEl, item.path),
+    reconcile(item.id).catch((e): Canonical => {
+      console.error("reconcile failed", e);
+      return { artist: "", title: "", version: null, confidence: "yellow" };
+    }),
+  ]);
   if (myseq !== openSeq) return;
-  // Pull the analysed rail off the rendered report (data attribute set by report-view is
-  // not available; default by extension instead).
+
+  state.canonical = canonical;
+  // Tidy the casing of a version parsed from a (often lowercase) filename: "original mix"
+  // → "Original Mix". Title/artist are left as reconciled.
+  if (state.canonical.version) state.canonical.version = titleCase(state.canonical.version);
+
+  // Default rail by extension (analysis data attribute not available cross-module).
   const ext = (item.path.split(".").pop() || "").toLowerCase();
+  let rail = "unknown";
   if (["flac", "wav", "aif", "aiff", "alac"].includes(ext)) rail = "lossless";
   else if (["mp3", "m4a", "aac", "ogg"].includes(ext)) rail = "lossy";
 

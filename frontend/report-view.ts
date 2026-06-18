@@ -490,6 +490,11 @@ export async function openReportInto(container: HTMLElement, path: string) {
 
   const name = path.split(/[\\/]/).pop() || path;
 
+  // Fire analysis immediately so the IPC round-trip to the DB runs in parallel with
+  // HTML rendering and player creation. For already-analyzed tracks this resolves in
+  // ~20ms — well before loadDecoded finishes decoding the audio file (~1-2s).
+  const analysisPromise = analyzePath(path, false);
+
   // Render the player shell immediately — audio starts loading without waiting for analysis.
   // The verdict chain stub and the spectrogram/tags body fill in async below.
   container.innerHTML =
@@ -505,9 +510,16 @@ export async function openReportInto(container: HTMLElement, path: string) {
   void mountPlayer(container, path);
 
   try {
-    const r = await analyzePath(path, false);
+    const r = await analysisPromise;
     reportCache.set(path, r);
     if (seq !== openSeq) return; // another track opened while we analysed — its destroyPlayer() already cleaned up
+
+    // Render the waveform from pre-computed peaks if audio is still decoding (getDuration()
+    // returns 0 before loadBlob completes). This gives an instant waveform display for
+    // already-analyzed tracks instead of a grey empty bar for 1-2s.
+    if (r.peaks.length && currentWs && currentWs.getDuration() === 0) {
+      currentWs.setOptions({ peaks: [r.peaks], duration: r.duration_sec || undefined });
+    }
 
     // Fill in verdict + spectrogram/tags without touching the already-running player.
     const verdictEl = container.querySelector<HTMLElement>(".sift-verdict-stub");
