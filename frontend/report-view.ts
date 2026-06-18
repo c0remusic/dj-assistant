@@ -307,13 +307,12 @@ async function mountPlayer(root: HTMLElement, r: AnalysisReport) {
 
   ensureStyles();
   destroyPlayer();
-  // Lossless files (large, served over the asset protocol) don't stream reliably through
-  // Chromium's <audio> element — the load aborts ("signal is aborted without reason") and only
-  // lossless formats were affected, never MP3. Web Audio decodes the whole file to an in-memory
-  // WAV blob (no streaming/range dependency), which is the path AIFF already used successfully.
-  // So decode all lossless up front; lossy (mp3/m4a/aac/ogg) stream fine directly.
-  const ext = (r.path.split(".").pop() || "").toLowerCase();
-  const needsDecode = ["aif", "aiff", "wav", "flac", "alac"].includes(ext);
+  // Always load audio via the Web-Audio decode path (fetch → decodeAudioData → in-memory WAV
+  // blob → loadBlob). The direct media-element load over Tauri's asset protocol
+  // (ws.load(convertFileSrc(...))) intermittently aborts with "signal is aborted without reason"
+  // for ANY format — confirmed by tracing: the decode path never aborted, the direct path aborted
+  // for mp3 AND lossless alike. loadDecoded internally falls back to a backend transcode when Web
+  // Audio can't decode a file (e.g. a corrupt/fake one).
   const ws = WaveSurfer.create({
     container,
     height: 46,
@@ -325,12 +324,7 @@ async function mountPlayer(root: HTMLElement, r: AnalysisReport) {
     duration: r.duration_sec || undefined,
   });
   currentWs = ws;
-  // `loadDecoded` (Web Audio → transcode fallback) is the robust path; the direct media-element
-  // load is faster but Chromium can't play every codec/container. AIFF always decodes; other
-  // formats try direct first and fall back to decode on error (see the error handler below).
-  let triedDecode = needsDecode;
-  if (needsDecode) void loadDecoded(ws, r.path);
-  else void ws.load(convertFileSrc(r.path));
+  void loadDecoded(ws, r.path);
 
   const setIcon = (name: string) => {
     const i = playBtn?.querySelector("i");
@@ -375,13 +369,8 @@ async function mountPlayer(root: HTMLElement, r: AnalysisReport) {
     console.error("wavesurfer error", e);
     // route to the Rust log so it shows in the dev console (webview console isn't readable here)
     void invoke("report_smoke", { ok: false, detail: `wavesurfer ${r.path}: ${String(e)}` });
-    // Direct media-element load failed (codec/container Chromium can't play) → fall back once to
-    // the Web-Audio decode path, which itself cascades to a transcode. Guard with triedDecode so
-    // a persistent failure can't loop, and only act if this ws is still the current one.
-    if (!triedDecode && ws === currentWs) {
-      triedDecode = true;
-      void loadDecoded(ws, r.path);
-    }
+    // Audio always loads via loadDecoded, which already cascades Web Audio → backend transcode,
+    // so there's nothing further to retry here — just surface the error.
   });
   playBtn?.addEventListener("click", () => void ws.playPause());
   const refreshTempo = () => {
