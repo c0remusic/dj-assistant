@@ -322,6 +322,10 @@ async function mountPlayer(root: HTMLElement, r: AnalysisReport) {
     duration: r.duration_sec || undefined,
   });
   currentWs = ws;
+  // `loadDecoded` (Web Audio → transcode fallback) is the robust path; the direct media-element
+  // load is faster but Chromium can't play every codec/container. AIFF always decodes; other
+  // formats try direct first and fall back to decode on error (see the error handler below).
+  let triedDecode = needsDecode;
   if (needsDecode) void loadDecoded(ws, r.path);
   else void ws.load(convertFileSrc(r.path));
 
@@ -368,6 +372,13 @@ async function mountPlayer(root: HTMLElement, r: AnalysisReport) {
     console.error("wavesurfer error", e);
     // route to the Rust log so it shows in the dev console (webview console isn't readable here)
     void invoke("report_smoke", { ok: false, detail: `wavesurfer ${r.path}: ${String(e)}` });
+    // Direct media-element load failed (codec/container Chromium can't play) → fall back once to
+    // the Web-Audio decode path, which itself cascades to a transcode. Guard with triedDecode so
+    // a persistent failure can't loop, and only act if this ws is still the current one.
+    if (!triedDecode && ws === currentWs) {
+      triedDecode = true;
+      void loadDecoded(ws, r.path);
+    }
   });
   playBtn?.addEventListener("click", () => void ws.playPause());
   const refreshTempo = () => {

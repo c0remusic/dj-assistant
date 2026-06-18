@@ -158,6 +158,14 @@ fn norm_tokens(s: &str) -> Vec<String> {
 /// tracklist entry that actually contains the mix name wins decisively over a plain title.
 fn track_match_score(track_title: &str, target_title: &str, target_version: Option<&str>) -> i32 {
     let track: HashSet<String> = norm_tokens(track_title).into_iter().collect();
+
+    // Everything the caller actually asked for (title + version) — used to tell wanted version
+    // keywords from unwanted ones.
+    let mut requested: HashSet<String> = norm_tokens(target_title).into_iter().collect();
+    if let Some(v) = target_version {
+        requested.extend(norm_tokens(v));
+    }
+
     let mut score = 0;
     for t in norm_tokens(target_title) {
         if track.contains(&t) {
@@ -171,7 +179,26 @@ fn track_match_score(track_title: &str, target_title: &str, target_version: Opti
             }
         }
     }
+    // Penalize a tracklist entry that carries a version keyword the caller did NOT ask for: a
+    // remix/dub/edit when we wanted the original should lose to the plain title, which otherwise
+    // ties on title tokens (this is the "remix picked instead of original" bug).
+    for t in &track {
+        if is_version_keyword(t) && !requested.contains(t) {
+            score -= 2;
+        }
+    }
     score
+}
+
+/// Tokens that mark an alternate take (remix, dub, edit…). A bare "mix"/"original" is NOT here:
+/// "Original Mix" is the canonical version and must not be penalized.
+fn is_version_keyword(t: &str) -> bool {
+    matches!(
+        t,
+        "remix" | "rmx" | "dub" | "redub" | "edit" | "reedit" | "rework" | "vip"
+            | "bootleg" | "instrumental" | "acapella" | "acappella" | "version"
+            | "reprise" | "remaster" | "remastered"
+    )
 }
 
 /// Best tracklist match for the target: the highest `track_match_score`, plus the matching
@@ -431,6 +458,17 @@ mod tests {
         let titles = vec!["Love Foolosophy".to_string(), "Love Foolosophy (Knee Deep Remix)".to_string()];
         let (_score, title) = best_track_match(&titles, "Love Foolosophy", Some("Knee Deep Remix"));
         assert_eq!(title.as_deref(), Some("Love Foolosophy (Knee Deep Remix)"));
+    }
+
+    #[test]
+    fn best_track_match_prefers_original_over_remix_when_no_version() {
+        // Local file has no version → the plain original must win over a remix that ties on title.
+        let titles = vec![
+            "Love Foolosophy (Knee Deep Remix)".to_string(),
+            "Love Foolosophy".to_string(),
+        ];
+        let (_score, title) = best_track_match(&titles, "Love Foolosophy", None);
+        assert_eq!(title.as_deref(), Some("Love Foolosophy"));
     }
 
     #[test]
