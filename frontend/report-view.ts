@@ -307,10 +307,13 @@ async function mountPlayer(root: HTMLElement, r: AnalysisReport) {
 
   ensureStyles();
   destroyPlayer();
-  // AIFF isn't playable by Chromium's <audio>, but its Web Audio engine decodes it natively —
-  // so decode AIFF in-browser and feed a WAV blob; other formats load directly.
+  // Lossless files (large, served over the asset protocol) don't stream reliably through
+  // Chromium's <audio> element — the load aborts ("signal is aborted without reason") and only
+  // lossless formats were affected, never MP3. Web Audio decodes the whole file to an in-memory
+  // WAV blob (no streaming/range dependency), which is the path AIFF already used successfully.
+  // So decode all lossless up front; lossy (mp3/m4a/aac/ogg) stream fine directly.
   const ext = (r.path.split(".").pop() || "").toLowerCase();
-  const needsDecode = ext === "aif" || ext === "aiff";
+  const needsDecode = ["aif", "aiff", "wav", "flac", "alac"].includes(ext);
   const ws = WaveSurfer.create({
     container,
     height: 46,
