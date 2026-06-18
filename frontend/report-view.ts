@@ -147,14 +147,39 @@ function row(label: string, value: string): string {
   return `<div style="display:flex;justify-content:space-between;gap:16px;padding:3px 0;border-bottom:0.5px solid var(--color-border-tertiary)"><span style="color:var(--color-text-tertiary)">${label}</span><span style="font-family:var(--font-mono);text-align:right;color:var(--color-text-secondary)">${value}</span></div>`;
 }
 
-/** The report's inner HTML (no positioning chrome). `closeBtn` adds a "fermer" button. */
-function reportHtml(r: AnalysisReport, closeBtn: boolean): string {
-  const yn = (b: boolean) => (b ? "oui" : "non");
-  const name = r.path.split(/[\\/]/).pop() || r.path;
-  // State chain. For a genuine file the declared format IS the reality, so showing both a
-  // "real quality" and the "authentic" badge is a redundant double-confirm — collapse to
-  // just [format · Authentique]. The annoncé → réel → verdict chain only appears when the
-  // reality differs from the claim (fake / grey).
+// ── HTML helpers ────────────────────────────────────────────────────────────
+
+function nameHeaderHtml(name: string, path: string, closeBtn: boolean): string {
+  return (
+    `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px">` +
+    `<img class="sift-report-cover" hidden alt="" style="width:40px;height:40px;border-radius:4px;object-fit:cover;flex:none">` +
+    `<div style="min-width:0;flex:1"><div class="sift-report-name" style="font-size:13px;font-weight:600;word-break:break-all;color:var(--color-text-primary)">${esc(name)}</div>` +
+    `<div style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;margin-top:2px">${esc(path)}</div></div>` +
+    (closeBtn ? `<button class="sift-close" style="flex:none;font-size:13px;padding:4px 10px">fermer</button>` : "") +
+    `</div>`
+  );
+}
+
+function playerRowHtml(): string {
+  return (
+    `<div style="display:flex;align-items:center;gap:12px;margin-bottom:11px;padding:8px 11px;min-height:80px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)">` +
+    `<div style="flex:none;align-self:stretch;width:62px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center">` +
+    `<button class="sift-play" title="Lecture / pause (espace)" style="flex:none;width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;padding:0"><i class="ti ti-player-play" style="font-size:13px"></i></button>` +
+    `<span class="sift-time" title="Cliquer : écoulé ⇄ restant" style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);white-space:nowrap;font-family:var(--font-mono);font-size:9px;color:var(--color-text-secondary);cursor:pointer;transition:color .15s;display:inline-flex;align-items:center;justify-content:center;gap:3px"><span class="sift-time-val">0:00 / 0:00</span></span>` +
+    `</div>` +
+    `<div class="sift-wave" style="flex:1;min-width:0;align-self:center;cursor:pointer"></div>` +
+    `<div style="flex:none;align-self:stretch;width:64px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:6px;padding:3px 0">` +
+    `<span style="font-size:8px;letter-spacing:.05em;text-transform:uppercase;color:var(--color-text-tertiary)">tempo</span>` +
+    `<div style="flex:1;min-height:0;display:flex;align-items:center;gap:4px">` +
+    `<input class="sift-tempo" type="range" min="-8" max="8" step="1" value="0" title="Tempo — double-clic = reset" aria-label="Tempo" style="writing-mode:vertical-lr;direction:rtl;width:22px;height:100%;max-height:42px">` +
+    `<span class="sift-tempo-out" style="font-family:var(--font-mono);font-size:8px;color:var(--color-text-secondary);width:22px">0%</span>` +
+    `</div>` +
+    `<button class="sift-key" title="Key-lock : le tempo ne change pas le pitch (off = varispeed)" style="border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:2px 8px;font-size:8px;letter-spacing:.05em;text-transform:uppercase">key</button>` +
+    `</div></div>`
+  );
+}
+
+function verdictChainHtml(r: AnalysisReport): string {
   const rq = realQuality(r);
   const declaredPill = `<span class="pill">${esc(r.declared_format)}${r.declared_bitrate ? " · " + r.declared_bitrate + " kbps" : ""}</span>`;
   const lab = (t: string) =>
@@ -164,66 +189,56 @@ function reportHtml(r: AnalysisReport, closeBtn: boolean): string {
     r.verdict === "ok"
       ? `${declaredPill}${verdictBadge(r.verdict)}`
       : `${lab("annoncé")}${declaredPill}${arrow}${lab("qualité réelle")}<span class="pill" style="background:${rq.bg};color:${rq.fg}">${rq.label}</span>${arrow}${verdictBadge(r.verdict)}`;
-  return `
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px">
-      <img class="sift-report-cover" hidden alt="" style="width:40px;height:40px;border-radius:4px;object-fit:cover;flex:none">
-      <div style="min-width:0;flex:1"><div class="sift-report-name" style="font-size:13px;font-weight:600;word-break:break-all;color:var(--color-text-primary)">${esc(name)}</div>
-        <div style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;margin-top:2px">${esc(r.path)}</div></div>
-      ${closeBtn ? '<button class="sift-close" style="flex:none;font-size:13px;padding:4px 10px">fermer</button>' : ""}
-    </div>
-    <div style="display:flex;align-items:center;gap:7px;margin-bottom:12px;flex-wrap:wrap;font-size:11px">${chainInner}</div>
+  return `<div style="display:flex;align-items:center;gap:7px;margin-bottom:12px;flex-wrap:wrap;font-size:11px">${chainInner}</div>`;
+}
 
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:11px;padding:8px 11px;min-height:80px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)">
-      <div style="flex:none;align-self:stretch;width:62px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center">
-        <button class="sift-play" title="Lecture / pause (espace)" style="flex:none;width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;padding:0"><i class="ti ti-player-play" style="font-size:13px"></i></button>
-        <span class="sift-time" title="Cliquer : écoulé ⇄ restant" style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);white-space:nowrap;font-family:var(--font-mono);font-size:9px;color:var(--color-text-secondary);cursor:pointer;transition:color .15s;display:inline-flex;align-items:center;justify-content:center;gap:3px"><span class="sift-time-val">0:00 / 0:00</span></span>
-      </div>
-      <div class="sift-wave" style="flex:1;min-width:0;align-self:center;cursor:pointer"></div>
-      <div style="flex:none;align-self:stretch;width:64px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:6px;padding:3px 0">
-        <span style="font-size:8px;letter-spacing:.05em;text-transform:uppercase;color:var(--color-text-tertiary)">tempo</span>
-        <div style="flex:1;min-height:0;display:flex;align-items:center;gap:4px">
-          <input class="sift-tempo" type="range" min="-8" max="8" step="1" value="0" title="Tempo — double-clic = reset" aria-label="Tempo" style="writing-mode:vertical-lr;direction:rtl;width:22px;height:100%;max-height:42px">
-          <span class="sift-tempo-out" style="font-family:var(--font-mono);font-size:8px;color:var(--color-text-secondary);width:22px">0%</span>
-        </div>
-        <button class="sift-key" title="Key-lock : le tempo ne change pas le pitch (off = varispeed)" style="border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:2px 8px;font-size:8px;letter-spacing:.05em;text-transform:uppercase">key</button>
-      </div>
-    </div>
-    <div style="margin-bottom:11px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);overflow:hidden">
-      <button class="sift-sg-toggle" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 11px;background:var(--color-background-secondary);border:none;color:var(--color-text-primary);cursor:pointer;font-size:11px;text-align:left">
-        <span style="display:flex;align-items:center;gap:8px"><span class="sift-sg-caret" style="display:inline-block;transition:transform .25s;color:var(--color-text-tertiary)">▸</span> Spectrogramme &amp; infos</span>
-        <span class="sift-sg-hint" style="font-size:11px;color:var(--color-text-info);flex:none">afficher</span>
-      </button>
-      <div class="sift-sg-body" style="max-height:0;overflow:hidden;transition:max-height .3s ease">
-        <div style="padding:8px 11px;font-size:10px;color:var(--color-text-tertiary);border-bottom:0.5px solid var(--color-border-tertiary);line-height:1.5">Déclaré <span class="pill">${esc(r.declared_format)}</span> ${r.declared_rail}${r.declared_bitrate ? " · " + r.declared_bitrate + " kbps" : ""} · coupure ${fmt(r.cutoff_hz, 0)} Hz — ${spectroCaption(r.verdict)}</div>
-        <canvas class="sift-sg" width="720" height="180" style="width:100%;display:block;background:#000"></canvas>
-        <div style="padding:9px 11px;display:grid;grid-template-columns:1fr 1fr;gap:0 28px;font-size:12px">
-          ${row("Verdict", r.verdict)}
-          ${row("Coupure", fmt(r.cutoff_hz, 0) + " Hz")}
-          ${row("Durée", fmt(r.duration_sec, 1) + " s")}
-          ${row("Canaux", String(r.channels) + (r.dual_mono ? " (dual-mono)" : ""))}
-          ${row("True-peak", fmt(r.true_peak_dbtp, 2) + " dBTP")}
-          ${row("DC offset", fmt(r.dc_offset, 5))}
-          ${row("Écrêtage", r.clip_runs + " runs / " + fmt(r.clip_pct, 2) + "%")}
-          ${row("Corrélation phase", fmt(r.phase_correlation, 3))}
-          ${row("Silence tête", r.silence_head_ms + " ms")}
-          ${row("Silence queue", r.silence_tail_ms + " ms")}
-          ${row("Tronqué", yn(r.truncated))}
-          ${row("Conteneur OK", yn(r.container_ok))}
-          ${row("Sample rate", r.sample_rate + " Hz")}
-          ${row("Peaks (couverture)", peaksCoverage(r))}
-        </div>
-      </div>
-    </div>
+function spectroAndTagsHtml(r: AnalysisReport): string {
+  const yn = (b: boolean) => (b ? "oui" : "non");
+  return (
+    `<div style="margin-bottom:11px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);overflow:hidden">` +
+    `<button class="sift-sg-toggle" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 11px;background:var(--color-background-secondary);border:none;color:var(--color-text-primary);cursor:pointer;font-size:11px;text-align:left">` +
+    `<span style="display:flex;align-items:center;gap:8px"><span class="sift-sg-caret" style="display:inline-block;transition:transform .25s;color:var(--color-text-tertiary)">▸</span> Spectrogramme &amp; infos</span>` +
+    `<span class="sift-sg-hint" style="font-size:11px;color:var(--color-text-info);flex:none">afficher</span>` +
+    `</button>` +
+    `<div class="sift-sg-body" style="max-height:0;overflow:hidden;transition:max-height .3s ease">` +
+    `<div style="padding:8px 11px;font-size:10px;color:var(--color-text-tertiary);border-bottom:0.5px solid var(--color-border-tertiary);line-height:1.5">Déclaré <span class="pill">${esc(r.declared_format)}</span> ${r.declared_rail}${r.declared_bitrate ? " · " + r.declared_bitrate + " kbps" : ""} · coupure ${fmt(r.cutoff_hz, 0)} Hz — ${spectroCaption(r.verdict)}</div>` +
+    `<canvas class="sift-sg" width="720" height="180" style="width:100%;display:block;background:#000"></canvas>` +
+    `<div style="padding:9px 11px;display:grid;grid-template-columns:1fr 1fr;gap:0 28px;font-size:12px">` +
+    row("Verdict", r.verdict) +
+    row("Coupure", fmt(r.cutoff_hz, 0) + " Hz") +
+    row("Durée", fmt(r.duration_sec, 1) + " s") +
+    row("Canaux", String(r.channels) + (r.dual_mono ? " (dual-mono)" : "")) +
+    row("True-peak", fmt(r.true_peak_dbtp, 2) + " dBTP") +
+    row("DC offset", fmt(r.dc_offset, 5)) +
+    row("Écrêtage", r.clip_runs + " runs / " + fmt(r.clip_pct, 2) + "%") +
+    row("Corrélation phase", fmt(r.phase_correlation, 3)) +
+    row("Silence tête", r.silence_head_ms + " ms") +
+    row("Silence queue", r.silence_tail_ms + " ms") +
+    row("Tronqué", yn(r.truncated)) +
+    row("Conteneur OK", yn(r.container_ok)) +
+    row("Sample rate", r.sample_rate + " Hz") +
+    row("Peaks (couverture)", peaksCoverage(r)) +
+    `</div></div></div>` +
+    `<div style="margin-bottom:4px">` +
+    `<div style="font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:var(--color-text-tertiary);margin-bottom:5px">Tags</div>` +
+    `<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 28px;font-size:12px">` +
+    row("Tags CDJ OK", yn(r.tags_cdj_ok)) +
+    row("Pochette", yn(r.has_cover)) +
+    row("Version ID3", r.id3_version || "—") +
+    `</div></div>` +
+    (r.codec_error ? `<div style="margin-top:12px;font-size:11px;color:#ff6b6b">codec error: ${esc(r.codec_error)}</div>` : "")
+  );
+}
 
-    <div style="margin-bottom:4px">
-      <div style="font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:var(--color-text-tertiary);margin-bottom:5px">Tags</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 28px;font-size:12px">
-        ${row("Tags CDJ OK", yn(r.tags_cdj_ok))}
-        ${row("Pochette", yn(r.has_cover))}
-        ${row("Version ID3", r.id3_version || "—")}
-      </div>
-    </div>
-    ${r.codec_error ? `<div style="margin-top:12px;font-size:11px;color:#ff6b6b">codec error: ${esc(r.codec_error)}</div>` : ""}`;
+/** Full report HTML (name + verdict chain + player row + spectrogram + tags). */
+function reportHtml(r: AnalysisReport, closeBtn: boolean): string {
+  const name = r.path.split(/[\\/]/).pop() || r.path;
+  return (
+    nameHeaderHtml(name, r.path, closeBtn) +
+    verdictChainHtml(r) +
+    playerRowHtml() +
+    spectroAndTagsHtml(r)
+  );
 }
 
 // One shared AudioContext for decoding formats the <audio> element can't play (AIFF).
@@ -296,8 +311,10 @@ async function loadDecoded(ws: WaveSurfer, path: string): Promise<void> {
   }
 }
 
-/** Mounts a wavesurfer player on the report's player row (varispeed tempo for now). */
-async function mountPlayer(root: HTMLElement, r: AnalysisReport) {
+/** Mounts a wavesurfer player on the report's player row (varispeed tempo for now).
+ * `peaks` and `duration` are optional hints for the initial waveform display — audio
+ * loads via the Web-Audio decode path regardless (direct asset-protocol load aborts). */
+async function mountPlayer(root: HTMLElement, path: string, peaks?: number[], duration?: number) {
   const container = root.querySelector<HTMLElement>(".sift-wave");
   const playBtn = root.querySelector<HTMLButtonElement>(".sift-play");
   const timeEl = root.querySelector<HTMLElement>(".sift-time");
@@ -307,12 +324,6 @@ async function mountPlayer(root: HTMLElement, r: AnalysisReport) {
 
   ensureStyles();
   destroyPlayer();
-  // Always load audio via the Web-Audio decode path (fetch → decodeAudioData → in-memory WAV
-  // blob → loadBlob). The direct media-element load over Tauri's asset protocol
-  // (ws.load(convertFileSrc(...))) intermittently aborts with "signal is aborted without reason"
-  // for ANY format — confirmed by tracing: the decode path never aborted, the direct path aborted
-  // for mp3 AND lossless alike. loadDecoded internally falls back to a backend transcode when Web
-  // Audio can't decode a file (e.g. a corrupt/fake one).
   const ws = WaveSurfer.create({
     container,
     height: 46,
@@ -320,11 +331,11 @@ async function mountPlayer(root: HTMLElement, r: AnalysisReport) {
     progressColor: "#8ecce8",
     cursorColor: "#FFdc82",
     normalize: true,
-    peaks: r.peaks.length ? [r.peaks] : undefined,
-    duration: r.duration_sec || undefined,
+    peaks: peaks?.length ? [peaks] : undefined,
+    duration: duration || undefined,
   });
   currentWs = ws;
-  void loadDecoded(ws, r.path);
+  void loadDecoded(ws, path);
 
   const setIcon = (name: string) => {
     const i = playBtn?.querySelector("i");
@@ -368,7 +379,7 @@ async function mountPlayer(root: HTMLElement, r: AnalysisReport) {
   ws.on("error", (e) => {
     console.error("wavesurfer error", e);
     // route to the Rust log so it shows in the dev console (webview console isn't readable here)
-    void invoke("report_smoke", { ok: false, detail: `wavesurfer ${r.path}: ${String(e)}` });
+    void invoke("report_smoke", { ok: false, detail: `wavesurfer ${path}: ${String(e)}` });
     // Audio always loads via loadDecoded, which already cascades Web Audio → backend transcode,
     // so there's nothing further to retry here — just surface the error.
   });
@@ -389,10 +400,9 @@ async function mountPlayer(root: HTMLElement, r: AnalysisReport) {
   });
 }
 
-/** Wires the player + spectrogram toggle inside `root` (scoped — no global ids). */
-function wireReport(root: HTMLElement, r: AnalysisReport) {
-  mountPlayer(root, r);
-
+/** Wires the spectrogram toggle inside `root` (extracted so it can be called
+ * independently of player mounting — used after async analysis fill-in). */
+function wireSpectrogram(root: HTMLElement, r: AnalysisReport) {
   const sg = root.querySelector<HTMLCanvasElement>(".sift-sg");
   const toggle = root.querySelector<HTMLButtonElement>(".sift-sg-toggle");
   const body = root.querySelector<HTMLElement>(".sift-sg-body");
@@ -432,6 +442,12 @@ function wireReport(root: HTMLElement, r: AnalysisReport) {
   });
 }
 
+/** Wires the player + spectrogram toggle inside `root` (scoped — no global ids). */
+function wireReport(root: HTMLElement, r: AnalysisReport) {
+  mountPlayer(root, r.path, r.peaks, r.duration_sec);
+  wireSpectrogram(root, r);
+}
+
 /** Renders the report INLINE into `container` (e.g. the Revue #mid pane). */
 export function renderReportInto(container: HTMLElement, r: AnalysisReport) {
   container.innerHTML = `<div style="flex:1;overflow:auto;padding:2px 2px 8px">${reportHtml(r, false)}</div>`;
@@ -454,27 +470,62 @@ export function clearReportCache(path?: string) {
 // user already switched tracks must not overwrite the newer content in the shared container.
 let openSeq = 0;
 
-/** Loads (no spectrogram) and renders inline into `container`. Instant when cached. */
+/** Loads (no spectrogram) and renders inline into `container`. Instant when cached.
+ *
+ * The player is mounted IMMEDIATELY from the path alone, before analysis completes.
+ * This eliminates the "player never mounts" race: the old design awaited analyzePath
+ * before mounting, and a background event bumping openSeq during that await caused the
+ * seq-guard to abort the whole render (player included). Now the seq-guard only aborts
+ * the analysis fill-in — the player is already running and stays untouched. */
 export async function openReportInto(container: HTMLElement, path: string) {
   destroyPlayer();
   ensureStyles();
   const seq = ++openSeq;
+
   const cached = reportCache.get(path);
   if (cached) {
     renderReportInto(container, cached);
     return;
   }
+
   const name = path.split(/[\\/]/).pop() || path;
-  container.innerHTML = `<div style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;color:var(--color-text-tertiary);font-size:13px"><i class="ti ti-loader-2 sift-spin"></i>Analyse de ${esc(name)}…</div>`;
+
+  // Render the player shell immediately — audio starts loading without waiting for analysis.
+  // The verdict chain stub and the spectrogram/tags body fill in async below.
+  container.innerHTML =
+    `<div style="flex:1;overflow:auto;padding:2px 2px 8px">` +
+    nameHeaderHtml(name, path, false) +
+    `<div class="sift-verdict-stub" style="display:flex;align-items:center;gap:6px;margin-bottom:12px;font-size:11px;color:var(--color-text-tertiary)">` +
+    `<i class="ti ti-loader-2 sift-spin"></i>Analyse…</div>` +
+    playerRowHtml() +
+    `<div class="sift-analysis-body" hidden></div>` +
+    `</div>`;
+
+  // Mount the player right away — path is all that is needed to start decoding audio.
+  void mountPlayer(container, path);
+
   try {
     const r = await analyzePath(path, false);
     reportCache.set(path, r);
-    if (seq !== openSeq) return; // user switched tracks while analysing — newer call owns the pane
-    renderReportInto(container, r);
+    if (seq !== openSeq) return; // another track opened while we analysed — its destroyPlayer() already cleaned up
+
+    // Fill in verdict + spectrogram/tags without touching the already-running player.
+    const verdictEl = container.querySelector<HTMLElement>(".sift-verdict-stub");
+    const bodyEl = container.querySelector<HTMLElement>(".sift-analysis-body");
+    if (verdictEl) verdictEl.outerHTML = verdictChainHtml(r);
+    if (bodyEl) {
+      bodyEl.innerHTML = spectroAndTagsHtml(r);
+      bodyEl.hidden = false;
+      wireSpectrogram(container, r);
+    }
   } catch (e) {
     console.error("analyze_path failed", e);
     if (seq !== openSeq) return;
-    container.innerHTML = `<div style="flex:1;display:flex;align-items:center;justify-content:center;color:#ff6b6b;font-size:13px">Analyse échouée : ${esc(String(e))}</div>`;
+    const verdictEl = container.querySelector<HTMLElement>(".sift-verdict-stub");
+    if (verdictEl) {
+      verdictEl.outerHTML =
+        `<div style="margin-bottom:12px;font-size:11px;color:#ff6b6b">Analyse \xe9chou\xe9e\xa0: ${esc(String(e))}</div>`;
+    }
   }
 }
 
