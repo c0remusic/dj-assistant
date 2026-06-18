@@ -232,7 +232,7 @@ let decodeCtx: AudioContext | null = null;
 /** Wrap a decoded AudioBuffer as an in-memory 16-bit PCM WAV blob (lossless container swap;
  * AIFF and WAV are both PCM). Lets wavesurfer's media element play AIFF content the browser
  * decoded natively via Web Audio. */
-function audioBufferToWav(buf: AudioBuffer): Blob {
+export function audioBufferToWav(buf: AudioBuffer): Blob {
   const numCh = buf.numberOfChannels;
   const sr = buf.sampleRate;
   const len = buf.length;
