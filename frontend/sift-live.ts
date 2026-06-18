@@ -115,7 +115,7 @@ async function renderHomeSources() {
 }
 
 /** Replaces the mockup queue list with real pending items (Revue screen). */
-async function renderQueue() {
+async function renderQueue(touchDetail = true) {
   const ql = document.getElementById("ql");
   if (!ql) return;
   let items: QueueItem[] = [];
@@ -162,13 +162,18 @@ async function renderQueue() {
   // Live destination bins + neutral detail prompt (replace the mockup's hardcoded ones).
   const fldz = document.getElementById("fldz");
   if (fldz) void refreshBins(fldz);
-  const mid = document.getElementById("mid");
-  if (mid) {
-    // auto-load the current/first pending track into the main pane + highlight its row
-    const curId = syncDetail(mid, items);
-    document.querySelectorAll(".qi.cur").forEach((n) => n.classList.remove("cur"));
-    if (curId != null) {
-      document.querySelector(`.qi[data-id="${curId}"]`)?.classList.add("cur");
+  // Only sync the detail pane on structural changes (nav, queue add/remove/file). A background
+  // ANALYSIS finishing must NOT re-open / switch the open track — that thrashes and aborts the
+  // player's audio load (waveform shows from peaks, but no sound). See touchDetail=false caller.
+  if (touchDetail) {
+    const mid = document.getElementById("mid");
+    if (mid) {
+      // auto-load the current/first pending track into the main pane + highlight its row
+      const curId = syncDetail(mid, items);
+      document.querySelectorAll(".qi.cur").forEach((n) => n.classList.remove("cur"));
+      if (curId != null) {
+        document.querySelector(`.qi[data-id="${curId}"]`)?.classList.add("cur");
+      }
     }
   }
 }
@@ -585,7 +590,9 @@ export function installLiveWiring() {
     // the next open re-fetches from the DB (the source of truth) instead of serving it stale.
     void import("./report-view").then((m) => m.clearReportCache());
     clearTimeout(t);
-    t = setTimeout(() => void renderQueue(), 300);
+    // touchDetail=false: redraw the queue list + progress only; never re-open the open track
+    // (that aborts the player's audio load).
+    t = setTimeout(() => void renderQueue(false), 300);
   });
 
   void refresh();

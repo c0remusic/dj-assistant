@@ -783,11 +783,18 @@ export function syncDetail(mid: HTMLElement, items: QueueItem[]): number | null 
   // detail into #mid, so the pane is no longer ours and must be re-rendered — but on a mere
   // queue/analysis refresh it's intact and we must NOT disrupt it (would restart playback).
   const paneIsOurs = !!mid.querySelector(".sift-fil");
-  if (state.track && items.some((it) => it.id === state.track!.id)) {
-    if (paneIsOurs) return state.track.id; // intact → leave it
-    void openFilingInto(mid, state.track); // app.js wiped it → restore the real pane
+  // If a track is open and our pane is intact, NEVER switch away from it — not even if it has
+  // left the pending list (e.g. just analysed). Switching would destroy the player mid-load and
+  // abort its audio (waveform shows from peaks, but no sound). This is the rule that keeps the
+  // user's selection stable while the background worker churns through the queue.
+  if (state.track && paneIsOurs) return state.track.id;
+  // Pane was wiped (e.g. nav back to Revue re-draws app.js's mock) but we still have a track →
+  // restore the real pane for it.
+  if (state.track) {
+    void openFilingInto(mid, state.track);
     return state.track.id;
   }
+  // No track open → load the first pending one.
   if (items.length) {
     void openFilingInto(mid, items[0]);
     return items[0].id;
