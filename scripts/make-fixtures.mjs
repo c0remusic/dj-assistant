@@ -16,6 +16,8 @@ run(["-y", "-f", "lavfi", "-i", "aevalsrc=0.3*sin(2*PI*(300+20000*t/10)*t):d=10:
 // 2) FAKE lossless: encode to 128k mp3 then back to FLAC (lowpass cliff ~16 kHz baked in)
 run(["-y", "-i", join(OUT, "real_lossless.flac"), "-b:a", "128k", join(OUT, "_tmp128.mp3")]);
 run(["-y", "-i", join(OUT, "_tmp128.mp3"), "-ac", "2", join(OUT, "fake_lossless.flac")]);
+// 2b) 48 kHz variant of the fake — exercises native-sample-rate analysis (bin→Hz mapping)
+run(["-y", "-i", join(OUT, "fake_lossless.flac"), "-ar", "48000", join(OUT, "fake_lossless_48k.flac")]);
 // 3) honest mp3 320
 run(["-y", "-i", join(OUT, "real_lossless.flac"), "-b:a", "320k", join(OUT, "real_320.mp3")]);
 // 3b) OVER-ENCODED 320: the 128k mp3 re-encoded UP to 320 (declared 320, real ~128 cutoff)

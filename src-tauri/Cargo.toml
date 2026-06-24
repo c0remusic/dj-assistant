@@ -32,6 +32,7 @@ rustfft = "6.4.1"
 lofty = "0.22.2"
 open = "5"
 rusty-chromaprint = "0.2"
+symphonia = { version = "0.5", features = ["mp3", "flac", "wav", "aiff", "isomp4", "aac", "alac"] }
 ureq = { version = "2.10", features = ["json", "tls"] }
 
 [dev-dependencies]

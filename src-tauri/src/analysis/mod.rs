@@ -92,7 +92,9 @@ pub fn analyze(path: &str, with_spectrogram: bool) -> Result<AnalysisReport, Str
     let tag = tags::read(path);
     let target_ch = if tag.channels >= 2 { 2 } else { 1 };
 
-    let sr = 44100u32;
+    // Native sample rate from the header — drives every frequency-domain accumulator so the
+    // cutoff/spectrogram map bins → Hz correctly (no resample, no hardcoded-rate skew).
+    let sr = decode::probe(path)?.sample_rate;
     let mut dc = DcAccumulator::new();
     let mut clip = ClipAccumulator::new(CLIP_THRESHOLD, CLIP_MIN_RUN);
     let mut tp = TruePeakAccumulator::new();
