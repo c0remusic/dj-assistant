@@ -166,3 +166,15 @@ export interface LibraryFilter {
   genre?: string | null;
   q?: string | null;
 }
+
+/** User-edited metadata for a filed track (Bibliothèque inline edit). Mirror of
+ * src-tauri/src/metadata/mod.rs MetadataEdit. The backend writes the file tags first,
+ * then the DB — and preserves discogs_release_id/source (a manual edit never wipes the link). */
+export interface MetadataEdit {
+  artist: string;
+  title: string;
+  label: string | null;
+  year: number | null;
+  genres: string[];
+  cover_path: string | null;
+}

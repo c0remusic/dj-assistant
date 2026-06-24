@@ -22,6 +22,7 @@ import type { DupMatch } from "../shared/contracts";
 import { open } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { openReportInto, togglePlay } from "./report-view";
+import { renderCandidates } from "./identify-shared";
 import type { Bin, Canonical, Target, QueueItem } from "../shared/contracts";
 
 const LIBRARY_ROOT = "library_root";
@@ -261,45 +262,6 @@ function updateHeaderName(mid: HTMLElement): void {
 function refreshFootButton(): void {
   const btn = document.querySelector<HTMLElement>('[data-fil="ranger"] .sift-fil-bin');
   if (btn) btn.textContent = binLabel();
-}
-
-/** Build the cover thumbnail (or placeholder) for a candidate row. */
-function candCoverHtml(c: Candidate): string {
-  if (c.cover_url) {
-    return `<img src="${esc(c.cover_url)}" alt="" class="sift-cand-noart" loading="lazy">`;
-  }
-  return '<span class="sift-cand-noart"><i class="ti ti-vinyl" style="font-size:18px;color:var(--color-text-tertiary)"></i></span>';
-}
-
-/** Render one candidate button row. */
-function candRowHtml(c: Candidate, idx: number): string {
-  // [I3] drop styles from the sub-line — they clutter pressing-identification scanning
-  // (shown as genre chips after applying; keep label, year, country, format)
-  const sub = [c.label, c.year != null ? String(c.year) : null, c.country, c.format]
-    .filter(Boolean)
-    .join(" · ");
-  return (
-    `<button class="sift-cand" data-cand="${idx}">` +
-    candCoverHtml(c) +
-    `<span class="sift-cand-meta"><span>${esc(c.artist)} — ${esc(c.title)}</span>` +
-    (sub ? `<small>${esc(sub)}</small>` : "") +
-    `</span></button>`
-  );
-}
-
-/** Render candidates into the host container. */
-function renderCandidates(host: HTMLElement, list: Candidate[], isError = false): void {
-  if (list.length === 0) {
-    // [m10] neutral "no results" message — no warning styling
-    host.innerHTML = '<div class="sift-cands-msg">Rien sur Discogs.</div>';
-    return;
-  }
-  const [first, ...rest] = list;
-  // [I4] "N autres résultats" with a chevron and interactive affordance
-  const moreHtml = rest.length
-    ? `<details class="sift-cand-more"><summary class="sift-cand-more-summary">▸ ${rest.length} autre${rest.length > 1 ? "s" : ""} résultat${rest.length > 1 ? "s" : ""}</summary>${rest.map((c, i) => candRowHtml(c, i + 1)).join("")}</details>`
-    : "";
-  host.innerHTML = candRowHtml(first, 0) + moreHtml;
 }
 
 /** Apply an identity result to the editing fields + filename preview.

@@ -26,7 +26,7 @@ import type {
   LibraryFacets,
   LibraryFilter,
 } from "../shared/contracts";
-import { openReportInto } from "./report-view";
+import { openLibraryDetailInto } from "./library-detail";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -587,7 +587,7 @@ async function renderBiblioLive() {
       const link = t.discogs_release_id
         ? `<button class="lk" data-bib="link" data-rid="${esc(t.discogs_release_id)}" aria-label="Fiche Discogs"><i class="ti ti-external-link" style="font-size:13px;color:var(--color-text-tertiary)"></i></button>`
         : `<button class="lk" data-bib="identify" data-id="${t.id}" aria-label="Identifier"><i class="ti ti-search" style="font-size:12px;color:var(--color-text-tertiary)"></i></button>`;
-      return `<div class="lr" data-bib="row" data-id="${t.id}"><button class="pb" data-bib="play" data-id="${t.id}" aria-label="Écouter"><i class="ti ti-player-play" style="font-size:12px"></i></button><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</span>${verdictBadge(t.verdict)}${qualPill(t)}<span style="flex:none;width:40px;text-align:right;font-family:var(--font-mono);color:var(--color-text-tertiary)">${fmtDur(t.duration)}</span>${link}</div>`;
+      return `<div class="lr" data-bib="row" data-id="${t.id}"><button class="pb" data-bib="play" data-id="${t.id}" aria-label="Écouter"><i class="ti ti-player-play" style="font-size:12px"></i></button><span class="bib-name" style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</span>${verdictBadge(t.verdict)}${qualPill(t)}<span style="flex:none;width:40px;text-align:right;font-family:var(--font-mono);color:var(--color-text-tertiary)">${fmtDur(t.duration)}</span>${link}</div>`;
     })
     .join("");
 
@@ -610,6 +610,33 @@ async function renderBiblioLive() {
     clearTimeout((q as unknown as { _t?: number })._t);
     (q as unknown as { _t?: number })._t = window.setTimeout(() => void renderBiblioLive(), 250);
   });
+}
+
+/** Display name for a library row (artist — title, else filename). Mirrors the row template. */
+function bibName(t: LibraryTrack): string {
+  return t.artist && t.title ? `${t.artist} — ${t.title}` : t.path.split(/[\\/]/).pop() || t.path;
+}
+
+/** Open the unified detail/edit panel for a filed track into #bibplayer, highlighting its row.
+ * On save, patch the row label in place (player stays alive); on delete, re-render the list. */
+function openBiblioDetail(id: number): void {
+  const t = bibState.tracks.find((x) => x.id === id);
+  const host = document.getElementById("bibplayer");
+  if (!t || !host) return;
+  document.querySelectorAll(".lr.cur").forEach((n) => n.classList.remove("cur"));
+  document.querySelector(`.lr[data-id="${id}"]`)?.classList.add("cur");
+  openLibraryDetailInto(
+    host,
+    t,
+    (updated) => {
+      // Keep the in-memory list + the visible row label in sync without a full re-render.
+      const i = bibState.tracks.findIndex((x) => x.id === updated.id);
+      if (i >= 0) bibState.tracks[i] = updated;
+      const span = document.querySelector(`.lr[data-id="${updated.id}"] .bib-name`);
+      if (span) span.textContent = bibName(updated);
+    },
+    () => void renderBiblioLive(),
+  );
 }
 
 export function installLiveWiring() {
@@ -690,11 +717,9 @@ export function installLiveWiring() {
       } else if (act === "link") {
         const rid = bibEl.dataset.rid;
         if (rid) void openUrl(`https://www.discogs.com/release/${rid}`);
-      } else if (act === "play") {
-        const id = Number(bibEl.dataset.id);
-        const t = bibState.tracks.find((x) => x.id === id);
-        const host = document.getElementById("bibplayer");
-        if (t && host) void openReportInto(host, t.path);
+      } else if (act === "play" || act === "row" || act === "identify") {
+        // Open the unified detail/edit panel (report + inline editor + identify + actions).
+        openBiblioDetail(Number(bibEl.dataset.id));
       }
       return;
     }

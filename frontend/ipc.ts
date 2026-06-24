@@ -18,6 +18,7 @@ import type {
   LibraryTrack,
   LibraryFacets,
   LibraryFilter,
+  MetadataEdit,
 } from "../shared/contracts";
 
 export const appInfo = (): Promise<AppInfo> => invoke("app_info");
@@ -183,3 +184,8 @@ export const listLibrary = (filter?: LibraryFilter): Promise<LibraryTrack[]> =>
 /** Folder + genre facet counts for the Bibliothèque sidebar. */
 export const libraryFolders = (): Promise<LibraryFacets> =>
   invoke("library_folders");
+
+/** Edit a filed track's metadata: writes the file tags first, then the DB. Preserves the
+ * Discogs release link. Rejects (DB untouched) if the file write fails. */
+export const updateMetadata = (trackId: number, edit: MetadataEdit): Promise<void> =>
+  invoke("update_metadata", { trackId, edit });
