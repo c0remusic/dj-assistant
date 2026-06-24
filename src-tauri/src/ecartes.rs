@@ -32,7 +32,8 @@ pub fn list_ecartes(conn: &Connection) -> rusqlite::Result<Vec<EcarteItem>> {
         "SELECT id, path, filename, status, verdict, truncated
          FROM tracks WHERE status IN ('resourcing','trash') ORDER BY id",
     )?;
-    let rows: Vec<(i64, String, Option<String>, String, Option<String>, Option<i64>)> = stmt
+    type EcarteRow = (i64, String, Option<String>, String, Option<String>, Option<i64>);
+    let rows: Vec<EcarteRow> = stmt
         .query_map([], |r| {
             Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?))
         })?

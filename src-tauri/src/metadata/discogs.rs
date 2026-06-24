@@ -121,7 +121,7 @@ pub fn parse_search(v: &Value) -> Vec<Candidate> {
     // puts a "Mixed"/"Compilation" CD above the actual single/12". Stable sort by a format-based
     // relevance keeps Discogs order within ties, so the best match is the real release; the rest
     // stay available under "autres".
-    out.sort_by(|a, b| format_relevance(b).cmp(&format_relevance(a)));
+    out.sort_by_key(|b| std::cmp::Reverse(format_relevance(b)));
     out
 }
 

@@ -4,6 +4,7 @@
 //! 1. **Fake lossless** — declared FLAC/WAV/AIFF but the spectrum shows a lossy lowpass cliff.
 //! 2. **Over-encoded lossy** — declared e.g. 320 kbps MP3 but the cutoff is far below what
 //!    that bitrate produces → it was re-encoded UP from a lower-quality source.
+//!
 //! An honestly-labelled low-bitrate MP3 (cutoff matches its bitrate) stays `Ok` here — its
 //! "below the user's quality threshold" handling is a separate axis (M4 rules).
 

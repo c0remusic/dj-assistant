@@ -126,7 +126,8 @@ mod tests {
         let conn = db();
         let applied = apply_identity(&conn, 1, &sample(), Some("/cache/12345.jpg".into())).unwrap();
 
-        let (artist, label, year, cover, rel, src): (String, Option<String>, Option<i64>, Option<String>, Option<String>, Option<String>) =
+        type MetaRow = (String, Option<String>, Option<i64>, Option<String>, Option<String>, Option<String>);
+        let (artist, label, year, cover, rel, src): MetaRow =
             conn.query_row(
                 "SELECT artist, label, year, cover_path, discogs_release_id, source FROM metadata WHERE track_id=1",
                 [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)),

@@ -114,8 +114,7 @@ pub fn init(app: &AppHandle) {
     let n = std::thread::available_parallelism()
         .map(|n| n.get())
         .unwrap_or(2)
-        .min(4)
-        .max(1);
+        .clamp(1, 4);
     let worker = AnalysisWorker {
         inner: Arc::new((
             Mutex::new(Queue {
@@ -219,8 +218,7 @@ fn persist_result(app: &AppHandle, id: i64, path: &str, result: Result<AnalysisR
 }
 
 fn worker_loop(app: AppHandle, inner: Arc<(Mutex<Queue>, Condvar)>) {
-    loop {
-        let Some(id) = pop(&inner) else { break };
+    while let Some(id) = pop(&inner) {
         if let Some(path) = read_path(&app, id) {
             // Heavy work runs WITHOUT holding the DB lock — UI stays responsive.
             let result = analysis::analyze(&path, false);
