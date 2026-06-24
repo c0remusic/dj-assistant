@@ -1,0 +1,205 @@
+# Ressources externes & veille technique — Sift
+
+> Veille des libs / outils / API utiles à Sift, classée par jalon, avec **statut**
+> (mûr / jeune / référence-only) et liens. Inclut deux évaluations menées le
+> 2026-06-24 : **test Symphonia vs FFmpeg** et **étude chromaprint-next vs
+> rusty-chromaprint**.
+>
+> Rappel pile : Tauri v2 (Rust), FFmpeg via `ffmpeg-sidecar` (bundlé), SQLite
+> (`rusqlite`), `rustfft`, `lofty`, `rusty-chromaprint`, `ureq`. MSRV projet =
+> Rust 1.77.2.
+
+---
+
+## M2 — Analyseur / détection de faux lossless ⭐
+
+Feature signature. Le gros du gisement est dans l'algorithme de détection.
+
+- **[Audio Fake Detector PRO](https://github.com/alessandrocomito/audiofakedetectorpro)**
+  — open source, alternative gratuite à *Fakin' The Funk*. **Algo étudiable** et
+  directement transposable : découpe en segments → inspection bitmap du
+  spectrogramme par segment → **vote majoritaire** → + validation **auCDtect**
+  (analyse PCM statistique) pour les lossless. _Statut : référence + code à lire
+  avant d'écrire M2._
+- **[auCDtect](https://thewelltemperedcomputer.com/SW/AudioTools/Detect.htm)** —
+  validation statistique d'authenticité lossless (référence historique).
+- **[Fakin' The Funk](https://fakinthefunk.net/en/)** /
+  **[Spek / Fabl](https://www.fabl.app/tools/audio-quality-checker)** —
+  concurrents/références pour calibrer le **verdict UX**. _Référence-only._
+- Principe technique commun : repérer la **coupure de fréquence** (frequency
+  cutoff) qui trahit un encodage lossy planqué dans un WAV/FLAC. Côté Sift, c'est
+  `rustfft` (déjà en deps) sur des trames PCM.
+
+## M3 — Décodage / waveform / analyse
+
+- **[Symphonia](https://github.com/pdeljanov/Symphonia)** — décodage audio **pur
+  Rust** (FLAC, MP3, AAC, ALAC, WAV, AIFF, OGG…). _Statut : mûr, évalué ci-dessous
+  → **adopter pour le chemin d'analyse**._
+- **[bpm-finder-tools](https://crates.io/crates/bpm-finder-tools)** — détection
+  BPM en Rust. _Statut : à évaluer si le BPM entre dans le scope._
+- _(Détection de tonalité / key : **hors scope**, décidé le 2026-06-24.)_
+
+## M5 — Empreinte / dédoublonnage / identification
+
+- **[rusty-chromaprint](https://crates.io/crates/rusty-chromaprint)** — **déjà en
+  dépendance** (`0.2`). Pur Rust, sur crates.io. Marche pour l'algo par défaut.
+- **[chromaprint-next](https://github.com/attilagyorffy/chromaprint-next)** —
+  alternative pur Rust **bit-identique** à la lib C. _Voir étude ci-dessous._
+- **[Chromaprint / AcoustID (réf C)](https://github.com/acoustid/chromaprint)** —
+  implémentation de référence + service d'identification en ligne.
+
+## Export Rekordbox (partie historiquement la plus pénible)
+
+- **[rbox](https://crates.io/crates/rbox)** — Rust, **lit ET écrit** le XML
+  Rekordbox + One Library + fichiers d'analyse. _Statut : candidat n°1 pour
+  « pousser des playlists »._
+- **[rekordcrate](https://github.com/Holzhaus/rekordcrate)** — Rust, parse les
+  exports device CDJ/XDJ (PDB + ANLZ + XML). _Statut : solide mais ⚠️ « heavy
+  development », API susceptible de casser._
+- **[pyrekordbox](https://pypi.org/project/pyrekordbox/)** — Python ; précieux
+  comme **doc vivante des formats** Rekordbox même si non utilisé. _Référence-only._
+
+## Renommage Discogs
+
+- **[API Discogs](https://www.discogs.com/developers/)**. À intégrer dès le design :
+  - **60 req/min** (authentifié clé+secret) vs **25 req/min** (anonyme).
+  - **User-agent unique obligatoire** pour obtenir le quota max.
+  - Lire les headers `X-Discogs-Ratelimit`, `-Used`, `-Remaining` pour throttler
+    (fenêtre glissante de 60 s).
+  - Flux de matching : `/search` → `/master` (le plus canonique pour titre/année)
+    → `/release` pour le détail.
+  - Token utilisateur requis seulement pour les ressources privées (collection,
+    inventaire) — inutile pour du simple lookup de metadata.
+
+---
+
+## Évaluation 1 — Symphonia vs FFmpeg (2026-06-24)
+
+**Question** : remplacer/compléter le sidecar FFmpeg par Symphonia (pur Rust,
+in-process) pour le **chemin d'analyse** (décodage → PCM → `rustfft` / peaks /
+empreinte).
+
+**Méthode** : projet jetable hors-repo (`~/Desktop/sift-symphonia-probe`,
+`symphonia 0.5` features mp3/flac/wav/aiff/aac/alac, build `--release`). Décodage
+intégral en `f32`, mesure du wall-time (run à chaud). Comparé à
+`ffmpeg -v error -i <f> -f null -` (décode tout, jette la sortie), bundlé Sift.
+Fichiers : 2 vrais morceaux + fixtures du repo.
+
+| Fichier | Durée | Symphonia | FFmpeg (incl. spawn) |
+|---|---|---|---|
+| Vrai FLAC | 5:44 (344 s) | 276 ms | **163 ms** |
+| Vrai MP3 | 8:29 (509 s) | 710 ms | **632 ms** |
+| Fixture FLAC | 10 s | **5,3 ms** | 67 ms |
+| Fixture MP3 | 10 s | **9,2 ms** | 73 ms |
+
+**Constats**
+- FFmpeg gagne ~1,2–1,7× en **débit brut** sur les longs fichiers, mais paie un
+  **coût fixe ~60 ms de spawn process par fichier** (visible sur les fixtures
+  courtes où Symphonia est 8–12× plus rapide).
+- En valeur absolue, décoder un morceau de 5–8 min coûte 0,2–0,7 s aux deux : non
+  bloquant.
+- Symphonia a décodé **correctement** tous les fichiers (sample rate, canaux,
+  durée, peak, somme des magnitudes plausibles).
+- Symphonia sort des **`f32` directement en mémoire** → branchement direct sur
+  `rustfft` (déjà en deps). La voie FFmpeg impose spawn + pipe PCM `f32le` sur
+  stdout + parsing (le `-f null` du bench ne pipe même pas les données).
+- Symphonia est **decode-only** : **pas d'encodage**. FFmpeg reste **obligatoire**
+  pour la conversion au format CDJ (étape « ranger »).
+
+**Recommandation : architecture hybride.**
+- **Garder FFmpeg sidecar** pour la **conversion CDJ** (Symphonia ne sait pas
+  encoder) — il est de toute façon déjà bundlé.
+- **Adopter Symphonia pour le chemin de lecture/analyse** (décode → PCM →
+  `rustfft` / peaks / alimentation empreinte) :
+  - pas de coût de spawn répété sur une biblio de milliers de fichiers (scan) ;
+  - `f32` direct, intégration propre avec `rustfft`, zéro pipe/parsing fragile ;
+  - pur Rust, multiplateforme, pas d'IPC.
+  Le déficit de débit brut (~100 ms sur un long fichier) est négligeable face au
+  gain de spawn + à la simplicité d'intégration.
+
+**À garder en tête** : Symphonia 0.6 est sorti (testé en 0.5 pour stabilité API) ;
+FFmpeg reste plus robuste sur fichiers exotiques/cassés (fallback utile).
+
+> Projet de test conservé à `~/Desktop/sift-symphonia-probe` (hors repo, jetable —
+> supprimable). Code du probe : `src/main.rs`.
+
+---
+
+## Évaluation 2 — chromaprint-next vs rusty-chromaprint (2026-06-24)
+
+**Contexte** : Sift dépend **déjà** de `rusty-chromaprint 0.2`. La vraie question
+n'est donc pas « ajouter chromaprint-next » mais « **faut-il migrer ?** ».
+
+**Findings (chromaprint-next)**
+- Pur Rust, **bit-identique** à la lib C de référence sur **les 5 variantes**
+  d'algo (vérifié côte-à-côte), **~4 % plus rapide** (269 vs 258 Melem/s @ 120 s).
+- vs `rusty-chromaprint` : ce dernier marche pour l'algo par défaut **mais**
+  utilise un resampler différent, **ne reproduit pas certains bugs C nécessaires à
+  la compatibilité avec la base**, et a des **presets incomplets sur 3 des 5
+  variantes**.
+- ⚠️ **Distribution** : uniquement en **dépendance git + submodules**
+  (`clone --recursive`), pas un simple crate versionné crates.io comme
+  rusty-chromaprint → friction de build/CI Win+Mac.
+- ⚠️ **Licence** : **MIT AND LGPL-2.1-or-later** (le resampler est un port LGPL de
+  `av_resample` de FFmpeg). OK pour une app desktop, mais à noter.
+- MSRV : non documentée (à vérifier vs 1.77.2 avant adoption).
+
+**Décision pilotée par l'usage de l'empreinte**
+- **Dédoublonnage strictement local** (comparer les fichiers de la biblio entre
+  eux) → seule la **cohérence interne** compte, pas la compatibilité bit-à-bit
+  avec la base C. → **Rester sur `rusty-chromaprint`** (déjà en place, crates.io,
+  zéro friction).
+- **Identification via le service AcoustID en ligne** → la base AcoustID a été
+  construite avec la lib C (bugs compris). Le **bit-identique de chromaprint-next
+  améliore le taux de match**. → Envisager la migration, **après un spike** qui
+  valide MSRV + build git/submodules en CI Win+Mac + licence.
+
+**Recommandation** : ne pas migrer maintenant. Verrouiller d'abord si M5 vise
+l'AcoustID en ligne ou seulement le dédoublonnage local. Si online → spike
+chromaprint-next ; sinon → statu quo.
+
+---
+
+## Veille concurrente — MediaMonkey (2026-06-24)
+
+Gestionnaire de biblio musicale ([mediamonkey.com](https://www.mediamonkey.com/)),
+voisin de Sift. Ce qu'il fait et comment :
+
+| Brique | MediaMonkey | Technique |
+|---|---|---|
+| Auto-tag | Metadata + artwork manquants | Empreinte acoustique → lookup **MusicBrainz** (fingerprint envoyé au serveur) |
+| Doublons | Détecte/supprime | **MD5** → seulement les fichiers **octet-identiques** |
+| Auto-organize | Déplace/renomme | **DSL de masks** déclaratif, déclenché à l'ajout/édition |
+| Conversion | Compat appareils | À la volée |
+| Stockage | Biblio 100k+ | **SQLite** (comme Sift) |
+
+**3 enseignements pour Sift :**
+
+1. **Dédoublonnage = différenciateur.** MediaMonkey ne fait que du **MD5**
+   (octet-identique) → rate « même morceau, bitrate/encodage différent », le cas DJ.
+   Le plan Sift (**Chromaprint**) détecte ces quasi-doublons → avantage produit à
+   mettre en avant. Confirme le choix M5.
+2. **Voler le DSL de masks** pour le renommage/rangement (Discogs). Éprouvé,
+   transposable — en prendre une **version réduite** (pas le couteau suisse) :
+   - Tokens : `<Artist>`, `<Album>`, `<Title>`, `<Track#:2>` (zero-pad), `<Year>`,
+     `<BPM>`, regroupement alpha `<Artist@3>`.
+   - Fonctions : `$If(crit,oui,non)`, `$Replace(s,a,b)`, `$RemovePrefix("The")`,
+     `$Left/$Right/$Mid`, `$Upper/$Lower`.
+   - Ex. : `C:\Music\<Artist>\<Album>\<Track#:2> - <Title>`.
+3. **MusicBrainz vs Discogs pour M5.** MediaMonkey identifie par **fingerprint →
+   MusicBrainz** (lié à AcoustID). **Discogs n'a pas de service d'empreinte**
+   (matching texte) mais excelle sur pressages/électronique/vinyle. → Archi
+   possible : **empreinte → MusicBrainz pour *identifier*, Discogs pour
+   *enrichir/renommer***.
+
+---
+
+## Écarté
+
+- **Qdrant / vector DB** (et l'annuaire `qdrant.tech/documentation/frameworks/`) —
+  écarté le 2026-06-24. Les tâches moteur de Sift (détection spectrale, empreinte
+  Chromaprint comparée en Hamming, metadata Discogs) ne sont pas des problèmes de
+  similarité vectorielle. ANN inutile à l'échelle d'une biblio perso ; serveur
+  requis → casse l'esprit offline/léger. Si un jour « trouve-moi des morceaux qui
+  *sonnent* pareil » (embeddings audio), préférer `sqlite-vec` (in-process) à
+  Qdrant.
