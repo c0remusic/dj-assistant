@@ -13,6 +13,7 @@ import {
   listEcartes,
   trashTrack,
   restoreTrack,
+  requeueTrack,
   purgeTrash,
   openUrl,
   getSetting,
@@ -256,7 +257,7 @@ async function renderEcartes() {
           it,
         )}</div>${fileLine(it)}</div>${ecReason(
           it,
-        )}<button class="lk" data-ec="trash" data-id="${it.id}" title="Envoyer à la corbeille"><i class="ti ti-trash" style="font-size:12px;color:var(--color-text-tertiary)"></i></button></div><div style="margin-top:5px;display:flex;flex-wrap:wrap;align-items:center;gap:4px"><button data-ec="slsk" data-q="${esc(
+        )}<button class="lk" data-ec="requeue" data-id="${it.id}" title="Remettre dans la file à traiter"><i class="ti ti-arrow-back-up" style="font-size:13px;color:var(--color-text-tertiary)"></i></button><button class="lk" data-ec="trash" data-id="${it.id}" title="Envoyer à la corbeille"><i class="ti ti-trash" style="font-size:12px;color:var(--color-text-tertiary)"></i></button></div><div style="margin-top:5px;display:flex;flex-wrap:wrap;align-items:center;gap:4px"><button data-ec="slsk" data-q="${esc(
           ecSlsk(it),
         )}" title="Copier « Artiste Titre » pour rechercher sur Soulseek" style="font-size:10px;padding:2px 7px;color:var(--color-text-secondary)"><i class="ti ti-copy" style="font-size:10px;vertical-align:-1px"></i> Copier le nom</button><span style="color:var(--color-border-secondary)">·</span>${ecStoreLinks(
           it,
@@ -685,6 +686,8 @@ export function installLiveWiring() {
         void trashTrack(id).then(renderEcartes).catch((err) => console.error("trash failed", err));
       } else if (act === "restore") {
         void restoreTrack(id).then(renderEcartes).catch((err) => console.error("restore failed", err));
+      } else if (act === "requeue") {
+        void requeueTrack(id).then(renderEcartes).catch((err) => console.error("requeue failed", err));
       } else if (act === "purge") {
         void purgeTrash().then(renderEcartes).catch((err) => console.error("purge failed", err));
       } else if (act === "store") {

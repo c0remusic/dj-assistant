@@ -26,6 +26,44 @@ pub struct EcarteItem {
     pub title: String,
 }
 
+/// The stored identity (Discogs match or manual edit) for a track, when a `metadata` row exists
+/// with a non-empty artist or title. Preferred over `reconcile_track` in Écartés so an
+/// identified track keeps its real name instead of falling back to a messy filename: the
+/// Discogs identity lives only in the DB (apply_identity doesn't rewrite a pending file's tags),
+/// and reconcile reads only tags + filename.
+fn stored_identity(conn: &Connection, track_id: i64) -> Option<(String, String)> {
+    conn.query_row(
+        "SELECT COALESCE(artist,''), COALESCE(title,'') FROM metadata WHERE track_id=?1",
+        params![track_id],
+        |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)),
+    )
+    .ok()
+    .filter(|(a, t)| !a.is_empty() || !t.is_empty())
+}
+
+/// Put a re-sourcing track back into the queue (`status='pending'`) and mark its `reject`
+/// action undone — the inverse of `reject_track`, for an Écartés misclick. Errors (and changes
+/// nothing) if the track isn't currently re-sourcing.
+pub fn requeue_track(conn: &Connection, track_id: i64) -> Result<(), String> {
+    let status: String = conn
+        .query_row("SELECT status FROM tracks WHERE id=?1", params![track_id], |r| r.get(0))
+        .map_err(|e| match e {
+            rusqlite::Error::QueryReturnedNoRows => "unknown track".to_string(),
+            o => o.to_string(),
+        })?;
+    if status != "resourcing" {
+        return Err(format!("track is not re-sourcing (status={status})"));
+    }
+    conn.execute(
+        "UPDATE actions SET undone=1 WHERE track_id=?1 AND type='reject' AND undone=0",
+        params![track_id],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute("UPDATE tracks SET status='pending' WHERE id=?1", params![track_id])
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 /// All rejected/trashed tracks, oldest first.
 pub fn list_ecartes(conn: &Connection) -> rusqlite::Result<Vec<EcarteItem>> {
     let mut stmt = conn.prepare(
@@ -40,10 +78,11 @@ pub fn list_ecartes(conn: &Connection) -> rusqlite::Result<Vec<EcarteItem>> {
         .collect::<rusqlite::Result<_>>()?;
     let mut out = Vec::with_capacity(rows.len());
     for (id, path, filename, status, verdict, truncated) in rows {
-        let (artist, title) = match filing::reconcile_track(conn, id) {
-            Ok(c) => (c.artist, c.title),
-            Err(_) => (String::new(), String::new()),
-        };
+        // Prefer the stored identity (Discogs/manual edit); fall back to reconcile (tags + name)
+        // only when no metadata row exists — so identifying a track then écarting it keeps its name.
+        let (artist, title) = stored_identity(conn, id)
+            .or_else(|| filing::reconcile_track(conn, id).ok().map(|c| (c.artist, c.title)))
+            .unwrap_or_default();
         out.push(EcarteItem {
             id,
             path,
@@ -149,6 +188,51 @@ mod tests {
         assert_eq!(items[0].verdict.as_deref(), Some("fake"));
         assert_eq!(items[1].status, "trash");
         assert!(items[1].truncated);
+    }
+
+    #[test]
+    fn list_prefers_stored_identity_over_reconcile() {
+        // An identified track (metadata row) écarté should show its Discogs name in Écartés,
+        // not the reconcile fallback from a messy filename.
+        let conn = db();
+        conn.execute(
+            "INSERT INTO tracks(id, path, filename, status) VALUES(1,'C:/x/01_audio_320.mp3','01_audio_320.mp3','resourcing')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO metadata(track_id, artist, title) VALUES(1,'Larry Heard','Mystery Of Love')",
+            [],
+        )
+        .unwrap();
+
+        let items = list_ecartes(&conn).unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].artist, "Larry Heard");
+        assert_eq!(items[0].title, "Mystery Of Love");
+    }
+
+    #[test]
+    fn requeue_resets_resourcing_to_pending_and_undoes_reject() {
+        let conn = db();
+        conn.execute("INSERT INTO tracks(id, path, status) VALUES(1,'C:/x/a.mp3','resourcing')", []).unwrap();
+        crate::actions::record(&conn, "b1", Some(1), "reject", Some("C:/x/a.mp3"), None).unwrap();
+
+        requeue_track(&conn, 1).unwrap();
+
+        let status: String = conn.query_row("SELECT status FROM tracks WHERE id=1", [], |r| r.get(0)).unwrap();
+        assert_eq!(status, "pending");
+        let live: i64 = conn
+            .query_row("SELECT count(*) FROM actions WHERE track_id=1 AND type='reject' AND undone=0", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(live, 0, "the reject action is marked undone");
+    }
+
+    #[test]
+    fn requeue_refuses_non_resourcing_track() {
+        let conn = db();
+        conn.execute("INSERT INTO tracks(id, path, status) VALUES(1,'C:/x/a.mp3','trash')", []).unwrap();
+        assert!(requeue_track(&conn, 1).is_err(), "only re-sourcing tracks can be re-queued");
     }
 
     #[test]

@@ -236,6 +236,23 @@ fn rank_by_match(cands: Vec<Candidate>, scores: &[i32]) -> Vec<Candidate> {
 impl Discogs {
     /// Fetch a release's tracklist titles. Best-effort: the caller treats Err as "no tracklist"
     /// and simply doesn't refine that candidate (so a rate-limit on a detail call is non-fatal).
+    /// One Discogs full-text release search for `q_str`, mapped to ranked Candidates. The
+    /// HTTP call is factored out so `search` can issue a primary query and a title-only retry.
+    fn search_query(&self, q_str: &str) -> Result<Vec<Candidate>, ProviderError> {
+        let v: Value = ureq::get("https://api.discogs.com/database/search")
+            .timeout(HTTP_TIMEOUT)
+            .set("User-Agent", USER_AGENT)
+            .set("Authorization", &format!("Discogs token={}", self.token))
+            .query("type", "release")
+            .query("q", q_str)
+            .query("per_page", "8")
+            .call()
+            .map_err(map_ureq_err)?
+            .into_json()
+            .map_err(|e| ProviderError::Parse(e.to_string()))?;
+        Ok(parse_search(&v))
+    }
+
     fn fetch_tracklist(&self, release_id: &str) -> Result<Vec<String>, ProviderError> {
         let url = format!("https://api.discogs.com/releases/{release_id}");
         let v: Value = ureq::get(&url)
@@ -269,20 +286,20 @@ impl MetadataProvider for Discogs {
         // artist+track filters: Discogs' `track` filter matches a release's tracklist and is
         // unreliable (combined with `artist` it often returns nothing even on an exact title).
         // `q` makes the title actually count and is far more forgiving.
-        let search = format!("{} {}", q.artist, q.title);
-        let search = search.trim();
-        let v: Value = ureq::get("https://api.discogs.com/database/search")
-            .timeout(HTTP_TIMEOUT)
-            .set("User-Agent", USER_AGENT)
-            .set("Authorization", &format!("Discogs token={}", self.token))
-            .query("type", "release")
-            .query("q", search)
-            .query("per_page", "8")
-            .call()
-            .map_err(map_ureq_err)?
-            .into_json()
-            .map_err(|e| ProviderError::Parse(e.to_string()))?;
-        let mut cands = parse_search(&v);
+        let primary = format!("{} {}", q.artist, q.title);
+        let primary = primary.trim();
+        log::info!("Discogs search q={primary:?}");
+        let mut cands = self.search_query(primary)?;
+
+        // Fallback: a combined "artist title" query returns nothing when the reconciled artist is
+        // polluted (messy download filenames) or differs from Discogs' credit. Retry with the
+        // title alone — far more forgiving — so an existing release isn't missed. Only when we
+        // actually had a distinct artist (else the title-only query equals the primary).
+        if cands.is_empty() && !q.artist.trim().is_empty() && !q.title.trim().is_empty() {
+            let title = q.title.trim();
+            log::info!("Discogs: 0 results for {primary:?}, retrying title-only {title:?}");
+            cands = self.search_query(title)?;
+        }
 
         // Refine: for the top candidates, fetch their tracklist and score how well it contains
         // the exact mix (title + version). The release that actually holds this mix wins. Detail

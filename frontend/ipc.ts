@@ -125,6 +125,10 @@ export const listEcartes = (): Promise<EcarteItem[]> => invoke("list_ecartes");
 export const restoreTrack = (trackId: number): Promise<void> =>
   invoke("restore_track", { trackId });
 
+/** Put a re-sourcing track back into the queue (undo a "Re-sourcer" misclick). */
+export const requeueTrack = (trackId: number): Promise<void> =>
+  invoke("requeue_track", { trackId });
+
 /** Permanently empty the bin. Returns how many tracks were purged. */
 export const purgeTrash = (): Promise<number> => invoke("purge_trash");
 

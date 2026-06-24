@@ -219,6 +219,21 @@ pub fn restore_track(
     Ok(())
 }
 
+/// Put a re-sourcing track back into the queue (undo a "Re-sourcer" misclick).
+#[tauri::command]
+pub fn requeue_track(
+    app: AppHandle,
+    conn: State<'_, Mutex<Connection>>,
+    track_id: i64,
+) -> Result<(), String> {
+    {
+        let conn = conn.lock().map_err(|e| e.to_string())?;
+        ecartes::requeue_track(&conn, track_id)?;
+    }
+    app.emit("queue:changed", ()).ok();
+    Ok(())
+}
+
 /// Permanently empty the bin (delete trashed files). Returns how many were purged.
 #[tauri::command]
 pub fn purge_trash(app: AppHandle, conn: State<'_, Mutex<Connection>>) -> Result<usize, String> {

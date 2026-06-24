@@ -88,6 +88,7 @@ pub fn run() {
             ipc_filing::set_setting,
             ipc_filing::list_ecartes,
             ipc_filing::restore_track,
+            ipc_filing::requeue_track,
             ipc_filing::purge_trash,
             ipc_filing::find_duplicate,
             ipc_identify::identify,
