@@ -11,6 +11,7 @@ mod genres;
 mod ipc;
 mod ipc_filing;
 mod ipc_identify;
+mod ipc_library;
 mod library;
 mod metadata;
 mod naming;
@@ -90,7 +91,9 @@ pub fn run() {
             ipc_filing::purge_trash,
             ipc_filing::find_duplicate,
             ipc_identify::identify,
-            ipc_identify::apply_identity_cmd
+            ipc_identify::apply_identity_cmd,
+            ipc_library::list_library,
+            ipc_library::library_folders
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
