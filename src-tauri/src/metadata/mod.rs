@@ -9,6 +9,39 @@ use serde::{Deserialize, Serialize};
 use crate::naming::{Canonical, Confidence};
 use rusqlite::{params, Connection};
 
+/// User-edited metadata fields for a filed track (Bibliothèque inline edit).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MetadataEdit {
+    pub artist: String,
+    pub title: String,
+    pub label: Option<String>,
+    pub year: Option<i64>,
+    pub genres: Vec<String>,
+    pub cover_path: Option<String>,
+}
+
+/// DB-only part (unit-tested): upsert the editable metadata fields + replace genres.
+/// Preserves `discogs_release_id` and `source` — a manual edit must not wipe the release link.
+/// On INSERT (no prior metadata row) those columns stay NULL.
+pub fn update_metadata_db(conn: &Connection, track_id: i64, e: &MetadataEdit) -> rusqlite::Result<()> {
+    conn.execute(
+        "INSERT INTO metadata(track_id, artist, title, label, year, cover_path)
+         VALUES(?1,?2,?3,?4,?5,?6)
+         ON CONFLICT(track_id) DO UPDATE SET
+            artist=excluded.artist,
+            title=excluded.title,
+            label=excluded.label,
+            year=excluded.year,
+            cover_path=CASE WHEN excluded.cover_path IS NOT NULL THEN excluded.cover_path ELSE cover_path END",
+        params![track_id, e.artist, e.title, e.label, e.year, e.cover_path],
+    )?;
+    crate::genres::set_genres(conn, track_id, &e.genres)?;
+    if e.cover_path.is_some() {
+        conn.execute("UPDATE tracks SET has_cover=1 WHERE id=?1", params![track_id])?;
+    }
+    Ok(())
+}
+
 /// What we search for: the track's current best-guess artist/title, plus the version
 /// (remix/dub) used to pick the matching release among a release's tracklist.
 pub struct Query {
@@ -173,5 +206,83 @@ mod tests {
         let json = serde_json::to_string(&c).unwrap();
         let back: Candidate = serde_json::from_str(&json).unwrap();
         assert_eq!(c, back);
+    }
+
+    #[test]
+    fn update_metadata_db_preserves_release_link_and_replaces_genres() {
+        let conn = db();
+        // Seed a metadata row that already has a Discogs release link.
+        conn.execute(
+            "INSERT INTO metadata(track_id, artist, title, discogs_release_id, source)
+             VALUES(1,'Old Artist','Old Title','999','discogs')",
+            [],
+        )
+        .unwrap();
+        crate::genres::set_genres(&conn, 1, &["Old".into()]).unwrap();
+
+        let edit = MetadataEdit {
+            artist: "New Artist".into(),
+            title: "New Title".into(),
+            label: Some("Trax".into()),
+            year: Some(1990),
+            genres: vec!["House".into(), "Deep House".into()],
+            cover_path: None,
+        };
+        update_metadata_db(&conn, 1, &edit).unwrap();
+
+        type Row = (String, String, Option<String>, Option<i64>, Option<String>, Option<String>);
+        let (artist, title, label, year, rel_id, source): Row = conn
+            .query_row(
+                "SELECT artist, title, label, year, discogs_release_id, source FROM metadata WHERE track_id=1",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)),
+            )
+            .unwrap();
+
+        assert_eq!(artist, "New Artist");
+        assert_eq!(title, "New Title");
+        assert_eq!(label.as_deref(), Some("Trax"));
+        assert_eq!(year, Some(1990));
+        // Release link must survive the manual edit.
+        assert_eq!(rel_id.as_deref(), Some("999"), "discogs_release_id must be preserved");
+        assert_eq!(source.as_deref(), Some("discogs"), "source must be preserved");
+
+        let genres = crate::genres::get_genres(&conn, 1).unwrap();
+        assert_eq!(genres, vec!["House".to_string(), "Deep House".to_string()]);
+    }
+
+    #[test]
+    fn update_metadata_db_insert_path_leaves_release_null() {
+        let conn = db();
+        // No prior metadata row — INSERT path.
+        let edit = MetadataEdit {
+            artist: "Chez Damier".into(),
+            title: "Can You Feel It".into(),
+            label: Some("KMS".into()),
+            year: Some(1992),
+            genres: vec!["House".into()],
+            cover_path: None,
+        };
+        update_metadata_db(&conn, 1, &edit).unwrap();
+
+        type Row = (String, String, Option<String>, Option<i64>, Option<String>, Option<String>);
+        let (artist, title, label, year, rel_id, source): Row = conn
+            .query_row(
+                "SELECT artist, title, label, year, discogs_release_id, source FROM metadata WHERE track_id=1",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)),
+            )
+            .unwrap();
+
+        assert_eq!(artist, "Chez Damier");
+        assert_eq!(title, "Can You Feel It");
+        assert_eq!(label.as_deref(), Some("KMS"));
+        assert_eq!(year, Some(1992));
+        // No prior Discogs data → these stay NULL on INSERT.
+        assert!(rel_id.is_none(), "discogs_release_id should be NULL on first insert");
+        assert!(source.is_none(), "source should be NULL on first insert");
+
+        let genres = crate::genres::get_genres(&conn, 1).unwrap();
+        assert_eq!(genres, vec!["House".to_string()]);
     }
 }
