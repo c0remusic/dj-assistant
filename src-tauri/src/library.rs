@@ -140,7 +140,7 @@ pub fn list_filed(
             bpm,
             year,
             label,
-            genres: crate::genres::get_genres(conn, id).unwrap_or_default(),
+            genres: crate::genres::get_genres(conn, id)?,
             discogs_release_id: rel,
             cover_path,
             has_cover: has_cover.unwrap_or(0) != 0,
