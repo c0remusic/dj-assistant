@@ -15,6 +15,9 @@ import type {
   Target,
   EcarteItem,
   DupMatch,
+  LibraryTrack,
+  LibraryFacets,
+  LibraryFilter,
 } from "../shared/contracts";
 
 export const appInfo = (): Promise<AppInfo> => invoke("app_info");
@@ -170,3 +173,13 @@ export const identify = (trackId: number): Promise<Candidate[]> =>
 /** Apply a chosen candidate: writes tags + downloads cover. Returns the applied identity. */
 export const applyIdentity = (trackId: number, candidate: Candidate): Promise<AppliedIdentity> =>
   invoke("apply_identity_cmd", { trackId, candidate });
+
+// ---- M6b library browser (mirror of ipc_library.rs) ----
+
+/** Filed tracks for the Bibliothèque list, with optional filters. */
+export const listLibrary = (filter?: LibraryFilter): Promise<LibraryTrack[]> =>
+  invoke("list_library", { filter: filter ?? null });
+
+/** Folder + genre facet counts for the Bibliothèque sidebar. */
+export const libraryFolders = (): Promise<LibraryFacets> =>
+  invoke("library_folders");

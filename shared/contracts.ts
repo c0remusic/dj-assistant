@@ -135,3 +135,34 @@ export interface JournalEntry {
   to_path: string | null;
   ts: string;
 }
+
+// ---- M6b library browser (mirror of library.rs) ----
+
+export interface LibraryTrack {
+  id: number;
+  path: string;
+  artist: string | null;
+  title: string | null;
+  format: string | null;
+  bitrate: number | null;
+  duration: number | null;
+  bpm: number | null;
+  year: number | null;
+  label: string | null;
+  genres: string[];
+  discogs_release_id: string | null;
+  cover_path: string | null;
+  has_cover: boolean;
+  verdict: string | null;
+  folder: string | null;
+}
+
+export interface LibraryFolder { name: string; count: number; }
+export interface LibraryFacets { folders: LibraryFolder[]; genres: LibraryFolder[]; }
+
+export interface LibraryFilter {
+  folder?: string | null;
+  quality?: "lossless" | "mp3" | null;
+  genre?: string | null;
+  q?: string | null;
+}
