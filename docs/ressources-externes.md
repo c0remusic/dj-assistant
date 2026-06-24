@@ -196,6 +196,12 @@ voisin de Sift. Ce qu'il fait et comment :
 
 ## Écarté
 
+- **SoundTouch.js (key-lock M3)** — écarté le 2026-06-24. Le key-lock actuel utilise
+  le time-stretch natif du navigateur (`preservesPitch` via l'élément `<audio>` de
+  WaveSurfer v7), suffisant pour le nudge DJ ±8 %. WaveSurfer v7 n'a plus de backend
+  WebAudio lecture → SoundTouch imposerait de ré-architecturer toute la lecture
+  (play/pause/seek/curseur) en Web Audio pour un gain marginal à ce ratio. À
+  reconsidérer seulement si on veut du stretch « pro » à gros ratios.
 - **Qdrant / vector DB** (et l'annuaire `qdrant.tech/documentation/frameworks/`) —
   écarté le 2026-06-24. Les tâches moteur de Sift (détection spectrale, empreinte
   Chromaprint comparée en Hamming, metadata Discogs) ne sont pas des problèmes de

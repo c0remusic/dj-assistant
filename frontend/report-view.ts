@@ -311,7 +311,10 @@ async function loadDecoded(ws: WaveSurfer, path: string): Promise<void> {
   }
 }
 
-/** Mounts a wavesurfer player on the report's player row (varispeed tempo for now).
+/** Mounts a wavesurfer player on the report's player row. Tempo uses the browser's native
+ * time-stretch (`preservesPitch`) for key-lock — adequate for the ±8% DJ nudge; SoundTouch.js
+ * was evaluated and skipped (would require re-architecting playback to Web Audio for marginal
+ * gain at this range). See docs/ressources-externes.md.
  * `peaks` and `duration` are optional hints for the initial waveform display — audio
  * loads via the Web-Audio decode path regardless (direct asset-protocol load aborts). */
 async function mountPlayer(root: HTMLElement, path: string, peaks?: number[], duration?: number) {
