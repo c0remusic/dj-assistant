@@ -391,8 +391,8 @@ function injectLeanStyle() {
   st.textContent =
     // landing/demo copy in index.html: marketing pitch, demo disclaimer, feature cards row
     ".pitch,.sub,.frow{display:none!important}" +
-    // unbuilt nav tabs (Biblio, Rekordbox, Clé USB) — Écartés + Réglages are live now
-    '#nav .nv[data-view="biblio"],#nav .nv[data-view="rkb"],#nav .nv[data-view="cle"]{display:none!important}' +
+    // unbuilt nav tabs (Rekordbox, Clé USB = M7) — Accueil/Revue/Écartés/Réglages/Bibliothèque are live
+    '#nav .nv[data-view="rkb"],#nav .nv[data-view="cle"]{display:none!important}' +
     // Revue: batch mode + "traités" toggle aren't wired to the real backend yet
     '[data-act="revmode"],[data-act="togglequeue"]{display:none!important}' +
     // custom frameless titlebar (decorations are off in tauri.conf — Tauri only)
