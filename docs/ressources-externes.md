@@ -194,8 +194,35 @@ voisin de Sift. Ce qu'il fait et comment :
 
 ---
 
+## Veille UX — design d'interface (2026-06-24)
+
+- **[Designing user-friendly interfaces — a practical guide for putting people first](https://medium.com/design-bootcamp/designing-user-friendly-interfaces-a-practical-guide-for-putting-people-first-272a51cee37a)**
+  (Medium / Design Bootcamp). _Statut : référence — checklist UX à appliquer au
+  frontend Sift._ Principes retenus, mappés aux **gaps repérés sur Sift** :
+  1. **Éviter les boutons icon-only** : la nav et les lignes (play / lien Discogs /
+     identifier) n'ont que des icônes → ajouter **labels + `title` + `aria-label`**.
+  2. **Microcopy** : nos erreurs IPC sont des chaînes techniques (`NO_TOKEN`,
+     `NoLibraryRoot`…) → **humaniser** (messages, états vides, confirmations).
+  3. **Accessibilité** : contraste, **navigation clavier** au-delà des raccourcis
+     existants (Space/Enter/X/I en Revue).
+  4. **Cohérence** (design system vivant via les `--color-*`), **simplicité**
+     (1 action primaire par écran), **but clair par écran**, **états de chargement**
+     (skeleton / waveform instantanée déjà en place).
+  > À traiter dans la passe design du M6b Lot 2 (détail unifié) puis Lot 5 (audit
+  > de conformité). Voir spec `docs/superpowers/specs/2026-06-24-m6b-library-design.md`.
+
+---
+
 ## Écarté
 
+- **[vykee.co](https://vykee.co)** — écarté le 2026-06-24. SDK SaaS d'**onboarding
+  produit cloud** (tours guidés, checklists, divulgation progressive servis depuis
+  un service tiers). **Incompatible avec l'ADN de Sift** : gratuit, offline-first,
+  100 % local, un seul binaire — pas de dépendance réseau ni de tiers pour l'UI.
+  **Garder l'idée** de **divulgation progressive** (progressive disclosure : ne
+  montrer que ce qui est pertinent au moment T, déplier le reste à la demande) mais
+  l'**implémenter nativement** dans le frontend (comme le repli spectrogramme /
+  « N autres résultats » déjà en place), jamais via un service externe.
 - **SoundTouch.js (key-lock M3)** — écarté le 2026-06-24. Le key-lock actuel utilise
   le time-stretch natif du navigateur (`preservesPitch` via l'élément `<audio>` de
   WaveSurfer v7), suffisant pour le nudge DJ ±8 %. WaveSurfer v7 n'a plus de backend
