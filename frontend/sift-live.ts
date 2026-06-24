@@ -667,6 +667,37 @@ export function installLiveWiring() {
       }
       return;
     }
+    // Bibliothèque actions (quality chips / facet toggle / folder|genre pick / Discogs link / play)
+    const bibEl = (e.target as HTMLElement).closest<HTMLElement>("[data-bib]");
+    if (bibEl) {
+      const act = bibEl.dataset.bib;
+      if (act === "qual") {
+        const q = bibEl.dataset.q;
+        bibState.filter.quality = q === "all" ? undefined : (q as "lossless" | "mp3");
+        void renderBiblioLive();
+      } else if (act === "facet") {
+        bibState.facet = bibEl.dataset.f === "genre" ? "genre" : "folder";
+        void renderBiblioLive();
+      } else if (act === "pick") {
+        const key = bibEl.dataset.key as "folder" | "genre";
+        const val = bibEl.dataset.val;
+        // toggle off if re-clicking the active facet value
+        const cur = key === "folder" ? bibState.filter.folder : bibState.filter.genre;
+        const next = cur === val ? undefined : val;
+        bibState.filter.folder = key === "folder" ? next : undefined;
+        bibState.filter.genre = key === "genre" ? next : undefined;
+        void renderBiblioLive();
+      } else if (act === "link") {
+        const rid = bibEl.dataset.rid;
+        if (rid) void openUrl(`https://www.discogs.com/release/${rid}`);
+      } else if (act === "play") {
+        const id = Number(bibEl.dataset.id);
+        const t = bibState.tracks.find((x) => x.id === id);
+        const host = document.getElementById("bibplayer");
+        if (t && host) void openReportInto(host, t.path);
+      }
+      return;
+    }
     const el = (e.target as HTMLElement).closest<HTMLElement>("[data-sift]");
     if (!el) return;
     const act = el.dataset.sift;
