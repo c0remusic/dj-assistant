@@ -44,6 +44,7 @@ interface RevueState {
   bins: Bin[];
   binRel: string | null; // selected destination ("" = root, relative to root otherwise)
   creating: boolean; // "+ nouveau" inline input open
+  binFilter: string; // folder search text (empty = show the full tree)
   track: QueueItem | null; // currently open track
   canonical: Canonical | null; // reconciled (then user-edited) metadata
   target: Target | null; // format override (null = backend rail default)
@@ -55,6 +56,7 @@ const state: RevueState = {
   bins: [],
   binRel: null,
   creating: false,
+  binFilter: "",
   track: null,
   canonical: null,
   target: null,
@@ -94,12 +96,15 @@ async function pickRoot(fldz: HTMLElement): Promise<void> {
   }
 }
 
-/** Create a new bin under the current selection (or root) and select it. */
+/** Create a new bin under the current selection (or root when nothing is selected) and select
+ * it. Nested creation: the parent is the folder currently highlighted, so "+ nouveau" while
+ * "House" is selected makes "House/<name>". */
 async function makeBin(fldz: HTMLElement, name: string): Promise<void> {
-  const parent = ""; // M4-4b: create at root level; nested creation can come later
+  const parent = state.binRel ?? ""; // "" = root; otherwise nest under the selected folder
   try {
     const bin = await createBin(parent, name);
     await loadBins();
+    if (parent) expanded.add(parent); // reveal the freshly-created child
     state.binRel = bin.rel;
     state.creating = false;
     renderBins(fldz);
@@ -117,6 +122,15 @@ const expanded = new Set<string>();
 function rootName(): string {
   if (!state.rootPath) return "Bibliothèque";
   return state.rootPath.split(/[\\/]/).filter(Boolean).pop() || state.rootPath;
+}
+
+/** Absolute filesystem path of a bin (for the hover tooltip — "where on disk does this go?"),
+ * using the library root's own path separator. */
+function absPath(rel: string): string {
+  const root = state.rootPath ?? "";
+  if (!rel) return root || rootName();
+  const sep = root.includes("\\") ? "\\" : "/";
+  return `${root}${sep}${rel.replace(/\//g, sep)}`;
 }
 
 /** Human label for the current destination selection. */
@@ -147,17 +161,37 @@ function binNodeHtml(node: { rel: string; name: string; depth: number }): string
       }">▸</span>`
     : '<span style="display:inline-block;width:14px;flex:none"></span>';
   const icon = node.depth === 0 ? "ti-database" : "ti-folder";
+  // Explicit highlight for the selected destination (don't rely on inherited .on CSS): tinted
+  // background + an info-coloured folder icon + medium weight so the active bin is unmistakable.
+  const sel = on
+    ? "background:var(--color-background-info);border-radius:var(--border-radius-sm,4px)"
+    : "";
+  const iconColor = on ? "var(--color-text-info)" : "var(--color-text-tertiary)";
+  const weight = on ? "font-weight:500;" : "";
   let html = `<div class="fld${on}" data-fil="bin" data-rel="${esc(node.rel)}" title="${esc(
-    node.rel || node.name,
-  )}" style="padding-left:${6 + indent}px;display:flex;align-items:center;gap:4px">${caret}<i class="ti ${icon}" style="font-size:13px;flex:none;color:var(--color-text-tertiary)"></i><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(
+    absPath(node.rel),
+  )}" style="${sel};${weight}padding-left:${6 + indent}px;display:flex;align-items:center;gap:4px">${caret}<i class="ti ${icon}" style="font-size:13px;flex:none;color:${iconColor}"></i><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(
     node.name,
   )}</span></div>`;
   if (kids.length && isOpen) html += kids.map(binNodeHtml).join("");
   return html;
 }
 
-/** Render the destination column (#fldz): root picker when unset, else a collapsible
- * folder tree (top-level always shown, sub-folders behind a caret toggle). */
+/** Flat selectable row for the filtered view: shows the full relative path so the location is
+ * obvious without the tree context, with the same highlight + absolute-path tooltip as the tree. */
+function flatBinHtml(b: Bin): string {
+  const on = b.rel === state.binRel ? " on" : "";
+  const sel = on ? "background:var(--color-background-info);border-radius:var(--border-radius-sm,4px);" : "";
+  const color = on ? "var(--color-text-info)" : "var(--color-text-tertiary)";
+  return `<div class="fld${on}" data-fil="bin" data-rel="${esc(b.rel)}" title="${esc(
+    absPath(b.rel),
+  )}" style="${sel}padding:3px 6px;display:flex;align-items:center;gap:5px"><i class="ti ti-folder" style="font-size:13px;flex:none;color:${color}"></i><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(
+    b.rel,
+  )}</span></div>`;
+}
+
+/** Render the destination column (#fldz): root picker when unset, else a folder filter + either
+ * the collapsible tree (no filter) or a flat list of matching folders (filter active). */
 export function renderBins(fldz: HTMLElement): void {
   if (!state.rootSet) {
     fldz.innerHTML =
@@ -169,17 +203,60 @@ export function renderBins(fldz: HTMLElement): void {
     return;
   }
 
-  const tree = binNodeHtml({ rel: "", name: rootName(), depth: 0 });
-  const emptyNote =
-    state.bins.length === 0 && expanded.has("")
-      ? '<div style="font-size:10px;color:var(--color-text-tertiary);padding:2px 0 2px 33px">vide — crée un dossier</div>'
-      : "";
+  const filtering = state.binFilter.trim().length > 0;
 
-  const newRow = state.creating
-    ? '<input data-fil="newin" placeholder="nom du dossier…" style="width:100%;font-size:12px;padding:5px 7px;margin-top:2px">'
-    : '<div class="fld" data-fil="newbin" style="color:var(--color-text-tertiary)"><i class="ti ti-plus" style="font-size:14px"></i> nouveau</div>';
+  // Folder filter (only worth showing once there are sub-folders to sift through).
+  const filterRow = state.bins.length
+    ? `<input data-fil="binfilter" placeholder="Filtrer les dossiers…" value="${esc(
+        state.binFilter,
+      )}" style="width:100%;font-size:11px;padding:4px 7px;margin-bottom:6px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);color:var(--color-text-primary);box-sizing:border-box">`
+    : "";
 
-  fldz.innerHTML = tree + emptyNote + newRow;
+  let body: string;
+  if (filtering) {
+    // Flat list of matches (path or name contains the query), case-insensitive.
+    const q = state.binFilter.trim().toLowerCase();
+    const matches = state.bins.filter(
+      (b) => b.rel.toLowerCase().includes(q) || b.name.toLowerCase().includes(q),
+    );
+    body = matches.length
+      ? matches.map(flatBinHtml).join("")
+      : '<div style="font-size:10px;color:var(--color-text-tertiary);padding:4px 0">Aucun dossier ne correspond.</div>';
+  } else {
+    const tree = binNodeHtml({ rel: "", name: rootName(), depth: 0 });
+    const emptyNote =
+      state.bins.length === 0 && expanded.has("")
+        ? '<div style="font-size:10px;color:var(--color-text-tertiary);padding:2px 0 2px 33px">vide — crée un dossier</div>'
+        : "";
+    body = tree + emptyNote;
+  }
+
+  // "+ nouveau" creates under the selected folder (nested). Hidden while filtering.
+  const nestLabel = state.binRel ? ` dans ${binLabel()}` : "";
+  const newRow = filtering
+    ? ""
+    : state.creating
+      ? `<input data-fil="newin" placeholder="${esc(
+          state.binRel ? `dossier dans ${binLabel()}…` : "nom du dossier…",
+        )}" style="width:100%;font-size:12px;padding:5px 7px;margin-top:2px;box-sizing:border-box">`
+      : `<div class="fld" data-fil="newbin" style="color:var(--color-text-tertiary)"><i class="ti ti-plus" style="font-size:14px"></i> nouveau${esc(
+          nestLabel,
+        )}</div>`;
+
+  fldz.innerHTML = filterRow + body + newRow;
+
+  // Re-render on every keystroke loses focus — restore it (caret at end) while filtering.
+  if (filtering) {
+    const fi = fldz.querySelector<HTMLInputElement>('[data-fil="binfilter"]');
+    if (fi && document.activeElement !== fi) {
+      fi.focus();
+      fi.setSelectionRange(fi.value.length, fi.value.length);
+    }
+  }
+  fldz.querySelector<HTMLInputElement>('[data-fil="binfilter"]')?.addEventListener("input", (e) => {
+    state.binFilter = (e.target as HTMLInputElement).value;
+    renderBins(fldz);
+  });
 
   fldz.querySelectorAll<HTMLElement>('[data-fil="caret"]').forEach((el) =>
     el.addEventListener("click", (e) => {
