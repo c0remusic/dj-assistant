@@ -27,6 +27,7 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 ffmpeg-sidecar = "2.5.0"
 walkdir = "2.5.0"
 tauri-plugin-dialog = "2.7.1"
+tauri-plugin-single-instance = "2"
 notify-debouncer-full = "0.6.0"
 rustfft = "6.4.1"
 lofty = "0.22.2"
