@@ -17,8 +17,16 @@ import {
   openUrl,
   getSetting,
   setSetting,
+  listLibrary,
+  libraryFolders,
 } from "./ipc";
-import type { EcarteItem } from "../shared/contracts";
+import type {
+  EcarteItem,
+  LibraryTrack,
+  LibraryFacets,
+  LibraryFilter,
+} from "../shared/contracts";
+import { openReportInto } from "./report-view";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -34,6 +42,14 @@ import type { Source, QueueItem } from "../shared/contracts";
 // Latest live queue items, kept so a queue-row click can recover the full item (id +
 // verdict) the filing pane needs.
 let currentItems: QueueItem[] = [];
+
+// Bibliothèque browser state: active filter, which facet column (folder/genre) is shown,
+// and the last fetched track list (so a row-click can recover the track's path).
+const bibState: { filter: LibraryFilter; facet: "folder" | "genre"; tracks: LibraryTrack[] } = {
+  filter: {},
+  facet: "folder",
+  tracks: [],
+};
 
 const VERDICT_DOT: Record<string, [string, string]> = {
   ok: ["#5cc97a", "authentique"],
@@ -509,11 +525,99 @@ async function renderReglagesLive() {
   });
 }
 
+function fmtDur(sec: number | null): string {
+  if (!sec || sec <= 0) return "—";
+  const m = Math.floor(sec / 60),
+    s = Math.round(sec % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+function qualPill(t: LibraryTrack): string {
+  const f = (t.format || "?").toUpperCase();
+  return `<span class="pill" style="flex:none">${esc(f)}</span>`;
+}
+function verdictBadge(v: string | null): string {
+  if (v === "fake")
+    return `<span class="pill" style="background:var(--color-background-danger);color:var(--color-text-danger);flex:none">faux</span>`;
+  if (v === "grey")
+    return `<span class="pill" style="background:var(--color-background-warning);color:var(--color-text-warning);flex:none">?</span>`;
+  return "";
+}
+
+/** Live Bibliothèque view: lists filed tracks with search + quality chips + folder/genre
+ * facets, wired to real data. Actions go through the #pa delegated handler (data-bib). */
+async function renderBiblioLive() {
+  const content = document.getElementById("content");
+  if (!content) return;
+  let facets: LibraryFacets = { folders: [], genres: [] };
+  try {
+    [bibState.tracks, facets] = await Promise.all([
+      listLibrary(bibState.filter),
+      libraryFolders(),
+    ]);
+  } catch (e) {
+    console.error("library load failed", e);
+    return;
+  }
+
+  const chips = (["all", "lossless", "mp3"] as const)
+    .map((q) => {
+      const on = (bibState.filter.quality ?? "all") === q;
+      const label = q === "all" ? "Tous" : q === "lossless" ? "Lossless" : "MP3";
+      return `<span class="chip${on ? " on" : ""}" data-bib="qual" data-q="${q}">${label}</span>`;
+    })
+    .join("");
+
+  const facetList = bibState.facet === "folder" ? facets.folders : facets.genres;
+  const sideKey = bibState.facet === "folder" ? "folder" : "genre";
+  const activeFacetVal = bibState.facet === "folder" ? bibState.filter.folder : bibState.filter.genre;
+  const side =
+    `<div style="display:flex;gap:4px;margin-bottom:8px">` +
+    `<span class="chip${bibState.facet === "folder" ? " on" : ""}" data-bib="facet" data-f="folder">Dossiers</span>` +
+    `<span class="chip${bibState.facet === "genre" ? " on" : ""}" data-bib="facet" data-f="genre">Genres</span></div>` +
+    facetList
+      .map(
+        (b) =>
+          `<div class="fld${activeFacetVal === b.name ? " on" : ""}" data-bib="pick" data-key="${sideKey}" data-val="${esc(b.name)}" style="justify-content:space-between"><span>${esc(b.name)}</span><span style="font-size:11px;opacity:.7">${b.count}</span></div>`,
+      )
+      .join("");
+
+  const rows = bibState.tracks
+    .map((t) => {
+      const name = esc(t.artist && t.title ? `${t.artist} — ${t.title}` : t.path.split(/[\\/]/).pop() || t.path);
+      const link = t.discogs_release_id
+        ? `<button class="lk" data-bib="link" data-rid="${esc(t.discogs_release_id)}" aria-label="Fiche Discogs"><i class="ti ti-external-link" style="font-size:13px;color:var(--color-text-tertiary)"></i></button>`
+        : `<button class="lk" data-bib="identify" data-id="${t.id}" aria-label="Identifier"><i class="ti ti-search" style="font-size:12px;color:var(--color-text-tertiary)"></i></button>`;
+      return `<div class="lr" data-bib="row" data-id="${t.id}"><button class="pb" data-bib="play" data-id="${t.id}" aria-label="Écouter"><i class="ti ti-player-play" style="font-size:12px"></i></button><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</span>${verdictBadge(t.verdict)}${qualPill(t)}<span style="flex:none;width:40px;text-align:right;font-family:var(--font-mono);color:var(--color-text-tertiary)">${fmtDur(t.duration)}</span>${link}</div>`;
+    })
+    .join("");
+
+  const header =
+    `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">` +
+    `<div style="flex:1;display:flex;align-items:center;gap:7px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:6px 10px"><i class="ti ti-search" style="font-size:14px;color:var(--color-text-tertiary)"></i><input id="bibq" placeholder="Rechercher…" value="${esc(bibState.filter.q || "")}" style="flex:1;border:0;background:transparent;color:inherit;font-size:12px;outline:none"></div>` +
+    chips +
+    `</div>`;
+
+  content.innerHTML =
+    header +
+    `<div style="display:flex;gap:14px"><div style="width:150px;flex:none"><div class="col-h">Bibliothèque</div>${side}</div>` +
+    `<div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:13px;font-weight:500">${esc(activeFacetVal || "Tous")}</span><span style="font-size:11px;color:var(--color-text-tertiary)">${bibState.tracks.length} morceaux</span></div>` +
+    (rows || `<div style="font-size:12px;color:var(--color-text-tertiary)">Aucun morceau rangé.</div>`) +
+    `<div id="bibplayer"></div></div></div>`;
+
+  const q = document.getElementById("bibq") as HTMLInputElement | null;
+  q?.addEventListener("input", () => {
+    bibState.filter.q = q.value || undefined;
+    clearTimeout((q as unknown as { _t?: number })._t);
+    (q as unknown as { _t?: number })._t = window.setTimeout(() => void renderBiblioLive(), 250);
+  });
+}
+
 export function installLiveWiring() {
   window.__siftHome = renderHomeSources;
   window.__siftQueue = renderQueue;
   window.__siftEcarts = renderEcartes;
   window.__siftReglages = () => void renderReglagesLive();
+  window.__siftBiblio = () => void renderBiblioLive();
   injectLeanStyle();
   injectTitlebar();
   installUndoShortcut();
@@ -604,5 +708,6 @@ declare global {
     __siftQueue?: () => void;
     __siftEcarts?: () => void;
     __siftReglages?: () => void;
+    __siftBiblio?: () => void;
   }
 }
