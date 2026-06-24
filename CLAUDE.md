@@ -28,6 +28,13 @@ Tauri v2 (Rust) · frontend Vite vanilla · FFmpeg sidecar bundlé · SQLite (`r
 - **rust-engineer** (agent) → Rust pointu (async/perf/unsafe).
 - **rust-lsp** (plugin) → diagnostics rust-analyzer + hooks rustfmt/clippy/check.
 
+### Outillage global additionnel (installé niveau utilisateur, dispo partout)
+- **ui-ux-pro-max** + **impeccable** (plugins) → front Vite vanilla : design, polish,
+  audit/critique d'UI (`/impeccable …`). À utiliser pour toute évolution d'interface.
+- **architect** (agent) → design d'archi avant gros refactor / nouvelle feature.
+- **ecc** (plugin Everything-Claude-Code) → agents/skills/workflows génériques.
+- **tech-debt-audit** (skill, `/tech-debt-audit`) → audit de dette sur tout le repo (Rust + TS).
+
 ## Décisions techniques
 Voir **`docs/ressources-externes.md`** : Symphonia hybride (decode analyse) + FFmpeg
 (conversion), `rusty-chromaprint` conservé, Qdrant écarté, détection de key hors scope,
