@@ -2,11 +2,185 @@
 //! root. Walks the tree with `walkdir`, skipping hidden dirs (e.g. the `.sift-trash`
 //! corbeille). Also creates new bins and resolves collision-free destination paths. Pure
 //! filesystem work; the root path comes from `settings::LIBRARY_ROOT`.
+//!
+//! Also exposes `list_filed` / `folder_facets` for the M6b library browser (read-only
+//! DB queries over the `filed` tracks).
 #![allow(dead_code)]
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
+
+// ── M6b library browser ──────────────────────────────────────────────────────
+
+/// A filed track for the library browser.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LibraryTrack {
+    pub id: i64,
+    pub path: String,
+    pub artist: Option<String>,
+    pub title: Option<String>,
+    pub format: Option<String>,
+    pub bitrate: Option<i64>,
+    pub duration: Option<f64>,
+    pub bpm: Option<i64>,
+    pub year: Option<i64>,
+    pub label: Option<String>,
+    pub genres: Vec<String>,
+    pub discogs_release_id: Option<String>,
+    pub cover_path: Option<String>,
+    pub has_cover: bool,
+    pub verdict: Option<String>,
+    pub folder: Option<String>,
+}
+
+/// Server-side filters for the library list.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct LibraryFilter {
+    /// Restrict to one folder (exact match on `tracks.folder`).
+    pub folder: Option<String>,
+    /// `lossless` (aiff/wav/flac/aif) or `mp3`; `None`/other = all.
+    pub quality: Option<String>,
+    /// Restrict by genre (exact, via track_genres).
+    pub genre: Option<String>,
+    /// Free text over artist/title/path (case-insensitive contains).
+    pub q: Option<String>,
+}
+
+/// A facet bucket (folder or genre) with its filed-track count.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LibraryFolder {
+    pub name: String,
+    pub count: i64,
+}
+
+/// Both facet lists for the library sidebar.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LibraryFacets {
+    pub folders: Vec<LibraryFolder>,
+    pub genres: Vec<LibraryFolder>,
+}
+
+/// All `filed` tracks joined to their metadata + genres, filtered. Read-only.
+pub fn list_filed(
+    conn: &rusqlite::Connection,
+    f: &LibraryFilter,
+) -> rusqlite::Result<Vec<LibraryTrack>> {
+    let mut sql = String::from(
+        "SELECT t.id, t.path, t.format, t.bitrate, t.duration, t.verdict, t.folder, t.has_cover, \
+                m.artist, m.title, m.label, m.year, m.bpm, m.cover_path, m.discogs_release_id \
+         FROM tracks t LEFT JOIN metadata m ON m.track_id = t.id \
+         WHERE t.status = 'filed'",
+    );
+    if f.folder.is_some() {
+        sql.push_str(" AND t.folder = :folder");
+    }
+    if let Some(q) = &f.quality {
+        match q.as_str() {
+            "lossless" => sql.push_str(" AND lower(t.format) IN ('aiff','aif','wav','flac')"),
+            "mp3" => sql.push_str(" AND lower(t.format) = 'mp3'"),
+            _ => {}
+        }
+    }
+    if f.q.is_some() {
+        sql.push_str(" AND (m.artist LIKE :like OR m.title LIKE :like OR t.path LIKE :like)");
+    }
+    if f.genre.is_some() {
+        sql.push_str(" AND t.id IN (SELECT track_id FROM track_genres WHERE genre = :genre)");
+    }
+    sql.push_str(" ORDER BY m.artist, m.title, t.path");
+
+    let like = f.q.as_ref().map(|q| format!("%{q}%"));
+    let mut stmt = conn.prepare(&sql)?;
+    let params: Vec<(&str, &dyn rusqlite::ToSql)> = {
+        let mut p: Vec<(&str, &dyn rusqlite::ToSql)> = Vec::new();
+        if let Some(folder) = &f.folder {
+            p.push((":folder", folder));
+        }
+        if let Some(l) = &like {
+            p.push((":like", l));
+        }
+        if let Some(g) = &f.genre {
+            p.push((":genre", g));
+        }
+        p
+    };
+    let rows = stmt
+        .query_map(params.as_slice(), |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, Option<String>>(2)?,
+                r.get::<_, Option<i64>>(3)?,
+                r.get::<_, Option<f64>>(4)?,
+                r.get::<_, Option<String>>(5)?,
+                r.get::<_, Option<String>>(6)?,
+                r.get::<_, Option<i64>>(7)?,
+                r.get::<_, Option<String>>(8)?,
+                r.get::<_, Option<String>>(9)?,
+                r.get::<_, Option<String>>(10)?,
+                r.get::<_, Option<i64>>(11)?,
+                r.get::<_, Option<i64>>(12)?,
+                r.get::<_, Option<String>>(13)?,
+                r.get::<_, Option<String>>(14)?,
+            ))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+
+    let mut out = Vec::with_capacity(rows.len());
+    for (id, path, format, bitrate, duration, verdict, folder, has_cover, artist, title, label, year, bpm, cover_path, rel) in rows {
+        out.push(LibraryTrack {
+            id,
+            path,
+            artist,
+            title,
+            format,
+            bitrate,
+            duration,
+            bpm,
+            year,
+            label,
+            genres: crate::genres::get_genres(conn, id).unwrap_or_default(),
+            discogs_release_id: rel,
+            cover_path,
+            has_cover: has_cover.unwrap_or(0) != 0,
+            verdict,
+            folder,
+        });
+    }
+    Ok(out)
+}
+
+/// Counts of `filed` tracks grouped by folder and by genre. Read-only.
+pub fn folder_facets(conn: &rusqlite::Connection) -> rusqlite::Result<LibraryFacets> {
+    let folders = query_facets(
+        conn,
+        "SELECT folder, COUNT(*) FROM tracks \
+         WHERE status='filed' AND folder IS NOT NULL AND folder <> '' \
+         GROUP BY folder ORDER BY folder",
+    )?;
+    let genres = query_facets(
+        conn,
+        "SELECT g.genre, COUNT(*) FROM track_genres g \
+         JOIN tracks t ON t.id = g.track_id AND t.status='filed' \
+         GROUP BY g.genre ORDER BY g.genre",
+    )?;
+    Ok(LibraryFacets { folders, genres })
+}
+
+fn query_facets(
+    conn: &rusqlite::Connection,
+    sql: &str,
+) -> rusqlite::Result<Vec<LibraryFolder>> {
+    let mut stmt = conn.prepare(sql)?;
+    let mapped = stmt.query_map([], |r| {
+        Ok(LibraryFolder {
+            name: r.get(0)?,
+            count: r.get(1)?,
+        })
+    })?;
+    mapped.collect()
+}
 
 /// One destination folder under the library root.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -210,5 +384,84 @@ mod tests {
         // occupied → " (2)"
         std::fs::write(&base, b"x").unwrap();
         assert_eq!(ensure_unique(&base), dir.path().join("Track (2).mp3"));
+    }
+
+    // ── M6b library browser tests ────────────────────────────────────────────
+
+    fn db() -> rusqlite::Connection {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        crate::db::run_migrations(&conn).unwrap();
+        conn
+    }
+
+    #[test]
+    fn list_filed_joins_metadata_and_genres() {
+        let conn = db();
+        conn.execute(
+            "INSERT INTO tracks(id, path, format, bitrate, duration, verdict, status, folder, has_cover) \
+             VALUES(1, '/lib/House/a.aiff', 'aiff', 1411, 360.0, 'ok', 'filed', 'House', 1)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO tracks(id, path, format, status) VALUES(2, '/in/pending.mp3', 'mp3', 'pending')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO metadata(track_id, artist, title, label, year, bpm, cover_path, discogs_release_id) \
+             VALUES(1, 'Mr Fingers', 'Can You Feel It', 'Trax', 1986, 120, '/cache/1.jpg', '12345')",
+            [],
+        )
+        .unwrap();
+        crate::genres::set_genres(&conn, 1, &["House".into(), "Deep House".into()]).unwrap();
+
+        let rows = list_filed(&conn, &LibraryFilter::default()).unwrap();
+
+        assert_eq!(rows.len(), 1, "only filed tracks");
+        let t = &rows[0];
+        assert_eq!(t.id, 1);
+        assert_eq!(t.artist.as_deref(), Some("Mr Fingers"));
+        assert_eq!(t.title.as_deref(), Some("Can You Feel It"));
+        assert_eq!(t.format.as_deref(), Some("aiff"));
+        assert_eq!(t.bitrate, Some(1411));
+        assert_eq!(t.verdict.as_deref(), Some("ok"));
+        assert_eq!(t.folder.as_deref(), Some("House"));
+        assert_eq!(t.discogs_release_id.as_deref(), Some("12345"));
+        assert_eq!(t.genres, vec!["House".to_string(), "Deep House".to_string()]);
+    }
+
+    #[test]
+    fn folder_facets_counts_filed_by_folder_and_genre() {
+        let conn = db();
+        for (id, folder) in [(1, "House"), (2, "House"), (3, "Techno")] {
+            conn.execute(
+                "INSERT INTO tracks(id, path, status, folder) VALUES(?1, ?2, 'filed', ?3)",
+                rusqlite::params![id, format!("/lib/{folder}/{id}.aiff"), folder],
+            )
+            .unwrap();
+        }
+        conn.execute(
+            "INSERT INTO tracks(id, path, status, folder) VALUES(9, '/in/p.mp3', 'pending', 'House')",
+            [],
+        )
+        .unwrap();
+        crate::genres::set_genres(&conn, 1, &["House".into()]).unwrap();
+        crate::genres::set_genres(&conn, 2, &["House".into()]).unwrap();
+        crate::genres::set_genres(&conn, 3, &["Techno".into()]).unwrap();
+
+        let f = folder_facets(&conn).unwrap();
+
+        let house = f.folders.iter().find(|x| x.name == "House").unwrap();
+        assert_eq!(house.count, 2, "only filed House tracks");
+        assert!(
+            f.folders
+                .iter()
+                .find(|x| x.name == "Techno")
+                .map(|x| x.count)
+                == Some(1)
+        );
+        let g_house = f.genres.iter().find(|x| x.name == "House").unwrap();
+        assert_eq!(g_house.count, 2);
     }
 }
