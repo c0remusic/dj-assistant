@@ -190,14 +190,16 @@ fn track_match_score(track_title: &str, target_title: &str, target_version: Opti
     score
 }
 
-/// Tokens that mark an alternate take (remix, dub, edit…). A bare "mix"/"original" is NOT here:
-/// "Original Mix" is the canonical version and must not be penalized.
+/// Tokens that mark an alternate take (remix, dub, edit…) or a stripped DJ tool (beats, tool,
+/// instrumental, acapella). A bare "mix"/"original" is NOT here: "Original Mix" is the canonical
+/// version and must not be penalized. Tools like "(Beats)" must be, so they never get forced as
+/// the default pick when the local file asked for no particular version.
 fn is_version_keyword(t: &str) -> bool {
     matches!(
         t,
         "remix" | "rmx" | "dub" | "redub" | "edit" | "reedit" | "rework" | "vip"
             | "bootleg" | "instrumental" | "acapella" | "acappella" | "version"
-            | "reprise" | "remaster" | "remastered"
+            | "reprise" | "remaster" | "remastered" | "beats" | "tool"
     )
 }
 
@@ -209,11 +211,17 @@ fn best_track_match(
     target_title: &str,
     target_version: Option<&str>,
 ) -> (i32, Option<String>) {
-    match titles
-        .iter()
-        .map(|t| (track_match_score(t, target_title, target_version), t))
-        .max_by_key(|(s, _)| *s)
-    {
+    // Keep the FIRST maximum on ties (replace only on a strictly higher score). Discogs lists the
+    // original/main mix first, so when several mixes tie this prefers it over a later alternate —
+    // far better than max_by_key's last-wins, which forced an arbitrary mix.
+    let mut best: Option<(i32, &String)> = None;
+    for t in titles {
+        let s = track_match_score(t, target_title, target_version);
+        if best.map_or(true, |(bs, _)| s > bs) {
+            best = Some((s, t));
+        }
+    }
+    match best {
         Some((score, t)) if score > 0 => (score, Some(t.clone())),
         Some((score, _)) => (score, None),
         None => (0, None),
@@ -486,6 +494,27 @@ mod tests {
         ];
         let (_score, title) = best_track_match(&titles, "Love Foolosophy", None);
         assert_eq!(title.as_deref(), Some("Love Foolosophy"));
+    }
+
+    #[test]
+    fn best_track_match_avoids_dj_tool_and_keeps_first_on_tie() {
+        // "Fool For Love" master: with no requested version, a (Beats) DJ tool must not be forced.
+        // The vocal/main mix (not a version keyword) outscores the penalized Beats/Dub tools.
+        let titles = vec![
+            "Fool For Love (Vocal Mix)".to_string(),
+            "Fool For Love (Beats)".to_string(),
+            "Fool For Love (Dub)".to_string(),
+        ];
+        let (_score, title) = best_track_match(&titles, "Fool For Love", None);
+        assert_eq!(title.as_deref(), Some("Fool For Love (Vocal Mix)"));
+    }
+
+    #[test]
+    fn best_track_match_keeps_first_when_scores_tie() {
+        // Two equal-scoring mixes → the first listed wins (original is usually first), not the last.
+        let titles = vec!["Track (Club Mix)".to_string(), "Track (Extended Mix)".to_string()];
+        let (_score, title) = best_track_match(&titles, "Track", None);
+        assert_eq!(title.as_deref(), Some("Track (Club Mix)"));
     }
 
     #[test]
