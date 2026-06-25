@@ -160,6 +160,20 @@ function nameHeaderHtml(name: string, path: string, closeBtn: boolean): string {
   );
 }
 
+/** Son-first hero for the inline (#mid) detail: enlarged cover (filled on identify) + the
+ *  proposed/clean name + raw path. Keeps the `.sift-report-cover` / `.sift-report-name` hooks
+ *  that filing.ts writes into (cover src on identify, clean displayName on reconcile). */
+function heroHtml(name: string, path: string): string {
+  return (
+    `<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">` +
+    `<img class="sift-report-cover" hidden alt="" style="width:64px;height:64px;border-radius:var(--border-radius-lg);object-fit:cover;flex:none;background:var(--color-background-secondary)">` +
+    `<div style="min-width:0;flex:1">` +
+    `<div class="sift-report-name" style="font-size:20px;font-weight:600;line-height:1.2;color:var(--color-text-primary);word-break:break-word">${esc(name)}</div>` +
+    `<div style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;margin-top:4px">${esc(path)}</div>` +
+    `</div></div>`
+  );
+}
+
 function playerRowHtml(): string {
   return (
     `<div style="display:flex;align-items:center;gap:12px;margin-bottom:11px;padding:8px 11px;min-height:80px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)">` +
@@ -496,13 +510,15 @@ export async function openReportInto(container: HTMLElement, path: string) {
   // Fire analysis IPC immediately. For already-analyzed tracks the DB round-trip takes ~20ms.
   const analysisPromise = analyzePath(path, false);
 
-  // Render the player shell.
+  // Render the player shell. Son-first order: hero → audition band → verdict → proof. The
+  // verdict-stub and analysis-body class hooks are filled in later (seq-guarded); their order
+  // below the audition is what makes the detail "listen first, judge second".
   container.innerHTML =
     `<div style="flex:1;overflow:auto;padding:2px 2px 8px">` +
-    nameHeaderHtml(name, path, false) +
-    `<div class="sift-verdict-stub" style="display:flex;align-items:center;gap:6px;margin-bottom:12px;font-size:11px;color:var(--color-text-tertiary)">` +
-    `<i class="ti ti-loader-2 sift-spin"></i>Analyzing…</div>` +
+    heroHtml(name, path) +
     playerRowHtml() +
+    `<div class="sift-verdict-stub" style="display:flex;align-items:center;gap:6px;margin:2px 0 12px;font-size:11px;color:var(--color-text-tertiary)">` +
+    `<i class="ti ti-loader-2 sift-spin"></i>Analyzing…</div>` +
     `<div class="sift-analysis-body" hidden></div>` +
     `</div>`;
 
