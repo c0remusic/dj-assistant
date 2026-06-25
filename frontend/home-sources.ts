@@ -29,7 +29,7 @@ export async function renderHomeSources() {
     .map((s) => {
       const warn = s.accessible
         ? ""
-        : ' <span style="color:var(--color-text-danger);font-size:11px">⚠ inaccessible</span>';
+        : ' <span style="color:var(--color-text-danger);font-size:var(--text-sm)">⚠ inaccessible</span>';
       const watch = `<span class="tog${s.watched ? "" : " off"}" data-sift="togglewatch" data-id="${
         s.id
       }" data-watched="${s.watched ? "1" : "0"}" title="${
@@ -41,7 +41,7 @@ export async function renderHomeSources() {
       const countColor = s.pending_count ? "var(--color-text-info)" : "var(--color-text-tertiary)";
       return `<div class="srow"><span class="v"><i class="ti ti-folder"></i> ${esc(
         s.path,
-      )}${warn}</span><span style="display:flex;align-items:center;gap:9px"><span style="font-size:11px;color:${countColor}">${count}</span>${watch}<button data-sift="rmsrc" data-id="${s.id}" style="font-size:11px;padding:2px 7px;color:var(--color-text-danger)">remove</button></span></div>`;
+      )}${warn}</span><span style="display:flex;align-items:center;gap:9px"><span style="font-size:var(--text-sm);color:${countColor}">${count}</span>${watch}<button data-sift="rmsrc" data-id="${s.id}" style="font-size:var(--text-sm);padding:2px 7px;color:var(--color-text-danger)">remove</button></span></div>`;
     })
     .join("");
 
@@ -49,9 +49,9 @@ export async function renderHomeSources() {
   panel.id = "sift-sources";
   panel.innerHTML =
     '<div class="col-h" style="margin-top:12px">Watched folders</div>' +
-    '<div style="display:flex;gap:8px;align-items:flex-start;background:var(--color-background-warning);border-radius:var(--border-radius-md);padding:8px 11px;margin:0 0 8px;font-size:11px;color:var(--color-text-warning)"><i class="ti ti-info-circle" style="font-size:14px;flex:none"></i><span>Point Sift at your <strong>Completed</strong> folder (not <em>Incomplete</em>) — files still downloading shouldn\'t enter the queue.</span></div>' +
-    (rows || '<div style="font-size:12px;color:var(--color-text-tertiary)">No watched folder.</div>') +
-    '<div style="margin:8px 0 0"><button data-sift="addsrc"><i class="ti ti-plus" style="font-size:13px;vertical-align:-2px"></i> add a folder</button></div>';
+    '<div style="display:flex;gap:8px;align-items:flex-start;background:var(--color-background-warning);border-radius:var(--border-radius-md);padding:8px 11px;margin:0 0 8px;font-size:var(--text-sm);color:var(--color-text-warning)"><i class="ti ti-info-circle" style="font-size:var(--text-lg);flex:none"></i><span>Point Sift at your <strong>Completed</strong> folder (not <em>Incomplete</em>) — files still downloading shouldn\'t enter the queue.</span></div>' +
+    (rows || '<div style="font-size:var(--text-md);color:var(--color-text-tertiary)">No watched folder.</div>') +
+    '<div style="margin:8px 0 0"><button data-sift="addsrc"><i class="ti ti-plus" style="font-size:var(--text-base);vertical-align:-2px"></i> add a folder</button></div>';
 
   // Hide the WHOLE mockup "Dossiers surveillés" block (its hardcoded counts never change):
   // the .col-h header + every following sibling up to the next .col-h. Insert the real

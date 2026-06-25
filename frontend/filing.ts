@@ -171,7 +171,7 @@ function binNodeHtml(node: { rel: string; name: string; depth: number }): string
   const weight = on ? "font-weight:500;" : "";
   let html = `<div class="fld${on}" data-fil="bin" data-rel="${esc(node.rel)}" title="${esc(
     absPath(node.rel),
-  )}" style="${sel};${weight}padding-left:${6 + indent}px;display:flex;align-items:center;gap:4px">${caret}<i class="ti ${icon}" style="font-size:13px;flex:none;color:${iconColor}"></i><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(
+  )}" style="${sel};${weight}padding-left:${6 + indent}px;display:flex;align-items:center;gap:4px">${caret}<i class="ti ${icon}" style="font-size:var(--text-base);flex:none;color:${iconColor}"></i><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(
     node.name,
   )}</span></div>`;
   if (kids.length && isOpen) html += kids.map(binNodeHtml).join("");
@@ -186,7 +186,7 @@ function flatBinHtml(b: Bin): string {
   const color = on ? "var(--color-text-info)" : "var(--color-text-tertiary)";
   return `<div class="fld${on}" data-fil="bin" data-rel="${esc(b.rel)}" title="${esc(
     absPath(b.rel),
-  )}" style="${sel}padding:3px 6px;display:flex;align-items:center;gap:5px"><i class="ti ti-folder" style="font-size:13px;flex:none;color:${color}"></i><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(
+  )}" style="${sel}padding:3px 6px;display:flex;align-items:center;gap:5px"><i class="ti ti-folder" style="font-size:var(--text-base);flex:none;color:${color}"></i><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(
     b.rel,
   )}</span></div>`;
 }
@@ -196,8 +196,8 @@ function flatBinHtml(b: Bin): string {
 export function renderBins(fldz: HTMLElement): void {
   if (!state.rootSet) {
     fldz.innerHTML =
-      '<div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:8px">Choose your library root to start filing.</div>' +
-      '<button data-fil="pickroot"><i class="ti ti-folder" style="font-size:13px;vertical-align:-2px"></i> Choose root…</button>';
+      '<div style="font-size:var(--text-sm);color:var(--color-text-tertiary);margin-bottom:8px">Choose your library root to start filing.</div>' +
+      '<button data-fil="pickroot"><i class="ti ti-folder" style="font-size:var(--text-base);vertical-align:-2px"></i> Choose root…</button>';
     fldz
       .querySelector('[data-fil="pickroot"]')
       ?.addEventListener("click", () => void pickRoot(fldz));
@@ -210,7 +210,7 @@ export function renderBins(fldz: HTMLElement): void {
   const filterRow = state.bins.length
     ? `<input data-fil="binfilter" placeholder="Filter folders…" value="${esc(
         state.binFilter,
-      )}" style="width:100%;font-size:11px;padding:4px 7px;margin-bottom:6px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);color:var(--color-text-primary);box-sizing:border-box">`
+      )}" style="width:100%;font-size:var(--text-sm);padding:4px 7px;margin-bottom:6px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);color:var(--color-text-primary);box-sizing:border-box">`
     : "";
 
   let body: string;
@@ -222,12 +222,12 @@ export function renderBins(fldz: HTMLElement): void {
     );
     body = matches.length
       ? matches.map(flatBinHtml).join("")
-      : '<div style="font-size:10px;color:var(--color-text-tertiary);padding:4px 0">No matching folder.</div>';
+      : '<div style="font-size:var(--text-xs);color:var(--color-text-tertiary);padding:4px 0">No matching folder.</div>';
   } else {
     const tree = binNodeHtml({ rel: "", name: rootName(), depth: 0 });
     const emptyNote =
       state.bins.length === 0 && expanded.has("")
-        ? '<div style="font-size:10px;color:var(--color-text-tertiary);padding:2px 0 2px 33px">empty — create a folder</div>'
+        ? '<div style="font-size:var(--text-xs);color:var(--color-text-tertiary);padding:2px 0 2px 33px">empty — create a folder</div>'
         : "";
     body = tree + emptyNote;
   }
@@ -239,8 +239,8 @@ export function renderBins(fldz: HTMLElement): void {
     : state.creating
       ? `<input data-fil="newin" placeholder="${esc(
           state.binRel ? `folder in ${binLabel()}…` : "folder name…",
-        )}" style="width:100%;font-size:12px;padding:5px 7px;margin-top:2px;box-sizing:border-box">`
-      : `<div class="fld" data-fil="newbin" style="color:var(--color-text-tertiary)"><i class="ti ti-plus" style="font-size:14px"></i> new${esc(
+        )}" style="width:100%;font-size:var(--text-md);padding:5px 7px;margin-top:2px;box-sizing:border-box">`
+      : `<div class="fld" data-fil="newbin" style="color:var(--color-text-tertiary)"><i class="ti ti-plus" style="font-size:var(--text-lg)"></i> new${esc(
           nestLabel,
         )}</div>`;
 
@@ -421,15 +421,15 @@ function onIdentityApplied(
   // Re-labelling the Identifier button to "Ré-identifier" is also handled here.
   const coverThumb = applied.cover_path
     ? `<img src="${esc(convertFileSrc(applied.cover_path))}" alt="" style="width:28px;height:28px;border-radius:3px;object-fit:cover;flex:none">`
-    : `<span style="width:28px;height:28px;border-radius:3px;background:var(--color-background-secondary);display:inline-flex;align-items:center;justify-content:center;flex:none"><i class="ti ti-vinyl" style="font-size:14px;color:var(--color-text-tertiary)"></i></span>`;
+    : `<span style="width:28px;height:28px;border-radius:3px;background:var(--color-background-secondary);display:inline-flex;align-items:center;justify-content:center;flex:none"><i class="ti ti-vinyl" style="font-size:var(--text-lg);color:var(--color-text-tertiary)"></i></span>`;
   host.hidden = false;
   host.innerHTML =
     `<div style="display:flex;align-items:center;gap:7px;padding:4px 2px">` +
     coverThumb +
-    `<span style="flex:1;min-width:0;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">` +
+    `<span style="flex:1;min-width:0;font-size:var(--text-md);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">` +
     `<span style="color:var(--color-text-secondary)">Identified:</span> ${esc(applied.canonical.artist)} — ${esc(applied.canonical.title)}` +
     `</span>` +
-    `<button class="sift-cand-jump" data-fil="cand-changer" style="font-size:11px;padding:2px 8px;flex:none">change</button>` +
+    `<button class="sift-cand-jump" data-fil="cand-changer" style="font-size:var(--text-sm);padding:2px 8px;flex:none">change</button>` +
     `</div>`;
 
   const changerBtn = host.querySelector<HTMLElement>('[data-fil="cand-changer"]');
@@ -441,7 +441,7 @@ function onIdentityApplied(
   });
 
   // [C1] Relabel Identifier → Ré-identifier once an identity has been applied.
-  idBtn.innerHTML = '<i class="ti ti-refresh" style="font-size:11px;vertical-align:-1px"></i> Re-identify';
+  idBtn.innerHTML = '<i class="ti ti-refresh" style="font-size:var(--text-sm);vertical-align:-1px"></i> Re-identify';
 }
 
 /** Wire clicks on rendered candidate buttons.
@@ -468,7 +468,7 @@ function wireCandidateClicks(
           el.style.opacity = "";
           el.style.pointerEvents = "";
           // [m10] errors get a warning icon to distinguish from "no results"
-          host.innerHTML = `<div class="sift-cands-msg sift-cands-error"><i class="ti ti-alert-triangle" style="font-size:12px;vertical-align:-2px;margin-right:4px"></i>${esc(String(e))}</div>`;
+          host.innerHTML = `<div class="sift-cands-msg sift-cands-error"><i class="ti ti-alert-triangle" style="font-size:var(--text-md);vertical-align:-2px;margin-right:4px"></i>${esc(String(e))}</div>`;
         });
     });
   });
@@ -485,7 +485,7 @@ async function doIdentify(
   const trackId = state.track.id;
   const origLabel = btn.innerHTML;
   btn.disabled = true;
-  btn.innerHTML = '<i class="ti ti-loader-2 sift-spin" style="font-size:11px;vertical-align:-1px"></i> Searching…';
+  btn.innerHTML = '<i class="ti ti-loader-2 sift-spin" style="font-size:var(--text-sm);vertical-align:-1px"></i> Searching…';
   host.hidden = false;
   host.innerHTML = '<div class="sift-cands-msg">Searching…</div>';
 
@@ -500,7 +500,7 @@ async function doIdentify(
       // [C2/m5] explain WHY + give a direct action to open Réglages
       host.innerHTML =
         `<div class="sift-cands-msg">Discogs throttles anonymous searches — add your (free) token in Settings.</div>` +
-        `<button class="sift-cand-jump" data-fil="goto-reglages" style="margin-top:5px;font-size:11px;padding:3px 9px">Open Settings →</button>`;
+        `<button class="sift-cand-jump" data-fil="goto-reglages" style="margin-top:5px;font-size:var(--text-sm);padding:3px 9px">Open Settings →</button>`;
       const gotoBtn = host.querySelector<HTMLElement>('[data-fil="goto-reglages"]');
       gotoBtn?.addEventListener("click", () => {
         // Navigate to the Réglages view via the existing nav click handler in app.js
@@ -514,7 +514,7 @@ async function doIdentify(
         host.innerHTML = `<div class="sift-cands-msg">Discogs is rate-limiting — retry in ${rl[1]}s.</div>`;
       } else {
         // [m10] network/server errors get a warning icon to distinguish from "no results"
-        host.innerHTML = `<div class="sift-cands-msg sift-cands-error"><i class="ti ti-alert-triangle" style="font-size:12px;vertical-align:-2px;margin-right:4px"></i>Discogs unreachable.</div>`;
+        host.innerHTML = `<div class="sift-cands-msg sift-cands-error"><i class="ti ti-alert-triangle" style="font-size:var(--text-md);vertical-align:-2px;margin-right:4px"></i>Discogs unreachable.</div>`;
       }
     }
   } finally {
@@ -533,8 +533,8 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
   // [I6] Add tooltip to confidence badge so the colour is self-explanatory
   const badge =
     c.confidence === "green"
-      ? '<span title="Title and artist extracted confidently" style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--color-text-success)"><i class="ti ti-circle-check" style="font-size:11px"></i> metadata trusted</span>'
-      : '<span title="Title or artist couldn\'t be extracted with certainty — check the fields" style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--color-text-warning)"><i class="ti ti-alert-circle" style="font-size:11px"></i> check fields</span>';
+      ? '<span title="Title and artist extracted confidently" style="display:inline-flex;align-items:center;gap:4px;font-size:var(--text-xs);color:var(--color-text-success)"><i class="ti ti-circle-check" style="font-size:var(--text-sm)"></i> metadata trusted</span>'
+      : '<span title="Title or artist couldn\'t be extracted with certainty — check the fields" style="display:inline-flex;align-items:center;gap:4px;font-size:var(--text-xs);color:var(--color-text-warning)"><i class="ti ti-alert-circle" style="font-size:var(--text-sm)"></i> check fields</span>';
 
   const lossy = rail === "lossy";
   const chips = (["mp3_320", "aiff_16_44", "wav_16_44"] as Target[])
@@ -550,11 +550,11 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
 
   const fake = state.track?.verdict === "fake";
   const secondary = fake
-    ? '<button data-fil="resource" style="width:100%;color:var(--color-text-warning)" title="Fake file — goes to Discarded (⌫)"><span class="kbd">⌫</span> <i class="ti ti-alert-triangle" style="font-size:12px;vertical-align:-2px"></i> Re-source</button>'
-    : '<button data-fil="trash" style="width:100%;color:var(--color-text-danger)" title="Send to trash (⌫)"><span class="kbd">⌫</span> <i class="ti ti-trash" style="font-size:12px;vertical-align:-2px"></i> Discard</button>';
+    ? '<button data-fil="resource" style="width:100%;color:var(--color-text-warning)" title="Fake file — goes to Discarded (⌫)"><span class="kbd">⌫</span> <i class="ti ti-alert-triangle" style="font-size:var(--text-md);vertical-align:-2px"></i> Re-source</button>'
+    : '<button data-fil="trash" style="width:100%;color:var(--color-text-danger)" title="Send to trash (⌫)"><span class="kbd">⌫</span> <i class="ti ti-trash" style="font-size:var(--text-md);vertical-align:-2px"></i> Discard</button>';
 
   const inputCss =
-    "font-size:12px;padding:4px 7px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);color:var(--color-text-primary);min-width:0";
+    "font-size:var(--text-md);padding:4px 7px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);color:var(--color-text-primary);min-width:0";
 
   // [C1] Identifier is the first action visible — placed above the inputs with a gold filled
   // style so it reads as the primary entry point when reviewing a new track.
@@ -568,15 +568,15 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
     `<input data-fil="title" placeholder="Title" value="${esc(c.title)}" style="${inputCss}">` +
     `<input data-fil="version" placeholder="Version" value="${esc(c.version ?? "")}" style="${inputCss}">` +
     `</div>` +
-    `<button data-fil="identifier" class="sift-id-btn" style="width:100%;margin-bottom:8px" title="Search metadata on Discogs (cover, label, year, genres)"><i class="ti ti-search" style="font-size:12px;vertical-align:-1px"></i> Identify <span class="kbd" style="font-size:9px;border-color:rgba(0,0,0,.18);color:rgba(0,0,0,.5)">I</span></button>` +
+    `<button data-fil="identifier" class="sift-id-btn" style="width:100%;margin-bottom:8px" title="Search metadata on Discogs (cover, label, year, genres)"><i class="ti ti-search" style="font-size:var(--text-md);vertical-align:-1px"></i> Identify <span class="kbd" style="font-size:var(--text-2xs);border-color:rgba(0,0,0,.18);color:rgba(0,0,0,.5)">I</span></button>` +
     `<div class="sift-cands" hidden style="margin-bottom:8px"></div>` +
     `<div class="col-h" style="margin-bottom:4px">Final name</div>` +
-    `<div class="sift-fil-prev" style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;line-height:1.5;margin-bottom:10px">→ ${esc(previewName())}</div>` +
+    `<div class="sift-fil-prev" style="font-size:var(--text-xs);color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;line-height:1.5;margin-bottom:10px">→ ${esc(previewName())}</div>` +
     `<div class="col-h" style="margin-bottom:4px">Genres</div>` +
     `<div class="sift-genres" style="margin-bottom:10px;min-height:1px"></div>` +
     `<div class="col-h" style="margin-bottom:4px">Format</div>` +
     `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px">${chips}</div>` +
-    `<button data-fil="ranger" style="width:100%;background:var(--color-background-info);color:var(--color-text-info);border:none;font-weight:500;margin-bottom:6px"><i class="ti ti-corner-down-left" style="font-size:12px;vertical-align:-2px"></i> File → <span class="sift-fil-bin">${esc(binLabel())}</span> <span class="kbd">⏎</span></button>` +
+    `<button data-fil="ranger" style="width:100%;background:var(--color-background-info);color:var(--color-text-info);border:none;font-weight:500;margin-bottom:6px"><i class="ti ti-corner-down-left" style="font-size:var(--text-md);vertical-align:-2px"></i> File → <span class="sift-fil-bin">${esc(binLabel())}</span> <span class="kbd">⏎</span></button>` +
     secondary;
 
   const upd = () => {
@@ -625,11 +625,11 @@ function toast(message: string, undo: boolean): void {
   const el = document.createElement("div");
   el.id = "sift-toast";
   el.style.cssText =
-    "position:fixed;right:18px;bottom:18px;z-index:9998;display:flex;align-items:center;gap:12px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:9px 13px;font-size:12px;color:var(--color-text-primary);box-shadow:0 8px 28px rgba(0,0,0,.4)";
+    "position:fixed;right:18px;bottom:18px;z-index:9998;display:flex;align-items:center;gap:12px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:9px 13px;font-size:var(--text-md);color:var(--color-text-primary);box-shadow:0 8px 28px rgba(0,0,0,.4)";
   el.innerHTML =
     `<span>${esc(message)}</span>` +
     (undo
-      ? '<button data-fil="undo" style="font-size:11px;padding:2px 9px">Undo</button>'
+      ? '<button data-fil="undo" style="font-size:var(--text-sm);padding:2px 9px">Undo</button>'
       : "");
   document.body.appendChild(el);
   el.querySelector('[data-fil="undo"]')?.addEventListener("click", () => {
@@ -673,7 +673,7 @@ async function doRanger(mid: HTMLElement): Promise<void> {
   setActionsDisabled(true);
   if (ranger)
     ranger.innerHTML =
-      '<i class="ti ti-loader-2 sift-spin" style="font-size:12px;vertical-align:-2px"></i> Filing…';
+      '<i class="ti ti-loader-2 sift-spin" style="font-size:var(--text-md);vertical-align:-2px"></i> Filing…';
   try {
     await fileTrack(state.track.id, state.binRel, state.target, state.canonical);
     toast(`Filed → ${binLabel()}`, true);
@@ -720,7 +720,7 @@ function clearPane(mid: HTMLElement): void {
   state.canonical = null;
   state.target = null;
   mid.innerHTML =
-    '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--color-text-tertiary);font-size:12px;padding:20px;text-align:center">Select a track in the queue to listen and file it.</div>';
+    '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--color-text-tertiary);font-size:var(--text-md);padding:20px;text-align:center">Select a track in the queue to listen and file it.</div>';
   // The validation footer lives in the rail (#filfoot); clear it too so no stale controls linger.
   const ff = document.getElementById("filfoot");
   if (ff) ff.innerHTML = "";
@@ -737,7 +737,7 @@ function dupBanner(m: DupMatch): string {
   const fg = sure ? "var(--color-text-warning)" : "var(--color-text-tertiary)";
   const bg = sure ? "var(--color-background-warning)" : "var(--color-background-secondary)";
   const head = sure ? "Duplicate" : "Possible duplicate (same name — check)";
-  return `<div style="display:flex;align-items:flex-start;gap:8px;background:${bg};border-radius:var(--border-radius-md);padding:8px 11px;margin-bottom:10px;font-size:11px"><i class="ti ti-copy" style="font-size:14px;flex:none;color:${fg}"></i><div style="min-width:0"><div style="font-weight:500;color:${fg}">${head}</div><div style="color:var(--color-text-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${where}</div></div></div>`;
+  return `<div style="display:flex;align-items:flex-start;gap:8px;background:${bg};border-radius:var(--border-radius-md);padding:8px 11px;margin-bottom:10px;font-size:var(--text-sm)"><i class="ti ti-copy" style="font-size:var(--text-lg);flex:none;color:${fg}"></i><div style="min-width:0"><div style="font-weight:500;color:${fg}">${head}</div><div style="color:var(--color-text-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${where}</div></div></div>`;
 }
 
 // Bumped on every open; an in-flight open bails at its await points if a newer one started

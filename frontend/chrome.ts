@@ -14,7 +14,7 @@ function ensureDropStyle() {
   s.id = "sift-dz-style";
   s.textContent =
     ".sift-dz-on{position:relative;outline:1.5px dashed var(--color-text-info);outline-offset:-4px;border-radius:var(--border-radius-md)}" +
-    ".sift-dz-on::after{content:attr(data-dz);position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:10px;font-size:11px;color:var(--color-text-info);background:rgba(20,20,24,.55);border-radius:var(--border-radius-md);pointer-events:none;z-index:50}";
+    ".sift-dz-on::after{content:attr(data-dz);position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:10px;font-size:var(--text-sm);color:var(--color-text-info);background:rgba(20,20,24,.55);border-radius:var(--border-radius-md);pointer-events:none;z-index:50}";
   document.head.appendChild(s);
 }
 
@@ -98,7 +98,7 @@ export function injectLeanStyle() {
     // custom frameless titlebar (decorations are off in tauri.conf — Tauri only)
     "#sift-titlebar{height:30px;flex:none;display:flex;align-items:center;justify-content:space-between;" +
     "background:var(--color-background-tertiary);-webkit-user-select:none;user-select:none}" +
-    "#sift-tb-title{padding-left:13px;font-size:11px;letter-spacing:.04em;color:var(--color-text-tertiary)}" +
+    "#sift-tb-title{padding-left:13px;font-size:var(--text-sm);letter-spacing:.04em;color:var(--color-text-tertiary)}" +
     "#sift-tb-controls{display:flex;height:100%}" +
     ".sift-win{width:44px;height:100%;display:flex;align-items:center;justify-content:center;border:none;" +
     "background:transparent;color:var(--color-text-tertiary);cursor:pointer;border-radius:0;padding:0}" +

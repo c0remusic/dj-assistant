@@ -104,7 +104,7 @@ async function renderQueue(touchDetail = true) {
         p.done >= p.total
           ? `${p.total} analyzed`
           : `${p.done} / ${p.total} analyzed`;
-      progressHtml = `<div style="margin:0 0 8px"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--color-text-tertiary);margin-bottom:3px"><span>Background analysis</span><span>${label}</span></div><div style="height:4px;border-radius:2px;background:rgba(237,233,224,.12);overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--color-text-info,#8ecce8);transition:width .3s"></div></div></div>`;
+      progressHtml = `<div style="margin:0 0 8px"><div style="display:flex;justify-content:space-between;font-size:var(--text-sm);color:var(--color-text-tertiary);margin-bottom:3px"><span>Background analysis</span><span>${label}</span></div><div style="height:4px;border-radius:2px;background:rgba(237,233,224,.12);overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--color-text-info,#8ecce8);transition:width .3s"></div></div></div>`;
     }
   } catch (e) {
     console.error("analysisProgress failed", e);
@@ -121,12 +121,12 @@ async function renderQueue(touchDetail = true) {
             it.filename || it.path,
           )}</span>${
             it.dup
-              ? '<i class="ti ti-copy" title="Possible duplicate (same name)" style="flex:none;font-size:12px;color:var(--color-text-secondary)"></i>'
+              ? '<i class="ti ti-copy" title="Possible duplicate (same name)" style="flex:none;font-size:var(--text-md);color:var(--color-text-secondary)"></i>'
               : ""
-          }<i class="ti ti-chevron-right" style="flex:none;color:var(--color-text-tertiary);font-size:14px"></i></div>`,
+          }<i class="ti ti-chevron-right" style="flex:none;color:var(--color-text-tertiary);font-size:var(--text-lg)"></i></div>`,
       )
       .join("") ||
-      '<div style="font-size:12px;color:var(--color-text-tertiary);padding:6px 4px">Queue empty.</div>');
+      '<div style="font-size:var(--text-md);color:var(--color-text-tertiary);padding:6px 4px">Queue empty.</div>');
 
   // Live destination bins + neutral detail prompt (replace the mockup's hardcoded ones).
   const fldz = document.getElementById("fldz");
@@ -167,11 +167,11 @@ function ensureReviewSeg() {
   }
   const tab = (m: "detail" | "batch", label: string, icon: string) => {
     const on = reviewMode === m;
-    return `<button data-sift="reviewmode" data-m="${m}" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:5px 0;border:none;border-radius:6px;font-size:11px;font-weight:${
+    return `<button data-sift="reviewmode" data-m="${m}" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:5px 0;border:none;border-radius:6px;font-size:var(--text-sm);font-weight:${
       on ? 600 : 400
     };cursor:pointer;background:${
       on ? "rgba(255,255,255,.07)" : "transparent"
-    };color:var(--color-text-${on ? "primary" : "tertiary"})"><i class="ti ${icon}" style="font-size:13px"></i>${label}</button>`;
+    };color:var(--color-text-${on ? "primary" : "tertiary"})"><i class="ti ${icon}" style="font-size:var(--text-base)"></i>${label}</button>`;
   };
   seg.innerHTML = tab("detail", "Detail", "ti-layout-list") + tab("batch", "Batch", "ti-table");
 }
@@ -202,11 +202,11 @@ function renderBatch() {
         : "var(--color-text-primary)";
     return (
       `<div style="flex:1;min-width:0">` +
-      `<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:${topColor}">${esc(
+      `<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--text-md);color:${topColor}">${esc(
         after ?? before,
       )}</div>` +
       (after
-        ? `<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);margin-top:1px"><span style="opacity:.55">was</span> ${esc(
+        ? `<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--text-xs);color:var(--color-text-tertiary);font-family:var(--font-mono);margin-top:1px"><span style="opacity:.55">was</span> ${esc(
             before,
           )}</div>`
         : "") +
@@ -222,12 +222,12 @@ function renderBatch() {
       `<span class="bx-ck" style="flex:none;width:15px;height:15px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid ${
         on ? "var(--color-text-success)" : "var(--color-border-secondary)"
       };background:${on ? "var(--color-text-success)" : "transparent"}">${
-        on ? '<i class="ti ti-check" style="font-size:10px;color:#1a1a18"></i>' : ""
+        on ? '<i class="ti ti-check" style="font-size:var(--text-xs);color:#1a1a18"></i>' : ""
       }</span>` +
       verdictDot(it.verdict) +
       nameCell(it) +
       (it.dup
-        ? '<span style="flex:none;font-size:9px;font-weight:600;letter-spacing:.03em;padding:2px 7px;border-radius:999px;background:var(--color-background-warning);color:var(--color-text-warning)">DUPLICATE</span>'
+        ? '<span style="flex:none;font-size:var(--text-2xs);font-weight:600;letter-spacing:.03em;padding:2px 7px;border-radius:999px;background:var(--color-background-warning);color:var(--color-text-warning)">DUPLICATE</span>'
         : "") +
       `</div>`
     );
@@ -244,10 +244,10 @@ function renderBatch() {
       verdictDot(it.verdict) +
       nameCell(it, true) +
       (it.dup
-        ? '<span style="flex:none;font-size:9px;font-weight:600;padding:2px 7px;border-radius:999px;background:var(--color-background-warning);color:var(--color-text-warning)">DUP</span>'
+        ? '<span style="flex:none;font-size:var(--text-2xs);font-weight:600;padding:2px 7px;border-radius:999px;background:var(--color-background-warning);color:var(--color-text-warning)">DUP</span>'
         : "") +
-      `<span style="flex:none;font-size:9px;font-weight:600;letter-spacing:.03em;padding:2px 7px;border-radius:999px;background:${tone[1]};color:${tone[2]}">${tone[0]}</span>` +
-      `<button data-sift="batchopen" data-id="${it.id}" style="flex:none;font-size:10px;padding:2px 8px;color:var(--color-text-info)">open in Detail</button>` +
+      `<span style="flex:none;font-size:var(--text-2xs);font-weight:600;letter-spacing:.03em;padding:2px 7px;border-radius:999px;background:${tone[1]};color:${tone[2]}">${tone[0]}</span>` +
+      `<button data-sift="batchopen" data-id="${it.id}" style="flex:none;font-size:var(--text-xs);padding:2px 8px;color:var(--color-text-info)">open in Detail</button>` +
       `</div>`
     );
   };
@@ -262,9 +262,9 @@ function renderBatch() {
     const xs = ready.filter((it) => (it.rail ?? "unknown") === rail);
     if (!xs.length) return "";
     return (
-      `<div style="margin:2px 0 6px"><div style="display:flex;align-items:center;justify-content:space-between;padding:3px 9px"><span style="font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--color-text-tertiary)">${railLabel(
+      `<div style="margin:2px 0 6px"><div style="display:flex;align-items:center;justify-content:space-between;padding:3px 9px"><span style="font-size:var(--text-xs);letter-spacing:.04em;text-transform:uppercase;color:var(--color-text-tertiary)">${railLabel(
         rail,
-      )} · ${xs.length}</span><span style="font-size:10px;color:var(--color-text-tertiary)">→ ${outputFormat(
+      )} · ${xs.length}</span><span style="font-size:var(--text-xs);color:var(--color-text-tertiary)">→ ${outputFormat(
         rail,
       )}</span></div>${xs.map(readyRow).join("")}</div>`
     );
@@ -275,10 +275,10 @@ function renderBatch() {
     `<span style="display:flex;gap:8px">` +
       `<button data-sift="batchidentify" ${
         batchSel.size ? "" : "disabled"
-      } style="font-size:10px;padding:2px 8px;color:var(--color-text-info)${
+      } style="font-size:var(--text-xs);padding:2px 8px;color:var(--color-text-info)${
         batchSel.size ? "" : ";opacity:.5;pointer-events:none"
-      }"><i class="ti ti-vinyl" style="font-size:11px;vertical-align:-1px"></i> Identify (${batchSel.size})</button>` +
-      `<button data-sift="batchall" style="font-size:10px;padding:2px 8px;color:var(--color-text-info)">${
+      }"><i class="ti ti-vinyl" style="font-size:var(--text-sm);vertical-align:-1px"></i> Identify (${batchSel.size})</button>` +
+      `<button data-sift="batchall" style="font-size:var(--text-xs);padding:2px 8px;color:var(--color-text-info)">${
         allOn ? "Clear" : `Select all ${ready.length}`
       }</button>` +
       `</span>`,
@@ -289,7 +289,7 @@ function renderBatch() {
     `<div style="flex:1;min-height:0;overflow-y:auto;padding-right:2px">` +
     (ready.length
       ? readyHead + railGroup("lossless") + railGroup("lossy") + railGroup("unknown")
-      : '<div class="col-h" style="margin:0 0 6px">READY TO FILE · 0</div><div style="font-size:12px;color:var(--color-text-tertiary);padding:4px 9px 14px">Nothing clean to file yet.</div>') +
+      : '<div class="col-h" style="margin:0 0 6px">READY TO FILE · 0</div><div style="font-size:var(--text-md);color:var(--color-text-tertiary);padding:4px 9px 14px">Nothing clean to file yet.</div>') +
     (review.length
       ? `<div style="margin-top:16px"></div>` +
         sectionHead("NEEDS REVIEW", review.length) +
@@ -300,8 +300,8 @@ function renderBatch() {
     `<div style="flex:none;display:flex;align-items:center;gap:9px;padding:11px 2px 2px;border-top:0.5px solid var(--color-border-tertiary);margin-top:8px">` +
     binSelectHtml() +
     `<div style="flex:1"></div>` +
-    `<button data-sift="batchdiscard" style="font-size:11px;padding:7px 12px;border-radius:var(--border-radius-md);background:var(--color-background-danger);color:var(--color-text-danger)">Discard (${batchSel.size})</button>` +
-    `<button data-sift="batchfile" style="font-size:11px;font-weight:600;padding:7px 14px;border-radius:var(--border-radius-md);background:#2f6fe0;color:#e5eeff;${
+    `<button data-sift="batchdiscard" style="font-size:var(--text-sm);padding:7px 12px;border-radius:var(--border-radius-md);background:var(--color-background-danger);color:var(--color-text-danger)">Discard (${batchSel.size})</button>` +
+    `<button data-sift="batchfile" style="font-size:var(--text-sm);font-weight:600;padding:7px 14px;border-radius:var(--border-radius-md);background:#2f6fe0;color:#e5eeff;${
       batchSel.size ? "" : "opacity:.5;pointer-events:none"
     }">File selection (${batchSel.size})</button>` +
     `</div></div>`;
@@ -328,7 +328,7 @@ function binSelectHtml(): string {
   const opts =
     opt("", "Library root") +
     batchBins.map((b) => opt(b.rel, `${"  ".repeat(Math.max(0, b.depth - 1))}${b.name}`)).join("");
-  return `<select data-sift="batchbin" style="font-size:11px;padding:6px 9px;border-radius:var(--border-radius-md);background:var(--color-background-secondary);color:var(--color-text-secondary);border:0.5px solid var(--color-border-tertiary);max-width:200px">${opts}</select>`;
+  return `<select data-sift="batchbin" style="font-size:var(--text-sm);padding:6px 9px;border-radius:var(--border-radius-md);background:var(--color-background-secondary);color:var(--color-text-secondary);border:0.5px solid var(--color-border-tertiary);max-width:200px">${opts}</select>`;
 }
 
 /** Right-rail summary for batch mode (board's SELECTION / DESTINATION / WILL ENCODE / EXCLUDED).
@@ -340,7 +340,7 @@ function renderBatchRail(reviewN: number) {
   if (!foot) return;
   const dest = batchBin || "Library root";
   const block = (label: string, body: string) =>
-    `<div style="margin-bottom:14px"><div class="col-h" style="margin:0 0 4px">${label}</div><div style="font-size:12px;color:var(--color-text-secondary)">${body}</div></div>`;
+    `<div style="margin-bottom:14px"><div class="col-h" style="margin:0 0 4px">${label}</div><div style="font-size:var(--text-md);color:var(--color-text-secondary)">${body}</div></div>`;
   foot.innerHTML =
     block("Selection", `${batchSel.size} selected`) +
     block("Destination", esc(dest)) +
@@ -386,7 +386,7 @@ async function runBatchFile() {
         : `${res.filed} filed`;
       foot.insertAdjacentHTML(
         "afterbegin",
-        `<div style="font-size:11px;color:var(--color-text-success);margin-bottom:10px"><i class="ti ti-check" style="font-size:12px;vertical-align:-1px"></i> ${msg}</div>`,
+        `<div style="font-size:var(--text-sm);color:var(--color-text-success);margin-bottom:10px"><i class="ti ti-check" style="font-size:var(--text-md);vertical-align:-1px"></i> ${msg}</div>`,
       );
     }
   } catch (err) {
@@ -404,11 +404,11 @@ async function runBatchIdentify() {
     if (foot)
       foot.insertAdjacentHTML(
         "afterbegin",
-        `<div data-batch-note style="font-size:11px;color:${color};margin-bottom:10px">${html}</div>`,
+        `<div data-batch-note style="font-size:var(--text-sm);color:${color};margin-bottom:10px">${html}</div>`,
       );
   };
   foot?.querySelector("[data-batch-note]")?.remove();
-  note('<i class="ti ti-loader sift-spin" style="font-size:12px;vertical-align:-1px"></i> Identifying…');
+  note('<i class="ti ti-loader sift-spin" style="font-size:var(--text-md);vertical-align:-1px"></i> Identifying…');
   try {
     const res = await identifyBatch(ids);
     foot?.querySelector("[data-batch-note]")?.remove();
@@ -416,7 +416,7 @@ async function runBatchIdentify() {
     if (res.no_match.length) bits.push(`${res.no_match.length} no match`);
     if (res.failed.length) bits.push(`${res.failed.length} failed`);
     note(
-      `<i class="ti ti-check" style="font-size:12px;vertical-align:-1px"></i> ${bits.join(" · ")} · names apply when you file`,
+      `<i class="ti ti-check" style="font-size:var(--text-md);vertical-align:-1px"></i> ${bits.join(" · ")} · names apply when you file`,
       "var(--color-text-success)",
     );
   } catch (err) {
@@ -481,7 +481,7 @@ async function renderReglagesLive() {
   }
 
   const inputCss =
-    "font-size:12px;padding:4px 7px;background:var(--color-background-secondary);" +
+    "font-size:var(--text-md);padding:4px 7px;background:var(--color-background-secondary);" +
     "border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);" +
     "color:var(--color-text-primary);width:100%;font-family:var(--font-mono)";
 
@@ -492,12 +492,12 @@ async function renderReglagesLive() {
     '<div class="col-h">Discogs</div>' +
     '<div class="srow" style="flex-direction:column;align-items:flex-start;gap:6px;padding-bottom:10px">' +
     '<div style="display:flex;align-items:center;justify-content:space-between;width:100%">' +
-    '<span style="font-size:12px">Authentication token</span>' +
-    '<a id="sift-discogs-link" style="font-size:11px;color:var(--color-text-info);cursor:pointer;text-decoration:none">' +
-    '<i class="ti ti-external-link" style="font-size:11px;vertical-align:-1px"></i> get a token</a>' +
+    '<span style="font-size:var(--text-md)">Authentication token</span>' +
+    '<a id="sift-discogs-link" style="font-size:var(--text-sm);color:var(--color-text-info);cursor:pointer;text-decoration:none">' +
+    '<i class="ti ti-external-link" style="font-size:var(--text-sm);vertical-align:-1px"></i> get a token</a>' +
     "</div>" +
     `<input id="sift-discogs-token" type="text" placeholder="Discogs token…" value="${esc(token ?? "")}" style="${inputCss}">` +
-    '<div id="sift-discogs-status" style="font-size:11px;color:var(--color-text-tertiary);min-height:14px"></div>' +
+    '<div id="sift-discogs-status" style="font-size:var(--text-sm);color:var(--color-text-tertiary);min-height:14px"></div>' +
     "</div>";
 
   content.appendChild(block);
@@ -585,7 +585,7 @@ async function renderBiblioLive() {
     facetList
       .map(
         (b) =>
-          `<div class="fld${activeFacetVal === b.name ? " on" : ""}" data-bib="pick" data-key="${sideKey}" data-val="${esc(b.name)}" style="justify-content:space-between"><span>${esc(b.name)}</span><span style="font-size:11px;opacity:.7">${b.count}</span></div>`,
+          `<div class="fld${activeFacetVal === b.name ? " on" : ""}" data-bib="pick" data-key="${sideKey}" data-val="${esc(b.name)}" style="justify-content:space-between"><span>${esc(b.name)}</span><span style="font-size:var(--text-sm);opacity:.7">${b.count}</span></div>`,
       )
       .join("");
 
@@ -593,23 +593,23 @@ async function renderBiblioLive() {
     .map((t) => {
       const name = esc(t.artist && t.title ? `${t.artist} — ${t.title}` : t.path.split(/[\\/]/).pop() || t.path);
       const link = t.discogs_release_id
-        ? `<button class="lk" data-bib="link" data-rid="${esc(t.discogs_release_id)}" aria-label="Discogs page"><i class="ti ti-external-link" style="font-size:13px;color:var(--color-text-tertiary)"></i></button>`
-        : `<button class="lk" data-bib="identify" data-id="${t.id}" aria-label="Identify"><i class="ti ti-search" style="font-size:12px;color:var(--color-text-tertiary)"></i></button>`;
-      return `<div class="lr" data-bib="row" data-id="${t.id}"><button class="pb" data-bib="play" data-id="${t.id}" aria-label="Listen"><i class="ti ti-player-play" style="font-size:12px"></i></button><span class="bib-name" style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</span>${verdictBadge(t.verdict)}${qualPill(t)}<span style="flex:none;width:40px;text-align:right;font-family:var(--font-mono);color:var(--color-text-tertiary)">${fmtDur(t.duration)}</span>${link}</div>`;
+        ? `<button class="lk" data-bib="link" data-rid="${esc(t.discogs_release_id)}" aria-label="Discogs page"><i class="ti ti-external-link" style="font-size:var(--text-base);color:var(--color-text-tertiary)"></i></button>`
+        : `<button class="lk" data-bib="identify" data-id="${t.id}" aria-label="Identify"><i class="ti ti-search" style="font-size:var(--text-md);color:var(--color-text-tertiary)"></i></button>`;
+      return `<div class="lr" data-bib="row" data-id="${t.id}"><button class="pb" data-bib="play" data-id="${t.id}" aria-label="Listen"><i class="ti ti-player-play" style="font-size:var(--text-md)"></i></button><span class="bib-name" style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</span>${verdictBadge(t.verdict)}${qualPill(t)}<span style="flex:none;width:40px;text-align:right;font-family:var(--font-mono);color:var(--color-text-tertiary)">${fmtDur(t.duration)}</span>${link}</div>`;
     })
     .join("");
 
   const header =
     `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">` +
-    `<div style="flex:1;display:flex;align-items:center;gap:7px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:6px 10px"><i class="ti ti-search" style="font-size:14px;color:var(--color-text-tertiary)"></i><input id="bibq" placeholder="Search…" value="${esc(bibState.filter.q || "")}" style="flex:1;border:0;background:transparent;color:inherit;font-size:12px;outline:none"></div>` +
+    `<div style="flex:1;display:flex;align-items:center;gap:7px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:6px 10px"><i class="ti ti-search" style="font-size:var(--text-lg);color:var(--color-text-tertiary)"></i><input id="bibq" placeholder="Search…" value="${esc(bibState.filter.q || "")}" style="flex:1;border:0;background:transparent;color:inherit;font-size:var(--text-md);outline:none"></div>` +
     chips +
     `</div>`;
 
   content.innerHTML =
     header +
     `<div style="display:flex;gap:14px"><div style="width:150px;flex:none"><div class="col-h">Library</div>${side}</div>` +
-    `<div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:13px;font-weight:500">${esc(activeFacetVal || "All")}</span><span style="font-size:11px;color:var(--color-text-tertiary)">${bibState.tracks.length} tracks</span></div>` +
-    (rows || `<div style="font-size:12px;color:var(--color-text-tertiary)">No filed track.</div>`) +
+    `<div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:var(--text-base);font-weight:500">${esc(activeFacetVal || "All")}</span><span style="font-size:var(--text-sm);color:var(--color-text-tertiary)">${bibState.tracks.length} tracks</span></div>` +
+    (rows || `<div style="font-size:var(--text-md);color:var(--color-text-tertiary)">No filed track.</div>`) +
     `<div id="bibplayer"></div></div></div>`;
 
   const q = document.getElementById("bibq") as HTMLInputElement | null;
@@ -687,7 +687,7 @@ export function installLiveWiring() {
       if (act === "slsk") {
         void navigator.clipboard.writeText(ec.dataset.q || "").catch(() => {});
         const prev = ec.innerHTML;
-        ec.innerHTML = '<i class="ti ti-check" style="font-size:10px;vertical-align:-1px"></i> Copied';
+        ec.innerHTML = '<i class="ti ti-check" style="font-size:var(--text-xs);vertical-align:-1px"></i> Copied';
         setTimeout(() => {
           ec.innerHTML = prev;
         }, 1200);
