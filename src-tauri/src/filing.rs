@@ -348,9 +348,34 @@ pub fn file_track(
     commit_file(conn, &plan, log)
 }
 
+/// Canonical metadata persisted by an earlier Discogs identification (the `metadata` table),
+/// if present and usable. A Discogs/manual match is a high-confidence name, so it's returned
+/// Green — this is what lets `identify_batch` feed `file_batch` (whose tag-based reconcile
+/// would otherwise ignore the applied identity). `None` = no usable row, fall back to reconcile.
+fn canonical_from_metadata(conn: &Connection, track_id: i64) -> rusqlite::Result<Option<Canonical>> {
+    let row = conn.query_row(
+        "SELECT artist, title FROM metadata WHERE track_id=?1",
+        params![track_id],
+        |r| Ok((r.get::<_, Option<String>>(0)?, r.get::<_, Option<String>>(1)?)),
+    );
+    match row {
+        Ok((Some(a), Some(t))) if !a.trim().is_empty() && !t.trim().is_empty() => Ok(Some(Canonical {
+            artist: a,
+            title: t,
+            version: None,
+            confidence: naming::Confidence::Green,
+        })),
+        Ok(_) => Ok(None),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e),
+    }
+}
+
 /// File every green track of `track_ids` into `bin_rel`; leave yellow (or unreadable) ones
 /// pending and return their ids in `needs_validation`. A track that errors during filing is
-/// also returned as needing validation (not silently dropped).
+/// also returned as needing validation (not silently dropped). A track identified via Discogs
+/// (persisted in `metadata`) files on that high-confidence name; otherwise the tag/filename
+/// reconcile must come out Green.
 pub fn file_batch(
     conn: &Connection,
     root: &Path,
@@ -361,14 +386,20 @@ pub fn file_batch(
     let mut filed = 0usize;
     let mut needs_validation = Vec::new();
     for &id in track_ids {
-        match reconcile_track(conn, id) {
-            Ok(c) if c.confidence == naming::Confidence::Green => {
-                match file_track(conn, root, template, id, bin_rel, None, Some(c)) {
-                    Ok(_) => filed += 1,
-                    Err(_) => needs_validation.push(id),
-                }
-            }
-            _ => needs_validation.push(id),
+        let canonical = match canonical_from_metadata(conn, id) {
+            Ok(Some(c)) => Some(c),
+            Ok(None) => match reconcile_track(conn, id) {
+                Ok(c) if c.confidence == naming::Confidence::Green => Some(c),
+                _ => None,
+            },
+            Err(_) => None,
+        };
+        match canonical {
+            Some(c) => match file_track(conn, root, template, id, bin_rel, None, Some(c)) {
+                Ok(_) => filed += 1,
+                Err(_) => needs_validation.push(id),
+            },
+            None => needs_validation.push(id),
         }
     }
     BatchResult { filed, needs_validation }
@@ -439,6 +470,31 @@ mod tests {
         )
         .unwrap();
         Some((conn.last_insert_rowid(), copy))
+    }
+
+    #[test]
+    fn canonical_from_metadata_prefers_persisted_identity() {
+        let conn = db();
+        conn.execute("INSERT INTO tracks(id, path, status) VALUES(1,'/x.flac','pending')", [])
+            .unwrap();
+        // No metadata row → None (file_batch then falls back to the tag/filename reconcile).
+        assert!(canonical_from_metadata(&conn, 1).unwrap().is_none());
+
+        // A Discogs identity → a Green canonical on that name (what lets identify_batch feed file_batch).
+        conn.execute(
+            "INSERT INTO metadata(track_id, artist, title, source) VALUES(1,'Larry Heard','Can You Feel It','discogs')",
+            [],
+        )
+        .unwrap();
+        let c = canonical_from_metadata(&conn, 1).unwrap().expect("metadata present");
+        assert_eq!(c.artist, "Larry Heard");
+        assert_eq!(c.title, "Can You Feel It");
+        assert_eq!(c.confidence, crate::naming::Confidence::Green);
+
+        // A blank-name row must be treated as absent (never file on an empty name).
+        conn.execute("UPDATE metadata SET artist='', title='' WHERE track_id=1", [])
+            .unwrap();
+        assert!(canonical_from_metadata(&conn, 1).unwrap().is_none());
     }
 
     #[test]

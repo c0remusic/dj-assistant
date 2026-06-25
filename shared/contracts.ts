@@ -24,6 +24,8 @@ export interface QueueItem {
   filename: string | null;
   source_id: number | null;
   verdict: "ok" | "fake" | "grey" | null;
+  /** Declared rail, NULL until analysed. Drives batch grouping + output format. */
+  rail: "lossless" | "lossy" | "unknown" | null;
   /** Shares a name with another pending/filed track (dedup name pre-filter). */
   dup: boolean;
 }
@@ -119,6 +121,20 @@ export interface BatchResult {
 export interface RejectBatchResult {
   rejected: number;
   failed: number[];
+}
+
+/** One track that failed batch identification, with a stable provider error code. */
+export interface BatchFailure {
+  id: number;
+  code: string;
+}
+
+/** Result of identifying a batch: how many got an auto-applied Discogs match, which ids had no
+ *  result, and which failed. */
+export interface IdentifyBatchResult {
+  identified: number;
+  no_match: number[];
+  failed: BatchFailure[];
 }
 
 /** One rejected/trashed track for the Écartés view. */

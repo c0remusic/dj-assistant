@@ -12,6 +12,7 @@ import type {
   FileResult,
   BatchResult,
   RejectBatchResult,
+  IdentifyBatchResult,
   JournalEntry,
   Target,
   EcarteItem,
@@ -184,6 +185,11 @@ export const identify = (trackId: number): Promise<Candidate[]> =>
 /** Apply a chosen candidate: writes tags + downloads cover. Returns the applied identity. */
 export const applyIdentity = (trackId: number, candidate: Candidate): Promise<AppliedIdentity> =>
   invoke("apply_identity_cmd", { trackId, candidate });
+
+/** Identify many tracks at once: searches Discogs and auto-applies each top hit (metadata only,
+ * reversible). Returns how many were identified, which had no match, and which failed. */
+export const identifyBatch = (trackIds: number[]): Promise<IdentifyBatchResult> =>
+  invoke("identify_batch", { trackIds });
 
 // ---- M6b library browser (mirror of ipc_library.rs) ----
 

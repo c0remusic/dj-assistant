@@ -10,6 +10,9 @@ pub struct QueueItem {
     pub filename: Option<String>,
     pub source_id: Option<i64>,
     pub verdict: Option<String>,
+    /// Declared rail ("lossless" | "lossy" | "unknown"), NULL until analysed. Drives the batch
+    /// grouping + output format (lossless → AIFF, lossy → MP3 320). Stored in `real_quality`.
+    pub rail: Option<String>,
     /// True when this track shares a name with another pending/filed track (dedup name
     /// pre-filter). Set by the IPC layer (see ipc::list_queue), default false.
     #[serde(default)]
@@ -19,7 +22,7 @@ pub struct QueueItem {
 /// All pending tracks, oldest first.
 pub fn list_pending(conn: &Connection) -> rusqlite::Result<Vec<QueueItem>> {
     let mut stmt = conn.prepare(
-        "SELECT id, path, filename, source_id, verdict FROM tracks
+        "SELECT id, path, filename, source_id, verdict, real_quality FROM tracks
          WHERE status='pending' ORDER BY id",
     )?;
     let rows = stmt.query_map([], |r| {
@@ -29,6 +32,7 @@ pub fn list_pending(conn: &Connection) -> rusqlite::Result<Vec<QueueItem>> {
             filename: r.get(2)?,
             source_id: r.get(3)?,
             verdict: r.get(4)?,
+            rail: r.get(5)?,
             dup: false,
         })
     })?;
