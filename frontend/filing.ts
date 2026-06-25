@@ -22,7 +22,7 @@ import type { Candidate, AppliedIdentity } from "./ipc";
 import type { DupMatch } from "../shared/contracts";
 import { open } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { openReportInto, togglePlay } from "./report-view";
+import { openReportInto, togglePlay, vchipHtml } from "./report-view";
 import { renderCandidates } from "./identify-shared";
 import type { Bin, Canonical, Target, QueueItem } from "../shared/contracts";
 
@@ -331,9 +331,16 @@ function displayName(): string {
 /** Replace the report header's filename with the clean proposed name (raw path stays as the
  * grey subtitle), so a messy source file shows its tidy target name. */
 function updateHeaderName(mid: HTMLElement): void {
-  const el = mid.querySelector<HTMLElement>(".sift-report-name");
-  const name = displayName();
-  if (el && name) el.textContent = name;
+  const c = state.canonical;
+  if (!c) return; // before reconcile: keep the filename the report set
+  // Board hero: big TITLE on top, "artist · version" subtitle below (not the full filename).
+  const nameEl = mid.querySelector<HTMLElement>(".sift-report-name");
+  if (nameEl) nameEl.textContent = c.title || displayName();
+  const subEl = mid.querySelector<HTMLElement>(".sift-report-sub");
+  if (subEl) {
+    const ver = c.version && c.version.trim() ? c.version.trim() : "";
+    subEl.textContent = [c.artist, ver].filter(Boolean).join(" · ");
+  }
 }
 
 /** Re-render just the Ranger button label (bin can change while a track is open). */
@@ -379,6 +386,18 @@ function onIdentityApplied(
   const prev = foot.querySelector<HTMLElement>(".sift-fil-prev");
   if (prev) prev.textContent = `→ ${previewName()}`;
   updateHeaderName(mid);
+
+  // Verdict-panel MATCH chip — qualitative (the backend has no % score): green confidence reads
+  // as a confident MATCH, yellow as CHECK MATCH. Replaces any prior MATCH chip on re-identify.
+  const vchips = mid.querySelector<HTMLElement>(".sift-vchips");
+  if (vchips) {
+    vchips.querySelector('[data-chip="match"]')?.remove();
+    const green = applied.canonical.confidence === "green";
+    vchips.insertAdjacentHTML(
+      "beforeend",
+      vchipHtml(green ? "MATCH" : "CHECK MATCH", green ? "success" : "warning").replace("<span ", '<span data-chip="match" '),
+    );
+  }
 
   // Show the cover if we have a local path.
   if (applied.cover_path) {
@@ -743,14 +762,17 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
   const footEl = document.getElementById("filfoot");
   if (!reportEl || !footEl) return;
 
-  // Duplicate check (by name, sound-confirmed when available) — fill the banner slot async.
-  void findDuplicate(item.id)
-    .then((m) => {
-      if (!m || state.track?.id !== item.id) return;
-      const slot = mid.querySelector<HTMLElement>(".sift-fil-dup");
-      if (slot) slot.innerHTML = dupBanner(m);
-    })
-    .catch((e) => console.error("find_duplicate failed", e));
+  // Duplicate check (by name, sound-confirmed when available) — drives both the banner slot and
+  // the verdict-panel UNIQUE/DUPLICATE chip (appended once the panel exists, see end of fn).
+  const dupP = findDuplicate(item.id).catch((e): DupMatch | null => {
+    console.error("find_duplicate failed", e);
+    return null;
+  });
+  void dupP.then((m) => {
+    if (!m || state.track?.id !== item.id) return;
+    const slot = mid.querySelector<HTMLElement>(".sift-fil-dup");
+    if (slot) slot.innerHTML = dupBanner(m);
+  });
 
   // Analysis report and metadata reconcile are independent DB reads — run them in
   // parallel so the footer renders as soon as both complete rather than sequentially.
@@ -776,6 +798,18 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
 
   renderFoot(footEl, mid, rail);
   updateHeaderName(mid); // show the clean proposed name in the report header
+
+  // Verdict-panel chip (board: LOSSLESS · MATCH · UNIQUE): append UNIQUE by default, DUPLICATE
+  // when dedup found a match. The MATCH chip is added later by onIdentityApplied.
+  void dupP.then((m) => {
+    if (myseq !== openSeq) return;
+    const chips = mid.querySelector<HTMLElement>(".sift-vchips");
+    if (!chips || chips.querySelector('[data-chip="dup"]')) return;
+    chips.insertAdjacentHTML(
+      "beforeend",
+      vchipHtml(m ? "DUPLICATE" : "UNIQUE", m ? "warning" : "neutral").replace("<span ", '<span data-chip="dup" '),
+    );
+  });
 }
 
 /** Keyboard shortcuts for the open track (Revue): ↑/↓ = focus prev/next queue row,

@@ -155,12 +155,24 @@ function nameHeaderHtml(name: string, path: string, closeBtn: boolean): string {
  *  that filing.ts writes into (cover src on identify, clean displayName on reconcile). */
 function heroHtml(name: string, path: string): string {
   return (
-    `<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">` +
+    `<div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">` +
     `<img class="sift-report-cover" hidden alt="" style="width:64px;height:64px;border-radius:var(--border-radius-lg);object-fit:cover;flex:none;background:var(--color-background-secondary)">` +
     `<div style="min-width:0;flex:1">` +
-    `<div class="sift-report-name" style="font-size:20px;font-weight:600;line-height:1.2;color:var(--color-text-primary);word-break:break-word">${esc(name)}</div>` +
-    `<div style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;margin-top:4px">${esc(path)}</div>` +
+    `<div class="sift-report-name" style="font-size:26px;font-weight:600;line-height:1.15;color:var(--color-text-primary);word-break:break-word">${esc(name)}</div>` +
+    `<div class="sift-report-sub" style="font-size:13px;color:var(--color-text-secondary);margin-top:2px"></div>` +
+    `<div style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;margin-top:5px">${esc(path)}</div>` +
     `</div></div>`
+  );
+}
+
+/** Keyboard-hint footer under the detail, matching the board's `kbd` line. */
+function keyboardHintsHtml(): string {
+  const k = (key: string, what: string) =>
+    `<span><b style="font-weight:600;color:var(--color-text-secondary)">${key}</b> ${what}</span>`;
+  return (
+    `<div style="margin-top:18px;font-size:10px;letter-spacing:.03em;color:var(--color-text-tertiary);display:flex;gap:16px;flex-wrap:wrap">` +
+    k("SPACE", "listen") + k("ENTER", "file") + k("BKSP", "discard") + k("↑↓", "navigate") +
+    `</div>`
   );
 }
 
@@ -535,6 +547,7 @@ export async function openReportInto(container: HTMLElement, path: string) {
     `<div class="sift-verdict-stub" style="display:flex;align-items:center;gap:6px;margin:2px 0 12px;font-size:11px;color:var(--color-text-tertiary)">` +
     `<i class="ti ti-loader-2 sift-spin"></i>Analyzing…</div>` +
     `<div class="sift-analysis-body" hidden></div>` +
+    keyboardHintsHtml() +
     `</div>`;
 
   // Race the analysis against a short timeout. For already-analyzed tracks (~20ms DB hit)
