@@ -6,8 +6,6 @@ import {
   listBins,
   fileBatch,
   rejectBatch,
-  identifyBatch,
-  onIdentifyDone,
   onQueueChanged,
   onAnalysisChanged,
   analysisProgress,
@@ -39,7 +37,7 @@ import {
 import { renderEcartes } from "./ecartes-view";
 import { renderHomeSources, pickAndAddFolder } from "./home-sources";
 import { installDragDrop, injectLeanStyle, injectTitlebar, installScrollAutohide } from "./chrome";
-import type { QueueItem, Bin, IdentifyBatchResult } from "../shared/contracts";
+import type { QueueItem, Bin } from "../shared/contracts";
 import { requireEl } from "./dom";
 
 // Latest live queue items, kept so a queue-row click can recover the full item (id +
@@ -273,11 +271,6 @@ function renderBatch() {
     "READY TO FILE",
     ready.length,
     `<span style="display:flex;gap:8px">` +
-      `<button data-sift="batchidentify" ${
-        batchSel.size ? "" : "disabled"
-      } style="font-size:var(--text-xs);padding:2px 8px;color:var(--color-text-info)${
-        batchSel.size ? "" : ";opacity:.5;pointer-events:none"
-      }"><i class="ti ti-vinyl" style="font-size:var(--text-sm);vertical-align:-1px"></i> Identify (${batchSel.size})</button>` +
       `<button data-sift="batchall" style="font-size:var(--text-xs);padding:2px 8px;color:var(--color-text-info)">${
         allOn ? "Clear" : `Select all ${ready.length}`
       }</button>` +
@@ -391,64 +384,6 @@ async function runBatchFile() {
   } catch (err) {
     console.error("file_batch failed", err);
   }
-}
-
-/** Launch background identification for every ticked track, then return — the work runs off the
- * main thread, so the UI no longer freezes. A spinner note is shown; the per-run summary AND the
- * view refresh arrive later via the `identify:done` event (see `onIdentifyBatchDone`). Auto-applies
- * each top hit (metadata only, reversible — names land at filing). */
-async function runBatchIdentify() {
-  const ids = [...batchSel];
-  if (ids.length === 0) return;
-  const foot = requireEl("#filfoot", "runBatchIdentify");
-  foot.querySelector("[data-batch-note]")?.remove();
-  batchNote(
-    foot,
-    '<i class="ti ti-loader sift-spin" style="font-size:var(--text-md);vertical-align:-1px"></i> Identifying in the background…',
-  );
-  try {
-    // Resolves as soon as the background task STARTS; the summary comes via identify:done.
-    await identifyBatch(ids);
-  } catch (err) {
-    // Launch-time rejections only (NO_TOKEN, or the task couldn't start) — per-track outcomes
-    // come back in the identify:done summary, not here.
-    foot.querySelector("[data-batch-note]")?.remove();
-    const code = String(err);
-    batchNote(
-      foot,
-      code.startsWith("NO_TOKEN")
-        ? "No Discogs token — add one in Settings to identify."
-        : `Identify failed to start: ${esc(code)}`,
-      "var(--color-text-danger)",
-    );
-    console.error("identify_batch launch failed", err);
-  }
-}
-
-/** Insert a transient note at the top of the batch rail (#filfoot). */
-function batchNote(foot: HTMLElement, html: string, color = "var(--color-text-secondary)") {
-  foot.insertAdjacentHTML(
-    "afterbegin",
-    `<div data-batch-note style="font-size:var(--text-sm);color:${color};margin-bottom:10px">${html}</div>`,
-  );
-}
-
-/** End-of-(background-)batch handler, fired by the `identify:done` event. Refreshes the view (as
- * the end-of-batch `queue:changed` used to) then shows the run summary — but only if the batch
- * rail is still on screen, since the user may have navigated away while the batch ran. */
-async function onIdentifyBatchDone(res: IdentifyBatchResult) {
-  await refresh();
-  const foot = document.getElementById("filfoot");
-  if (!foot) return; // navigated away — the refresh already happened, just skip the summary note
-  foot.querySelector("[data-batch-note]")?.remove();
-  const bits = [`${res.identified} identified`];
-  if (res.no_match.length) bits.push(`${res.no_match.length} no match`);
-  if (res.failed.length) bits.push(`${res.failed.length} failed`);
-  batchNote(
-    foot,
-    `<i class="ti ti-check" style="font-size:var(--text-md);vertical-align:-1px"></i> ${bits.join(" · ")} · names apply when you file`,
-    "var(--color-text-success)",
-  );
 }
 
 /** Send every ticked track to Écartés for re-sourcing (backend emits queue:changed → redraw). */
@@ -787,9 +722,6 @@ export function installLiveWiring() {
       setReviewMode("detail");
       const mid = requireEl("#mid", "batchopen");
       if (item && mid) void openFilingInto(mid, item);
-    } else if (act === "batchidentify") {
-      e.stopPropagation();
-      void runBatchIdentify();
     } else if (act === "batchfile") {
       e.stopPropagation();
       void runBatchFile();
@@ -809,7 +741,6 @@ export function installLiveWiring() {
   });
 
   void onQueueChanged(refresh);
-  void onIdentifyDone(onIdentifyBatchDone);
 
   // Analysis pings can arrive several times per second — debounce the queue redraw.
   let t: ReturnType<typeof setTimeout> | undefined;

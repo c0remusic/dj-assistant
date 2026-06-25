@@ -349,8 +349,9 @@ pub fn file_track(
 
 /// Canonical metadata persisted by an earlier Discogs identification (the `metadata` table),
 /// if present and usable. A Discogs/manual match is a high-confidence name, so it's returned
-/// Green — this is what lets `identify_batch` feed `file_batch` (whose tag-based reconcile
-/// would otherwise ignore the applied identity). `None` = no usable row, fall back to reconcile.
+/// Green — this is what lets a per-track identity applied in Review feed `file_batch` (whose
+/// tag-based reconcile would otherwise ignore the applied identity). `None` = no usable row,
+/// fall back to reconcile.
 fn canonical_from_metadata(conn: &Connection, track_id: i64) -> rusqlite::Result<Option<Canonical>> {
     let row = conn.query_row(
         "SELECT artist, title FROM metadata WHERE track_id=?1",
@@ -479,7 +480,7 @@ mod tests {
         // No metadata row → None (file_batch then falls back to the tag/filename reconcile).
         assert!(canonical_from_metadata(&conn, 1).unwrap().is_none());
 
-        // A Discogs identity → a Green canonical on that name (what lets identify_batch feed file_batch).
+        // A Discogs identity → a Green canonical on that name (what lets a per-track applied identity feed file_batch).
         conn.execute(
             "INSERT INTO metadata(track_id, artist, title, source) VALUES(1,'Larry Heard','Can You Feel It','discogs')",
             [],

@@ -12,7 +12,6 @@ import type {
   FileResult,
   BatchResult,
   RejectBatchResult,
-  IdentifyBatchResult,
   JournalEntry,
   Target,
   EcarteItem,
@@ -185,19 +184,6 @@ export const identify = (trackId: number): Promise<Candidate[]> =>
 /** Apply a chosen candidate: writes tags + downloads cover. Returns the applied identity. */
 export const applyIdentity = (trackId: number, candidate: Candidate): Promise<AppliedIdentity> =>
   invoke("apply_identity_cmd", { trackId, candidate });
-
-/** Launch background identification for many tracks. Resolves as soon as the background task is
- * STARTED (not when it finishes) — subscribe to `onIdentifyDone` for the end-of-batch summary.
- * Rejects synchronously on NO_TOKEN, or if the background task can't be started. */
-export const identifyBatch = (trackIds: number[]): Promise<void> =>
-  invoke("identify_batch", { trackIds });
-
-/** Subscribe to "identify:done" (the background identify batch finished). Payload = run summary.
- * Returns an unlisten fn. */
-export const onIdentifyDone = (
-  cb: (r: IdentifyBatchResult) => void,
-): Promise<UnlistenFn> =>
-  listen<IdentifyBatchResult>("identify:done", (e) => cb(e.payload));
 
 // ---- M6b library browser (mirror of ipc_library.rs) ----
 

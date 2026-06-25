@@ -140,53 +140,6 @@ pub trait MetadataProvider {
     fn search(&self, q: &Query) -> Result<Vec<Candidate>, ProviderError>;
 }
 
-/// Outcome of identifying one track in a batch. Pure (provider results only); the caller does
-/// the IO (cover download + `apply_identity`) for `Picked`.
-#[derive(Debug, PartialEq)]
-pub enum BatchPick {
-    /// The provider's best (top-ranked) candidate — auto-applied by the caller. Boxed because a
-    /// `Candidate` dwarfs the other variants (clippy::large_enum_variant).
-    Picked(Box<Candidate>),
-    /// The provider returned zero candidates (not an error).
-    NoMatch,
-    /// The provider call failed; carries the stable error code.
-    Failed(String),
-}
-
-/// Search the provider for each `(track_id, query)` and keep the top candidate. Pure over the
-/// provider so it unit-tests with a fake. On `RateLimited` it waits the server-suggested delay
-/// (capped at 10s) via `sleep` and retries once before giving up. Order is preserved.
-pub fn pick_batch<P, S>(provider: &P, queries: &[(i64, Query)], sleep: S) -> Vec<(i64, BatchPick)>
-where
-    P: MetadataProvider,
-    S: Fn(u64),
-{
-    let top = |mut cands: Vec<Candidate>| {
-        if cands.is_empty() {
-            BatchPick::NoMatch
-        } else {
-            BatchPick::Picked(Box::new(cands.swap_remove(0)))
-        }
-    };
-    queries
-        .iter()
-        .map(|(id, q)| {
-            let pick = match provider.search(q) {
-                Ok(cands) => top(cands),
-                Err(ProviderError::RateLimited { retry_after_s }) => {
-                    sleep(retry_after_s.min(10));
-                    match provider.search(q) {
-                        Ok(cands) => top(cands),
-                        Err(e) => BatchPick::Failed(e.code()),
-                    }
-                }
-                Err(e) => BatchPick::Failed(e.code()),
-            };
-            (*id, pick)
-        })
-        .collect()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -343,59 +296,5 @@ mod tests {
 
         let genres = crate::genres::get_genres(&conn, 1).unwrap();
         assert_eq!(genres, vec!["House".to_string()]);
-    }
-
-    #[test]
-    fn pick_batch_picks_top_skips_empty_reports_errors_and_retries_rate_limit() {
-        use std::cell::Cell;
-        struct Fake {
-            retried: Cell<bool>,
-        }
-        impl MetadataProvider for Fake {
-            fn search(&self, q: &Query) -> Result<Vec<Candidate>, ProviderError> {
-                match q.title.as_str() {
-                    "hit" => {
-                        let mut top = sample();
-                        top.artist = "Top".into();
-                        let mut second = sample();
-                        second.artist = "Second".into();
-                        Ok(vec![top, second])
-                    }
-                    "empty" => Ok(vec![]),
-                    "net" => Err(ProviderError::Network("boom".into())),
-                    "rate" => {
-                        if self.retried.get() {
-                            let mut c = sample();
-                            c.artist = "AfterRetry".into();
-                            Ok(vec![c])
-                        } else {
-                            self.retried.set(true);
-                            Err(ProviderError::RateLimited { retry_after_s: 3 })
-                        }
-                    }
-                    other => panic!("unexpected query title {other}"),
-                }
-            }
-        }
-        let q = |t: &str| Query { artist: "X".into(), title: t.into(), version: None };
-        let queries = vec![(1, q("hit")), (2, q("empty")), (3, q("net")), (4, q("rate"))];
-        let slept = Cell::new(0u64);
-        let picks = pick_batch(&Fake { retried: Cell::new(false) }, &queries, |s| {
-            slept.set(slept.get() + s)
-        });
-
-        assert_eq!(picks.len(), 4);
-        assert_eq!(picks[0].0, 1);
-        match &picks[0].1 {
-            BatchPick::Picked(c) => assert_eq!(c.artist, "Top"),
-            o => panic!("expected top candidate, got {o:?}"),
-        }
-        assert_eq!(picks[1].1, BatchPick::NoMatch);
-        assert_eq!(picks[2].1, BatchPick::Failed("NETWORK:boom".into()));
-        match &picks[3].1 {
-            BatchPick::Picked(c) => assert_eq!(c.artist, "AfterRetry"),
-            o => panic!("expected retry to succeed, got {o:?}"),
-        }
-        assert_eq!(slept.get(), 3, "rate-limited query should sleep the suggested delay once");
     }
 }
