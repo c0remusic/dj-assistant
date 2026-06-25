@@ -1,3 +1,8 @@
+// Self-hosted UI fonts — Outfit (UI: 400 body, 600 titles/labels) + JetBrains Mono (numbers).
+// Bundled via @fontsource so the desktop app needs no network. See system.md (Typographie).
+import "@fontsource/outfit/400.css";
+import "@fontsource/outfit/600.css";
+import "@fontsource/jetbrains-mono/400.css";
 import "./app.js";
 import { invoke } from "@tauri-apps/api/core";
 import { appInfo, dbHealth, ffmpegVersion } from "./ipc";
