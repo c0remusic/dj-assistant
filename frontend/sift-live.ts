@@ -5,6 +5,9 @@ import {
   listSources,
   removeSource,
   listQueue,
+  listBins,
+  fileBatch,
+  rejectBatch,
   onQueueChanged,
   onAnalysisChanged,
   analysisProgress,
@@ -38,11 +41,22 @@ import {
   installUndoShortcut,
   installFilingKeys,
 } from "./filing";
-import type { Source, QueueItem } from "../shared/contracts";
+import type { Source, QueueItem, Bin } from "../shared/contracts";
 
 // Latest live queue items, kept so a queue-row click can recover the full item (id +
 // verdict) the filing pane needs.
 let currentItems: QueueItem[] = [];
+
+// Review mode: "detail" = one track at a time (filing pane), "batch" = triage many at once
+// (board's Detail|Batch segmented control). `batchSel` holds the ticked track ids; it is
+// pruned to the currently-ready set on every batch render so a filed/removed id can't linger.
+let reviewMode: "detail" | "batch" = "detail";
+const batchSel = new Set<number>();
+// Destination bin chosen in the batch action bar (forward-slash rel; "" = library root). Kept
+// across renders so the dropdown doesn't reset while triaging.
+let batchBin = "";
+// Cached bins for the batch destination dropdown (loaded when entering batch mode).
+let batchBins: Bin[] = [];
 
 // Bibliothèque browser state: active filter, which facet column (folder/genre) is shown,
 // and the last fetched track list (so a row-click can recover the track's path).
@@ -143,6 +157,7 @@ async function renderQueue(touchDetail = true) {
     return;
   }
   currentItems = items;
+  ensureReviewSeg();
   let progressHtml = "";
   try {
     const p = await analysisProgress();
@@ -183,15 +198,219 @@ async function renderQueue(touchDetail = true) {
   // ANALYSIS finishing must NOT re-open / switch the open track — that thrashes and aborts the
   // player's audio load (waveform shows from peaks, but no sound). See touchDetail=false caller.
   if (touchDetail) {
-    const mid = document.getElementById("mid");
-    if (mid) {
-      // auto-load the current/first pending track into the main pane + highlight its row
-      const curId = syncDetail(mid, items);
-      document.querySelectorAll(".qi.cur").forEach((n) => n.classList.remove("cur"));
-      if (curId != null) {
-        document.querySelector(`.qi[data-id="${curId}"]`)?.classList.add("cur");
+    if (reviewMode === "batch") {
+      renderBatch();
+    } else {
+      const mid = document.getElementById("mid");
+      if (mid) {
+        // auto-load the current/first pending track into the main pane + highlight its row
+        const curId = syncDetail(mid, items);
+        document.querySelectorAll(".qi.cur").forEach((n) => n.classList.remove("cur"));
+        if (curId != null) {
+          document.querySelector(`.qi[data-id="${curId}"]`)?.classList.add("cur");
+        }
       }
     }
+  }
+}
+
+/** Detail|Batch segmented control (board `topseg`), injected once at the top of the queue
+ * column. Owned here (not app.js) so it works inside Tauri where the live wiring renders the
+ * Revue. Reflects `reviewMode`; clicks are handled in the #pa delegate. */
+function ensureReviewSeg() {
+  const qcol = document.getElementById("qcol");
+  if (!qcol) return;
+  let seg = document.getElementById("sift-revseg");
+  if (!seg) {
+    seg = document.createElement("div");
+    seg.id = "sift-revseg";
+    seg.style.cssText =
+      "display:flex;gap:2px;padding:2px;margin-bottom:10px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)";
+    qcol.insertBefore(seg, qcol.firstChild);
+  }
+  const tab = (m: "detail" | "batch", label: string, icon: string) => {
+    const on = reviewMode === m;
+    return `<button data-sift="reviewmode" data-m="${m}" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:5px 0;border:none;border-radius:6px;font-size:11px;font-weight:${
+      on ? 600 : 400
+    };cursor:pointer;background:${
+      on ? "rgba(255,255,255,.07)" : "transparent"
+    };color:var(--color-text-${on ? "primary" : "tertiary"})"><i class="ti ${icon}" style="font-size:13px"></i>${label}</button>`;
+  };
+  seg.innerHTML = tab("detail", "Detail", "ti-layout-list") + tab("batch", "Batch", "ti-table");
+}
+
+/** Batch triage view (board's Batch screen): splits the queue into a checkable READY list and a
+ * read-only NEEDS REVIEW list, with a destination dropdown + File/Discard action bar (center,
+ * #mid) and a selection summary rail (#filfoot). Every control is bound to a real command
+ * (`fileBatch` / `rejectBatch`); nothing here is mocked. */
+function renderBatch() {
+  const mid = document.getElementById("mid");
+  if (!mid) return;
+  const ready = currentItems.filter((it) => it.verdict === "ok");
+  const review = currentItems.filter((it) => it.verdict !== "ok");
+  // Prune ticks to the live ready set; default to all-ready selected the first time.
+  const readyIds = new Set(ready.map((it) => it.id));
+  for (const id of [...batchSel]) if (!readyIds.has(id)) batchSel.delete(id);
+  if (batchSel.size === 0) for (const it of ready) batchSel.add(it.id);
+
+  const name = (it: QueueItem) => esc(it.filename || it.path);
+  const readyRow = (it: QueueItem) => {
+    const on = batchSel.has(it.id);
+    return (
+      `<div class="bx-row" data-sift="batchpick" data-id="${it.id}" style="display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:var(--border-radius-md);cursor:pointer;${
+        on ? "background:rgba(255,255,255,.045)" : ""
+      }">` +
+      `<span class="bx-ck" style="flex:none;width:15px;height:15px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid ${
+        on ? "var(--color-text-success)" : "var(--color-border-secondary)"
+      };background:${on ? "var(--color-text-success)" : "transparent"}">${
+        on ? '<i class="ti ti-check" style="font-size:10px;color:#1a1a18"></i>' : ""
+      }</span>` +
+      verdictDot(it.verdict) +
+      `<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:12px">${name(it)}</span>` +
+      (it.dup
+        ? '<span style="flex:none;font-size:9px;font-weight:600;letter-spacing:.03em;padding:2px 7px;border-radius:999px;background:var(--color-background-warning);color:var(--color-text-warning)">DUPLICATE</span>'
+        : "") +
+      `</div>`
+    );
+  };
+  const reviewRow = (it: QueueItem) => {
+    const tone =
+      it.verdict === "fake"
+        ? ["FAKE", "var(--color-background-danger)", "var(--color-text-danger)"]
+        : it.verdict === "grey"
+          ? ["CHECK", "var(--color-background-warning)", "var(--color-text-warning)"]
+          : ["UNANALYZED", "rgba(255,255,255,.06)", "var(--color-text-tertiary)"];
+    return (
+      `<div style="display:flex;align-items:center;gap:9px;padding:7px 9px">` +
+      verdictDot(it.verdict) +
+      `<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:12px;color:var(--color-text-secondary)">${name(it)}</span>` +
+      (it.dup
+        ? '<span style="flex:none;font-size:9px;font-weight:600;padding:2px 7px;border-radius:999px;background:var(--color-background-warning);color:var(--color-text-warning)">DUP</span>'
+        : "") +
+      `<span style="flex:none;font-size:9px;font-weight:600;letter-spacing:.03em;padding:2px 7px;border-radius:999px;background:${tone[1]};color:${tone[2]}">${tone[0]}</span>` +
+      `<button data-sift="batchopen" data-id="${it.id}" style="flex:none;font-size:10px;padding:2px 8px;color:var(--color-text-info)">open in Detail</button>` +
+      `</div>`
+    );
+  };
+
+  const allOn = ready.length > 0 && batchSel.size === ready.length;
+  const sectionHead = (label: string, n: number, extra = "") =>
+    `<div style="display:flex;align-items:center;justify-content:space-between;margin:0 0 6px"><div class="col-h" style="margin:0">${label} · ${n}</div>${extra}</div>`;
+
+  mid.innerHTML =
+    `<div style="display:flex;flex-direction:column;height:100%;min-height:0">` +
+    `<div style="flex:1;min-height:0;overflow-y:auto;padding-right:2px">` +
+    (ready.length
+      ? sectionHead(
+          "READY TO FILE",
+          ready.length,
+          `<button data-sift="batchall" style="font-size:10px;padding:2px 8px;color:var(--color-text-info)">${
+            allOn ? "Clear" : `Select all ${ready.length}`
+          }</button>`,
+        ) + ready.map(readyRow).join("")
+      : '<div class="col-h" style="margin:0 0 6px">READY TO FILE · 0</div><div style="font-size:12px;color:var(--color-text-tertiary);padding:4px 9px 14px">Nothing clean to file yet.</div>') +
+    (review.length
+      ? `<div style="margin-top:16px"></div>` +
+        sectionHead("NEEDS REVIEW", review.length) +
+        review.map(reviewRow).join("")
+      : "") +
+    `</div>` +
+    // Action bar
+    `<div style="flex:none;display:flex;align-items:center;gap:9px;padding:11px 2px 2px;border-top:0.5px solid var(--color-border-tertiary);margin-top:8px">` +
+    binSelectHtml() +
+    `<div style="flex:1"></div>` +
+    `<button data-sift="batchdiscard" style="font-size:11px;padding:7px 12px;border-radius:var(--border-radius-md);background:var(--color-background-danger);color:var(--color-text-danger)">Discard (${batchSel.size})</button>` +
+    `<button data-sift="batchfile" style="font-size:11px;font-weight:600;padding:7px 14px;border-radius:var(--border-radius-md);background:#2f6fe0;color:#e5eeff;${
+      batchSel.size ? "" : "opacity:.5;pointer-events:none"
+    }">File selection (${batchSel.size})</button>` +
+    `</div></div>`;
+
+  renderBatchRail(review.length);
+}
+
+/** Destination dropdown for the batch bar — a real <select> of the user's bins (root + each
+ * folder), reflecting `batchBin`. */
+function binSelectHtml(): string {
+  const opt = (rel: string, label: string) =>
+    `<option value="${esc(rel)}"${rel === batchBin ? " selected" : ""}>${esc(label)}</option>`;
+  const opts =
+    opt("", "Library root") +
+    batchBins.map((b) => opt(b.rel, `${"  ".repeat(Math.max(0, b.depth - 1))}${b.name}`)).join("");
+  return `<select data-sift="batchbin" style="font-size:11px;padding:6px 9px;border-radius:var(--border-radius-md);background:var(--color-background-secondary);color:var(--color-text-secondary);border:0.5px solid var(--color-border-tertiary);max-width:200px">${opts}</select>`;
+}
+
+/** Right-rail summary for batch mode (board's SELECTION / DESTINATION / WILL ENCODE / EXCLUDED).
+ * Replaces the filing footer + hides the folder tree while batching. */
+function renderBatchRail(reviewN: number) {
+  const foot = document.getElementById("filfoot");
+  const fldz = document.getElementById("fldz");
+  if (fldz) fldz.style.display = reviewMode === "batch" ? "none" : "";
+  if (!foot) return;
+  const dest = batchBin || "Library root";
+  const block = (label: string, body: string) =>
+    `<div style="margin-bottom:14px"><div class="col-h" style="margin:0 0 4px">${label}</div><div style="font-size:12px;color:var(--color-text-secondary)">${body}</div></div>`;
+  foot.innerHTML =
+    block("Selection", `${batchSel.size} selected`) +
+    block("Destination", esc(dest)) +
+    block("Will file", `${batchSel.size} clean track${batchSel.size === 1 ? "" : "s"} → ${esc(dest)}`) +
+    block("Excluded", `${reviewN} need review · filed safely only when clean`);
+}
+
+/** Switch between detail and batch review. On entering batch we (re)load the bins for the
+ * destination dropdown; on leaving we restore the per-track filing pane. */
+function setReviewMode(m: "detail" | "batch") {
+  reviewMode = m;
+  ensureReviewSeg();
+  const fldz = document.getElementById("fldz");
+  if (fldz) fldz.style.display = m === "batch" ? "none" : "";
+  if (m === "batch") {
+    listBins()
+      .then((b) => {
+        batchBins = b;
+        renderBatch();
+      })
+      .catch((err) => {
+        console.error("listBins failed", err);
+        batchBins = [];
+        renderBatch();
+      });
+  } else {
+    void renderQueue(true);
+  }
+}
+
+/** File every ticked (green) track into the chosen bin. The backend emits queue:changed, which
+ * drives the redraw; we only surface the count + any tracks it bounced back for validation. */
+async function runBatchFile() {
+  const ids = [...batchSel];
+  if (ids.length === 0) return;
+  try {
+    const res = await fileBatch(ids, batchBin);
+    for (const id of ids) if (!res.needs_validation.includes(id)) batchSel.delete(id);
+    const foot = document.getElementById("filfoot");
+    if (foot) {
+      const msg = res.needs_validation.length
+        ? `${res.filed} filed · ${res.needs_validation.length} need validation`
+        : `${res.filed} filed`;
+      foot.insertAdjacentHTML(
+        "afterbegin",
+        `<div style="font-size:11px;color:var(--color-text-success);margin-bottom:10px"><i class="ti ti-check" style="font-size:12px;vertical-align:-1px"></i> ${msg}</div>`,
+      );
+    }
+  } catch (err) {
+    console.error("file_batch failed", err);
+  }
+}
+
+/** Send every ticked track to Écartés for re-sourcing (backend emits queue:changed → redraw). */
+async function runBatchDiscard() {
+  const ids = [...batchSel];
+  if (ids.length === 0) return;
+  try {
+    await rejectBatch(ids);
+    batchSel.clear();
+  } catch (err) {
+    console.error("reject_batch failed", err);
   }
 }
 
@@ -659,6 +878,8 @@ export function installLiveWiring() {
     const qi = (e.target as HTMLElement).closest<HTMLElement>(".qi[data-id]");
     if (qi?.dataset.id) {
       e.stopPropagation();
+      // In batch mode a row-click means "inspect this one" → drop back to the detail pane.
+      if (reviewMode === "batch") setReviewMode("detail");
       const id = Number(qi.dataset.id);
       const item = currentItems.find((it) => it.id === id);
       const mid = document.getElementById("mid");
@@ -742,6 +963,43 @@ export function installLiveWiring() {
         Number(el.dataset.id),
         el.dataset.watched !== "1",
       ).then(refresh);
+    } else if (act === "reviewmode") {
+      e.stopPropagation();
+      setReviewMode(el.dataset.m === "batch" ? "batch" : "detail");
+    } else if (act === "batchpick") {
+      e.stopPropagation();
+      const id = Number(el.dataset.id);
+      if (batchSel.has(id)) batchSel.delete(id);
+      else batchSel.add(id);
+      renderBatch();
+    } else if (act === "batchall") {
+      e.stopPropagation();
+      const ready = currentItems.filter((it) => it.verdict === "ok");
+      if (batchSel.size === ready.length) batchSel.clear();
+      else for (const it of ready) batchSel.add(it.id);
+      renderBatch();
+    } else if (act === "batchopen") {
+      e.stopPropagation();
+      const id = Number(el.dataset.id);
+      const item = currentItems.find((it) => it.id === id);
+      setReviewMode("detail");
+      const mid = document.getElementById("mid");
+      if (item && mid) void openFilingInto(mid, item);
+    } else if (act === "batchfile") {
+      e.stopPropagation();
+      void runBatchFile();
+    } else if (act === "batchdiscard") {
+      e.stopPropagation();
+      void runBatchDiscard();
+    }
+  });
+
+  // Destination dropdown (batch bar) — a <select>, so it needs change, not click.
+  document.getElementById("pa")?.addEventListener("change", (e) => {
+    const sel = (e.target as HTMLElement).closest<HTMLSelectElement>('select[data-sift="batchbin"]');
+    if (sel) {
+      batchBin = sel.value;
+      renderBatchRail(currentItems.filter((it) => it.verdict !== "ok").length);
     }
   });
 
