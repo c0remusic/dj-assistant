@@ -2,9 +2,6 @@
 //! one canonical {artist, title, version} record, and render the output filename from a
 //! template. The single source of truth that drives BOTH the filename and the tags
 //! written at filing time (see M4 spec). Exhaustively unit-tested; never touches disk.
-//!
-//! The public API is consumed by the filing orchestration in a later M4 slice (M4-3);
-//! until then it is unused by the binary, hence the module-level dead_code allow.
 
 use serde::{Deserialize, Serialize};
 

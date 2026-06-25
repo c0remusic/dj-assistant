@@ -15,7 +15,7 @@ function candCoverHtml(c: Candidate): string {
   if (c.cover_url) {
     return `<img src="${esc(c.cover_url)}" alt="" class="sift-cand-noart" loading="lazy">`;
   }
-  return '<span class="sift-cand-noart"><i class="ti ti-vinyl" style="font-size:18px;color:var(--color-text-tertiary)"></i></span>';
+  return '<span class="sift-cand-noart"><i class="ti ti-vinyl" style="font-size:var(--text-xl);color:var(--color-text-tertiary)"></i></span>';
 }
 
 /** One candidate button row (sub-line: label · year · country · format). */
