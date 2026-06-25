@@ -94,9 +94,9 @@ function spectroCaption(v: AnalysisReport["verdict"]): string {
 
 function verdictBadge(v: AnalysisReport["verdict"]): string {
   const map = {
-    ok: ["ti-shield-check", "Authentic", "var(--color-background-success)", "var(--color-text-success)"],
-    fake: ["ti-alert-triangle", "Fake / over-encoded", "var(--color-background-danger)", "var(--color-text-danger)"],
-    grey: ["ti-help-circle", "Grey zone", "var(--color-background-warning)", "var(--color-text-warning)"],
+    ok: ["ti-shield-check", "Ready to file", "var(--color-background-success)", "var(--color-text-success)"],
+    fake: ["ti-alert-triangle", "Over-encoded", "var(--color-background-danger)", "var(--color-text-danger)"],
+    grey: ["ti-help-circle", "Inspect first", "var(--color-background-warning)", "var(--color-text-warning)"],
   } as const;
   const [icon, label, bg, fg] = map[v];
   return `<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:var(--border-radius-md);font-weight:600;font-size:12px;color:${fg};background:${bg}"><i class="ti ${icon}" style="font-size:13px"></i>${label}</span>`;
@@ -193,17 +193,26 @@ function playerRowHtml(): string {
   );
 }
 
-function verdictChainHtml(r: AnalysisReport): string {
+/** ACTUAL verdict card: an action-oriented headline ("Ready to file" / "Over-encoded" /
+ *  "Inspect first") over the declared→actual quality chips. Replaces the old inline chain so the
+ *  verdict reads as a decision, not a row of pills. (MATCH% / DUPLICATE chips are not added here:
+ *  that data lives in filing.ts — identify in the rail, the dup banner above the report.) */
+function verdictCardHtml(r: AnalysisReport): string {
   const rq = realQuality(r);
   const declaredPill = `<span class="pill">${esc(r.declared_format)}${r.declared_bitrate ? " · " + r.declared_bitrate + " kbps" : ""}</span>`;
   const lab = (t: string) =>
     `<span style="font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--color-text-tertiary)">${t}</span>`;
   const arrow = '<i class="ti ti-arrow-right" style="font-size:13px;color:var(--color-text-tertiary)"></i>';
-  const chainInner =
+  const chips =
     r.verdict === "ok"
-      ? `${declaredPill}${verdictBadge(r.verdict)}`
-      : `${lab("declared")}${declaredPill}${arrow}${lab("real quality")}<span class="pill" style="background:${rq.bg};color:${rq.fg}">${rq.label}</span>${arrow}${verdictBadge(r.verdict)}`;
-  return `<div style="display:flex;align-items:center;gap:7px;margin-bottom:12px;flex-wrap:wrap;font-size:11px">${chainInner}</div>`;
+      ? `${lab("quality")}<span class="pill" style="background:${rq.bg};color:${rq.fg}">${esc(rq.label)}</span>`
+      : `${lab("declared")}${declaredPill}${arrow}${lab("actual")}<span class="pill" style="background:${rq.bg};color:${rq.fg}">${esc(rq.label)}</span>`;
+  return (
+    `<div style="border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:11px 12px;margin-bottom:12px">` +
+    `<div style="display:flex;align-items:center;gap:8px">${verdictBadge(r.verdict)}</div>` +
+    `<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:11px;margin-top:9px">${chips}</div>` +
+    `</div>`
+  );
 }
 
 function spectroAndTagsHtml(r: AnalysisReport): string {
@@ -211,7 +220,7 @@ function spectroAndTagsHtml(r: AnalysisReport): string {
   return (
     `<div style="margin-bottom:11px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);overflow:hidden">` +
     `<button class="sift-sg-toggle" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 11px;background:var(--color-background-secondary);border:none;color:var(--color-text-primary);cursor:pointer;font-size:11px;text-align:left">` +
-    `<span style="display:flex;align-items:center;gap:8px"><span class="sift-sg-caret" style="display:inline-block;transition:transform .25s;color:var(--color-text-tertiary)">▸</span> Spectrogram &amp; info</span>` +
+    `<span style="display:flex;align-items:center;gap:8px"><span class="sift-sg-caret" style="display:inline-block;transition:transform .25s;color:var(--color-text-tertiary)">▸</span> Proof — spectrogram &amp; signals</span>` +
     `<span class="sift-sg-hint" style="font-size:11px;color:var(--color-text-info);flex:none">show</span>` +
     `</button>` +
     `<div class="sift-sg-body" style="max-height:0;overflow:hidden;transition:max-height .3s ease">` +
@@ -249,7 +258,7 @@ function reportHtml(r: AnalysisReport, closeBtn: boolean): string {
   const name = r.path.split(/[\\/]/).pop() || r.path;
   return (
     nameHeaderHtml(name, r.path, closeBtn) +
-    verdictChainHtml(r) +
+    verdictCardHtml(r) +
     playerRowHtml() +
     spectroAndTagsHtml(r)
   );
@@ -539,7 +548,7 @@ export async function openReportInto(container: HTMLElement, path: string) {
     void mountPlayer(container, path, earlyResult.peaks, earlyResult.duration_sec || undefined);
     const verdictEl = container.querySelector<HTMLElement>(".sift-verdict-stub");
     const bodyEl = container.querySelector<HTMLElement>(".sift-analysis-body");
-    if (verdictEl) verdictEl.outerHTML = verdictChainHtml(earlyResult);
+    if (verdictEl) verdictEl.outerHTML = verdictCardHtml(earlyResult);
     if (bodyEl) {
       bodyEl.innerHTML = spectroAndTagsHtml(earlyResult);
       bodyEl.hidden = false;
@@ -557,7 +566,7 @@ export async function openReportInto(container: HTMLElement, path: string) {
     if (seq !== openSeq) return;
     const verdictEl = container.querySelector<HTMLElement>(".sift-verdict-stub");
     const bodyEl = container.querySelector<HTMLElement>(".sift-analysis-body");
-    if (verdictEl) verdictEl.outerHTML = verdictChainHtml(r);
+    if (verdictEl) verdictEl.outerHTML = verdictCardHtml(r);
     if (bodyEl) {
       bodyEl.innerHTML = spectroAndTagsHtml(r);
       bodyEl.hidden = false;
