@@ -5,7 +5,6 @@
 //!
 //! Also exposes `list_filed` / `folder_facets` for the M6b library browser (read-only
 //! DB queries over the `filed` tracks).
-#![allow(dead_code)]
 
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};

@@ -2,7 +2,6 @@
 //! is one `batch_id` grouping several rows (convert, move, …). `revert_batch` is the single
 //! guarded inversion primitive; `undo_last` (LIFO) and the journal both go through it, so
 //! there is exactly one place that knows how to safely reverse work. Pure DB + filesystem.
-#![allow(dead_code)]
 
 use rusqlite::{params, Connection};
 use serde::Serialize;

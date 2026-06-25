@@ -3,7 +3,6 @@
 //! batch (see actions.rs). Mono-location: conformant files are moved; converted files
 //! land in the bin and the original goes to `.sift-trash` (restorable via undo). Composes
 //! naming/encode/tagging/library/actions/settings.
-#![allow(dead_code)]
 
 use crate::encode::{self, EncodeError, Target};
 use crate::naming::{self, Canonical};

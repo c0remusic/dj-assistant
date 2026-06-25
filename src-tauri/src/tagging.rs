@@ -1,7 +1,6 @@
 //! Write canonical {artist, title} onto an audio file in place, via lofty. Reused at
 //! filing time: the same canonical record that renders the filename (see naming.rs) is
 //! written here, so tags and name never diverge. Fields we don't own are left untouched.
-#![allow(dead_code)]
 
 use lofty::config::WriteOptions;
 use lofty::file::TaggedFileExt;

@@ -1,7 +1,6 @@
 //! Typed access to the `settings(key, value)` table: the few app-wide preferences the
 //! filing loop needs (library root, filename template, trash purge window). String values
 //! only; callers parse as needed. Created in migration v4.
-#![allow(dead_code)]
 
 use rusqlite::{params, Connection};
 

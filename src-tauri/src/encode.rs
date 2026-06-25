@@ -3,7 +3,6 @@
 //! already in target shape), and a hard no-upscale guard. The caller passes the source
 //! rail (it already has it from the analysis report), so this module is independent of
 //! the analysis pipeline. ffmpeg is driven exactly like `analysis/decode.rs`.
-#![allow(dead_code)]
 
 use crate::analysis::Rail;
 use ffmpeg_sidecar::command::FfmpegCommand;

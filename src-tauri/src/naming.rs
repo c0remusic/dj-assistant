@@ -5,7 +5,6 @@
 //!
 //! The public API is consumed by the filing orchestration in a later M4 slice (M4-3);
 //! until then it is unused by the binary, hence the module-level dead_code allow.
-#![allow(dead_code)]
 
 use serde::{Deserialize, Serialize};
 

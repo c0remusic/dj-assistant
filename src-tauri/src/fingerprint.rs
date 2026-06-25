@@ -2,7 +2,6 @@
 //! `compute_for_path` decodes the file (reusing the analysis decoder) and produces a compact
 //! fingerprint; `similarity` compares two fingerprints by bit-agreement with a small offset
 //! search (no dependency on the crate's segment matcher). Reused later by the library scan.
-#![allow(dead_code)]
 
 use rusty_chromaprint::{match_fingerprints, Configuration, Fingerprinter};
 

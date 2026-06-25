@@ -3,7 +3,6 @@
 //! a reason badge (verdict, truncated) plus a clean artist/title for the Soulseek re-download,
 //! and manages the bin: restore a trashed file, or purge the bin for good. Sending a
 //! resourcing track to the bin reuses `filing::trash_track`.
-#![allow(dead_code)]
 
 use crate::filing;
 use rusqlite::{params, Connection};
