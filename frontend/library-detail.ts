@@ -23,7 +23,7 @@ const esc = (s: string) =>
   );
 
 const inputCss =
-  "font-size:12px;padding:5px 8px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);color:var(--color-text-primary);min-width:0;width:100%";
+  "font-size:var(--text-md);padding:5px 8px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);color:var(--color-text-primary);min-width:0;width:100%";
 
 /** Per-open editor state (one detail panel open at a time). `pendingCover` is set only when
  * the user picks a new image — left null otherwise so a save never re-embeds the same art. */
@@ -39,7 +39,7 @@ function toast(message: string): void {
   const el = document.createElement("div");
   el.id = "sift-toast";
   el.style.cssText =
-    "position:fixed;right:18px;bottom:18px;z-index:9998;display:flex;align-items:center;gap:12px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:9px 13px;font-size:12px;color:var(--color-text-primary);box-shadow:0 8px 28px rgba(0,0,0,.4)";
+    "position:fixed;right:18px;bottom:18px;z-index:9998;display:flex;align-items:center;gap:12px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:9px 13px;font-size:var(--text-md);color:var(--color-text-primary);box-shadow:0 8px 28px rgba(0,0,0,.4)";
   el.textContent = message;
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 4000);
@@ -56,11 +56,11 @@ function coverHtml(st: EditState): string {
   const src = coverSrc(st);
   const inner = src
     ? `<img src="${esc(src)}" alt="" style="width:100%;height:100%;object-fit:cover">`
-    : `<i class="ti ti-vinyl" style="font-size:26px;color:var(--color-text-tertiary)"></i>`;
+    : `<i class="ti ti-vinyl" style="font-size:var(--text-hero);color:var(--color-text-tertiary)"></i>`;
   return (
     `<button data-lib="cover" title="Change cover" style="position:relative;width:72px;height:72px;flex:none;border-radius:var(--border-radius-md);overflow:hidden;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer">` +
     inner +
-    `<span style="position:absolute;inset:auto 0 0 0;background:rgba(0,0,0,.55);color:#fff;font-size:9px;padding:2px 0;text-align:center">change</span>` +
+    `<span style="position:absolute;inset:auto 0 0 0;background:rgba(0,0,0,.55);color:#fff;font-size:var(--text-2xs);padding:2px 0;text-align:center">change</span>` +
     `</button>`
   );
 }
@@ -69,11 +69,11 @@ function coverHtml(st: EditState): string {
 function releaseRowHtml(st: EditState): string {
   if (st.track.discogs_release_id) {
     return (
-      `<button data-lib="release" title="Open Discogs page"><i class="ti ti-external-link" style="font-size:12px;vertical-align:-1px"></i> View release</button>` +
-      `<button data-lib="identifier" class="sift-id-btn" title="Search Discogs again"><i class="ti ti-refresh" style="font-size:11px;vertical-align:-1px"></i> Re-identify</button>`
+      `<button data-lib="release" title="Open Discogs page"><i class="ti ti-external-link" style="font-size:var(--text-md);vertical-align:-1px"></i> View release</button>` +
+      `<button data-lib="identifier" class="sift-id-btn" title="Search Discogs again"><i class="ti ti-refresh" style="font-size:var(--text-sm);vertical-align:-1px"></i> Re-identify</button>`
     );
   }
-  return `<button data-lib="identifier" class="sift-id-btn" title="Search metadata on Discogs"><i class="ti ti-search" style="font-size:12px;vertical-align:-1px"></i> Identify</button>`;
+  return `<button data-lib="identifier" class="sift-id-btn" title="Search metadata on Discogs"><i class="ti ti-search" style="font-size:var(--text-md);vertical-align:-1px"></i> Identify</button>`;
 }
 
 /** Render the editor footer into `edit`. Re-rendered after identify (release link appears). */
@@ -96,8 +96,8 @@ function renderEdit(edit: HTMLElement, st: EditState): void {
     `<div style="display:flex;align-items:center;gap:6px;margin-top:9px;flex-wrap:wrap">${releaseRowHtml(st)}</div>` +
     `<div class="sift-cands" style="margin-top:7px" hidden></div>` +
     `<div style="display:flex;gap:8px;margin-top:10px">` +
-    `<button data-lib="save" style="flex:1;background:var(--color-background-info);color:var(--color-text-info);border:none;font-weight:500"><i class="ti ti-device-floppy" style="font-size:12px;vertical-align:-2px"></i> Save</button>` +
-    `<button data-lib="trash" style="color:var(--color-text-danger)" title="Send to trash"><i class="ti ti-trash" style="font-size:12px;vertical-align:-2px"></i> Delete</button>` +
+    `<button data-lib="save" style="flex:1;background:var(--color-background-info);color:var(--color-text-info);border:none;font-weight:500"><i class="ti ti-device-floppy" style="font-size:var(--text-md);vertical-align:-2px"></i> Save</button>` +
+    `<button data-lib="trash" style="color:var(--color-text-danger)" title="Send to trash"><i class="ti ti-trash" style="font-size:var(--text-md);vertical-align:-2px"></i> Delete</button>` +
     `</div>`;
 
   wireEdit(edit, st);
@@ -163,7 +163,7 @@ async function doIdentify(
 ): Promise<void> {
   const orig = btn.innerHTML;
   btn.disabled = true;
-  btn.innerHTML = '<i class="ti ti-loader-2 sift-spin" style="font-size:11px;vertical-align:-1px"></i> Searching…';
+  btn.innerHTML = '<i class="ti ti-loader-2 sift-spin" style="font-size:var(--text-sm);vertical-align:-1px"></i> Searching…';
   host.hidden = false;
   host.innerHTML = '<div class="sift-cands-msg">Searching…</div>';
   try {
@@ -175,7 +175,7 @@ async function doIdentify(
     if (msg.includes("NO_TOKEN")) {
       host.innerHTML =
         `<div class="sift-cands-msg">Discogs throttles anonymous searches — add your (free) token in Settings.</div>` +
-        `<button class="sift-cand-jump" data-lib="goto-reglages" style="margin-top:5px;font-size:11px;padding:3px 9px">Open Settings →</button>`;
+        `<button class="sift-cand-jump" data-lib="goto-reglages" style="margin-top:5px;font-size:var(--text-sm);padding:3px 9px">Open Settings →</button>`;
       host.querySelector('[data-lib="goto-reglages"]')?.addEventListener("click", () => {
         document
           .querySelector<HTMLElement>('[data-view="reglages"]')
@@ -185,7 +185,7 @@ async function doIdentify(
       const rl = msg.match(/RATE_LIMITED:(\d+)/);
       host.innerHTML = rl
         ? `<div class="sift-cands-msg">Discogs is rate-limiting — retry in ${rl[1]}s.</div>`
-        : `<div class="sift-cands-msg sift-cands-error"><i class="ti ti-alert-triangle" style="font-size:12px;vertical-align:-2px;margin-right:4px"></i>Discogs unreachable.</div>`;
+        : `<div class="sift-cands-msg sift-cands-error"><i class="ti ti-alert-triangle" style="font-size:var(--text-md);vertical-align:-2px;margin-right:4px"></i>Discogs unreachable.</div>`;
     }
   } finally {
     btn.disabled = false;
@@ -212,7 +212,7 @@ function wireCandidateClicks(
         .catch((e) => {
           el.style.opacity = "";
           el.style.pointerEvents = "";
-          host.innerHTML = `<div class="sift-cands-msg sift-cands-error"><i class="ti ti-alert-triangle" style="font-size:12px;vertical-align:-2px;margin-right:4px"></i>${esc(String(e))}</div>`;
+          host.innerHTML = `<div class="sift-cands-msg sift-cands-error"><i class="ti ti-alert-triangle" style="font-size:var(--text-md);vertical-align:-2px;margin-right:4px"></i>${esc(String(e))}</div>`;
         });
     });
   });
@@ -258,7 +258,7 @@ async function doSave(edit: HTMLElement, st: EditState): Promise<void> {
   st.saving = true;
   if (btn) {
     btn.disabled = true;
-    btn.innerHTML = '<i class="ti ti-loader-2 sift-spin" style="font-size:12px;vertical-align:-2px"></i> Saving…';
+    btn.innerHTML = '<i class="ti ti-loader-2 sift-spin" style="font-size:var(--text-md);vertical-align:-2px"></i> Saving…';
   }
   try {
     await updateMetadata(st.track.id, e);
