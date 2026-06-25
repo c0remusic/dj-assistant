@@ -43,10 +43,19 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--color-background
 .fcard>i{font-size:16px;color:var(--color-text-info);flex:none;margin-top:1px}
 .fcard b{display:block;font-size:11px;font-weight:600;margin-bottom:2px}
 .fcard span{display:block;font-size:10px;line-height:1.4;color:var(--color-text-secondary)}
-.sb{width:62px;flex:none;display:flex;flex-direction:column;gap:3px;padding:10px 5px;background:var(--color-background-secondary);border-right:0.5px solid var(--color-border-tertiary);align-items:stretch}
-.nv{min-height:42px;border-radius:var(--border-radius-md);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:5px 2px;color:var(--color-text-secondary);cursor:pointer}
-.nv span{font-size:9px;letter-spacing:.01em;text-align:center;line-height:1.05}
-.nv.on{background:var(--color-background-info);color:var(--color-text-info)}.nv i{font-size:16px}
+/* Wide, labelled, grouped nav rail — faithful to the Penpot shell (brand + PROCESS/ORGANIZE/
+   EXPORT groups + neutral selection). See .interface-design/penpot-detail-spec.md. */
+.sb{width:200px;flex:none;display:flex;flex-direction:column;gap:1px;padding:14px 10px;background:var(--color-background-secondary);border-right:0.5px solid var(--color-border-tertiary);align-items:stretch}
+.nav-brand{display:flex;align-items:center;gap:8px;padding:2px 8px 12px;font-size:18px;font-weight:600;color:#f0ede6;letter-spacing:.01em}
+.nav-brand i{font-size:16px;color:var(--color-text-info)}
+.nv-grp{font-size:9px;font-weight:400;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-tertiary);padding:13px 8px 5px}
+.nv{min-height:34px;border-radius:var(--border-radius-md);display:flex;flex-direction:row;align-items:center;gap:10px;padding:6px 8px;color:var(--color-text-tertiary);cursor:pointer}
+.nv span{font-size:12.5px;letter-spacing:.01em;text-align:left;line-height:1.1;flex:1;min-width:0}
+.nv i{font-size:17px;flex:none}
+.nv:hover{background:rgba(255,255,255,.03)}
+.nv.on{background:rgba(255,255,255,.06);color:var(--color-text-secondary);font-weight:500;box-shadow:inset 2px 0 0 rgba(255,255,255,.32)}
+.nav-badge{font-size:10px;font-weight:600;color:var(--color-text-tertiary);background:rgba(255,255,255,.06);border-radius:999px;padding:1px 7px;flex:none}
+.nav-badge:empty{display:none}
 .queue{flex:none;display:flex;flex-direction:column;padding:11px 8px;overflow:hidden}
 #ql{flex:1;min-height:0;overflow-y:auto}
 .qdrag{width:7px;flex:none;cursor:col-resize;background:transparent;border-left:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;justify-content:center}
