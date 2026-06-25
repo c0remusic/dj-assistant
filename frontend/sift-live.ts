@@ -8,6 +8,7 @@ import {
   listBins,
   fileBatch,
   rejectBatch,
+  identifyBatch,
   onQueueChanged,
   onAnalysisChanged,
   analysisProgress,
@@ -297,17 +298,39 @@ function renderBatch() {
   const sectionHead = (label: string, n: number, extra = "") =>
     `<div style="display:flex;align-items:center;justify-content:space-between;margin:0 0 6px"><div class="col-h" style="margin:0">${label} · ${n}</div>${extra}</div>`;
 
+  // READY rows grouped by rail (board's lossless/lossy separation), each labelled with the real
+  // output format the filer will encode to (encode::target_for). Tracks file separately by rail.
+  const railGroup = (rail: "lossless" | "lossy" | "unknown") => {
+    const xs = ready.filter((it) => (it.rail ?? "unknown") === rail);
+    if (!xs.length) return "";
+    return (
+      `<div style="margin:2px 0 6px"><div style="display:flex;align-items:center;justify-content:space-between;padding:3px 9px"><span style="font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--color-text-tertiary)">${railLabel(
+        rail,
+      )} · ${xs.length}</span><span style="font-size:10px;color:var(--color-text-tertiary)">→ ${outputFormat(
+        rail,
+      )}</span></div>${xs.map(readyRow).join("")}</div>`
+    );
+  };
+  const readyHead = sectionHead(
+    "READY TO FILE",
+    ready.length,
+    `<span style="display:flex;gap:8px">` +
+      `<button data-sift="batchidentify" ${
+        batchSel.size ? "" : "disabled"
+      } style="font-size:10px;padding:2px 8px;color:var(--color-text-info)${
+        batchSel.size ? "" : ";opacity:.5;pointer-events:none"
+      }"><i class="ti ti-vinyl" style="font-size:11px;vertical-align:-1px"></i> Identify (${batchSel.size})</button>` +
+      `<button data-sift="batchall" style="font-size:10px;padding:2px 8px;color:var(--color-text-info)">${
+        allOn ? "Clear" : `Select all ${ready.length}`
+      }</button>` +
+      `</span>`,
+  );
+
   mid.innerHTML =
     `<div style="display:flex;flex-direction:column;height:100%;min-height:0">` +
     `<div style="flex:1;min-height:0;overflow-y:auto;padding-right:2px">` +
     (ready.length
-      ? sectionHead(
-          "READY TO FILE",
-          ready.length,
-          `<button data-sift="batchall" style="font-size:10px;padding:2px 8px;color:var(--color-text-info)">${
-            allOn ? "Clear" : `Select all ${ready.length}`
-          }</button>`,
-        ) + ready.map(readyRow).join("")
+      ? readyHead + railGroup("lossless") + railGroup("lossy") + railGroup("unknown")
       : '<div class="col-h" style="margin:0 0 6px">READY TO FILE · 0</div><div style="font-size:12px;color:var(--color-text-tertiary);padding:4px 9px 14px">Nothing clean to file yet.</div>') +
     (review.length
       ? `<div style="margin-top:16px"></div>` +
@@ -326,6 +349,17 @@ function renderBatch() {
     `</div></div>`;
 
   renderBatchRail(review.length);
+}
+
+/** Human label for a rail. */
+function railLabel(rail: "lossless" | "lossy" | "unknown"): string {
+  return rail === "lossless" ? "Lossless" : rail === "lossy" ? "Lossy" : "Unknown rail";
+}
+
+/** The output format the filer encodes to for a rail — mirrors Rust `encode::target_for`
+ * (lossless → AIFF 16/44.1; lossy/unknown → MP3 320). Shown so batch filing is not a black box. */
+function outputFormat(rail: "lossless" | "lossy" | "unknown"): string {
+  return rail === "lossless" ? "AIFF · 16-bit · 44.1 kHz" : "MP3 320";
 }
 
 /** Destination dropdown for the batch bar — a real <select> of the user's bins (root + each
@@ -399,6 +433,45 @@ async function runBatchFile() {
     }
   } catch (err) {
     console.error("file_batch failed", err);
+  }
+}
+
+/** Fetch Discogs for every ticked track and auto-apply each top hit (metadata only, reversible —
+ * names land at filing). Surfaces a per-run summary; the queue:changed event redraws the list. */
+async function runBatchIdentify() {
+  const ids = [...batchSel];
+  if (ids.length === 0) return;
+  const foot = document.getElementById("filfoot");
+  const note = (html: string, color = "var(--color-text-secondary)") => {
+    if (foot)
+      foot.insertAdjacentHTML(
+        "afterbegin",
+        `<div data-batch-note style="font-size:11px;color:${color};margin-bottom:10px">${html}</div>`,
+      );
+  };
+  foot?.querySelector("[data-batch-note]")?.remove();
+  note('<i class="ti ti-loader sift-spin" style="font-size:12px;vertical-align:-1px"></i> Identifying…');
+  try {
+    const res = await identifyBatch(ids);
+    foot?.querySelector("[data-batch-note]")?.remove();
+    const bits = [`${res.identified} identified`];
+    if (res.no_match.length) bits.push(`${res.no_match.length} no match`);
+    if (res.failed.length) bits.push(`${res.failed.length} failed`);
+    note(
+      `<i class="ti ti-check" style="font-size:12px;vertical-align:-1px"></i> ${bits.join(" · ")} · names apply when you file`,
+      "var(--color-text-success)",
+    );
+  } catch (err) {
+    foot?.querySelector("[data-batch-note]")?.remove();
+    // identify rejects with a stable code (NO_TOKEN, RATE_LIMITED:<s>, NETWORK:…) — surface it.
+    const code = String(err);
+    note(
+      code.startsWith("NO_TOKEN")
+        ? "No Discogs token — add one in Settings to identify."
+        : `Identify failed: ${esc(code)}`,
+      "var(--color-text-danger)",
+    );
+    console.error("identify_batch failed", err);
   }
 }
 
@@ -1000,6 +1073,9 @@ export function installLiveWiring() {
       setReviewMode("detail");
       const mid = document.getElementById("mid");
       if (item && mid) void openFilingInto(mid, item);
+    } else if (act === "batchidentify") {
+      e.stopPropagation();
+      void runBatchIdentify();
     } else if (act === "batchfile") {
       e.stopPropagation();
       void runBatchFile();
