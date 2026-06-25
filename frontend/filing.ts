@@ -1,8 +1,9 @@
-// Live Revue filing controller (Tauri only). Augments the mockup's Revue shell: renders
-// real destination bins into the #fldz column (with a NoLibraryRoot picker gate), and the
-// analysis report + a filing footer (editable canonical fields, format override, and the
-// Ranger / Re-sourcer / Écarter actions) into the #mid pane. Drives the M4 backend via the
-// IPC bindings; the plain-browser demo never loads this (see main.ts guard).
+// Live Revue filing controller (Tauri only). Augments the mockup's Revue shell: renders the
+// son-first analysis detail into the #mid pane, and the validation rail into the right .dest
+// column — destination tree into #fldz (with a NoLibraryRoot picker gate) and the filing footer
+// (editable canonical fields, format override, Identify, File / Re-source / Discard) into
+// #filfoot below it. Drives the M4 backend via the IPC bindings; the plain-browser demo never
+// loads this (see main.ts guard).
 import {
   reconcile,
   fileTrack,
@@ -388,8 +389,9 @@ function onIdentityApplied(
     }
   }
 
-  // [m11] Render genre/style chips with tooltip so they read as informational Discogs tags
-  const genEl = mid.querySelector<HTMLElement>(".sift-genres");
+  // [m11] Render genre/style chips with tooltip so they read as informational Discogs tags.
+  // .sift-genres lives in the rail footer now, so query `foot` rather than the #mid pane.
+  const genEl = foot.querySelector<HTMLElement>(".sift-genres");
   if (genEl) {
     genEl.innerHTML = applied.styles
       .map((s) => `<span class="sift-genre-chip" title="Discogs sub-genres">${esc(s)}</span>`)
@@ -529,8 +531,8 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
 
   const fake = state.track?.verdict === "fake";
   const secondary = fake
-    ? '<button data-fil="resource" style="color:var(--color-text-warning)" title="Fake file — goes to Discarded (⌫)"><span class="kbd">⌫</span> <i class="ti ti-alert-triangle" style="font-size:12px;vertical-align:-2px"></i> Re-source</button>'
-    : '<button data-fil="trash" style="color:var(--color-text-danger)" title="Send to trash (⌫)"><span class="kbd">⌫</span> <i class="ti ti-trash" style="font-size:12px;vertical-align:-2px"></i> Discard</button>';
+    ? '<button data-fil="resource" style="width:100%;color:var(--color-text-warning)" title="Fake file — goes to Discarded (⌫)"><span class="kbd">⌫</span> <i class="ti ti-alert-triangle" style="font-size:12px;vertical-align:-2px"></i> Re-source</button>'
+    : '<button data-fil="trash" style="width:100%;color:var(--color-text-danger)" title="Send to trash (⌫)"><span class="kbd">⌫</span> <i class="ti ti-trash" style="font-size:12px;vertical-align:-2px"></i> Discard</button>';
 
   const inputCss =
     "font-size:12px;padding:4px 7px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);color:var(--color-text-primary);min-width:0";
@@ -538,23 +540,25 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
   // [C1] Identifier is the first action visible — placed above the inputs with a gold filled
   // style so it reads as the primary entry point when reviewing a new track.
   // [C2] title= explains what it does; label shows keyboard shortcut hint (I).
+  // Vertical validation rail (lives in the narrow .dest column): metadata source on top
+  // (editor + Identify), then the system.md stack FINAL NAME → GENRES → FORMAT → CTA.
   foot.innerHTML =
-    `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">${badge}<div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;color:var(--color-text-tertiary)">Export as</span>${chips}</div></div>` +
-    `<div style="display:flex;align-items:center;gap:6px;margin-bottom:7px">` +
-    `<button data-fil="identifier" class="sift-id-btn" title="Search metadata on Discogs (cover, label, year, genres)"><i class="ti ti-search" style="font-size:12px;vertical-align:-1px"></i> Identify <span class="kbd" style="font-size:9px;border-color:rgba(0,0,0,.18);color:rgba(0,0,0,.5)">I</span></button>` +
-    `</div>` +
-    `<div class="sift-cands" hidden></div>` +
-    `<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:5px;margin-bottom:5px">` +
+    `<div style="margin-bottom:8px">${badge}</div>` +
+    `<div style="display:grid;grid-template-columns:1fr;gap:5px;margin-bottom:8px">` +
     `<input data-fil="artist" placeholder="Artist" value="${esc(c.artist)}" style="${inputCss}">` +
     `<input data-fil="title" placeholder="Title" value="${esc(c.title)}" style="${inputCss}">` +
-    `<input data-fil="version" placeholder="Version" value="${esc(c.version ?? "")}" style="${inputCss};width:96px">` +
+    `<input data-fil="version" placeholder="Version" value="${esc(c.version ?? "")}" style="${inputCss}">` +
     `</div>` +
-    `<div class="sift-fil-prev" style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;line-height:1.5;margin-bottom:6px">→ ${esc(previewName())}</div>` +
-    `<div class="sift-genres" style="margin-bottom:4px"></div>` +
-    `<div style="display:flex;gap:8px">` +
-    `<button data-fil="ranger" style="flex:1;background:var(--color-background-info);color:var(--color-text-info);border:none;font-weight:500"><i class="ti ti-corner-down-left" style="font-size:12px;vertical-align:-2px"></i> File → <span class="sift-fil-bin">${esc(binLabel())}</span> <span class="kbd">⏎</span></button>` +
-    secondary +
-    `</div>`;
+    `<button data-fil="identifier" class="sift-id-btn" style="width:100%;margin-bottom:8px" title="Search metadata on Discogs (cover, label, year, genres)"><i class="ti ti-search" style="font-size:12px;vertical-align:-1px"></i> Identify <span class="kbd" style="font-size:9px;border-color:rgba(0,0,0,.18);color:rgba(0,0,0,.5)">I</span></button>` +
+    `<div class="sift-cands" hidden style="margin-bottom:8px"></div>` +
+    `<div class="col-h" style="margin-bottom:4px">Final name</div>` +
+    `<div class="sift-fil-prev" style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;line-height:1.5;margin-bottom:10px">→ ${esc(previewName())}</div>` +
+    `<div class="col-h" style="margin-bottom:4px">Genres</div>` +
+    `<div class="sift-genres" style="margin-bottom:10px;min-height:1px"></div>` +
+    `<div class="col-h" style="margin-bottom:4px">Format</div>` +
+    `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px">${chips}</div>` +
+    `<button data-fil="ranger" style="width:100%;background:var(--color-background-info);color:var(--color-text-info);border:none;font-weight:500;margin-bottom:6px"><i class="ti ti-corner-down-left" style="font-size:12px;vertical-align:-2px"></i> File → <span class="sift-fil-bin">${esc(binLabel())}</span> <span class="kbd">⏎</span></button>` +
+    secondary;
 
   const upd = () => {
     const a = foot.querySelector<HTMLInputElement>('[data-fil="artist"]');
@@ -625,9 +629,10 @@ function toast(message: string, undo: boolean): void {
 // One filing action at a time — guards against a double-click firing two encodes.
 let acting = false;
 
-/** Disable/enable the footer action buttons (visible feedback while an action runs). */
-function setActionsDisabled(mid: HTMLElement, disabled: boolean): void {
-  mid
+/** Disable/enable the rail action buttons (visible feedback while an action runs). The buttons
+ *  live in #filfoot now, so query the document rather than the #mid pane. */
+function setActionsDisabled(disabled: boolean): void {
+  document
     .querySelectorAll<HTMLButtonElement>('[data-fil="ranger"],[data-fil="resource"],[data-fil="trash"]')
     .forEach((b) => {
       b.disabled = disabled;
@@ -643,10 +648,10 @@ async function doRanger(mid: HTMLElement): Promise<void> {
     toast("Choose a destination folder.", false);
     return;
   }
-  const ranger = mid.querySelector<HTMLElement>('[data-fil="ranger"]');
+  const ranger = document.querySelector<HTMLElement>('[data-fil="ranger"]');
   const orig = ranger?.innerHTML ?? null;
   acting = true;
-  setActionsDisabled(mid, true);
+  setActionsDisabled(true);
   if (ranger)
     ranger.innerHTML =
       '<i class="ti ti-loader-2 sift-spin" style="font-size:12px;vertical-align:-2px"></i> Filing…';
@@ -660,7 +665,7 @@ async function doRanger(mid: HTMLElement): Promise<void> {
     else if (msg.toLowerCase().includes("upscale")) toast("Refused: no lossy → lossless upscale.", false);
     else toast(`Filing failed: ${msg}`, false);
     console.error("file_track failed", e);
-    setActionsDisabled(mid, false);
+    setActionsDisabled(false);
     if (ranger && orig != null) ranger.innerHTML = orig;
   } finally {
     acting = false;
@@ -671,7 +676,7 @@ async function doRanger(mid: HTMLElement): Promise<void> {
 async function doSecondary(mid: HTMLElement, kind: "resource" | "trash"): Promise<void> {
   if (!state.track || acting) return;
   acting = true;
-  setActionsDisabled(mid, true);
+  setActionsDisabled(true);
   try {
     if (kind === "resource") {
       await rejectTrack(state.track.id);
@@ -684,7 +689,7 @@ async function doSecondary(mid: HTMLElement, kind: "resource" | "trash"): Promis
   } catch (e) {
     toast(`Failed: ${String(e)}`, false);
     console.error(`${kind} failed`, e);
-    setActionsDisabled(mid, false);
+    setActionsDisabled(false);
   } finally {
     acting = false;
   }
@@ -697,6 +702,9 @@ function clearPane(mid: HTMLElement): void {
   state.target = null;
   mid.innerHTML =
     '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--color-text-tertiary);font-size:12px;padding:20px;text-align:center">Select a track in the queue to listen and file it.</div>';
+  // The validation footer lives in the rail (#filfoot); clear it too so no stale controls linger.
+  const ff = document.getElementById("filfoot");
+  if (ff) ff.innerHTML = "";
 }
 
 /** Banner HTML for a duplicate match (filed = already in library, pending = dupe in queue;
@@ -728,10 +736,11 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
     '<div class="sift-fil" style="display:flex;flex-direction:column;height:100%;min-height:0">' +
     '<div class="sift-fil-dup" style="flex:none"></div>' +
     '<div class="sift-fil-report" style="flex:1;min-height:0;overflow:auto"></div>' +
-    '<div class="sift-fil-foot" style="flex:none;padding:10px 2px 2px;border-top:0.5px solid var(--color-border-tertiary)"></div>' +
     "</div>";
   const reportEl = mid.querySelector<HTMLElement>(".sift-fil-report");
-  const footEl = mid.querySelector<HTMLElement>(".sift-fil-foot");
+  // The validation footer now lives in the right rail (#filfoot in the .dest column), below the
+  // destination tree — so #mid is a pure son-first detail and the rail holds the filing stack.
+  const footEl = document.getElementById("filfoot");
   if (!reportEl || !footEl) return;
 
   // Duplicate check (by name, sound-confirmed when available) — fill the banner slot async.
