@@ -5,6 +5,7 @@
 import { listSources, addSource } from "./ipc";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { Source } from "../shared/contracts";
+import { requireEl } from "./dom";
 
 const esc = (s: string) =>
   s.replace(/[&<>"']/g, (c) =>
@@ -13,8 +14,7 @@ const esc = (s: string) =>
 
 /** Replaces app.js's mockup "Dossiers surveillés" block with real sources + warning. */
 export async function renderHomeSources() {
-  const content = document.getElementById("content");
-  if (!content) return;
+  const content = requireEl("#content", "renderHomeSources");
   let sources: Source[] = [];
   try {
     sources = await listSources();
@@ -56,8 +56,7 @@ export async function renderHomeSources() {
   // Hide the WHOLE mockup "Dossiers surveillés" block (its hardcoded counts never change):
   // the .col-h header + every following sibling up to the next .col-h. Insert the real
   // panel in its place.
-  const left = content.querySelector(".home-left");
-  if (!left) return;
+  const left = requireEl(".home-left", "renderHomeSources", content);
   // Lean Tauri UI: keep only the page title + the real sources panel; hide all the mock
   // home content (fictional stat cards, pending banner, per-folder breakdown).
   let title: Element | null = null;

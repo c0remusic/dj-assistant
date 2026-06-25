@@ -39,6 +39,7 @@ import { renderEcartes } from "./ecartes-view";
 import { renderHomeSources, pickAndAddFolder } from "./home-sources";
 import { installDragDrop, injectLeanStyle, injectTitlebar, installScrollAutohide } from "./chrome";
 import type { QueueItem, Bin } from "../shared/contracts";
+import { requireEl } from "./dom";
 
 // Latest live queue items, kept so a queue-row click can recover the full item (id +
 // verdict) the filing pane needs.
@@ -129,8 +130,8 @@ async function renderQueue(touchDetail = true) {
       '<div style="font-size:var(--text-md);color:var(--color-text-tertiary);padding:6px 4px">Queue empty.</div>');
 
   // Live destination bins + neutral detail prompt (replace the mockup's hardcoded ones).
-  const fldz = document.getElementById("fldz");
-  if (fldz) void refreshBins(fldz);
+  const fldz = requireEl("#fldz", "renderQueue");
+  void refreshBins(fldz);
   // Only sync the detail pane on structural changes (nav, queue add/remove/file). A background
   // ANALYSIS finishing must NOT re-open / switch the open track — that thrashes and aborts the
   // player's audio load (waveform shows from peaks, but no sound). See touchDetail=false caller.
@@ -138,7 +139,7 @@ async function renderQueue(touchDetail = true) {
     if (reviewMode === "batch") {
       renderBatch();
     } else {
-      const mid = document.getElementById("mid");
+      const mid = requireEl("#mid", "renderQueue");
       if (mid) {
         // auto-load the current/first pending track into the main pane + highlight its row
         const curId = syncDetail(mid, items);
@@ -155,8 +156,7 @@ async function renderQueue(touchDetail = true) {
  * column. Owned here (not app.js) so it works inside Tauri where the live wiring renders the
  * Revue. Reflects `reviewMode`; clicks are handled in the #pa delegate. */
 function ensureReviewSeg() {
-  const qcol = document.getElementById("qcol");
-  if (!qcol) return;
+  const qcol = requireEl("#qcol", "ensureReviewSeg");
   let seg = document.getElementById("sift-revseg");
   if (!seg) {
     seg = document.createElement("div");
@@ -181,8 +181,7 @@ function ensureReviewSeg() {
  * #mid) and a selection summary rail (#filfoot). Every control is bound to a real command
  * (`fileBatch` / `rejectBatch`); nothing here is mocked. */
 function renderBatch() {
-  const mid = document.getElementById("mid");
-  if (!mid) return;
+  const mid = requireEl("#mid", "renderBatch");
   const ready = currentItems.filter((it) => it.verdict === "ok");
   const review = currentItems.filter((it) => it.verdict !== "ok");
   // Prune ticks to the live ready set; default to all-ready selected the first time.
@@ -334,10 +333,9 @@ function binSelectHtml(): string {
 /** Right-rail summary for batch mode (board's SELECTION / DESTINATION / WILL ENCODE / EXCLUDED).
  * Replaces the filing footer + hides the folder tree while batching. */
 function renderBatchRail(reviewN: number) {
-  const foot = document.getElementById("filfoot");
-  const fldz = document.getElementById("fldz");
-  if (fldz) fldz.style.display = reviewMode === "batch" ? "none" : "";
-  if (!foot) return;
+  const foot = requireEl("#filfoot", "renderBatchRail");
+  const fldz = requireEl("#fldz", "renderBatchRail");
+  fldz.style.display = reviewMode === "batch" ? "none" : "";
   const dest = batchBin || "Library root";
   const block = (label: string, body: string) =>
     `<div style="margin-bottom:14px"><div class="col-h" style="margin:0 0 4px">${label}</div><div style="font-size:var(--text-md);color:var(--color-text-secondary)">${body}</div></div>`;
@@ -353,8 +351,8 @@ function renderBatchRail(reviewN: number) {
 function setReviewMode(m: "detail" | "batch") {
   reviewMode = m;
   ensureReviewSeg();
-  const fldz = document.getElementById("fldz");
-  if (fldz) fldz.style.display = m === "batch" ? "none" : "";
+  const fldz = requireEl("#fldz", "setReviewMode");
+  fldz.style.display = m === "batch" ? "none" : "";
   if (m === "batch") {
     listBins()
       .then((b) => {
@@ -379,7 +377,7 @@ async function runBatchFile() {
   try {
     const res = await fileBatch(ids, batchBin);
     for (const id of ids) if (!res.needs_validation.includes(id)) batchSel.delete(id);
-    const foot = document.getElementById("filfoot");
+    const foot = requireEl("#filfoot", "runBatchFile");
     if (foot) {
       const msg = res.needs_validation.length
         ? `${res.filed} filed · ${res.needs_validation.length} need validation`
@@ -399,7 +397,7 @@ async function runBatchFile() {
 async function runBatchIdentify() {
   const ids = [...batchSel];
   if (ids.length === 0) return;
-  const foot = document.getElementById("filfoot");
+  const foot = requireEl("#filfoot", "runBatchIdentify");
   const note = (html: string, color = "var(--color-text-secondary)") => {
     if (foot)
       foot.insertAdjacentHTML(
@@ -455,8 +453,7 @@ async function refresh() {
  * — i.e. on every queue change, on any screen — so it's correct even off the Revue view. Empty
  * text collapses the pill via the `.nav-badge:empty` CSS rule. */
 async function updateRevueBadge() {
-  const badge = document.querySelector<HTMLElement>('.nav-badge[data-badge="revue"]');
-  if (!badge) return;
+  const badge = requireEl<HTMLElement>('.nav-badge[data-badge="revue"]', "updateRevueBadge");
   try {
     const n = (await listQueue()).length;
     badge.textContent = n ? String(n) : "";
@@ -467,8 +464,7 @@ async function updateRevueBadge() {
 
 /** Live Réglages view: injects the real Discogs token field below the mockup rows. */
 async function renderReglagesLive() {
-  const content = document.getElementById("content");
-  if (!content) return;
+  const content = requireEl("#content", "renderReglagesLive");
 
   // Remove any previous live-settings block so we don't duplicate on re-render.
   document.getElementById("sift-reglages-live")?.remove();
@@ -554,8 +550,7 @@ function verdictBadge(v: string | null): string {
 /** Live Bibliothèque view: lists filed tracks with search + quality chips + folder/genre
  * facets, wired to real data. Actions go through the #pa delegated handler (data-bib). */
 async function renderBiblioLive() {
-  const content = document.getElementById("content");
-  if (!content) return;
+  const content = requireEl("#content", "renderBiblioLive");
   let facets: LibraryFacets = { folders: [], genres: [] };
   try {
     [bibState.tracks, facets] = await Promise.all([
@@ -629,8 +624,8 @@ function bibName(t: LibraryTrack): string {
  * On save, patch the row label in place (player stays alive); on delete, re-render the list. */
 function openBiblioDetail(id: number): void {
   const t = bibState.tracks.find((x) => x.id === id);
-  const host = document.getElementById("bibplayer");
-  if (!t || !host) return;
+  const host = requireEl("#bibplayer", "openBiblioDetail");
+  if (!t) return;
   document.querySelectorAll(".lr.cur").forEach((n) => n.classList.remove("cur"));
   document.querySelector(`.lr[data-id="${id}"]`)?.classList.add("cur");
   openLibraryDetailInto(
@@ -660,7 +655,7 @@ export function installLiveWiring() {
   installScrollAutohide();
   void installDragDrop();
 
-  document.getElementById("pa")?.addEventListener("click", (e) => {
+  requireEl("#pa", "installLiveWiring").addEventListener("click", (e) => {
     // queue item → open the live filing pane (report + editor + actions) in #mid
     const qi = (e.target as HTMLElement).closest<HTMLElement>(".qi[data-id]");
     if (qi?.dataset.id) {
@@ -669,7 +664,7 @@ export function installLiveWiring() {
       if (reviewMode === "batch") setReviewMode("detail");
       const id = Number(qi.dataset.id);
       const item = currentItems.find((it) => it.id === id);
-      const mid = document.getElementById("mid");
+      const mid = requireEl("#mid", "qi-click");
       // highlight the active row
       document.querySelectorAll(".qi.cur").forEach((n) => n.classList.remove("cur"));
       qi.classList.add("cur");
@@ -770,7 +765,7 @@ export function installLiveWiring() {
       const id = Number(el.dataset.id);
       const item = currentItems.find((it) => it.id === id);
       setReviewMode("detail");
-      const mid = document.getElementById("mid");
+      const mid = requireEl("#mid", "batchopen");
       if (item && mid) void openFilingInto(mid, item);
     } else if (act === "batchidentify") {
       e.stopPropagation();
@@ -785,7 +780,7 @@ export function installLiveWiring() {
   });
 
   // Destination dropdown (batch bar) — a <select>, so it needs change, not click.
-  document.getElementById("pa")?.addEventListener("change", (e) => {
+  requireEl("#pa", "installLiveWiring").addEventListener("change", (e) => {
     const sel = (e.target as HTMLElement).closest<HTMLSelectElement>('select[data-sift="batchbin"]');
     if (sel) {
       batchBin = sel.value;

@@ -25,6 +25,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { openReportInto, togglePlay, vchipHtml } from "./report-view";
 import { renderCandidates } from "./identify-shared";
 import type { Bin, Canonical, Target, QueueItem } from "../shared/contracts";
+import { requireEl } from "./dom";
 
 const LIBRARY_ROOT = "library_root";
 
@@ -334,9 +335,9 @@ function updateHeaderName(mid: HTMLElement): void {
   const c = state.canonical;
   if (!c) return; // before reconcile: keep the filename the report set
   // Board hero: big TITLE on top, "artist · version" subtitle below (not the full filename).
-  const nameEl = mid.querySelector<HTMLElement>(".sift-report-name");
-  if (nameEl) nameEl.textContent = c.title || displayName();
-  const subEl = mid.querySelector<HTMLElement>(".sift-report-sub");
+  const nameEl = requireEl<HTMLElement>(".sift-report-name", "updateHeaderName", mid);
+  nameEl.textContent = c.title || displayName();
+  const subEl = requireEl<HTMLElement>(".sift-report-sub", "updateHeaderName", mid);
   if (subEl) {
     const ver = c.version && c.version.trim() ? c.version.trim() : "";
     subEl.textContent = [c.artist, ver].filter(Boolean).join(" · ");
@@ -401,7 +402,7 @@ function onIdentityApplied(
 
   // Show the cover if we have a local path.
   if (applied.cover_path) {
-    const covEl = mid.querySelector<HTMLImageElement>(".sift-report-cover");
+    const covEl = requireEl<HTMLImageElement>(".sift-report-cover", "onIdentityApplied", mid);
     if (covEl) {
       covEl.src = convertFileSrc(applied.cover_path);
       covEl.hidden = false;
@@ -504,7 +505,7 @@ async function doIdentify(
       const gotoBtn = host.querySelector<HTMLElement>('[data-fil="goto-reglages"]');
       gotoBtn?.addEventListener("click", () => {
         // Navigate to the Réglages view via the existing nav click handler in app.js
-        document.querySelector<HTMLElement>('[data-view="reglages"]')?.dispatchEvent(
+        requireEl('[data-view="reglages"]', "filing goto-reglages").dispatchEvent(
           new MouseEvent("click", { bubbles: true }),
         );
       });
@@ -722,8 +723,8 @@ function clearPane(mid: HTMLElement): void {
   mid.innerHTML =
     '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--color-text-tertiary);font-size:var(--text-md);padding:20px;text-align:center">Select a track in the queue to listen and file it.</div>';
   // The validation footer lives in the rail (#filfoot); clear it too so no stale controls linger.
-  const ff = document.getElementById("filfoot");
-  if (ff) ff.innerHTML = "";
+  const ff = requireEl("#filfoot", "clearPane");
+  ff.innerHTML = "";
 }
 
 /** Banner HTML for a duplicate match (filed = already in library, pending = dupe in queue;
@@ -756,11 +757,10 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
     '<div class="sift-fil-dup" style="flex:none"></div>' +
     '<div class="sift-fil-report" style="flex:1;min-height:0;overflow:auto"></div>' +
     "</div>";
-  const reportEl = mid.querySelector<HTMLElement>(".sift-fil-report");
+  const reportEl = requireEl<HTMLElement>(".sift-fil-report", "openFilingInto", mid);
   // The validation footer now lives in the right rail (#filfoot in the .dest column), below the
   // destination tree — so #mid is a pure son-first detail and the rail holds the filing stack.
-  const footEl = document.getElementById("filfoot");
-  if (!reportEl || !footEl) return;
+  const footEl = requireEl("#filfoot", "openFilingInto");
 
   // Duplicate check (by name, sound-confirmed when available) — drives both the banner slot and
   // the verdict-panel UNIQUE/DUPLICATE chip (appended once the panel exists, see end of fn).

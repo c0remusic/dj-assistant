@@ -16,6 +16,7 @@ import { renderCandidates } from "./identify-shared";
 import { openReportInto } from "./report-view";
 import { open } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { requireEl } from "./dom";
 
 const esc = (s: string) =>
   s.replace(/[&<>"']/g, (c) =>
@@ -177,9 +178,9 @@ async function doIdentify(
         `<div class="sift-cands-msg">Discogs throttles anonymous searches — add your (free) token in Settings.</div>` +
         `<button class="sift-cand-jump" data-lib="goto-reglages" style="margin-top:5px;font-size:var(--text-sm);padding:3px 9px">Open Settings →</button>`;
       host.querySelector('[data-lib="goto-reglages"]')?.addEventListener("click", () => {
-        document
-          .querySelector<HTMLElement>('[data-view="reglages"]')
-          ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        requireEl('[data-view="reglages"]', "library-detail goto-reglages").dispatchEvent(
+          new MouseEvent("click", { bubbles: true }),
+        );
       });
     } else {
       const rl = msg.match(/RATE_LIMITED:(\d+)/);
@@ -324,9 +325,8 @@ export function openLibraryDetailInto(
     '<div class="lib-report"></div>' +
     '<div class="lib-edit"></div>' +
     "</div>";
-  const reportEl = host.querySelector<HTMLElement>(".lib-report");
-  const editEl = host.querySelector<HTMLElement>(".lib-edit");
-  if (!reportEl || !editEl) return;
+  const reportEl = requireEl<HTMLElement>(".lib-report", "openLibraryDetailInto", host);
+  const editEl = requireEl<HTMLElement>(".lib-edit", "openLibraryDetailInto", host);
 
   void openReportInto(reportEl, track.path);
   renderEdit(editEl, st);

@@ -6,6 +6,7 @@ import { analyzePath } from "./ipc";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import WaveSurfer from "wavesurfer.js";
 import type { AnalysisReport } from "../shared/contracts";
+import { requireEl } from "./dom";
 
 const PEAKS_WINDOW = 512; // must match analysis::PEAKS_WINDOW
 
@@ -359,12 +360,11 @@ async function loadDecoded(ws: WaveSurfer, path: string): Promise<void> {
  * `peaks` and `duration` are optional hints for the initial waveform display — audio
  * loads via the Web-Audio decode path regardless (direct asset-protocol load aborts). */
 async function mountPlayer(root: HTMLElement, path: string, peaks?: number[], duration?: number) {
-  const container = root.querySelector<HTMLElement>(".sift-wave");
+  const container = requireEl<HTMLElement>(".sift-wave", "mountPlayer", root);
   const playBtn = root.querySelector<HTMLButtonElement>(".sift-play");
   const timeEl = root.querySelector<HTMLElement>(".sift-time");
   const tempo = root.querySelector<HTMLInputElement>(".sift-tempo");
   const tempoOut = root.querySelector<HTMLElement>(".sift-tempo-out");
-  if (!container) return;
 
   ensureStyles();
   destroyPlayer();

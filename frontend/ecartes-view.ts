@@ -4,6 +4,7 @@
 // re-renders via this module's renderEcartes.
 import { listEcartes } from "./ipc";
 import type { EcarteItem } from "../shared/contracts";
+import { requireEl } from "./dom";
 
 const esc = (s: string) =>
   s.replace(/[&<>"']/g, (c) =>
@@ -47,8 +48,7 @@ function ecStoreLinks(it: EcarteItem): string {
 /** Live Écartés view: replaces #content with the real rejected (à re-sourcer) + trashed
  * tracks. Soulseek copy + send-to-bin / restore / empty-bin wired via the #pa handler. */
 export async function renderEcartes() {
-  const content = document.getElementById("content");
-  if (!content) return;
+  const content = requireEl("#content", "renderEcartes");
   let items: EcarteItem[] = [];
   try {
     items = await listEcartes();
