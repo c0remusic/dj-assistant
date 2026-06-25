@@ -11,6 +11,7 @@ import type {
   Bin,
   FileResult,
   BatchResult,
+  RejectBatchResult,
   JournalEntry,
   Target,
   EcarteItem,
@@ -83,6 +84,11 @@ export const fileBatch = (
   trackIds: number[],
   binRel: string,
 ): Promise<BatchResult> => invoke("file_batch", { trackIds, binRel });
+
+/** Reject a batch of tracks for re-sourcing (each → Écartés). Returns how many were marked and
+ * which ids failed (a misfire is reported, never aborts the rest). */
+export const rejectBatch = (trackIds: number[]): Promise<RejectBatchResult> =>
+  invoke("reject_batch", { trackIds });
 
 /** Mark a track for re-sourcing (Écartés). */
 export const rejectTrack = (trackId: number): Promise<void> =>

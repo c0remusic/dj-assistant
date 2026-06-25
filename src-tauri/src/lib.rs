@@ -78,6 +78,7 @@ pub fn run() {
             ipc_filing::file_track,
             ipc_filing::file_batch,
             ipc_filing::reject_track,
+            ipc_filing::reject_batch,
             ipc_filing::trash_track,
             ipc_filing::list_bins,
             ipc_filing::create_bin,

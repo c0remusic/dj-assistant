@@ -56,6 +56,14 @@ pub struct BatchResult {
     pub needs_validation: Vec<i64>,
 }
 
+/// Outcome of a batch reject (re-sourcing): how many were marked, and which ids failed — so the
+/// UI can flag a misfire instead of silently dropping it.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct RejectBatchResult {
+    pub rejected: usize,
+    pub failed: Vec<i64>,
+}
+
 /// Source path of a track by id.
 fn track_path(conn: &Connection, track_id: i64) -> Result<String, FilingError> {
     conn.query_row("SELECT path FROM tracks WHERE id=?1", params![track_id], |r| r.get(0))
@@ -377,6 +385,21 @@ pub fn reject_track(conn: &Connection, track_id: i64) -> Result<(), FilingError>
     Ok(())
 }
 
+/// Reject every track of `track_ids` for re-sourcing (each → Écartés, status-only like
+/// `reject_track`). A track that errors is reported in `failed` rather than aborting the batch,
+/// so one bad id never strands the rest — mirroring `file_batch`'s fail-soft, no-panic shape.
+pub fn reject_batch(conn: &Connection, track_ids: &[i64]) -> RejectBatchResult {
+    let mut rejected = 0usize;
+    let mut failed = Vec::new();
+    for &id in track_ids {
+        match reject_track(conn, id) {
+            Ok(()) => rejected += 1,
+            Err(_) => failed.push(id),
+        }
+    }
+    RejectBatchResult { rejected, failed }
+}
+
 /// Move a track's file to `.sift-trash` and mark it `trash` (reversible via undo).
 pub fn trash_track(conn: &Connection, root: &Path, track_id: i64) -> Result<(), FilingError> {
     let source = track_path(conn, track_id)?;
@@ -517,6 +540,26 @@ mod tests {
         assert_eq!(status, "resourcing");
         let rejects: i64 = conn.query_row("SELECT count(*) FROM actions WHERE type='reject'", [], |r| r.get(0)).unwrap();
         assert_eq!(rejects, 1);
+    }
+
+    #[test]
+    fn reject_batch_marks_all_and_collects_bad_ids() {
+        let conn = db();
+        let dir = tempfile::tempdir().unwrap();
+        let (Some((a, _)), Some((b, _))) = (
+            seed_track(&conn, dir.path(), "real_320.mp3", "a.mp3"),
+            seed_track(&conn, dir.path(), "real_320.mp3", "b.mp3"),
+        ) else {
+            eprintln!("skip: no fixture");
+            return;
+        };
+        // 999 is not a real track id → reject_track errors → reported in `failed`, batch not aborted.
+        let res = reject_batch(&conn, &[a, b, 999]);
+        assert_eq!(res, RejectBatchResult { rejected: 2, failed: vec![999] });
+        let resourced: i64 = conn
+            .query_row("SELECT count(*) FROM tracks WHERE status='resourcing'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(resourced, 2);
     }
 
     #[test]

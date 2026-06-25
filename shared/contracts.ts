@@ -115,6 +115,12 @@ export interface BatchResult {
   needs_validation: number[];
 }
 
+/** Result of rejecting a batch: how many marked for re-sourcing, and the ids that failed. */
+export interface RejectBatchResult {
+  rejected: number;
+  failed: number[];
+}
+
 /** One rejected/trashed track for the Écartés view. */
 export interface EcarteItem {
   id: number;

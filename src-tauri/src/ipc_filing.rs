@@ -14,7 +14,7 @@ use crate::actions::{self, JournalEntry};
 use crate::dedup::{self, DupMatch};
 use crate::ecartes::{self, EcarteItem};
 use crate::encode::Target;
-use crate::filing::{self, BatchResult, FileResult};
+use crate::filing::{self, BatchResult, FileResult, RejectBatchResult};
 use crate::library::{self, Bin};
 use crate::naming::Canonical;
 use crate::settings;
@@ -108,6 +108,22 @@ pub fn reject_track(
     }
     app.emit("queue:changed", ()).ok();
     Ok(())
+}
+
+/// Reject a batch of tracks for re-sourcing (each → Écartés). Status-only at this milestone.
+/// Returns how many were marked and which ids failed (a misfire is reported, never aborts the rest).
+#[tauri::command]
+pub fn reject_batch(
+    app: AppHandle,
+    conn: State<'_, Mutex<Connection>>,
+    track_ids: Vec<i64>,
+) -> Result<RejectBatchResult, String> {
+    let res = {
+        let conn = conn.lock().map_err(|e| e.to_string())?;
+        filing::reject_batch(&conn, &track_ids)
+    };
+    app.emit("queue:changed", ()).ok();
+    Ok(res)
 }
 
 /// Move a track's file to `.sift-trash` (reversible via undo) and mark it trashed.
