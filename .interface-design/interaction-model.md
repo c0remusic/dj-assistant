@@ -94,5 +94,8 @@ Tout élément 🟡 INTENT, en code comme dans Penpot, est rendu **« pending im
 `↑/↓` focus · `Space` play | toggle-select · `⏎` File · `⌫` Discard · `⌘Z` undo · `Tab` zone suivante · `⌘K` palette (🟡/🔴).
 
 **État front réel** (`filing.ts` `installFilingKeys`, 2026-06-25) : 🟢 `↑/↓` (parcourt la
-queue live), `Space` play, `⏎` File, `⌫` Discard (alias `X`), `I` Identify, `⌘Z` undo.
-🔴 pas encore : `Tab` (zone), `⌘K` (palette), `Space` toggle-select (mode batch absent).
+queue live), `Space` play, `⏎` File, `⌫` Discard (alias `X`), `I` Identify, `⌘Z` undo ;
+**focus ring** visible au clavier (`:focus-visible`, accent) ; **sélection neutre** (la ligne
+ouverte = blanc @.045 + barre non-bleue, jamais bleu — le bleu reste l'accent du focus et de la
+cible destination liée au CTA File →). 🔴 pas encore : `Tab` (zone), `⌘K` (palette), `Space`
+toggle-select (mode batch absent — bloqué sur `reject_batch` côté Rust, aujourd'hui INTENT 🟡).

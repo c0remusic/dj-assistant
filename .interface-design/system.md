@@ -4,10 +4,13 @@
 > Direction travaillée dans Penpot. Boards canoniques (page « Sift — shell ») :
 > **Détail = « Revue · plat »** `49975f37-649c-80c0-8008-39eb475e8b73` (x5500),
 > **Batch = « Revue · batch »** `284acdb7-967e-8038-8008-3a1f415c4596` (x5500/y820).
-> UI **en anglais**. Convergence partielle faite côté front réel (2026-06-25) :
-> tokens **couleur + radius** appliqués au CSS, libellés **migrés en anglais**, clavier
-> **↑/↓ + ⌫** câblé (cf. interaction-model.md §7). Restent non alignés : espacement
-> (px hors grille), typographie (Outfit/JetBrains pas chargées), layout Détail/Batch.
+> UI **en anglais**. Convergence faite côté front réel (2026-06-25) : tokens **couleur +
+> radius** au CSS, libellés **anglais**, clavier **↑/↓ + ⌫** + **focus ring** (`:focus-visible`),
+> **typographie chargée** (Outfit + JetBrains Mono self-hosted via @fontsource), **layout Détail
+> refondu** — son-d'abord (hero → audition → carte verdict « Ready to file » → preuve) + **rail de
+> validation** : la colonne destination porte la pile DESTINATION → FINAL NAME → GENRES → FORMAT →
+> File/Discard. Sélection **neutre** (blanc @.045, plus de bleu). Restent non alignés : espacement
+> (quelques px hors grille), layout **Batch** (bloqué sur `reject_batch` Rust, cf. §7).
 
 ## Direction & ressenti
 « La table du digger », mais **outil de DJ : le son passe avant l'image**. Interface sombre,
