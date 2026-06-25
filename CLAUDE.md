@@ -10,8 +10,9 @@ App desktop **Tauri v2** (Win+Mac), gratuite, de prépa de musique pour DJ : ana
 Principe : « déplacer = encoder + ranger ».
 
 ## Stack
-Tauri v2 (Rust) · frontend Vite vanilla · FFmpeg sidecar bundlé · SQLite (`rusqlite`)
-· `rustfft` · `lofty` · `rusty-chromaprint` · `ureq`. Lib = `sift_lib`. MSRV Rust 1.77.2.
+Tauri v2 (Rust) · frontend Vite vanilla · **Symphonia** (décode analyse) + FFmpeg sidecar
+bundlé (encode) · SQLite (`rusqlite`) · `rustfft` · `lofty` · `rusty-chromaprint` · `ureq`.
+Lib = `sift_lib`. MSRV Rust 1.77.2.
 
 ## Commandes (Windows — npm via `cmd /c "npm …"`)
 - Dev : `npm run tauri dev` (Vite 5173 + backend Rust)
