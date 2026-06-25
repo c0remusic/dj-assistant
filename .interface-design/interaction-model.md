@@ -92,3 +92,7 @@ Tout élément 🟡 INTENT, en code comme dans Penpot, est rendu **« pending im
 
 ## 7. Clavier (Linear-like)
 `↑/↓` focus · `Space` play | toggle-select · `⏎` File · `⌫` Discard · `⌘Z` undo · `Tab` zone suivante · `⌘K` palette (🟡/🔴).
+
+**État front réel** (`filing.ts` `installFilingKeys`, 2026-06-25) : 🟢 `↑/↓` (parcourt la
+queue live), `Space` play, `⏎` File, `⌫` Discard (alias `X`), `I` Identify, `⌘Z` undo.
+🔴 pas encore : `Tab` (zone), `⌘K` (palette), `Space` toggle-select (mode batch absent).

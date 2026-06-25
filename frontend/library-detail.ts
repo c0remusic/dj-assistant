@@ -58,9 +58,9 @@ function coverHtml(st: EditState): string {
     ? `<img src="${esc(src)}" alt="" style="width:100%;height:100%;object-fit:cover">`
     : `<i class="ti ti-vinyl" style="font-size:26px;color:var(--color-text-tertiary)"></i>`;
   return (
-    `<button data-lib="cover" title="Changer la pochette" style="position:relative;width:72px;height:72px;flex:none;border-radius:var(--border-radius-md);overflow:hidden;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer">` +
+    `<button data-lib="cover" title="Change cover" style="position:relative;width:72px;height:72px;flex:none;border-radius:var(--border-radius-md);overflow:hidden;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer">` +
     inner +
-    `<span style="position:absolute;inset:auto 0 0 0;background:rgba(0,0,0,.55);color:#fff;font-size:9px;padding:2px 0;text-align:center">changer</span>` +
+    `<span style="position:absolute;inset:auto 0 0 0;background:rgba(0,0,0,.55);color:#fff;font-size:9px;padding:2px 0;text-align:center">change</span>` +
     `</button>`
   );
 }
@@ -69,11 +69,11 @@ function coverHtml(st: EditState): string {
 function releaseRowHtml(st: EditState): string {
   if (st.track.discogs_release_id) {
     return (
-      `<button data-lib="release" title="Ouvrir la fiche Discogs"><i class="ti ti-external-link" style="font-size:12px;vertical-align:-1px"></i> Voir la release</button>` +
-      `<button data-lib="identifier" class="sift-id-btn" title="Re-rechercher sur Discogs"><i class="ti ti-refresh" style="font-size:11px;vertical-align:-1px"></i> Ré-identifier</button>`
+      `<button data-lib="release" title="Open Discogs page"><i class="ti ti-external-link" style="font-size:12px;vertical-align:-1px"></i> View release</button>` +
+      `<button data-lib="identifier" class="sift-id-btn" title="Search Discogs again"><i class="ti ti-refresh" style="font-size:11px;vertical-align:-1px"></i> Re-identify</button>`
     );
   }
-  return `<button data-lib="identifier" class="sift-id-btn" title="Rechercher les métadonnées sur Discogs"><i class="ti ti-search" style="font-size:12px;vertical-align:-1px"></i> Identifier</button>`;
+  return `<button data-lib="identifier" class="sift-id-btn" title="Search metadata on Discogs"><i class="ti ti-search" style="font-size:12px;vertical-align:-1px"></i> Identify</button>`;
 }
 
 /** Render the editor footer into `edit`. Re-rendered after identify (release link appears). */
@@ -84,20 +84,20 @@ function renderEdit(edit: HTMLElement, st: EditState): void {
     coverHtml(st) +
     `<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">` +
     `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">` +
-    `<input data-lib="artist" placeholder="Artiste" value="${esc(t.artist ?? "")}" style="${inputCss}">` +
-    `<input data-lib="title" placeholder="Titre" value="${esc(t.title ?? "")}" style="${inputCss}">` +
+    `<input data-lib="artist" placeholder="Artist" value="${esc(t.artist ?? "")}" style="${inputCss}">` +
+    `<input data-lib="title" placeholder="Title" value="${esc(t.title ?? "")}" style="${inputCss}">` +
     `</div>` +
-    `<input data-lib="genres" placeholder="Genres (séparés par des virgules)" value="${esc(t.genres.join(", "))}" style="${inputCss}">` +
+    `<input data-lib="genres" placeholder="Genres (comma-separated)" value="${esc(t.genres.join(", "))}" style="${inputCss}">` +
     `<div style="display:grid;grid-template-columns:90px 1fr;gap:6px">` +
-    `<input data-lib="year" type="number" placeholder="Année" value="${t.year ?? ""}" style="${inputCss}">` +
+    `<input data-lib="year" type="number" placeholder="Year" value="${t.year ?? ""}" style="${inputCss}">` +
     `<input data-lib="label" placeholder="Label" value="${esc(t.label ?? "")}" style="${inputCss}">` +
     `</div>` +
     `</div></div>` +
     `<div style="display:flex;align-items:center;gap:6px;margin-top:9px;flex-wrap:wrap">${releaseRowHtml(st)}</div>` +
     `<div class="sift-cands" style="margin-top:7px" hidden></div>` +
     `<div style="display:flex;gap:8px;margin-top:10px">` +
-    `<button data-lib="save" style="flex:1;background:var(--color-background-info);color:var(--color-text-info);border:none;font-weight:500"><i class="ti ti-device-floppy" style="font-size:12px;vertical-align:-2px"></i> Enregistrer</button>` +
-    `<button data-lib="trash" style="color:var(--color-text-danger)" title="Envoyer à la corbeille"><i class="ti ti-trash" style="font-size:12px;vertical-align:-2px"></i> Supprimer</button>` +
+    `<button data-lib="save" style="flex:1;background:var(--color-background-info);color:var(--color-text-info);border:none;font-weight:500"><i class="ti ti-device-floppy" style="font-size:12px;vertical-align:-2px"></i> Save</button>` +
+    `<button data-lib="trash" style="color:var(--color-text-danger)" title="Send to trash"><i class="ti ti-trash" style="font-size:12px;vertical-align:-2px"></i> Delete</button>` +
     `</div>`;
 
   wireEdit(edit, st);
@@ -163,9 +163,9 @@ async function doIdentify(
 ): Promise<void> {
   const orig = btn.innerHTML;
   btn.disabled = true;
-  btn.innerHTML = '<i class="ti ti-loader-2 sift-spin" style="font-size:11px;vertical-align:-1px"></i> Recherche…';
+  btn.innerHTML = '<i class="ti ti-loader-2 sift-spin" style="font-size:11px;vertical-align:-1px"></i> Searching…';
   host.hidden = false;
-  host.innerHTML = '<div class="sift-cands-msg">Recherche en cours…</div>';
+  host.innerHTML = '<div class="sift-cands-msg">Searching…</div>';
   try {
     const candidates = await identify(st.track.id);
     renderCandidates(host, candidates);
@@ -174,8 +174,8 @@ async function doIdentify(
     const msg = String(err);
     if (msg.includes("NO_TOKEN")) {
       host.innerHTML =
-        `<div class="sift-cands-msg">Discogs limite les recherches anonymes — ajoute ton token (gratuit) dans Réglages.</div>` +
-        `<button class="sift-cand-jump" data-lib="goto-reglages" style="margin-top:5px;font-size:11px;padding:3px 9px">Ouvrir Réglages →</button>`;
+        `<div class="sift-cands-msg">Discogs throttles anonymous searches — add your (free) token in Settings.</div>` +
+        `<button class="sift-cand-jump" data-lib="goto-reglages" style="margin-top:5px;font-size:11px;padding:3px 9px">Open Settings →</button>`;
       host.querySelector('[data-lib="goto-reglages"]')?.addEventListener("click", () => {
         document
           .querySelector<HTMLElement>('[data-view="reglages"]')
@@ -184,8 +184,8 @@ async function doIdentify(
     } else {
       const rl = msg.match(/RATE_LIMITED:(\d+)/);
       host.innerHTML = rl
-        ? `<div class="sift-cands-msg">Discogs limite les requêtes — réessaie dans ${rl[1]}s.</div>`
-        : `<div class="sift-cands-msg sift-cands-error"><i class="ti ti-alert-triangle" style="font-size:12px;vertical-align:-2px;margin-right:4px"></i>Discogs injoignable.</div>`;
+        ? `<div class="sift-cands-msg">Discogs is rate-limiting — retry in ${rl[1]}s.</div>`
+        : `<div class="sift-cands-msg sift-cands-error"><i class="ti ti-alert-triangle" style="font-size:12px;vertical-align:-2px;margin-right:4px"></i>Discogs unreachable.</div>`;
     }
   } finally {
     btn.disabled = false;
@@ -242,7 +242,7 @@ function onIdentityApplied(
   notifyChanged(st.track);
   renderEdit(edit, st);
   host.hidden = true;
-  toast("Identifié — métadonnées appliquées");
+  toast("Identified — metadata applied");
 }
 
 /** Save the manual edits via update_metadata (file tags first, then DB). */
@@ -250,7 +250,7 @@ async function doSave(edit: HTMLElement, st: EditState): Promise<void> {
   if (st.saving) return;
   const e = collectEdit(edit, st);
   if (!e.title) {
-    toast("Le titre ne peut pas être vide.");
+    toast("Title can't be empty.");
     return;
   }
   const btn = edit.querySelector<HTMLButtonElement>('[data-lib="save"]');
@@ -258,7 +258,7 @@ async function doSave(edit: HTMLElement, st: EditState): Promise<void> {
   st.saving = true;
   if (btn) {
     btn.disabled = true;
-    btn.innerHTML = '<i class="ti ti-loader-2 sift-spin" style="font-size:12px;vertical-align:-2px"></i> Enregistrement…';
+    btn.innerHTML = '<i class="ti ti-loader-2 sift-spin" style="font-size:12px;vertical-align:-2px"></i> Saving…';
   }
   try {
     await updateMetadata(st.track.id, e);
@@ -274,9 +274,9 @@ async function doSave(edit: HTMLElement, st: EditState): Promise<void> {
       st.pendingCover = null;
     }
     notifyChanged(st.track);
-    toast("Enregistré");
+    toast("Saved");
   } catch (err) {
-    toast(`Échec de l'enregistrement : ${String(err)}`);
+    toast(`Save failed: ${String(err)}`);
     console.error("update_metadata failed", err);
   } finally {
     st.saving = false;
@@ -291,10 +291,10 @@ async function doSave(edit: HTMLElement, st: EditState): Promise<void> {
 async function doTrash(st: EditState): Promise<void> {
   try {
     await trashTrack(st.track.id);
-    toast("Envoyé à la corbeille");
+    toast("Sent to trash");
     deletedCb?.();
   } catch (err) {
-    toast(`Échec : ${String(err)}`);
+    toast(`Failed: ${String(err)}`);
     console.error("trash_track failed", err);
   }
 }

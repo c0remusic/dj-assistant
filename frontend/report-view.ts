@@ -75,28 +75,28 @@ function realQuality(r: AnalysisReport): { label: string; bg: string; fg: string
     };
   }
   if (r.verdict === "grey")
-    return { label: `MP3 ≈ ${estKbps(r.cutoff_hz)} kbps — à vérifier`, bg: "var(--color-background-warning)", fg: "var(--color-text-warning)" };
+    return { label: `MP3 ≈ ${estKbps(r.cutoff_hz)} kbps — check`, bg: "var(--color-background-warning)", fg: "var(--color-text-warning)" };
   // genuine: describe the actual quality, not a yes/no
   const real =
     r.declared_rail === "lossless"
-      ? "lossless · plein-bande"
+      ? "lossless · full-band"
       : r.declared_bitrate
-        ? `${r.declared_bitrate} kbps réels`
-        : "qualité authentique";
+        ? `${r.declared_bitrate} kbps actual`
+        : "genuine quality";
   return { label: real, bg: "var(--color-background-success)", fg: "var(--color-text-success)" };
 }
 
 function spectroCaption(v: AnalysisReport["verdict"]): string {
-  if (v === "fake") return "coupure nette = probable transcodage";
-  if (v === "grey") return "à inspecter visuellement";
-  return "énergie pleine bande = encodage conforme";
+  if (v === "fake") return "sharp cutoff = likely transcode";
+  if (v === "grey") return "inspect visually";
+  return "full-band energy = compliant encoding";
 }
 
 function verdictBadge(v: AnalysisReport["verdict"]): string {
   const map = {
-    ok: ["ti-shield-check", "Authentique", "var(--color-background-success)", "var(--color-text-success)"],
-    fake: ["ti-alert-triangle", "Fake / sur-encodé", "var(--color-background-danger)", "var(--color-text-danger)"],
-    grey: ["ti-help-circle", "Zone grise", "var(--color-background-warning)", "var(--color-text-warning)"],
+    ok: ["ti-shield-check", "Authentic", "var(--color-background-success)", "var(--color-text-success)"],
+    fake: ["ti-alert-triangle", "Fake / over-encoded", "var(--color-background-danger)", "var(--color-text-danger)"],
+    grey: ["ti-help-circle", "Grey zone", "var(--color-background-warning)", "var(--color-text-warning)"],
   } as const;
   const [icon, label, bg, fg] = map[v];
   return `<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:var(--border-radius-md);font-weight:600;font-size:12px;color:${fg};background:${bg}"><i class="ti ${icon}" style="font-size:13px"></i>${label}</span>`;
@@ -155,7 +155,7 @@ function nameHeaderHtml(name: string, path: string, closeBtn: boolean): string {
     `<img class="sift-report-cover" hidden alt="" style="width:40px;height:40px;border-radius:4px;object-fit:cover;flex:none">` +
     `<div style="min-width:0;flex:1"><div class="sift-report-name" style="font-size:13px;font-weight:600;word-break:break-all;color:var(--color-text-primary)">${esc(name)}</div>` +
     `<div style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;margin-top:2px">${esc(path)}</div></div>` +
-    (closeBtn ? `<button class="sift-close" style="flex:none;font-size:13px;padding:4px 10px">fermer</button>` : "") +
+    (closeBtn ? `<button class="sift-close" style="flex:none;font-size:13px;padding:4px 10px">close</button>` : "") +
     `</div>`
   );
 }
@@ -164,17 +164,17 @@ function playerRowHtml(): string {
   return (
     `<div style="display:flex;align-items:center;gap:12px;margin-bottom:11px;padding:8px 11px;min-height:80px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)">` +
     `<div style="flex:none;align-self:stretch;width:62px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center">` +
-    `<button class="sift-play" title="Lecture / pause (espace)" style="flex:none;width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;padding:0"><i class="ti ti-player-play" style="font-size:13px"></i></button>` +
-    `<span class="sift-time" title="Cliquer : écoulé ⇄ restant" style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);white-space:nowrap;font-family:var(--font-mono);font-size:9px;color:var(--color-text-secondary);cursor:pointer;transition:color .15s;display:inline-flex;align-items:center;justify-content:center;gap:3px"><span class="sift-time-val">0:00 / 0:00</span></span>` +
+    `<button class="sift-play" title="Play / pause (space)" style="flex:none;width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;padding:0"><i class="ti ti-player-play" style="font-size:13px"></i></button>` +
+    `<span class="sift-time" title="Click: elapsed ⇄ remaining" style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);white-space:nowrap;font-family:var(--font-mono);font-size:9px;color:var(--color-text-secondary);cursor:pointer;transition:color .15s;display:inline-flex;align-items:center;justify-content:center;gap:3px"><span class="sift-time-val">0:00 / 0:00</span></span>` +
     `</div>` +
     `<div class="sift-wave" style="flex:1;min-width:0;align-self:center;cursor:pointer"></div>` +
     `<div style="flex:none;align-self:stretch;width:64px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:6px;padding:3px 0">` +
     `<span style="font-size:8px;letter-spacing:.05em;text-transform:uppercase;color:var(--color-text-tertiary)">tempo</span>` +
     `<div style="flex:1;min-height:0;display:flex;align-items:center;gap:4px">` +
-    `<input class="sift-tempo" type="range" min="-8" max="8" step="1" value="0" title="Tempo — double-clic = reset" aria-label="Tempo" style="writing-mode:vertical-lr;direction:rtl;width:22px;height:100%;max-height:42px">` +
+    `<input class="sift-tempo" type="range" min="-8" max="8" step="1" value="0" title="Tempo — double-click = reset" aria-label="Tempo" style="writing-mode:vertical-lr;direction:rtl;width:22px;height:100%;max-height:42px">` +
     `<span class="sift-tempo-out" style="font-family:var(--font-mono);font-size:8px;color:var(--color-text-secondary);width:22px">0%</span>` +
     `</div>` +
-    `<button class="sift-key" title="Key-lock : le tempo ne change pas le pitch (off = varispeed)" style="border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:2px 8px;font-size:8px;letter-spacing:.05em;text-transform:uppercase">key</button>` +
+    `<button class="sift-key" title="Key-lock: tempo doesn't change pitch (off = varispeed)" style="border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:2px 8px;font-size:8px;letter-spacing:.05em;text-transform:uppercase">key</button>` +
     `</div></div>`
   );
 }
@@ -188,43 +188,43 @@ function verdictChainHtml(r: AnalysisReport): string {
   const chainInner =
     r.verdict === "ok"
       ? `${declaredPill}${verdictBadge(r.verdict)}`
-      : `${lab("annoncé")}${declaredPill}${arrow}${lab("qualité réelle")}<span class="pill" style="background:${rq.bg};color:${rq.fg}">${rq.label}</span>${arrow}${verdictBadge(r.verdict)}`;
+      : `${lab("declared")}${declaredPill}${arrow}${lab("real quality")}<span class="pill" style="background:${rq.bg};color:${rq.fg}">${rq.label}</span>${arrow}${verdictBadge(r.verdict)}`;
   return `<div style="display:flex;align-items:center;gap:7px;margin-bottom:12px;flex-wrap:wrap;font-size:11px">${chainInner}</div>`;
 }
 
 function spectroAndTagsHtml(r: AnalysisReport): string {
-  const yn = (b: boolean) => (b ? "oui" : "non");
+  const yn = (b: boolean) => (b ? "yes" : "no");
   return (
     `<div style="margin-bottom:11px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);overflow:hidden">` +
     `<button class="sift-sg-toggle" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 11px;background:var(--color-background-secondary);border:none;color:var(--color-text-primary);cursor:pointer;font-size:11px;text-align:left">` +
-    `<span style="display:flex;align-items:center;gap:8px"><span class="sift-sg-caret" style="display:inline-block;transition:transform .25s;color:var(--color-text-tertiary)">▸</span> Spectrogramme &amp; infos</span>` +
-    `<span class="sift-sg-hint" style="font-size:11px;color:var(--color-text-info);flex:none">afficher</span>` +
+    `<span style="display:flex;align-items:center;gap:8px"><span class="sift-sg-caret" style="display:inline-block;transition:transform .25s;color:var(--color-text-tertiary)">▸</span> Spectrogram &amp; info</span>` +
+    `<span class="sift-sg-hint" style="font-size:11px;color:var(--color-text-info);flex:none">show</span>` +
     `</button>` +
     `<div class="sift-sg-body" style="max-height:0;overflow:hidden;transition:max-height .3s ease">` +
-    `<div style="padding:8px 11px;font-size:10px;color:var(--color-text-tertiary);border-bottom:0.5px solid var(--color-border-tertiary);line-height:1.5">Déclaré <span class="pill">${esc(r.declared_format)}</span> ${r.declared_rail}${r.declared_bitrate ? " · " + r.declared_bitrate + " kbps" : ""} · coupure ${fmt(r.cutoff_hz, 0)} Hz — ${spectroCaption(r.verdict)}</div>` +
+    `<div style="padding:8px 11px;font-size:10px;color:var(--color-text-tertiary);border-bottom:0.5px solid var(--color-border-tertiary);line-height:1.5">Declared <span class="pill">${esc(r.declared_format)}</span> ${r.declared_rail}${r.declared_bitrate ? " · " + r.declared_bitrate + " kbps" : ""} · cutoff ${fmt(r.cutoff_hz, 0)} Hz — ${spectroCaption(r.verdict)}</div>` +
     `<canvas class="sift-sg" width="720" height="180" style="width:100%;display:block;background:#000"></canvas>` +
     `<div style="padding:9px 11px;display:grid;grid-template-columns:1fr 1fr;gap:0 28px;font-size:12px">` +
     row("Verdict", r.verdict) +
-    row("Coupure", fmt(r.cutoff_hz, 0) + " Hz") +
-    row("Durée", fmt(r.duration_sec, 1) + " s") +
-    row("Canaux", String(r.channels) + (r.dual_mono ? " (dual-mono)" : "")) +
+    row("Cutoff", fmt(r.cutoff_hz, 0) + " Hz") +
+    row("Duration", fmt(r.duration_sec, 1) + " s") +
+    row("Channels", String(r.channels) + (r.dual_mono ? " (dual-mono)" : "")) +
     row("True-peak", fmt(r.true_peak_dbtp, 2) + " dBTP") +
     row("DC offset", fmt(r.dc_offset, 5)) +
-    row("Écrêtage", r.clip_runs + " runs / " + fmt(r.clip_pct, 2) + "%") +
-    row("Corrélation phase", fmt(r.phase_correlation, 3)) +
-    row("Silence tête", r.silence_head_ms + " ms") +
-    row("Silence queue", r.silence_tail_ms + " ms") +
-    row("Tronqué", yn(r.truncated)) +
-    row("Conteneur OK", yn(r.container_ok)) +
+    row("Clipping", r.clip_runs + " runs / " + fmt(r.clip_pct, 2) + "%") +
+    row("Phase correlation", fmt(r.phase_correlation, 3)) +
+    row("Silence head", r.silence_head_ms + " ms") +
+    row("Silence tail", r.silence_tail_ms + " ms") +
+    row("Truncated", yn(r.truncated)) +
+    row("Container OK", yn(r.container_ok)) +
     row("Sample rate", r.sample_rate + " Hz") +
-    row("Peaks (couverture)", peaksCoverage(r)) +
+    row("Peaks (coverage)", peaksCoverage(r)) +
     `</div></div></div>` +
     `<div style="margin-bottom:4px">` +
     `<div style="font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:var(--color-text-tertiary);margin-bottom:5px">Tags</div>` +
     `<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 28px;font-size:12px">` +
     row("Tags CDJ OK", yn(r.tags_cdj_ok)) +
-    row("Pochette", yn(r.has_cover)) +
-    row("Version ID3", r.id3_version || "—") +
+    row("Cover", yn(r.has_cover)) +
+    row("ID3 version", r.id3_version || "—") +
     `</div></div>` +
     (r.codec_error ? `<div style="margin-top:12px;font-size:11px;color:#ff6b6b">codec error: ${esc(r.codec_error)}</div>` : "")
   );
@@ -420,19 +420,19 @@ function wireSpectrogram(root: HTMLElement, r: AnalysisReport) {
       open = false;
       body.style.maxHeight = "0";
       caret.style.transform = "";
-      hint.textContent = "afficher";
+      hint.textContent = "show";
       return;
     }
     if (!loaded) {
       busy = true;
-      hint.textContent = "calcul…";
+      hint.textContent = "computing…";
       try {
         const full = r.spectrogram.frames > 0 ? r : await analyzePath(r.path, true);
         drawSpectrogram(sg, full);
         loaded = true;
       } catch (e) {
         console.error("spectrogram analyze failed", e);
-        hint.textContent = "échec — réessayer";
+        hint.textContent = "failed — retry";
         busy = false;
         return;
       }
@@ -440,7 +440,7 @@ function wireSpectrogram(root: HTMLElement, r: AnalysisReport) {
     }
     open = true;
     caret.style.transform = "rotate(90deg)";
-    hint.textContent = "masquer";
+    hint.textContent = "hide";
     body.style.maxHeight = body.scrollHeight + "px";
   });
 }
@@ -501,7 +501,7 @@ export async function openReportInto(container: HTMLElement, path: string) {
     `<div style="flex:1;overflow:auto;padding:2px 2px 8px">` +
     nameHeaderHtml(name, path, false) +
     `<div class="sift-verdict-stub" style="display:flex;align-items:center;gap:6px;margin-bottom:12px;font-size:11px;color:var(--color-text-tertiary)">` +
-    `<i class="ti ti-loader-2 sift-spin"></i>Analyse…</div>` +
+    `<i class="ti ti-loader-2 sift-spin"></i>Analyzing…</div>` +
     playerRowHtml() +
     `<div class="sift-analysis-body" hidden></div>` +
     `</div>`;
@@ -553,7 +553,7 @@ export async function openReportInto(container: HTMLElement, path: string) {
     const verdictEl = container.querySelector<HTMLElement>(".sift-verdict-stub");
     if (verdictEl) {
       verdictEl.outerHTML =
-        `<div style="margin-bottom:12px;font-size:11px;color:#ff6b6b">Analyse \xe9chou\xe9e\xa0: ${esc(String(e))}</div>`;
+        `<div style="margin-bottom:12px;font-size:11px;color:#ff6b6b">Analysis failed: ${esc(String(e))}</div>`;
     }
   }
 }
@@ -579,7 +579,7 @@ export async function openReportModal(path: string) {
   const name = path.split(/[\\/]/).pop() || path;
   const cardCss =
     "background:var(--color-background-primary);color:var(--color-text-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-lg,12px);box-shadow:0 12px 48px rgba(0,0,0,.5)";
-  ov.innerHTML = `<div style="${cardCss};padding:22px 26px;font-size:13px;display:flex;align-items:center;gap:8px"><i class="ti ti-loader-2 sift-spin"></i>Analyse de <strong>${esc(name)}</strong>…</div>`;
+  ov.innerHTML = `<div style="${cardCss};padding:22px 26px;font-size:13px;display:flex;align-items:center;gap:8px"><i class="ti ti-loader-2 sift-spin"></i>Analyzing <strong>${esc(name)}</strong>…</div>`;
   try {
     const r = await analyzePath(path, false);
     const card = document.createElement("div");
@@ -594,6 +594,6 @@ export async function openReportModal(path: string) {
     wireReport(card, r);
   } catch (e) {
     console.error("analyze_path failed", e);
-    ov.innerHTML = `<div style="${cardCss};padding:22px 26px;font-size:13px;color:var(--color-text-danger)">Analyse échouée : ${esc(String(e))}</div>`;
+    ov.innerHTML = `<div style="${cardCss};padding:22px 26px;font-size:13px;color:var(--color-text-danger)">Analysis failed: ${esc(String(e))}</div>`;
   }
 }

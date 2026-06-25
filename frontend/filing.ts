@@ -120,7 +120,7 @@ const expanded = new Set<string>();
 
 /** Display name of the library root (last path segment), for the root tree node. */
 function rootName(): string {
-  if (!state.rootPath) return "Bibliothèque";
+  if (!state.rootPath) return "Library";
   return state.rootPath.split(/[\\/]/).filter(Boolean).pop() || state.rootPath;
 }
 
@@ -156,7 +156,7 @@ function binNodeHtml(node: { rel: string; name: string; depth: number }): string
   const on = node.rel === state.binRel ? " on" : "";
   const indent = node.depth * 13;
   const caret = kids.length
-    ? `<span data-fil="caret" data-rel="${esc(node.rel)}" title="${isOpen ? "Replier" : "Déplier"}" style="display:inline-block;width:14px;text-align:center;cursor:pointer;color:var(--color-text-tertiary);transition:transform .2s;${
+    ? `<span data-fil="caret" data-rel="${esc(node.rel)}" title="${isOpen ? "Collapse" : "Expand"}" style="display:inline-block;width:14px;text-align:center;cursor:pointer;color:var(--color-text-tertiary);transition:transform .2s;${
         isOpen ? "transform:rotate(90deg)" : ""
       }">▸</span>`
     : '<span style="display:inline-block;width:14px;flex:none"></span>';
@@ -195,8 +195,8 @@ function flatBinHtml(b: Bin): string {
 export function renderBins(fldz: HTMLElement): void {
   if (!state.rootSet) {
     fldz.innerHTML =
-      '<div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:8px">Choisis la racine de ta bibliothèque pour pouvoir ranger.</div>' +
-      '<button data-fil="pickroot"><i class="ti ti-folder" style="font-size:13px;vertical-align:-2px"></i> Choisir la racine…</button>';
+      '<div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:8px">Choose your library root to start filing.</div>' +
+      '<button data-fil="pickroot"><i class="ti ti-folder" style="font-size:13px;vertical-align:-2px"></i> Choose root…</button>';
     fldz
       .querySelector('[data-fil="pickroot"]')
       ?.addEventListener("click", () => void pickRoot(fldz));
@@ -207,7 +207,7 @@ export function renderBins(fldz: HTMLElement): void {
 
   // Folder filter (only worth showing once there are sub-folders to sift through).
   const filterRow = state.bins.length
-    ? `<input data-fil="binfilter" placeholder="Filtrer les dossiers…" value="${esc(
+    ? `<input data-fil="binfilter" placeholder="Filter folders…" value="${esc(
         state.binFilter,
       )}" style="width:100%;font-size:11px;padding:4px 7px;margin-bottom:6px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);color:var(--color-text-primary);box-sizing:border-box">`
     : "";
@@ -221,25 +221,25 @@ export function renderBins(fldz: HTMLElement): void {
     );
     body = matches.length
       ? matches.map(flatBinHtml).join("")
-      : '<div style="font-size:10px;color:var(--color-text-tertiary);padding:4px 0">Aucun dossier ne correspond.</div>';
+      : '<div style="font-size:10px;color:var(--color-text-tertiary);padding:4px 0">No matching folder.</div>';
   } else {
     const tree = binNodeHtml({ rel: "", name: rootName(), depth: 0 });
     const emptyNote =
       state.bins.length === 0 && expanded.has("")
-        ? '<div style="font-size:10px;color:var(--color-text-tertiary);padding:2px 0 2px 33px">vide — crée un dossier</div>'
+        ? '<div style="font-size:10px;color:var(--color-text-tertiary);padding:2px 0 2px 33px">empty — create a folder</div>'
         : "";
     body = tree + emptyNote;
   }
 
   // "+ nouveau" creates under the selected folder (nested). Hidden while filtering.
-  const nestLabel = state.binRel ? ` dans ${binLabel()}` : "";
+  const nestLabel = state.binRel ? ` in ${binLabel()}` : "";
   const newRow = filtering
     ? ""
     : state.creating
       ? `<input data-fil="newin" placeholder="${esc(
-          state.binRel ? `dossier dans ${binLabel()}…` : "nom du dossier…",
+          state.binRel ? `folder in ${binLabel()}…` : "folder name…",
         )}" style="width:100%;font-size:12px;padding:5px 7px;margin-top:2px;box-sizing:border-box">`
-      : `<div class="fld" data-fil="newbin" style="color:var(--color-text-tertiary)"><i class="ti ti-plus" style="font-size:14px"></i> nouveau${esc(
+      : `<div class="fld" data-fil="newbin" style="color:var(--color-text-tertiary)"><i class="ti ti-plus" style="font-size:14px"></i> new${esc(
           nestLabel,
         )}</div>`;
 
@@ -392,7 +392,7 @@ function onIdentityApplied(
   const genEl = mid.querySelector<HTMLElement>(".sift-genres");
   if (genEl) {
     genEl.innerHTML = applied.styles
-      .map((s) => `<span class="sift-genre-chip" title="Sous-genres Discogs">${esc(s)}</span>`)
+      .map((s) => `<span class="sift-genre-chip" title="Discogs sub-genres">${esc(s)}</span>`)
       .join("");
   }
 
@@ -406,9 +406,9 @@ function onIdentityApplied(
     `<div style="display:flex;align-items:center;gap:7px;padding:4px 2px">` +
     coverThumb +
     `<span style="flex:1;min-width:0;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">` +
-    `<span style="color:var(--color-text-secondary)">Identifié :</span> ${esc(applied.canonical.artist)} — ${esc(applied.canonical.title)}` +
+    `<span style="color:var(--color-text-secondary)">Identified:</span> ${esc(applied.canonical.artist)} — ${esc(applied.canonical.title)}` +
     `</span>` +
-    `<button class="sift-cand-jump" data-fil="cand-changer" style="font-size:11px;padding:2px 8px;flex:none">changer</button>` +
+    `<button class="sift-cand-jump" data-fil="cand-changer" style="font-size:11px;padding:2px 8px;flex:none">change</button>` +
     `</div>`;
 
   const changerBtn = host.querySelector<HTMLElement>('[data-fil="cand-changer"]');
@@ -420,7 +420,7 @@ function onIdentityApplied(
   });
 
   // [C1] Relabel Identifier → Ré-identifier once an identity has been applied.
-  idBtn.innerHTML = '<i class="ti ti-refresh" style="font-size:11px;vertical-align:-1px"></i> Ré-identifier';
+  idBtn.innerHTML = '<i class="ti ti-refresh" style="font-size:11px;vertical-align:-1px"></i> Re-identify';
 }
 
 /** Wire clicks on rendered candidate buttons.
@@ -464,9 +464,9 @@ async function doIdentify(
   const trackId = state.track.id;
   const origLabel = btn.innerHTML;
   btn.disabled = true;
-  btn.innerHTML = '<i class="ti ti-loader-2 sift-spin" style="font-size:11px;vertical-align:-1px"></i> Recherche…';
+  btn.innerHTML = '<i class="ti ti-loader-2 sift-spin" style="font-size:11px;vertical-align:-1px"></i> Searching…';
   host.hidden = false;
-  host.innerHTML = '<div class="sift-cands-msg">Recherche en cours…</div>';
+  host.innerHTML = '<div class="sift-cands-msg">Searching…</div>';
 
   let candidates: Candidate[] = [];
   try {
@@ -478,8 +478,8 @@ async function doIdentify(
     if (msg.includes("NO_TOKEN")) {
       // [C2/m5] explain WHY + give a direct action to open Réglages
       host.innerHTML =
-        `<div class="sift-cands-msg">Discogs limite les recherches anonymes — ajoute ton token (gratuit) dans Réglages.</div>` +
-        `<button class="sift-cand-jump" data-fil="goto-reglages" style="margin-top:5px;font-size:11px;padding:3px 9px">Ouvrir Réglages →</button>`;
+        `<div class="sift-cands-msg">Discogs throttles anonymous searches — add your (free) token in Settings.</div>` +
+        `<button class="sift-cand-jump" data-fil="goto-reglages" style="margin-top:5px;font-size:11px;padding:3px 9px">Open Settings →</button>`;
       const gotoBtn = host.querySelector<HTMLElement>('[data-fil="goto-reglages"]');
       gotoBtn?.addEventListener("click", () => {
         // Navigate to the Réglages view via the existing nav click handler in app.js
@@ -490,10 +490,10 @@ async function doIdentify(
     } else {
       const rl = msg.match(/RATE_LIMITED:(\d+)/);
       if (rl) {
-        host.innerHTML = `<div class="sift-cands-msg">Discogs limite les requêtes — réessaie dans ${rl[1]}s.</div>`;
+        host.innerHTML = `<div class="sift-cands-msg">Discogs is rate-limiting — retry in ${rl[1]}s.</div>`;
       } else {
         // [m10] network/server errors get a warning icon to distinguish from "no results"
-        host.innerHTML = `<div class="sift-cands-msg sift-cands-error"><i class="ti ti-alert-triangle" style="font-size:12px;vertical-align:-2px;margin-right:4px"></i>Discogs injoignable.</div>`;
+        host.innerHTML = `<div class="sift-cands-msg sift-cands-error"><i class="ti ti-alert-triangle" style="font-size:12px;vertical-align:-2px;margin-right:4px"></i>Discogs unreachable.</div>`;
       }
     }
   } finally {
@@ -512,8 +512,8 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
   // [I6] Add tooltip to confidence badge so the colour is self-explanatory
   const badge =
     c.confidence === "green"
-      ? '<span title="Titre et artiste extraits avec confiance" style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--color-text-success)"><i class="ti ti-circle-check" style="font-size:11px"></i> métadonnées sûres</span>'
-      : '<span title="Le titre ou l\'artiste n\'a pas pu être extrait avec certitude — vérifie les champs" style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--color-text-warning)"><i class="ti ti-alert-circle" style="font-size:11px"></i> à vérifier</span>';
+      ? '<span title="Title and artist extracted confidently" style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--color-text-success)"><i class="ti ti-circle-check" style="font-size:11px"></i> metadata trusted</span>'
+      : '<span title="Title or artist couldn\'t be extracted with certainty — check the fields" style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--color-text-warning)"><i class="ti ti-alert-circle" style="font-size:11px"></i> check fields</span>';
 
   const lossy = rail === "lossy";
   const chips = (["mp3_320", "aiff_16_44", "wav_16_44"] as Target[])
@@ -521,7 +521,7 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
       // a lossy source can't be upscaled to lossless — disable AIFF/WAV (the backend refuses
       // it anyway; greying it out prevents the dead-end click).
       if (lossy && t !== "mp3_320")
-        return `<span class="chip" title="Pas d'upscale depuis un fichier lossy" style="opacity:.4;cursor:not-allowed">${TARGET_LABEL[t]}</span>`;
+        return `<span class="chip" title="No upscale from a lossy file" style="opacity:.4;cursor:not-allowed">${TARGET_LABEL[t]}</span>`;
       const on = (state.target ?? defaultTarget(rail)) === t ? " on" : "";
       return `<span class="chip${on}" data-fil="fmt" data-t="${t}">${TARGET_LABEL[t]}</span>`;
     })
@@ -529,8 +529,8 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
 
   const fake = state.track?.verdict === "fake";
   const secondary = fake
-    ? '<button data-fil="resource" style="color:var(--color-text-warning)" title="Fichier faux — ira dans les écartés (touche X)"><span class="kbd">X</span> <i class="ti ti-alert-triangle" style="font-size:12px;vertical-align:-2px"></i> Re-sourcer</button>'
-    : '<button data-fil="trash" style="color:var(--color-text-danger)" title="Envoyer à la corbeille (touche X)"><span class="kbd">X</span> <i class="ti ti-trash" style="font-size:12px;vertical-align:-2px"></i> Écarter</button>';
+    ? '<button data-fil="resource" style="color:var(--color-text-warning)" title="Fake file — goes to Discarded (⌫)"><span class="kbd">⌫</span> <i class="ti ti-alert-triangle" style="font-size:12px;vertical-align:-2px"></i> Re-source</button>'
+    : '<button data-fil="trash" style="color:var(--color-text-danger)" title="Send to trash (⌫)"><span class="kbd">⌫</span> <i class="ti ti-trash" style="font-size:12px;vertical-align:-2px"></i> Discard</button>';
 
   const inputCss =
     "font-size:12px;padding:4px 7px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);color:var(--color-text-primary);min-width:0";
@@ -539,20 +539,20 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
   // style so it reads as the primary entry point when reviewing a new track.
   // [C2] title= explains what it does; label shows keyboard shortcut hint (I).
   foot.innerHTML =
-    `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">${badge}<div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;color:var(--color-text-tertiary)">Sortir en</span>${chips}</div></div>` +
+    `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">${badge}<div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;color:var(--color-text-tertiary)">Export as</span>${chips}</div></div>` +
     `<div style="display:flex;align-items:center;gap:6px;margin-bottom:7px">` +
-    `<button data-fil="identifier" class="sift-id-btn" title="Rechercher les métadonnées sur Discogs (cover, label, année, genres)"><i class="ti ti-search" style="font-size:12px;vertical-align:-1px"></i> Identifier <span class="kbd" style="font-size:9px;border-color:rgba(0,0,0,.18);color:rgba(0,0,0,.5)">I</span></button>` +
+    `<button data-fil="identifier" class="sift-id-btn" title="Search metadata on Discogs (cover, label, year, genres)"><i class="ti ti-search" style="font-size:12px;vertical-align:-1px"></i> Identify <span class="kbd" style="font-size:9px;border-color:rgba(0,0,0,.18);color:rgba(0,0,0,.5)">I</span></button>` +
     `</div>` +
     `<div class="sift-cands" hidden></div>` +
     `<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:5px;margin-bottom:5px">` +
-    `<input data-fil="artist" placeholder="Artiste" value="${esc(c.artist)}" style="${inputCss}">` +
-    `<input data-fil="title" placeholder="Titre" value="${esc(c.title)}" style="${inputCss}">` +
+    `<input data-fil="artist" placeholder="Artist" value="${esc(c.artist)}" style="${inputCss}">` +
+    `<input data-fil="title" placeholder="Title" value="${esc(c.title)}" style="${inputCss}">` +
     `<input data-fil="version" placeholder="Version" value="${esc(c.version ?? "")}" style="${inputCss};width:96px">` +
     `</div>` +
     `<div class="sift-fil-prev" style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;line-height:1.5;margin-bottom:6px">→ ${esc(previewName())}</div>` +
     `<div class="sift-genres" style="margin-bottom:4px"></div>` +
     `<div style="display:flex;gap:8px">` +
-    `<button data-fil="ranger" style="flex:1;background:var(--color-background-info);color:var(--color-text-info);border:none;font-weight:500"><i class="ti ti-corner-down-left" style="font-size:12px;vertical-align:-2px"></i> Ranger → <span class="sift-fil-bin">${esc(binLabel())}</span> <span class="kbd">⏎</span></button>` +
+    `<button data-fil="ranger" style="flex:1;background:var(--color-background-info);color:var(--color-text-info);border:none;font-weight:500"><i class="ti ti-corner-down-left" style="font-size:12px;vertical-align:-2px"></i> File → <span class="sift-fil-bin">${esc(binLabel())}</span> <span class="kbd">⏎</span></button>` +
     secondary +
     `</div>`;
 
@@ -606,7 +606,7 @@ function toast(message: string, undo: boolean): void {
   el.innerHTML =
     `<span>${esc(message)}</span>` +
     (undo
-      ? '<button data-fil="undo" style="font-size:11px;padding:2px 9px">Annuler</button>'
+      ? '<button data-fil="undo" style="font-size:11px;padding:2px 9px">Undo</button>'
       : "");
   document.body.appendChild(el);
   el.querySelector('[data-fil="undo"]')?.addEventListener("click", () => {
@@ -640,7 +640,7 @@ function setActionsDisabled(mid: HTMLElement, disabled: boolean): void {
 async function doRanger(mid: HTMLElement): Promise<void> {
   if (!state.track || !state.canonical || acting) return;
   if (state.binRel === null) {
-    toast("Choisis un dossier de destination.", false);
+    toast("Choose a destination folder.", false);
     return;
   }
   const ranger = mid.querySelector<HTMLElement>('[data-fil="ranger"]');
@@ -649,16 +649,16 @@ async function doRanger(mid: HTMLElement): Promise<void> {
   setActionsDisabled(mid, true);
   if (ranger)
     ranger.innerHTML =
-      '<i class="ti ti-loader-2 sift-spin" style="font-size:12px;vertical-align:-2px"></i> Rangement…';
+      '<i class="ti ti-loader-2 sift-spin" style="font-size:12px;vertical-align:-2px"></i> Filing…';
   try {
     await fileTrack(state.track.id, state.binRel, state.target, state.canonical);
-    toast(`Rangé → ${binLabel()}`, true);
+    toast(`Filed → ${binLabel()}`, true);
     clearPane(mid);
   } catch (e) {
     const msg = String(e);
-    if (msg.includes("NoLibraryRoot")) toast("Aucune racine de bibliothèque configurée.", false);
-    else if (msg.toLowerCase().includes("upscale")) toast("Refusé : pas d'upscale lossy → lossless.", false);
-    else toast(`Échec du rangement : ${msg}`, false);
+    if (msg.includes("NoLibraryRoot")) toast("No library root configured.", false);
+    else if (msg.toLowerCase().includes("upscale")) toast("Refused: no lossy → lossless upscale.", false);
+    else toast(`Filing failed: ${msg}`, false);
     console.error("file_track failed", e);
     setActionsDisabled(mid, false);
     if (ranger && orig != null) ranger.innerHTML = orig;
@@ -675,14 +675,14 @@ async function doSecondary(mid: HTMLElement, kind: "resource" | "trash"): Promis
   try {
     if (kind === "resource") {
       await rejectTrack(state.track.id);
-      toast("Marqué à re-sourcer", true);
+      toast("Marked to re-source", true);
     } else {
       await trashTrack(state.track.id);
-      toast("Envoyé à la corbeille", true);
+      toast("Sent to trash", true);
     }
     clearPane(mid);
   } catch (e) {
-    toast(`Échec : ${String(e)}`, false);
+    toast(`Failed: ${String(e)}`, false);
     console.error(`${kind} failed`, e);
     setActionsDisabled(mid, false);
   } finally {
@@ -696,7 +696,7 @@ function clearPane(mid: HTMLElement): void {
   state.canonical = null;
   state.target = null;
   mid.innerHTML =
-    '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--color-text-tertiary);font-size:12px;padding:20px;text-align:center">Sélectionne un morceau dans la file pour l\'écouter et le ranger.</div>';
+    '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--color-text-tertiary);font-size:12px;padding:20px;text-align:center">Select a track in the queue to listen and file it.</div>';
 }
 
 /** Banner HTML for a duplicate match (filed = already in library, pending = dupe in queue;
@@ -704,12 +704,12 @@ function clearPane(mid: HTMLElement): void {
 function dupBanner(m: DupMatch): string {
   const where =
     m.status === "filed"
-      ? `Déjà rangé : ${esc((m.folder ? m.folder + "/" : "") + (m.filename || ""))}`
-      : `Doublon d'un fichier en file : ${esc(m.filename || "")}`;
+      ? `Already filed: ${esc((m.folder ? m.folder + "/" : "") + (m.filename || ""))}`
+      : `Duplicate of a queued file: ${esc(m.filename || "")}`;
   const sure = m.kind === "both";
   const fg = sure ? "var(--color-text-warning)" : "var(--color-text-tertiary)";
   const bg = sure ? "var(--color-background-warning)" : "var(--color-background-secondary)";
-  const head = sure ? "Doublon" : "Possible doublon (même nom — à vérifier)";
+  const head = sure ? "Duplicate" : "Possible duplicate (same name — check)";
   return `<div style="display:flex;align-items:flex-start;gap:8px;background:${bg};border-radius:var(--border-radius-md);padding:8px 11px;margin-bottom:10px;font-size:11px"><i class="ti ti-copy" style="font-size:14px;flex:none;color:${fg}"></i><div style="min-width:0"><div style="font-weight:500;color:${fg}">${head}</div><div style="color:var(--color-text-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${where}</div></div></div>`;
 }
 
@@ -769,9 +769,10 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
   updateHeaderName(mid); // show the clean proposed name in the report header
 }
 
-/** Keyboard shortcuts for the open track (Revue): Space = play/pause, Enter = Ranger,
- * X = Écarter/Re-sourcer, I = Identifier. Ignored while typing in a field, and only when
- * a track is open. */
+/** Keyboard shortcuts for the open track (Revue): ↑/↓ = focus prev/next queue row,
+ * Space = play/pause, Enter = File, Backspace (⌫) / X = Discard/Re-source, I = Identify.
+ * Matches interaction-model.md §7. Ignored while typing in a field, and only when a track
+ * is open. */
 export function installFilingKeys(): void {
   document.addEventListener("keydown", (e) => {
     const t = e.target as HTMLElement | null;
@@ -780,10 +781,22 @@ export function installFilingKeys(): void {
     if (e.key === " ") {
       e.preventDefault(); // also stops Space from activating a focused button
       togglePlay();
+    } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      // ↑/↓ moves focus through the live queue: click the prev/next row, which opens it in
+      // the detail pane via the #pa delegated handler (reuses the existing open path).
+      e.preventDefault();
+      const rows = Array.from(document.querySelectorAll<HTMLElement>("#ql .qi"));
+      if (!rows.length) return;
+      const cur = document.querySelector<HTMLElement>("#ql .qi.cur");
+      const i = cur ? rows.indexOf(cur) : -1;
+      const next = e.key === "ArrowDown" ? rows[i + 1] : rows[i - 1];
+      next?.click();
     } else if (e.key === "Enter") {
       e.preventDefault();
       document.querySelector<HTMLElement>('[data-fil="ranger"]')?.click();
-    } else if (e.key === "x" || e.key === "X") {
+    } else if (e.key === "Backspace" || e.key === "x" || e.key === "X") {
+      // ⌫ is the model's Discard key; X kept as an alias (matches the visible button hint).
+      e.preventDefault();
       document.querySelector<HTMLElement>('[data-fil="resource"],[data-fil="trash"]')?.click();
     } else if (e.key === "i" || e.key === "I") {
       // [m9] I = trigger Identifier (same as clicking the button)
@@ -801,7 +814,7 @@ export function installUndoShortcut(): void {
     e.preventDefault();
     void undoLast()
       .then((b) => {
-        if (b) toast("Action annulée", false);
+        if (b) toast("Action undone", false);
       })
       .catch((err) => console.error("undo failed", err));
   });

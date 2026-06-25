@@ -4,7 +4,10 @@
 > Direction travaillée dans Penpot. Boards canoniques (page « Sift — shell ») :
 > **Détail = « Revue · plat »** `49975f37-649c-80c0-8008-39eb475e8b73` (x5500),
 > **Batch = « Revue · batch »** `284acdb7-967e-8038-8008-3a1f415c4596` (x5500/y820).
-> Le front réel n'est pas encore aligné dessus. UI **en anglais**.
+> UI **en anglais**. Convergence partielle faite côté front réel (2026-06-25) :
+> tokens **couleur + radius** appliqués au CSS, libellés **migrés en anglais**, clavier
+> **↑/↓ + ⌫** câblé (cf. interaction-model.md §7). Restent non alignés : espacement
+> (px hors grille), typographie (Outfit/JetBrains pas chargées), layout Détail/Batch.
 
 ## Direction & ressenti
 « La table du digger », mais **outil de DJ : le son passe avant l'image**. Interface sombre,
