@@ -81,21 +81,54 @@ pub struct BatchFailure {
     pub code: String,
 }
 
-/// Identify many tracks at once: reconcile each to a query, search Discogs, and auto-apply the
-/// top candidate (cover + metadata). Metadata-only and reversible — nothing is moved/encoded
-/// here, so the user reviews the names then files. Sequential, with a one-shot wait on rate-limit.
+/// Launch identification for many tracks IN THE BACKGROUND and return immediately. The actual
+/// work (Discogs search + per-track apply) runs on a dedicated thread via `run_identify_batch`,
+/// so the loop never blocks the main thread (a sync command runs on it, which would freeze the
+/// window). The token is read synchronously so a missing one fails the invoke right away (the
+/// front maps NO_TOKEN to a Settings prompt). When the background run finishes it emits
+/// `identify:done` with the summary. Metadata-only and reversible — the engine (`pick_batch` /
+/// `apply_identity`) is unchanged; only its execution site moves to the background thread.
 #[tauri::command]
 pub fn identify_batch(
     app: AppHandle,
     conn: State<'_, Mutex<Connection>>,
     track_ids: Vec<i64>,
-) -> Result<IdentifyBatchResult, String> {
-    // Build the per-track queries up front (one lock); record any that can't be reconciled.
-    let (token, queries, mut failed) = {
+) -> Result<(), String> {
+    let token = {
         let conn = conn.lock().map_err(|e| e.to_string())?;
-        let token = settings::get(&conn, settings::DISCOGS_TOKEN)
+        settings::get(&conn, settings::DISCOGS_TOKEN)
             .map_err(|e| e.to_string())?
-            .unwrap_or_default();
+            .unwrap_or_default()
+    };
+    if token.trim().is_empty() {
+        return Err("NO_TOKEN".into());
+    }
+
+    // Detach onto a named OS thread (the work is blocking: ureq + sleeps + rusqlite). Fail-fast:
+    // if the thread can't even be started, surface it to the front rather than dropping the batch.
+    let app_bg = app.clone();
+    std::thread::Builder::new()
+        .name("identify-batch".into())
+        .spawn(move || run_identify_batch(&app_bg, token, track_ids))
+        .map_err(|e| format!("identify_batch: failed to start background task: {e}"))?;
+    Ok(())
+}
+
+/// Background body of `identify_batch` (runs off the main thread). Reconciles each id to a query,
+/// searches Discogs (`pick_batch`), applies each top hit with a per-track DB write, then emits
+/// `identify:done` with the summary. The shared connection is pulled from the app's managed state.
+fn run_identify_batch(app: &AppHandle, token: String, track_ids: Vec<i64>) {
+    let state = app.state::<Mutex<Connection>>();
+
+    // Build the per-track queries up front (one lock); record any that can't be reconciled.
+    let (queries, mut failed) = {
+        let conn = match state.lock() {
+            Ok(c) => c,
+            Err(e) => {
+                log::error!("identify_batch: DB lock poisoned before run: {e}");
+                return;
+            }
+        };
         let mut queries = Vec::new();
         let mut failed: Vec<BatchFailure> = Vec::new();
         for id in &track_ids {
@@ -107,11 +140,8 @@ pub fn identify_batch(
                 Err(_) => failed.push(BatchFailure { id: *id, code: "RECONCILE".into() }),
             }
         }
-        (token, queries, failed)
+        (queries, failed)
     };
-    if token.trim().is_empty() {
-        return Err("NO_TOKEN".into());
-    }
 
     let provider = metadata::discogs::Discogs { token };
     let picks = metadata::pick_batch(&provider, &queries, |s| {
@@ -130,7 +160,13 @@ pub fn identify_batch(
                         .ok()
                         .map(|p| p.to_string_lossy().to_string())
                 });
-                let conn = conn.lock().map_err(|e| e.to_string())?;
+                let conn = match state.lock() {
+                    Ok(c) => c,
+                    Err(e) => {
+                        log::error!("identify_batch: DB lock poisoned mid-run: {e}");
+                        return;
+                    }
+                };
                 match metadata::apply_identity(&conn, id, &c, cover_path) {
                     Ok(_) => identified += 1,
                     Err(e) => failed.push(BatchFailure { id, code: e.to_string() }),
@@ -141,6 +177,8 @@ pub fn identify_batch(
         }
     }
 
-    app.emit("queue:changed", ()).ok();
-    Ok(IdentifyBatchResult { identified, no_match, failed })
+    // Done: hand the summary to the front, which refreshes the view (replacing the end-of-batch
+    // `queue:changed` that previously triggered the refresh).
+    app.emit("identify:done", &IdentifyBatchResult { identified, no_match, failed })
+        .ok();
 }

@@ -7,6 +7,7 @@ import {
   fileBatch,
   rejectBatch,
   identifyBatch,
+  onIdentifyDone,
   onQueueChanged,
   onAnalysisChanged,
   analysisProgress,
@@ -38,7 +39,7 @@ import {
 import { renderEcartes } from "./ecartes-view";
 import { renderHomeSources, pickAndAddFolder } from "./home-sources";
 import { installDragDrop, injectLeanStyle, injectTitlebar, installScrollAutohide } from "./chrome";
-import type { QueueItem, Bin } from "../shared/contracts";
+import type { QueueItem, Bin, IdentifyBatchResult } from "../shared/contracts";
 import { requireEl } from "./dom";
 
 // Latest live queue items, kept so a queue-row click can recover the full item (id +
@@ -392,43 +393,62 @@ async function runBatchFile() {
   }
 }
 
-/** Fetch Discogs for every ticked track and auto-apply each top hit (metadata only, reversible —
- * names land at filing). Surfaces a per-run summary; the queue:changed event redraws the list. */
+/** Launch background identification for every ticked track, then return — the work runs off the
+ * main thread, so the UI no longer freezes. A spinner note is shown; the per-run summary AND the
+ * view refresh arrive later via the `identify:done` event (see `onIdentifyBatchDone`). Auto-applies
+ * each top hit (metadata only, reversible — names land at filing). */
 async function runBatchIdentify() {
   const ids = [...batchSel];
   if (ids.length === 0) return;
   const foot = requireEl("#filfoot", "runBatchIdentify");
-  const note = (html: string, color = "var(--color-text-secondary)") => {
-    if (foot)
-      foot.insertAdjacentHTML(
-        "afterbegin",
-        `<div data-batch-note style="font-size:var(--text-sm);color:${color};margin-bottom:10px">${html}</div>`,
-      );
-  };
-  foot?.querySelector("[data-batch-note]")?.remove();
-  note('<i class="ti ti-loader sift-spin" style="font-size:var(--text-md);vertical-align:-1px"></i> Identifying…');
+  foot.querySelector("[data-batch-note]")?.remove();
+  batchNote(
+    foot,
+    '<i class="ti ti-loader sift-spin" style="font-size:var(--text-md);vertical-align:-1px"></i> Identifying in the background…',
+  );
   try {
-    const res = await identifyBatch(ids);
-    foot?.querySelector("[data-batch-note]")?.remove();
-    const bits = [`${res.identified} identified`];
-    if (res.no_match.length) bits.push(`${res.no_match.length} no match`);
-    if (res.failed.length) bits.push(`${res.failed.length} failed`);
-    note(
-      `<i class="ti ti-check" style="font-size:var(--text-md);vertical-align:-1px"></i> ${bits.join(" · ")} · names apply when you file`,
-      "var(--color-text-success)",
-    );
+    // Resolves as soon as the background task STARTS; the summary comes via identify:done.
+    await identifyBatch(ids);
   } catch (err) {
-    foot?.querySelector("[data-batch-note]")?.remove();
-    // identify rejects with a stable code (NO_TOKEN, RATE_LIMITED:<s>, NETWORK:…) — surface it.
+    // Launch-time rejections only (NO_TOKEN, or the task couldn't start) — per-track outcomes
+    // come back in the identify:done summary, not here.
+    foot.querySelector("[data-batch-note]")?.remove();
     const code = String(err);
-    note(
+    batchNote(
+      foot,
       code.startsWith("NO_TOKEN")
         ? "No Discogs token — add one in Settings to identify."
-        : `Identify failed: ${esc(code)}`,
+        : `Identify failed to start: ${esc(code)}`,
       "var(--color-text-danger)",
     );
-    console.error("identify_batch failed", err);
+    console.error("identify_batch launch failed", err);
   }
+}
+
+/** Insert a transient note at the top of the batch rail (#filfoot). */
+function batchNote(foot: HTMLElement, html: string, color = "var(--color-text-secondary)") {
+  foot.insertAdjacentHTML(
+    "afterbegin",
+    `<div data-batch-note style="font-size:var(--text-sm);color:${color};margin-bottom:10px">${html}</div>`,
+  );
+}
+
+/** End-of-(background-)batch handler, fired by the `identify:done` event. Refreshes the view (as
+ * the end-of-batch `queue:changed` used to) then shows the run summary — but only if the batch
+ * rail is still on screen, since the user may have navigated away while the batch ran. */
+async function onIdentifyBatchDone(res: IdentifyBatchResult) {
+  await refresh();
+  const foot = document.getElementById("filfoot");
+  if (!foot) return; // navigated away — the refresh already happened, just skip the summary note
+  foot.querySelector("[data-batch-note]")?.remove();
+  const bits = [`${res.identified} identified`];
+  if (res.no_match.length) bits.push(`${res.no_match.length} no match`);
+  if (res.failed.length) bits.push(`${res.failed.length} failed`);
+  batchNote(
+    foot,
+    `<i class="ti ti-check" style="font-size:var(--text-md);vertical-align:-1px"></i> ${bits.join(" · ")} · names apply when you file`,
+    "var(--color-text-success)",
+  );
 }
 
 /** Send every ticked track to Écartés for re-sourcing (backend emits queue:changed → redraw). */
@@ -789,6 +809,7 @@ export function installLiveWiring() {
   });
 
   void onQueueChanged(refresh);
+  void onIdentifyDone(onIdentifyBatchDone);
 
   // Analysis pings can arrive several times per second — debounce the queue redraw.
   let t: ReturnType<typeof setTimeout> | undefined;
