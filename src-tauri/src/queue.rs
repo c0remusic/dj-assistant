@@ -13,6 +13,10 @@ pub struct QueueItem {
     /// Declared rail ("lossless" | "lossy" | "unknown"), NULL until analysed. Drives the batch
     /// grouping + output format (lossless → AIFF, lossy → MP3 320). Stored in `real_quality`.
     pub rail: Option<String>,
+    /// Identified artist/title from the `metadata` table (NULL until identified). Lets the batch
+    /// list show the file's name BEFORE (filename) next to the Discogs name AFTER.
+    pub artist: Option<String>,
+    pub title: Option<String>,
     /// True when this track shares a name with another pending/filed track (dedup name
     /// pre-filter). Set by the IPC layer (see ipc::list_queue), default false.
     #[serde(default)]
@@ -22,8 +26,9 @@ pub struct QueueItem {
 /// All pending tracks, oldest first.
 pub fn list_pending(conn: &Connection) -> rusqlite::Result<Vec<QueueItem>> {
     let mut stmt = conn.prepare(
-        "SELECT id, path, filename, source_id, verdict, real_quality FROM tracks
-         WHERE status='pending' ORDER BY id",
+        "SELECT t.id, t.path, t.filename, t.source_id, t.verdict, t.real_quality, m.artist, m.title
+         FROM tracks t LEFT JOIN metadata m ON m.track_id = t.id
+         WHERE t.status='pending' ORDER BY t.id",
     )?;
     let rows = stmt.query_map([], |r| {
         Ok(QueueItem {
@@ -33,6 +38,8 @@ pub fn list_pending(conn: &Connection) -> rusqlite::Result<Vec<QueueItem>> {
             source_id: r.get(3)?,
             verdict: r.get(4)?,
             rail: r.get(5)?,
+            artist: r.get(6)?,
+            title: r.get(7)?,
             dup: false,
         })
     })?;

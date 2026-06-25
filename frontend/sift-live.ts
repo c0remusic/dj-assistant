@@ -254,7 +254,29 @@ function renderBatch() {
   for (const id of [...batchSel]) if (!readyIds.has(id)) batchSel.delete(id);
   if (batchSel.size === 0) for (const it of ready) batchSel.add(it.id);
 
-  const name = (it: QueueItem) => esc(it.filename || it.path);
+  // BEFORE (file name) + AFTER (Discogs artist — title once identified). When not yet identified
+  // only the filename shows; identifying it (Identify all) reveals the clean name above the file.
+  const nameCell = (it: QueueItem, dim = false) => {
+    const after = it.artist && it.title ? `${it.artist} — ${it.title}` : null;
+    const before = it.filename || it.path;
+    const topColor = after
+      ? "var(--color-text-primary)"
+      : dim
+        ? "var(--color-text-secondary)"
+        : "var(--color-text-primary)";
+    return (
+      `<div style="flex:1;min-width:0">` +
+      `<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:${topColor}">${esc(
+        after ?? before,
+      )}</div>` +
+      (after
+        ? `<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);margin-top:1px"><span style="opacity:.55">was</span> ${esc(
+            before,
+          )}</div>`
+        : "") +
+      `</div>`
+    );
+  };
   const readyRow = (it: QueueItem) => {
     const on = batchSel.has(it.id);
     return (
@@ -267,7 +289,7 @@ function renderBatch() {
         on ? '<i class="ti ti-check" style="font-size:10px;color:#1a1a18"></i>' : ""
       }</span>` +
       verdictDot(it.verdict) +
-      `<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:12px">${name(it)}</span>` +
+      nameCell(it) +
       (it.dup
         ? '<span style="flex:none;font-size:9px;font-weight:600;letter-spacing:.03em;padding:2px 7px;border-radius:999px;background:var(--color-background-warning);color:var(--color-text-warning)">DUPLICATE</span>'
         : "") +
@@ -284,7 +306,7 @@ function renderBatch() {
     return (
       `<div style="display:flex;align-items:center;gap:9px;padding:7px 9px">` +
       verdictDot(it.verdict) +
-      `<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:12px;color:var(--color-text-secondary)">${name(it)}</span>` +
+      nameCell(it, true) +
       (it.dup
         ? '<span style="flex:none;font-size:9px;font-weight:600;padding:2px 7px;border-radius:999px;background:var(--color-background-warning);color:var(--color-text-warning)">DUP</span>'
         : "") +

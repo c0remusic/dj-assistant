@@ -26,6 +26,9 @@ export interface QueueItem {
   verdict: "ok" | "fake" | "grey" | null;
   /** Declared rail, NULL until analysed. Drives batch grouping + output format. */
   rail: "lossless" | "lossy" | "unknown" | null;
+  /** Identified artist/title (metadata table), NULL until identified — the "after" name. */
+  artist: string | null;
+  title: string | null;
   /** Shares a name with another pending/filed track (dedup name pre-filter). */
   dup: boolean;
 }
