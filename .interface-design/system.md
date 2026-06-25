@@ -60,12 +60,27 @@ boîte de hauteur fixe** (`growType="fixed"` + `resize(w, bandH)`) avec **`verti
 Règle : **un seul accent** (bleu), réservé à l'action. Marque en crème. Couleur sémantique pour le
 verdict/statut uniquement. Aucune couleur décorative.
 
-## Espacement — base 4px
-Multiples uniquement : nav (header→item 20, intra 32, item→header 36) · panneau droit (eyebrow→value
-16, bloc→bloc 24) · padding cartes 16 (symétrique) · micro 8 / 11.
+## Espacement — tokens Sift (set Penpot « System »)
+Échelle UNIQUE : `xs 4` · `sm 8` · `md 12` · `lg 16` · `xl 24` · `xxl 32`. Toute autre valeur interdite.
+**Hiérarchie de profondeur** (la nidification se lit par l'espace) :
+section↔section **24 (xl)** > padding carte **16 (lg)** > groupe eyebrow→valeur / chip↔chip **12 (md)** >
+interne control icône↔label **8 (sm)**. Sift = **densité d'abord** (la liste Queue reste dense, scrollable).
 
-## Radius
-`sm` **8** (boutons, inputs) · `md` **12** (cartes, tuile pochette) · `pill` **999** (badges, segmented, tags).
+## Radius — tokens Sift
+`sharp` **4** · `default` **6** (boutons, inputs, controls) · `soft` **10** (cartes, panneaux) · `pill` **999** (badges, segmented, tags).
+(Ancien 8/12 reconverti : boutons/controls → 6, cartes → 10.)
+
+## Hauteurs (inputs / boutons / dropdowns)
+`compact` **32** (lignes/tables) · `default` **36** · `comfortable` **40** (action principale, dropdowns) · `large` **44**.
+
+## Dropdown / select
+État fermé = control **h40** (comfortable), radius **6**, fond inset `#242422` + filet 1px, padding horizontal **16**,
+chevron à droite (16 du bord). Overlay à l'ouverture (ne pousse pas le layout). Détail comportemental : `interaction-model.md` §8.
+
+## Lexique (termes canoniques, anglais, persistants)
+Acte central = **File** (CTA « File & encode » / « File selection » ; « Ready to file », « Undo filing »).
+Verdicts : **LOSSLESS** · **LOSSY** (faux-lossless, jamais « FAUX ») · **DUPLICATE** · **UNIQUE** (pas « NO DUP ») · **NO MATCH**.
+Destination = **DESTINATION** partout (jamais « GOING TO »). Source de vérité comportementale : `interaction-model.md`.
 
 ## Typographie
 - Familles : **Outfit** (UI, 600 titres/labels, 400 corps) + **JetBrains Mono** (chiffres).
@@ -85,9 +100,9 @@ Multiples uniquement : nav (header→item 20, intra 32, item→header 36) · pan
   (chip verdict, format mono, match% à droite). Sélection = blanc@.045 + (file) barre blanche, jamais bleu.
 - **Carte verdict (ACTUAL)** : bandeau vert #5bc08c@14% + bordure 1px, headline « Ready to file » + rangée
   de chips. Padding 16.
-- **Hero** : tuile pochette (radius 12, bordure @.10) + titre 30 + artiste 17 + chip version + tags.
+- **Hero** : tuile pochette (radius **10** soft, bordure @.10) + titre 30 + artiste 17 + chip version + tags.
 - **Bande d'audition** : play + waveform (transport/seek) + temps (mono) + pill pitch (neutre, bleu si ≠0).
-- **CTA primaire** : aplat bleu #3b7df0, texte blanc, radius 8. Le SEUL bleu.
+- **CTA primaire** : aplat bleu #3b7df0, texte blanc, radius **6** (default), hauteur **40** (comfortable). Le SEUL bleu.
 - **Action négative (Discard)** : rouge **ghost** (texte #ef8b81 + bordure #e2685e@.45 + fond #e2685e@.09).
   Jamais un aplat rouge plein (action récupérable).
 - **Panneau droit (Détail)** = pile de validation : DESTINATION / FINAL NAME / GENRES / FORMAT puis CTA.
