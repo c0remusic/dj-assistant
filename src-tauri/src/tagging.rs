@@ -9,11 +9,6 @@ use lofty::prelude::{Accessor, TagExt};
 use lofty::probe::Probe;
 use lofty::tag::{ItemKey, Tag};
 
-/// Back-compat: artist + title only (used where no rich metadata is available).
-pub fn write_tags(path: &str, artist: &str, title: &str) -> Result<(), String> {
-    write_tags_full(path, artist, title, None, None, &[], None)
-}
-
 /// Write the full canonical+enrichment set: artist, title, and optionally label, year,
 /// genres (joined as "A; B" in one Genre field — multi-item doesn't round-trip on ID3),
 /// and an embedded front cover read from `cover_path`.
@@ -97,7 +92,7 @@ pub fn read_artist_title(path: &str) -> (String, String) {
 
 #[cfg(test)]
 mod tests {
-    use super::{read_artist_title, write_tags, write_tags_full};
+    use super::{read_artist_title, write_tags_full};
     use lofty::file::TaggedFileExt;
     use lofty::probe::Probe;
     use lofty::tag::ItemKey;
@@ -122,7 +117,8 @@ mod tests {
         std::fs::copy(&src, &dst).unwrap();
         let dst = dst.to_str().unwrap();
 
-        write_tags(dst, "Larry Heard", "Mystery of Love").expect("write tags");
+        write_tags_full(dst, "Larry Heard", "Mystery of Love", None, None, &[], None)
+            .expect("write tags");
 
         let tagged = Probe::open(dst).unwrap().read().unwrap();
         let tag = tagged.primary_tag().expect("has tag");
@@ -140,7 +136,7 @@ mod tests {
         let dst = dir.path().join("rt.mp3");
         std::fs::copy(&src, &dst).unwrap();
         let dst = dst.to_str().unwrap();
-        write_tags(dst, "Chez Damier", "Can You Feel It").unwrap();
+        write_tags_full(dst, "Chez Damier", "Can You Feel It", None, None, &[], None).unwrap();
 
         let (a, t) = read_artist_title(dst);
         assert_eq!(a, "Chez Damier");
