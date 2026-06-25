@@ -524,6 +524,21 @@ async function pickAndAddFolder() {
 async function refresh() {
   await renderHomeSources();
   await renderQueue();
+  await updateRevueBadge();
+}
+
+/** Fill the Review nav badge with the pending count (board's "Revue [18]"). Runs from refresh()
+ * — i.e. on every queue change, on any screen — so it's correct even off the Revue view. Empty
+ * text collapses the pill via the `.nav-badge:empty` CSS rule. */
+async function updateRevueBadge() {
+  const badge = document.querySelector<HTMLElement>('.nav-badge[data-badge="revue"]');
+  if (!badge) return;
+  try {
+    const n = (await listQueue()).length;
+    badge.textContent = n ? String(n) : "";
+  } catch {
+    /* leave the badge as-is on a transient failure */
+  }
 }
 
 // One-time style: while dragging, an existing zone gets an outline + an overlaid hint
