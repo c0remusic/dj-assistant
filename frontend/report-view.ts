@@ -92,16 +92,6 @@ function spectroCaption(v: AnalysisReport["verdict"]): string {
   return "full-band energy = compliant encoding";
 }
 
-function verdictBadge(v: AnalysisReport["verdict"]): string {
-  const map = {
-    ok: ["ti-shield-check", "Ready to file", "var(--color-background-success)", "var(--color-text-success)"],
-    fake: ["ti-alert-triangle", "Over-encoded", "var(--color-background-danger)", "var(--color-text-danger)"],
-    grey: ["ti-help-circle", "Inspect first", "var(--color-background-warning)", "var(--color-text-warning)"],
-  } as const;
-  const [icon, label, bg, fg] = map[v];
-  return `<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:var(--border-radius-md);font-weight:600;font-size:12px;color:${fg};background:${bg}"><i class="ti ${icon}" style="font-size:13px"></i>${label}</span>`;
-}
-
 function drawSpectrogram(canvas: HTMLCanvasElement, r: AnalysisReport) {
   const ctx = canvas.getContext("2d");
   const sg = r.spectrogram;
@@ -193,24 +183,40 @@ function playerRowHtml(): string {
   );
 }
 
-/** ACTUAL verdict card: an action-oriented headline ("Ready to file" / "Over-encoded" /
- *  "Inspect first") over the declared→actual quality chips. Replaces the old inline chain so the
- *  verdict reads as a decision, not a row of pills. (MATCH% / DUPLICATE chips are not added here:
- *  that data lives in filing.ts — identify in the rail, the dup banner above the report.) */
+/** A verdict-panel chip: `success` = green-tinted (LOSSLESS), `neutral` = white@.06 (MATCH/UNIQUE),
+ *  matching the Penpot `badge-*` shapes (see .interface-design/penpot-detail-spec.md). */
+export function vchipHtml(label: string, tone: "success" | "neutral" | "danger" | "warning"): string {
+  const css =
+    tone === "success"
+      ? "background:var(--color-background-success);color:var(--color-text-success)"
+      : tone === "danger"
+        ? "background:var(--color-background-danger);color:var(--color-text-danger)"
+        : tone === "warning"
+          ? "background:var(--color-background-warning);color:var(--color-text-warning)"
+          : "background:rgba(255,255,255,.06);color:var(--color-text-secondary)";
+  return `<span style="display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:10px;font-weight:600;letter-spacing:.03em;${css}">${esc(label)}</span>`;
+}
+
+/** ACTUAL verdict panel, faithful to the Penpot board: a verdict-tinted panel (`vb`) with an
+ *  action headline ("Ready to file" etc.) over a chip row. The first chip (LOSSLESS / real
+ *  quality) comes from the analysis; the `.sift-vchips` row is left open so filing.ts can append
+ *  the MATCH% (identify) and UNIQUE/DUPLICATE (dedup) chips it owns the data for. */
 function verdictCardHtml(r: AnalysisReport): string {
+  const map = {
+    ok: ["ti-circle-check", "Ready to file", "var(--color-text-success)", "rgba(91,192,140,.2)"],
+    fake: ["ti-alert-triangle", "Over-encoded — re-source", "var(--color-text-danger)", "rgba(226,104,94,.16)"],
+    grey: ["ti-help-circle", "Inspect first", "var(--color-text-warning)", "rgba(221,166,63,.16)"],
+  } as const;
+  const [icon, label, fg, panelBg] = map[r.verdict];
   const rq = realQuality(r);
-  const declaredPill = `<span class="pill">${esc(r.declared_format)}${r.declared_bitrate ? " · " + r.declared_bitrate + " kbps" : ""}</span>`;
-  const lab = (t: string) =>
-    `<span style="font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--color-text-tertiary)">${t}</span>`;
-  const arrow = '<i class="ti ti-arrow-right" style="font-size:13px;color:var(--color-text-tertiary)"></i>';
-  const chips =
-    r.verdict === "ok"
-      ? `${lab("quality")}<span class="pill" style="background:${rq.bg};color:${rq.fg}">${esc(rq.label)}</span>`
-      : `${lab("declared")}${declaredPill}${arrow}${lab("actual")}<span class="pill" style="background:${rq.bg};color:${rq.fg}">${esc(rq.label)}</span>`;
+  const qualityChip =
+    r.verdict === "ok" && r.declared_rail === "lossless"
+      ? vchipHtml("LOSSLESS", "success")
+      : vchipHtml(rq.label, r.verdict === "fake" ? "danger" : r.verdict === "grey" ? "warning" : "neutral");
   return (
-    `<div style="border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:11px 12px;margin-bottom:12px">` +
-    `<div style="display:flex;align-items:center;gap:8px">${verdictBadge(r.verdict)}</div>` +
-    `<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:11px;margin-top:9px">${chips}</div>` +
+    `<div style="background:${panelBg};border-radius:var(--border-radius-lg);padding:12px 14px;margin-bottom:12px">` +
+    `<div style="display:flex;align-items:center;gap:7px;margin-bottom:9px"><i class="ti ${icon}" style="font-size:16px;color:${fg}"></i><span style="font-size:16px;font-weight:600;color:${fg}">${label}</span></div>` +
+    `<div class="sift-vchips" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${qualityChip}</div>` +
     `</div>`
   );
 }
@@ -220,7 +226,7 @@ function spectroAndTagsHtml(r: AnalysisReport): string {
   return (
     `<div style="margin-bottom:11px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);overflow:hidden">` +
     `<button class="sift-sg-toggle" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 11px;background:var(--color-background-secondary);border:none;color:var(--color-text-primary);cursor:pointer;font-size:11px;text-align:left">` +
-    `<span style="display:flex;align-items:center;gap:8px"><span class="sift-sg-caret" style="display:inline-block;transition:transform .25s;color:var(--color-text-tertiary)">▸</span> Proof — spectrogram &amp; signals</span>` +
+    `<span style="display:flex;align-items:center;gap:8px"><span class="sift-sg-caret" style="display:inline-block;transition:transform .25s;color:var(--color-text-tertiary)">▸</span> Proof (spectrum)</span>` +
     `<span class="sift-sg-hint" style="font-size:11px;color:var(--color-text-info);flex:none">show</span>` +
     `</button>` +
     `<div class="sift-sg-body" style="max-height:0;overflow:hidden;transition:max-height .3s ease">` +
