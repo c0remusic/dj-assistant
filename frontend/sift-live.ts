@@ -193,7 +193,11 @@ function pushFileProgress(p: FileProgress) {
 
 /** Stop button on the global zone's Filing row → request a stop-net cancel (sous-étape 3). The
  * in-flight file finishes and no new one starts; nothing is rolled back. The row shows "Stopping…"
- * until `file:done` arrives (handled by onFileBatchDone). */
+ * until `file:done` arrives (handled by onFileBatchDone). The first click already takes effect
+ * (flag set, button removed), but the only feedback used to be the small "Stopping…" at the bottom
+ * of the nav rail — far from where the user clicked. While a conversion encodes, the counter is
+ * frozen, so the cancel looks ignored and the user re-clicks into the void. We also drop an
+ * immediate note at #filfoot (where they clicked File) so the click visibly registers right there. */
 function onFileStop() {
   if (fileStopping) return;
   fileStopping = true;
@@ -205,6 +209,11 @@ function onFileStop() {
       stopping: true,
     });
   }
+  // Local, immediate feedback next to the action — explains the unavoidable wait on the in-flight
+  // file (its encode cannot be cut). Replaced by the run summary when `file:done` arrives.
+  fileNote(
+    '<i class="ti ti-loader sift-spin" style="font-size:var(--text-md);vertical-align:-1px"></i> Stop requested — finishing the current file…',
+  );
   void fileCancel();
 }
 
