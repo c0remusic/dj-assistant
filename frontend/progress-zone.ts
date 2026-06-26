@@ -78,10 +78,15 @@ function row(kind: TaskKind, p: TaskProgress): string {
   const rowClass = p.state === "error" ? "sift-pz-row error" : "sift-pz-row";
   const label = p.stopping ? "Stopping…" : LABELS[kind];
   // Stop button only while actively running, not already stopping, and a cancel action exists.
-  const stop =
-    p.state === "running" && !p.stopping && cancelHandlers.has(kind)
-      ? `<button class="sift-pz-cancel" type="button" data-pz-cancel="${kind}" title="Stop" aria-label="Stop ${LABELS[kind]}"><i class="ti ti-x" aria-hidden="true"></i></button>`
-      : "";
+  const showStop = p.state === "running" && !p.stopping && cancelHandlers.has(kind);
+  // INSTRUMENTATION (cancel-bug-live2): the Stop button HTML is regenerated here on every render that
+  // includes a running file task — a burst of these = the button churns under the cursor mid-click.
+  if (showStop && kind === "file") {
+    console.log(`[pz] stop button (re)created kind=${kind} render#${renderSeq}`);
+  }
+  const stop = showStop
+    ? `<button class="sift-pz-cancel" type="button" data-pz-cancel="${kind}" title="Stop" aria-label="Stop ${LABELS[kind]}"><i class="ti ti-x" aria-hidden="true"></i></button>`
+    : "";
   return (
     `<div class="${rowClass}">` +
     `<div class="sift-pz-head">` +
@@ -93,8 +98,14 @@ function row(kind: TaskKind, p: TaskProgress): string {
   );
 }
 
+// INSTRUMENTATION (cancel-bug-live2): count zone redraws. Each render rebuilds zone.innerHTML,
+// destroying+recreating the Stop button — a click whose mousedown/mouseup straddle a render can be
+// lost. Bursts here (driven by file:progress AND analyze setTask from watcher events) = the suspect.
+let renderSeq = 0;
+
 /** Redraw the zone from the current Map. Empty ⇒ the zone is hidden (no placeholder). */
 function render(): void {
+  console.log(`[pz] render zone #${++renderSeq} tasks=${[...tasks.keys()].join(",") || "(none)"}`);
   const zone = ensureZone();
   if (tasks.size === 0) {
     zone.style.display = "none";
