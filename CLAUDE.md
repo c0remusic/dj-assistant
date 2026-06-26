@@ -44,3 +44,10 @@ DSL de masks pour le rangement inspiré de MediaMonkey.
 ## Méthode
 Détective (théorie → preuve → correctif), **fail fast**, **pas de fallback** silencieux,
 changements chirurgicaux. Vérifier avant d'agir.
+
+## Front — événements répétés
+- Renderer déclenché par un événement en rafale (progress, watcher, scroll, resize) :
+  **créer les nœuds une fois, muter ensuite**. Jamais d'`innerHTML =` dans un handler
+  appelé en boucle (sature le thread UI → feedback noyé, bug invisible à la lecture).
+- En écrivant un handler sur événement, **nommer la fréquence supposée** de l'événement,
+  pour que le risque de saturation soit visible à la revue, pas découvert au runtime.
