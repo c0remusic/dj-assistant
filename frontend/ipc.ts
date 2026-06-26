@@ -11,6 +11,7 @@ import type {
   Bin,
   FileResult,
   BatchResult,
+  FileProgress,
   RejectBatchResult,
   JournalEntry,
   Target,
@@ -88,6 +89,11 @@ export const fileBatch = (trackIds: number[], binRel: string): Promise<void> =>
  * Returns an unlisten fn. */
 export const onFileDone = (cb: (r: BatchResult) => void): Promise<UnlistenFn> =>
   listen<BatchResult>("file:done", (e) => cb(e.payload));
+
+/** Subscribe to "file:progress" (one ping per file as the background filing advances).
+ * Payload = { done, total }. Returns an unlisten fn. */
+export const onFileProgress = (cb: (p: FileProgress) => void): Promise<UnlistenFn> =>
+  listen<FileProgress>("file:progress", (e) => cb(e.payload));
 
 /** Reject a batch of tracks for re-sourcing (each → Écartés). Returns how many were marked and
  * which ids failed (a misfire is reported, never aborts the rest). */

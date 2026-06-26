@@ -19,6 +19,7 @@ use crate::library::{self, Bin};
 use crate::naming::Canonical;
 use crate::settings;
 use rusqlite::Connection;
+use serde::Serialize;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -105,6 +106,14 @@ pub fn file_batch(
     Ok(())
 }
 
+/// Per-file filing progress for the global progress zone (`kind="file"` row). `done` = files
+/// processed so far (filed or bounced to needs_validation), `total` = the batch size.
+#[derive(Serialize)]
+struct FileProgress {
+    done: usize,
+    total: usize,
+}
+
 /// Background body of `file_batch` (off the main thread). Files each id by REUSING the three
 /// filing primitives with a PER-FILE lock window: phase 1 `plan_file` (lock) → phase 2
 /// `execute_file` (NO lock: the slow ffmpeg encode + fs moves) → phase 3 `commit_file` (lock:
@@ -119,10 +128,15 @@ fn run_file_batch(
     bin_rel: String,
 ) {
     let state = app.state::<Mutex<Connection>>();
+    let total = track_ids.len();
     let mut filed = 0usize;
     let mut needs_validation = Vec::new();
 
     for id in track_ids {
+        // Progress (sous-étape 2): files completed before this one (filed or bounced). Emitted at
+        // the TOP so it also covers the iterations that `continue`/`break` out of the body below —
+        // the filing logic itself is untouched. The front feeds the zone's kind="file" row from it.
+        app.emit("file:progress", &FileProgress { done: filed + needs_validation.len(), total }).ok();
         // Phase 1 (lock): pick the auto-file canonical + build the plan. No fileable name → pending.
         let plan = {
             let conn = match state.lock() {
@@ -168,6 +182,9 @@ fn run_file_batch(
         }
     }
 
+    // Final progress (all processed) so the zone flashes 100% "done" before hiding — emitted
+    // before `needs_validation` is moved into the summary below.
+    app.emit("file:progress", &FileProgress { done: filed + needs_validation.len(), total }).ok();
     // Done: hand the summary to the front, which refreshes the view (replacing the end-of-batch
     // `queue:changed` the synchronous command used to emit).
     app.emit("file:done", &BatchResult { filed, needs_validation }).ok();

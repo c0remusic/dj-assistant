@@ -6,6 +6,7 @@ import {
   listBins,
   fileBatch,
   onFileDone,
+  onFileProgress,
   rejectBatch,
   onQueueChanged,
   onAnalysisChanged,
@@ -38,7 +39,7 @@ import {
 import { renderEcartes } from "./ecartes-view";
 import { renderHomeSources, pickAndAddFolder } from "./home-sources";
 import { installDragDrop, injectLeanStyle, injectTitlebar, installScrollAutohide } from "./chrome";
-import type { QueueItem, Bin, BatchResult } from "../shared/contracts";
+import type { QueueItem, Bin, BatchResult, FileProgress } from "../shared/contracts";
 import { requireEl } from "./dom";
 import { setTask, clearTask } from "./progress-zone";
 
@@ -164,6 +165,25 @@ async function pushAnalyzeProgress() {
     }
   } catch (e) {
     console.error("analysisProgress failed", e);
+  }
+}
+
+// Global progress zone — feed the "file" row from the per-file filing events (sous-étape 2). Mirror
+// of pushAnalyzeProgress, but here done/total arrive straight from the event (no poll). On
+// done==total the row flashes 100% "done" then auto-hides after 1.2s, exactly like the analyze row.
+let fileClearTimer: ReturnType<typeof setTimeout> | undefined;
+function pushFileProgress(p: FileProgress) {
+  if (p.total <= 0) {
+    clearTask("file");
+    return;
+  }
+  if (p.done < p.total) {
+    clearTimeout(fileClearTimer);
+    setTask("file", { done: p.done, total: p.total, state: "running" });
+  } else {
+    setTask("file", { done: p.total, total: p.total, state: "done" });
+    clearTimeout(fileClearTimer);
+    fileClearTimer = setTimeout(() => clearTask("file"), 1200);
   }
 }
 
@@ -787,6 +807,7 @@ export function installLiveWiring() {
 
   void onQueueChanged(refresh);
   void onFileDone(onFileBatchDone);
+  void onFileProgress(pushFileProgress);
 
   // Analysis pings can arrive several times per second — debounce the queue redraw.
   let t: ReturnType<typeof setTimeout> | undefined;

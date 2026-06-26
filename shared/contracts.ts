@@ -120,6 +120,13 @@ export interface BatchResult {
   needs_validation: number[];
 }
 
+/** Per-file filing progress (mirror of ipc_filing.rs FileProgress). `done` = files processed so
+ *  far (filed or bounced), `total` = batch size. Drives the global progress zone's "file" row. */
+export interface FileProgress {
+  done: number;
+  total: number;
+}
+
 /** Result of rejecting a batch: how many marked for re-sourcing, and the ids that failed. */
 export interface RejectBatchResult {
   rejected: number;
