@@ -114,10 +114,13 @@ export interface FileResult {
   batch_id: string;
 }
 
-/** Result of filing a batch: how many filed, and the ids left needing validation. */
+/** Result of filing a batch: how many filed, and the ids left needing validation. `cancelled` is
+ *  true when the run was stop-net cancelled before processing every id (the result is then partial;
+ *  nothing is rolled back). */
 export interface BatchResult {
   filed: number;
   needs_validation: number[];
+  cancelled: boolean;
 }
 
 /** Per-file filing progress (mirror of ipc_filing.rs FileProgress). `done` = files processed so

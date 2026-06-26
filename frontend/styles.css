@@ -68,6 +68,10 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--color-background
 .sift-pz-name{display:inline-flex;align-items:center;gap:var(--space-4);min-width:0;font-size:var(--text-xs);color:var(--color-text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sift-pz-name i{font-size:var(--text-sm);color:var(--color-text-tertiary);flex:none}
 .sift-pz-count{flex:none;font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-size:var(--text-2xs);color:var(--color-text-tertiary)}
+.sift-pz-end{display:inline-flex;align-items:center;gap:var(--space-4);flex:none}
+.sift-pz-cancel{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;padding:0;border:none;border-radius:3px;background:transparent;color:var(--color-text-tertiary);cursor:pointer}
+.sift-pz-cancel:hover{color:var(--color-text-danger);background:var(--color-background-danger)}
+.sift-pz-cancel i{font-size:var(--text-xs)}
 .sift-pz-track{height:3px;border-radius:3px;background:var(--color-border-tertiary);overflow:hidden}
 .sift-pz-fill{height:100%;border-radius:3px;background:var(--color-text-info);transition:width .3s}
 .sift-pz-row.error .sift-pz-fill{background:var(--color-text-danger)}

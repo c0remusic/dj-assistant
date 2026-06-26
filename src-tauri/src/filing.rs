@@ -53,6 +53,9 @@ pub struct FileResult {
 pub struct BatchResult {
     pub filed: usize,
     pub needs_validation: Vec<i64>,
+    /// True when the run was stop-net cancelled before processing every id (the summary is then
+    /// partial: what was filed before the stop stays filed — nothing is rolled back).
+    pub cancelled: bool,
 }
 
 /// Outcome of a batch reject (re-sourcing): how many were marked, and which ids failed — so the

@@ -52,6 +52,7 @@ pub fn run() {
             std::fs::create_dir_all(&dir).ok();
             let conn = db::open(&dir.join("sift.db")).expect("db open failed");
             app.manage(Mutex::new(conn));
+            app.manage(ipc_filing::FilingCancel::default());
             watcher::init_state(app.handle());
             watcher::start_all(app.handle());
             worker::init(app.handle());
@@ -77,6 +78,7 @@ pub fn run() {
             ipc_filing::reconcile,
             ipc_filing::file_track,
             ipc_filing::file_batch,
+            ipc_filing::file_cancel,
             ipc_filing::reject_track,
             ipc_filing::reject_batch,
             ipc_filing::trash_track,

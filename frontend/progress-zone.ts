@@ -17,6 +17,9 @@ export interface TaskProgress {
   done: number;
   total: number;
   state: TaskState;
+  /** Optional transient flag: the run is being cancelled (the user clicked Stop). The row shows
+   *  "Stopping…" and hides its Stop button until the terminal update arrives. */
+  stopping?: boolean;
 }
 
 /** Tabler icon per kind (analyse = wave, identify = tag, file = move-right). */
@@ -36,6 +39,16 @@ const LABELS: Record<TaskKind, string> = {
 // Encapsulated state: at most one active run per kind. Insertion order = display order.
 const tasks = new Map<TaskKind, TaskProgress>();
 
+// Optional per-kind cancel actions. A kind with a registered handler gets a Stop button on its row
+// while running; the click is routed to the handler here (the IPC call lives in the caller, keeping
+// this module generic). Only "file" registers one today (stop-net cancel); analyse has none.
+const cancelHandlers = new Map<TaskKind, () => void>();
+
+/** Register the Stop action for `kind` — shown as a button on the row while it is running. */
+export function setCancelHandler(kind: TaskKind, fn: () => void): void {
+  cancelHandlers.set(kind, fn);
+}
+
 /** Lazily create (once) the persistent zone container at the bottom of #nav. Fail-fast (P-4):
  * if the sidebar shell is missing, `requireEl` throws with the selector + context. */
 function ensureZone(): HTMLElement {
@@ -47,19 +60,31 @@ function ensureZone(): HTMLElement {
     zone.className = "sift-progress-zone";
     // Appended after the `margin-top:auto` Settings item ⇒ pinned to the very bottom of the rail.
     nav.appendChild(zone);
+    // One delegated listener for the per-row Stop buttons; routes to the registered cancel handler.
+    zone.addEventListener("click", (e) => {
+      const btn = (e.target as HTMLElement).closest<HTMLElement>("[data-pz-cancel]");
+      if (btn) cancelHandlers.get(btn.dataset.pzCancel as TaskKind)?.();
+    });
   }
   return zone;
 }
 
-/** One task row: icon + name on the left, tabular done/total on the right, thin bar below. */
+/** One task row: icon + name on the left, tabular done/total (+ optional Stop) on the right, thin
+ * bar below. While `stopping`, the label reads "Stopping…" and the Stop button is hidden. */
 function row(kind: TaskKind, p: TaskProgress): string {
   const pct = p.total > 0 ? Math.min(100, Math.round((p.done / p.total) * 100)) : 0;
   const rowClass = p.state === "error" ? "sift-pz-row error" : "sift-pz-row";
+  const label = p.stopping ? "Stopping…" : LABELS[kind];
+  // Stop button only while actively running, not already stopping, and a cancel action exists.
+  const stop =
+    p.state === "running" && !p.stopping && cancelHandlers.has(kind)
+      ? `<button class="sift-pz-cancel" type="button" data-pz-cancel="${kind}" title="Stop" aria-label="Stop ${LABELS[kind]}"><i class="ti ti-x" aria-hidden="true"></i></button>`
+      : "";
   return (
     `<div class="${rowClass}">` +
     `<div class="sift-pz-head">` +
-    `<span class="sift-pz-name"><i class="ti ${ICONS[kind]}" aria-hidden="true"></i>${LABELS[kind]}</span>` +
-    `<span class="sift-pz-count">${p.done}/${p.total}</span>` +
+    `<span class="sift-pz-name"><i class="ti ${ICONS[kind]}" aria-hidden="true"></i>${label}</span>` +
+    `<span class="sift-pz-end"><span class="sift-pz-count">${p.done}/${p.total}</span>${stop}</span>` +
     `</div>` +
     `<div class="sift-pz-track"><div class="sift-pz-fill" style="width:${pct}%"></div></div>` +
     `</div>`

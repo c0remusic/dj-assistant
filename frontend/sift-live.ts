@@ -5,6 +5,7 @@ import {
   listQueue,
   listBins,
   fileBatch,
+  fileCancel,
   onFileDone,
   onFileProgress,
   rejectBatch,
@@ -41,7 +42,7 @@ import { renderHomeSources, pickAndAddFolder } from "./home-sources";
 import { installDragDrop, injectLeanStyle, injectTitlebar, installScrollAutohide } from "./chrome";
 import type { QueueItem, Bin, BatchResult, FileProgress } from "../shared/contracts";
 import { requireEl } from "./dom";
-import { setTask, clearTask } from "./progress-zone";
+import { setTask, clearTask, setCancelHandler } from "./progress-zone";
 
 // Latest live queue items, kept so a queue-row click can recover the full item (id +
 // verdict) the filing pane needs.
@@ -172,19 +173,39 @@ async function pushAnalyzeProgress() {
 // of pushAnalyzeProgress, but here done/total arrive straight from the event (no poll). On
 // done==total the row flashes 100% "done" then auto-hides after 1.2s, exactly like the analyze row.
 let fileClearTimer: ReturnType<typeof setTimeout> | undefined;
+let fileStopping = false;
+let lastFileProgress: FileProgress | null = null;
 function pushFileProgress(p: FileProgress) {
+  lastFileProgress = p;
   if (p.total <= 0) {
     clearTask("file");
     return;
   }
   if (p.done < p.total) {
     clearTimeout(fileClearTimer);
-    setTask("file", { done: p.done, total: p.total, state: "running" });
+    setTask("file", { done: p.done, total: p.total, state: "running", stopping: fileStopping });
   } else {
     setTask("file", { done: p.total, total: p.total, state: "done" });
     clearTimeout(fileClearTimer);
     fileClearTimer = setTimeout(() => clearTask("file"), 1200);
   }
+}
+
+/** Stop button on the global zone's Filing row → request a stop-net cancel (sous-étape 3). The
+ * in-flight file finishes and no new one starts; nothing is rolled back. The row shows "Stopping…"
+ * until `file:done` arrives (handled by onFileBatchDone). */
+function onFileStop() {
+  if (fileStopping) return;
+  fileStopping = true;
+  if (lastFileProgress) {
+    setTask("file", {
+      done: lastFileProgress.done,
+      total: lastFileProgress.total,
+      state: "running",
+      stopping: true,
+    });
+  }
+  void fileCancel();
 }
 
 /** Detail|Batch segmented control (board `topseg`), injected once at the top of the queue
@@ -407,6 +428,8 @@ function setReviewMode(m: "detail" | "batch") {
 async function runBatchFile() {
   const ids = [...batchSel];
   if (ids.length === 0) return;
+  fileStopping = false;
+  lastFileProgress = null;
   fileNote(
     '<i class="ti ti-loader sift-spin" style="font-size:var(--text-md);vertical-align:-1px"></i> Filing in the background…',
   );
@@ -441,12 +464,26 @@ function fileNote(html: string, color = "var(--color-text-secondary)") {
  * end-of-batch queue:changed used to) then shows the run summary — but only if the batch rail is
  * still on screen, since the user may have navigated away while the batch ran. */
 async function onFileBatchDone(res: BatchResult) {
+  fileStopping = false;
+  if (res.cancelled) {
+    // Stop-net end: no 100% done-flash came from progress (done<total). Flash the partial then hide.
+    clearTimeout(fileClearTimer);
+    const lp = lastFileProgress;
+    if (lp) {
+      setTask("file", { done: lp.done, total: lp.total, state: "done" });
+      fileClearTimer = setTimeout(() => clearTask("file"), 1200);
+    } else {
+      clearTask("file");
+    }
+  }
   await refresh();
-  const msg = res.needs_validation.length
+  const base = res.needs_validation.length
     ? `${res.filed} filed · ${res.needs_validation.length} need validation`
     : `${res.filed} filed`;
   fileNote(
-    `<i class="ti ti-check" style="font-size:var(--text-md);vertical-align:-1px"></i> ${msg}`,
+    `<i class="ti ti-check" style="font-size:var(--text-md);vertical-align:-1px"></i> ${
+      res.cancelled ? `Filing cancelled · ${base}` : base
+    }`,
     "var(--color-text-success)",
   );
 }
@@ -808,6 +845,8 @@ export function installLiveWiring() {
   void onQueueChanged(refresh);
   void onFileDone(onFileBatchDone);
   void onFileProgress(pushFileProgress);
+  // Stop button on the global zone's "file" row → stop-net cancel of the running filing batch.
+  setCancelHandler("file", onFileStop);
 
   // Analysis pings can arrive several times per second — debounce the queue redraw.
   let t: ReturnType<typeof setTimeout> | undefined;

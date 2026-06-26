@@ -95,6 +95,10 @@ export const onFileDone = (cb: (r: BatchResult) => void): Promise<UnlistenFn> =>
 export const onFileProgress = (cb: (p: FileProgress) => void): Promise<UnlistenFn> =>
   listen<FileProgress>("file:progress", (e) => cb(e.payload));
 
+/** Request a stop-net cancel of the running filing batch: the in-flight file finishes, then no new
+ * one starts. Nothing is rolled back. No-op if nothing is running. */
+export const fileCancel = (): Promise<void> => invoke("file_cancel");
+
 /** Reject a batch of tracks for re-sourcing (each → Écartés). Returns how many were marked and
  * which ids failed (a misfire is reported, never aborts the rest). */
 export const rejectBatch = (trackIds: number[]): Promise<RejectBatchResult> =>

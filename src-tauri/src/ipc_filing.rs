@@ -21,8 +21,15 @@ use crate::settings;
 use rusqlite::Connection;
 use serde::Serialize;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, State};
+
+/// Shared stop-net cancel flag for the background filing batch (sous-étape 3). Set by `file_cancel`,
+/// checked between files by `run_file_batch`, and reset at the start of each new batch. Held in
+/// Tauri managed state (see `lib.rs`), so it is shared without an explicit `Arc`.
+#[derive(Default)]
+pub struct FilingCancel(pub AtomicBool);
 
 /// Resolve the configured library root, or the `"NoLibraryRoot"` sentinel error when unset
 /// or blank. All filing/bin commands need this.
@@ -96,6 +103,8 @@ pub fn file_batch(
         let conn = conn.lock().map_err(|e| e.to_string())?;
         (library_root(&conn)?, template(&conn))
     };
+    // Reset the cancel flag for THIS batch so a past cancel can't abort it instantly.
+    app.state::<FilingCancel>().0.store(false, Ordering::SeqCst);
     // Detach onto a named OS thread (blocking work: ffmpeg encodes + fs moves + rusqlite). Fail-fast:
     // if the thread can't even be started, surface it to the front rather than dropping the batch.
     let app_bg = app.clone();
@@ -103,6 +112,16 @@ pub fn file_batch(
         .name("file-batch".into())
         .spawn(move || run_file_batch(&app_bg, root, tmpl, track_ids, bin_rel))
         .map_err(|e| format!("file_batch: failed to start background task: {e}"))?;
+    Ok(())
+}
+
+/// Request a stop-net cancel of the running filing batch: the file currently being processed
+/// finishes, then no new file starts (the flag is checked BETWEEN files in `run_file_batch`, never
+/// mid-encode). Nothing is rolled back — already-filed tracks stay filed and the `actions` journal
+/// is untouched. A no-op if no batch is running (the next batch resets the flag anyway).
+#[tauri::command]
+pub fn file_cancel(app: AppHandle) -> Result<(), String> {
+    app.state::<FilingCancel>().0.store(true, Ordering::SeqCst);
     Ok(())
 }
 
@@ -128,11 +147,21 @@ fn run_file_batch(
     bin_rel: String,
 ) {
     let state = app.state::<Mutex<Connection>>();
+    let cancel = app.state::<FilingCancel>();
     let total = track_ids.len();
     let mut filed = 0usize;
     let mut needs_validation = Vec::new();
+    let mut cancelled = false;
 
     for id in track_ids {
+        // Stop-net cancel (sous-étape 3): checked BETWEEN files, never mid `execute_file`, so no
+        // file is left half-processed and the DB stays consistent. The in-flight file (if any) has
+        // already finished its three phases; we simply don't start a new one. Nothing is rolled
+        // back — what is filed stays filed.
+        if cancel.0.load(Ordering::SeqCst) {
+            cancelled = true;
+            break;
+        }
         // Progress (sous-étape 2): files completed before this one (filed or bounced). Emitted at
         // the TOP so it also covers the iterations that `continue`/`break` out of the body below —
         // the filing logic itself is untouched. The front feeds the zone's kind="file" row from it.
@@ -182,12 +211,12 @@ fn run_file_batch(
         }
     }
 
-    // Final progress (all processed) so the zone flashes 100% "done" before hiding — emitted
-    // before `needs_validation` is moved into the summary below.
+    // Final progress (processed so far) so the zone settles — emitted before `needs_validation`
+    // is moved into the summary below.
     app.emit("file:progress", &FileProgress { done: filed + needs_validation.len(), total }).ok();
-    // Done: hand the summary to the front, which refreshes the view (replacing the end-of-batch
-    // `queue:changed` the synchronous command used to emit).
-    app.emit("file:done", &BatchResult { filed, needs_validation }).ok();
+    // Done: hand the (possibly partial, if cancelled) summary to the front, which refreshes the
+    // view (replacing the end-of-batch `queue:changed` the synchronous command used to emit).
+    app.emit("file:done", &BatchResult { filed, needs_validation, cancelled }).ok();
 }
 
 /// Mark a track for re-sourcing (Écartés). Status-only at this milestone.
