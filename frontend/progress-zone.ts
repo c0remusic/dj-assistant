@@ -93,11 +93,6 @@ function rowInner(kind: TaskKind, p: TaskProgress): string {
   const label = p.stopping ? "Stopping…" : LABELS[kind];
   // Stop button only while actively running, not already stopping, and a cancel action exists.
   const showStop = p.state === "running" && !p.stopping && cancelHandlers.has(kind);
-  // INSTRUMENTATION (cancel-bug-live2): logs only when the button HTML is actually (re)built — i.e. on
-  // row creation / a signature change, NOT every tick. Should fire ~once per batch after this refactor.
-  if (showStop && kind === "file") {
-    console.log(`[pz] stop button (re)created kind=${kind} render#${renderSeq}`);
-  }
   const stop = showStop
     ? `<button class="sift-pz-cancel" type="button" data-pz-cancel="${kind}" title="Stop" aria-label="Stop ${LABELS[kind]}"><i class="ti ti-x" aria-hidden="true"></i></button>`
     : "";
@@ -109,10 +104,6 @@ function rowInner(kind: TaskKind, p: TaskProgress): string {
     `<div class="sift-pz-track"><div class="sift-pz-fill" style="width:${pct}%"></div></div>`
   );
 }
-
-// INSTRUMENTATION (cancel-bug-live2): count zone redraws. After this refactor a redraw on a stable
-// signature is just two text writes (count + bar width), not a full innerHTML rebuild.
-let renderSeq = 0;
 
 /** Live DOM handles for one rendered row, kept ACROSS renders so ticks update in place instead of
  * rebuilding. `sig` is the structural signature; while it is unchanged only countEl/fillEl change. */
@@ -129,7 +120,6 @@ const rowCache = new Map<TaskKind, RowCache>();
  * writes just the two moving values. So a burst of `analyze` ticks never rebuilds the `file` row's
  * Stop button. Empty ⇒ the zone is hidden (no placeholder). */
 function render(): void {
-  console.log(`[pz] render zone #${++renderSeq} tasks=${[...tasks.keys()].join(",") || "(none)"}`);
   const zone = ensureZone();
   if (tasks.size === 0) {
     zone.style.display = "none";

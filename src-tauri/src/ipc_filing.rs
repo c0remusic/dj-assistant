@@ -121,8 +121,6 @@ pub fn file_batch(
 /// is untouched. A no-op if no batch is running (the next batch resets the flag anyway).
 #[tauri::command]
 pub fn file_cancel(app: AppHandle) -> Result<(), String> {
-    // INSTRUMENTATION (cancel-bug-live2): confirm the command is reached and stores the flag.
-    log::info!("file_cancel CALLED, storing true");
     app.state::<FilingCancel>().0.store(true, Ordering::SeqCst);
     Ok(())
 }
@@ -160,11 +158,7 @@ fn run_file_batch(
         // file is left half-processed and the DB stays consistent. The in-flight file (if any) has
         // already finished its three phases; we simply don't start a new one. Nothing is rolled
         // back — what is filed stays filed.
-        // INSTRUMENTATION (cancel-bug-live2): log the flag value read each file — does it flip after
-        // the click, and how many files still pass before it does?
-        let cancel_now = cancel.0.load(Ordering::SeqCst);
-        log::info!("run_file_batch loop check: id={id} cancel={cancel_now}");
-        if cancel_now {
+        if cancel.0.load(Ordering::SeqCst) {
             cancelled = true;
             break;
         }

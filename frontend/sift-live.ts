@@ -176,8 +176,6 @@ let fileClearTimer: ReturnType<typeof setTimeout> | undefined;
 let fileStopping = false;
 let lastFileProgress: FileProgress | null = null;
 function pushFileProgress(p: FileProgress) {
-  // INSTRUMENTATION (cancel-bug-live2): each file:progress triggers a zone re-render (button churn).
-  console.log(`[ev] file:progress done=${p.done}/${p.total}`);
   lastFileProgress = p;
   if (p.total <= 0) {
     clearTask("file");
@@ -201,11 +199,8 @@ function pushFileProgress(p: FileProgress) {
  * frozen, so the cancel looks ignored and the user re-clicks into the void. We also drop an
  * immediate note at #filfoot (where they clicked File) so the click visibly registers right there. */
 function onFileStop() {
-  // INSTRUMENTATION (cancel-bug-live2): does the click reach the handler at all, and does it short-circuit?
-  console.log("[cancel] STOP CLICKED — fileStopping(before)=", fileStopping);
   if (fileStopping) return;
   fileStopping = true;
-  console.log("[cancel] fileStopping(after)=", fileStopping);
   if (lastFileProgress) {
     setTask("file", {
       done: lastFileProgress.done,
@@ -219,11 +214,7 @@ function onFileStop() {
   fileNote(
     '<i class="ti ti-loader sift-spin" style="font-size:var(--text-md);vertical-align:-1px"></i> Stop requested — finishing the current file…',
   );
-  // INSTRUMENTATION (cancel-bug-live2): confirm the invoke fires and resolves.
-  console.log("[cancel] invoking file_cancel…");
-  fileCancel()
-    .then(() => console.log("[cancel] file_cancel resolved"))
-    .catch((e) => console.error("[cancel] file_cancel FAILED", e));
+  void fileCancel();
 }
 
 /** Detail|Batch segmented control (board `topseg`), injected once at the top of the queue
@@ -873,10 +864,6 @@ export function installLiveWiring() {
   // Analysis pings can arrive several times per second — debounce the queue redraw.
   let t: ReturnType<typeof setTimeout> | undefined;
   void onAnalysisChanged(() => {
-    // INSTRUMENTATION (cancel-bug-live2): watcher-driven event — fires in bursts while filing into a
-    // watched bin; pushAnalyzeProgress → setTask("analyze") rebuilds the whole zone (file Stop button
-    // included). This is the suspected source of the button churn under the cursor.
-    console.log("[ev] analysis:changed (watcher) → pushAnalyzeProgress");
     // A report may have changed (re-analysed / replaced file) → drop the in-session cache so
     // the next open re-fetches from the DB (the source of truth) instead of serving it stale.
     void import("./report-view").then((m) => m.clearReportCache());
