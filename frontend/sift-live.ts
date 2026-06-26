@@ -199,8 +199,11 @@ function pushFileProgress(p: FileProgress) {
  * frozen, so the cancel looks ignored and the user re-clicks into the void. We also drop an
  * immediate note at #filfoot (where they clicked File) so the click visibly registers right there. */
 function onFileStop() {
+  // INSTRUMENTATION (cancel-bug-live): prove the click reaches the handler and whether it short-circuits.
+  console.log("[cancel] STOP CLICKED — fileStopping(before)=", fileStopping);
   if (fileStopping) return;
   fileStopping = true;
+  console.log("[cancel] fileStopping(after)=", fileStopping);
   if (lastFileProgress) {
     setTask("file", {
       done: lastFileProgress.done,
@@ -214,7 +217,11 @@ function onFileStop() {
   fileNote(
     '<i class="ti ti-loader sift-spin" style="font-size:var(--text-md);vertical-align:-1px"></i> Stop requested — finishing the current file…',
   );
-  void fileCancel();
+  // INSTRUMENTATION (cancel-bug-live): confirm invoke("file_cancel") is actually CALLED and resolves.
+  console.log("[cancel] invoking file_cancel…");
+  fileCancel()
+    .then(() => console.log("[cancel] file_cancel resolved"))
+    .catch((e) => console.error("[cancel] file_cancel FAILED", e));
 }
 
 /** Detail|Batch segmented control (board `topseg`), injected once at the top of the queue
