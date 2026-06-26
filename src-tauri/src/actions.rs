@@ -526,4 +526,105 @@ mod tests {
         assert_eq!(ids, vec!["b2", "b1"]); // newest first, one per batch
         assert_eq!(entries[0].kind, "move"); // representative (latest) action of the batch
     }
+
+    /// Seed a non-conformant `.aif` filing in `dir`, SAME folder: `Track.aif` was converted into
+    /// `Track.aiff` (forced extension) and the original trashed — the real `execute_file` order is
+    /// `convert` then `trash`. Returns (original .aif, converted .aiff, batch_id).
+    fn seed_aif_filing(conn: &Connection, dir: &Path, batch: &str) -> (std::path::PathBuf, std::path::PathBuf) {
+        let original = dir.join("Track.aif");
+        let converted = dir.join("Track.aiff");
+        let trashed = dir.join(".sift-trash/1__Track.aif");
+        std::fs::create_dir_all(trashed.parent().unwrap()).unwrap();
+        std::fs::write(&converted, b"converted-cdj").unwrap();
+        std::fs::write(&trashed, b"original-aif").unwrap();
+        conn.execute(
+            "INSERT INTO tracks(path, status, folder, target_format, confidence)
+             VALUES(?1, 'filed', 'House', 'aiff_16_44', 'green')",
+            params![original.to_str().unwrap()],
+        )
+        .unwrap();
+        let track_id = conn.last_insert_rowid();
+        record(conn, batch, Some(track_id), "convert", Some(original.to_str().unwrap()), Some(converted.to_str().unwrap())).unwrap();
+        record(conn, batch, Some(track_id), "trash", Some(original.to_str().unwrap()), Some(trashed.to_str().unwrap())).unwrap();
+        (original, converted)
+    }
+
+    /// 2a — COLD reproduction of the `.aif`→`.aiff` filing. With nothing holding the converted file,
+    /// a cold revert must leave EXACTLY ONE file (the restored `Track.aif`) and delete `Track.aiff`.
+    /// Proves the inversion logic eliminates the duplicate when no FS step is blocked.
+    #[test]
+    fn cold_revert_of_aif_filing_leaves_single_file() {
+        let conn = db();
+        let dir = tempfile::tempdir().unwrap();
+        let (original, converted) = seed_aif_filing(&conn, dir.path(), "ba");
+        assert!(!original.exists(), "before revert the original .aif lives in trash");
+
+        revert_batch(&conn, "ba").unwrap();
+
+        assert!(original.exists(), "original .aif restored");
+        assert_eq!(std::fs::read(&original).unwrap(), b"original-aif");
+        assert!(!converted.exists(), "converted .aiff deleted — no .aif/.aiff duplicate");
+    }
+
+    /// 2b-i — DISCRIMINATES suspicion n°1 (the analysis worker holds the freshly-filed `.aiff` open
+    /// and blocks its deletion). The worker opens audio with plain `std::fs::File::open` (see
+    /// analysis/decode.rs and lofty's `Probe::open`). Holding the converted `.aiff` the SAME way
+    /// during the revert: if std's Windows share mode includes FILE_SHARE_DELETE, `remove_file`
+    /// succeeds despite the open handle and the revert leaves a single file — REFUTING "a std-reading
+    /// worker causes the duplicate". The assertion is the verdict; if it ever fails, std blocks and
+    /// the suspicion is instead confirmed.
+    #[cfg(windows)]
+    #[test]
+    fn windows_std_reader_does_not_block_revert() {
+        let conn = db();
+        let dir = tempfile::tempdir().unwrap();
+        let (original, converted) = seed_aif_filing(&conn, dir.path(), "bw");
+
+        // Hold the .aiff open exactly like the analysis worker (plain std open), then revert.
+        let handle = std::fs::File::open(&converted).unwrap();
+        let res = revert_batch(&conn, "bw");
+        drop(handle);
+
+        assert!(res.is_ok(), "a std-opened reader does not block the revert: {res:?}");
+        assert!(original.exists(), "original .aif restored");
+        assert!(!converted.exists(), "converted .aiff deleted despite the open std handle");
+    }
+
+    /// 2b-ii — PROVES the trigger. A handle opened WITHOUT share-delete (the way an external locker
+    /// such as the Windows Search indexer, an AV scanner, or Explorer's preview pane holds a file)
+    /// blocks `remove_file`. The revert restores `Track.aif` from trash, then FAILS to delete
+    /// `Track.aiff` → the exact `.aif` + `.aiff` duplicate in one folder the user reported. Dropping
+    /// the handle and re-running completes the revert to a single file, proving the lock is the sole
+    /// cause. This ASSERTS the current (buggy) duplicate — it is a reproduction, not a fix.
+    #[cfg(windows)]
+    #[test]
+    fn windows_held_handle_reproduces_aif_aiff_duplicate() {
+        use std::os::windows::fs::OpenOptionsExt;
+        const FILE_SHARE_READ: u32 = 0x0000_0001; // read sharing only — NO delete sharing
+
+        let conn = db();
+        let dir = tempfile::tempdir().unwrap();
+        let (original, converted) = seed_aif_filing(&conn, dir.path(), "bl");
+
+        // Hold the .aiff with NO delete-share — models an external locker holding the re-enqueued file.
+        let handle = std::fs::OpenOptions::new()
+            .read(true)
+            .share_mode(FILE_SHARE_READ)
+            .open(&converted)
+            .unwrap();
+
+        let res = revert_batch(&conn, "bl");
+        let err = res.expect_err("a delete-blocking handle must block the convert revert");
+        eprintln!("REPRO os error on remove_file(.aiff): {err}");
+        assert!(matches!(err, RevertError::Blocked(_)));
+
+        // The reported bug: both `.aif` (restored) and `.aiff` (undeletable) coexist in one folder.
+        assert!(original.exists(), "original .aif restored from trash");
+        assert!(converted.exists(), "converted .aiff still present → the .aif/.aiff duplicate");
+
+        // Release the handle and re-run: the revert RESUMES and finishes — single file remains.
+        drop(handle);
+        revert_batch(&conn, "bl").unwrap();
+        assert!(original.exists() && !converted.exists(), "single file once the lock is gone");
+    }
 }
