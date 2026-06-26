@@ -331,6 +331,73 @@ mod tests {
         assert_eq!(live, 0);
     }
 
+    /// Faithful reproduction of a real non-conformant filing (see filing.rs `execute_file`): the
+    /// source is CONVERTED into the bin and the original is moved to `.sift-trash`, journalled as
+    /// `convert`(source → converted) THEN `trash`(source → trash_path). revert_batch processes
+    /// newest-first, so it must restore the original from trash BEFORE deleting the converted file —
+    /// proving the no-data-loss ordering the relevé deduced by reading the code.
+    #[test]
+    fn revert_batch_conversion_restores_original_and_deletes_converted() {
+        let conn = db();
+        let dir = tempfile::tempdir().unwrap();
+
+        // Physical post-filing state: converted file in the bin, original sitting in `.sift-trash`,
+        // and the original source location empty.
+        let source = dir.path().join("orig.flac");
+        let converted = dir.path().join("House/orig.aiff");
+        let trashed = dir.path().join(".sift-trash/1__orig.flac");
+        std::fs::create_dir_all(converted.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(trashed.parent().unwrap()).unwrap();
+        std::fs::write(&converted, b"converted-cdj").unwrap();
+        std::fs::write(&trashed, b"original-flac").unwrap();
+        assert!(!source.exists(), "source location is empty after the original was trashed");
+
+        // DB: the filed track (+ a metadata row) and the two journalled actions, real order.
+        conn.execute(
+            "INSERT INTO tracks(path, status, folder, target_format, confidence)
+             VALUES(?1, 'filed', 'House', 'aiff_16_44', 'green')",
+            params![source.to_str().unwrap()],
+        )
+        .unwrap();
+        let track_id = conn.last_insert_rowid();
+        conn.execute(
+            "INSERT INTO metadata(track_id, artist, title) VALUES(?1, 'A', 'B')",
+            params![track_id],
+        )
+        .unwrap();
+        record(&conn, "bc", Some(track_id), "convert", Some(source.to_str().unwrap()), Some(converted.to_str().unwrap())).unwrap();
+        record(&conn, "bc", Some(track_id), "trash", Some(source.to_str().unwrap()), Some(trashed.to_str().unwrap())).unwrap();
+
+        revert_batch(&conn, "bc").unwrap();
+
+        // Original restored to its source (content intact); converted transcode deleted; trash emptied.
+        assert!(source.exists(), "original must be restored to its source");
+        assert_eq!(std::fs::read(&source).unwrap(), b"original-flac", "restored bytes are the original");
+        assert!(!converted.exists(), "converted file must be deleted");
+        assert!(!trashed.exists(), "trashed original must have been moved back");
+
+        // Track back to pending, filing columns cleared, metadata dropped, all rows undone.
+        let (status, folder, tf, cf): (String, Option<String>, Option<String>, Option<String>) = conn
+            .query_row(
+                "SELECT status, folder, target_format, confidence FROM tracks WHERE id=?1",
+                params![track_id],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+            )
+            .unwrap();
+        assert_eq!(status, "pending");
+        assert_eq!(folder, None);
+        assert_eq!(tf, None);
+        assert_eq!(cf, None);
+        let meta: i64 = conn
+            .query_row("SELECT count(*) FROM metadata WHERE track_id=?1", params![track_id], |r| r.get(0))
+            .unwrap();
+        assert_eq!(meta, 0, "metadata dropped on revert");
+        let live: i64 = conn
+            .query_row("SELECT count(*) FROM actions WHERE batch_id='bc' AND undone=0", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(live, 0, "all rows marked undone");
+    }
+
     #[test]
     fn revert_batch_blocked_when_newer_action_on_same_track() {
         let conn = db();
