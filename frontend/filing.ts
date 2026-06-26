@@ -339,10 +339,13 @@ function displayName(): string {
 function updateHeaderName(mid: HTMLElement): void {
   const c = state.canonical;
   if (!c) return; // before reconcile: keep the filename the report set
+  // "Is the report pane still mounted?" is a normal question (mid may have been replaced after an
+  // await / a navigation) → probe non-throw and bail, like renderQueue's `if (!ql) return`.
+  const nameEl = mid.querySelector<HTMLElement>(".sift-report-name");
+  if (!nameEl) return;
   // Board hero: big TITLE on top, "artist · version" subtitle below (not the full filename).
-  const nameEl = requireEl<HTMLElement>(".sift-report-name", "updateHeaderName", mid);
   nameEl.textContent = c.title || displayName();
-  const subEl = requireEl<HTMLElement>(".sift-report-sub", "updateHeaderName", mid);
+  const subEl = mid.querySelector<HTMLElement>(".sift-report-sub");
   if (subEl) {
     const ver = c.version && c.version.trim() ? c.version.trim() : "";
     subEl.textContent = [c.artist, ver].filter(Boolean).join(" · ");
@@ -405,9 +408,10 @@ function onIdentityApplied(
     );
   }
 
-  // Show the cover if we have a local path.
+  // Show the cover if we have a local path. Probe non-throw — the report pane may be gone after the
+  // identify await / a navigation.
   if (applied.cover_path) {
-    const covEl = requireEl<HTMLImageElement>(".sift-report-cover", "onIdentityApplied", mid);
+    const covEl = mid.querySelector<HTMLImageElement>(".sift-report-cover");
     if (covEl) {
       covEl.src = convertFileSrc(applied.cover_path);
       covEl.hidden = false;
@@ -714,8 +718,10 @@ function showFiledConfirm(mid: HTMLElement, batchId: string, bin: string): void 
     '<button data-fil="revert" style="display:inline-flex;align-items:center;gap:6px;font-size:var(--text-md);padding:6px 14px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);color:var(--color-text-secondary);cursor:pointer"><i class="ti ti-arrow-back-up" style="font-size:var(--text-md);vertical-align:-2px"></i> Revert</button>' +
     '<div style="font-size:var(--text-sm);color:var(--color-text-tertiary)">Select another track in the queue to continue.</div>' +
     "</div>";
-  // No filing controls on the confirmation — clear the rail footer.
-  requireEl("#filfoot", "showFiledConfirm").innerHTML = "";
+  // No filing controls on the confirmation — clear the rail footer (non-throw: the Review rail may be
+  // gone if the user navigated away while the file completed).
+  const foot = document.getElementById("filfoot");
+  if (foot) foot.innerHTML = "";
   mid
     .querySelector('[data-fil="revert"]')
     ?.addEventListener("click", () => void doRevert(mid, batchId));
@@ -772,9 +778,10 @@ function clearPane(mid: HTMLElement): void {
   state.filedConfirm = null;
   mid.innerHTML =
     '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--color-text-tertiary);font-size:var(--text-md);padding:20px;text-align:center">Select a track in the queue to listen and file it.</div>';
-  // The validation footer lives in the rail (#filfoot); clear it too so no stale controls linger.
-  const ff = requireEl("#filfoot", "clearPane");
-  ff.innerHTML = "";
+  // The validation footer lives in the rail (#filfoot); clear it too so no stale controls linger
+  // (non-throw: clearPane runs from async revert/undo/secondary callbacks that may fire off Review).
+  const ff = document.getElementById("filfoot");
+  if (ff) ff.innerHTML = "";
 }
 
 /** Banner HTML for a duplicate match (filed = already in library, pending = dupe in queue;
