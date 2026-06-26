@@ -485,16 +485,24 @@ async function onFileBatchDone(res: BatchResult) {
       clearTask("file");
     }
   }
-  await refresh();
   const base = res.needs_validation.length
     ? `${res.filed} filed · ${res.needs_validation.length} need validation`
     : `${res.filed} filed`;
-  fileNote(
-    `<i class="ti ti-check" style="font-size:var(--text-md);vertical-align:-1px"></i> ${
-      res.cancelled ? `Filing cancelled · ${base}` : base
-    }`,
-    "var(--color-text-success)",
-  );
+  // Refresh the view, then post the run summary at #filfoot. It MUST go after refresh so it survives
+  // renderBatch's wholesale rail rebuild (renderBatchRail sets #filfoot.innerHTML) — but in a
+  // `finally`, because a rejecting refresh (renderHomeSources/renderQueue use requireEl) would
+  // otherwise skip it and strand the "Filing in the background…" spinner note. The summary must
+  // always replace that note on file:done, exactly as the sidebar row clears on file:done.
+  try {
+    await refresh();
+  } finally {
+    fileNote(
+      `<i class="ti ti-check" style="font-size:var(--text-md);vertical-align:-1px"></i> ${
+        res.cancelled ? `Filing cancelled · ${base}` : base
+      }`,
+      "var(--color-text-success)",
+    );
+  }
 }
 
 /** Send every ticked track to Écartés for re-sourcing (backend emits queue:changed → redraw). */
