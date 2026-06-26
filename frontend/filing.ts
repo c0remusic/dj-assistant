@@ -14,6 +14,7 @@ import {
   getSetting,
   setSetting,
   undoLast,
+  revertBatch,
   findDuplicate,
   identify,
   applyIdentity,
@@ -50,6 +51,9 @@ interface RevueState {
   track: QueueItem | null; // currently open track
   canonical: Canonical | null; // reconciled (then user-edited) metadata
   target: Target | null; // format override (null = backend rail default)
+  // After a Detail-mode filing, the just-filed track's batch_id + bin label → drives the
+  // persistent "Filed ↩" confirmation in #mid (targeted revert via the journal). Null = none up.
+  filedConfirm: { batchId: string; bin: string } | null;
 }
 
 const state: RevueState = {
@@ -62,6 +66,7 @@ const state: RevueState = {
   track: null,
   canonical: null,
   target: null,
+  filedConfirm: null,
 };
 
 /** Refresh root + bin list from the backend. Call before rendering bins. */
@@ -676,9 +681,11 @@ async function doRanger(mid: HTMLElement): Promise<void> {
     ranger.innerHTML =
       '<i class="ti ti-loader-2 sift-spin" style="font-size:var(--text-md);vertical-align:-2px"></i> Filing…';
   try {
-    await fileTrack(state.track.id, state.binRel, state.target, state.canonical);
-    toast(`Filed → ${binLabel()}`, true);
-    clearPane(mid);
+    const res = await fileTrack(state.track.id, state.binRel, state.target, state.canonical);
+    // Persistent, TARGETED "Filed ↩" confirmation on this file (revert via its own batch_id),
+    // replacing the old transient "Filed [Undo]" toast. Pauses here until the user opens another
+    // track or reverts — the pane no longer auto-advances after filing.
+    showFiledConfirm(mid, res.batch_id, binLabel());
   } catch (e) {
     const msg = String(e);
     if (msg.includes("NoLibraryRoot")) toast("No library root configured.", false);
@@ -689,6 +696,48 @@ async function doRanger(mid: HTMLElement): Promise<void> {
     if (ranger && orig != null) ranger.innerHTML = orig;
   } finally {
     acting = false;
+  }
+}
+
+/** Render the persistent "Filed ✓ ↩ Revert" confirmation for the just-filed track into #mid
+ *  (Detail mode). The revert is TARGETED on this file's `batchId` (revert_batch), available
+ *  indefinitely via the journal — not a 6s window. It stays until the user opens another track
+ *  (openFilingInto clears it) or reverts. */
+function showFiledConfirm(mid: HTMLElement, batchId: string, bin: string): void {
+  state.track = null;
+  state.canonical = null;
+  state.target = null;
+  state.filedConfirm = { batchId, bin };
+  mid.innerHTML =
+    '<div class="sift-filed-confirm" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--space-12);padding:20px;text-align:center">' +
+    `<div style="display:flex;align-items:center;gap:var(--space-8);font-size:var(--text-lg);color:var(--color-text-success)"><i class="ti ti-check" style="font-size:var(--text-xl)"></i> Filed → ${esc(bin)}</div>` +
+    '<button data-fil="revert" style="display:inline-flex;align-items:center;gap:6px;font-size:var(--text-md);padding:6px 14px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);color:var(--color-text-secondary);cursor:pointer"><i class="ti ti-arrow-back-up" style="font-size:var(--text-md);vertical-align:-2px"></i> Revert</button>' +
+    '<div style="font-size:var(--text-sm);color:var(--color-text-tertiary)">Select another track in the queue to continue.</div>' +
+    "</div>";
+  // No filing controls on the confirmation — clear the rail footer.
+  requireEl("#filfoot", "showFiledConfirm").innerHTML = "";
+  mid
+    .querySelector('[data-fil="revert"]')
+    ?.addEventListener("click", () => void doRevert(mid, batchId));
+}
+
+/** Revert THIS file's filing, targeted on its `batchId` (revert_batch). On success the engine
+ *  puts the track back to pending and emits queue:changed → the queue refreshes. On a Blocked
+ *  engine error (e.g. the original was purged from the trash) show a clear message rather than
+ *  failing mutely. The revert engine itself is untouched here. */
+async function doRevert(mid: HTMLElement, batchId: string): Promise<void> {
+  try {
+    await revertBatch(batchId);
+    clearPane(mid); // drops the confirmation; the queue:changed refresh loads the next pending
+    toast("Reverted — back in the queue", false);
+  } catch (e) {
+    const msg = String(e);
+    if (msg.includes("source gone")) {
+      toast("Revert unavailable: a needed file is gone — the original may have been purged from the trash.", false);
+    } else {
+      toast(`Revert failed: ${msg}`, false);
+    }
+    console.error("revert failed", e);
   }
 }
 
@@ -720,6 +769,7 @@ function clearPane(mid: HTMLElement): void {
   state.track = null;
   state.canonical = null;
   state.target = null;
+  state.filedConfirm = null;
   mid.innerHTML =
     '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--color-text-tertiary);font-size:var(--text-md);padding:20px;text-align:center">Select a track in the queue to listen and file it.</div>';
   // The validation footer lives in the rail (#filfoot); clear it too so no stale controls linger.
@@ -751,6 +801,7 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
   state.track = item;
   state.target = null;
   state.canonical = null;
+  state.filedConfirm = null; // opening a track dismisses any "Filed ↩" confirmation
 
   mid.innerHTML =
     '<div class="sift-fil" style="display:flex;flex-direction:column;height:100%;min-height:0">' +
@@ -874,6 +925,10 @@ export async function refreshBins(fldz: HTMLElement): Promise<void> {
  * click, and after filing one the next opens automatically. Empty queue → neutral prompt.
  * Returns the id now shown (for the caller to highlight its row), or null. */
 export function syncDetail(mid: HTMLElement, items: QueueItem[]): number | null {
+  // A "Filed ✓ ↩" confirmation is up for the just-filed track → keep it (do NOT auto-advance to
+  // the next pending). It is dismissed when the user opens another track (openFilingInto) or
+  // reverts; the move stays revertable in the journal regardless of what's shown.
+  if (state.filedConfirm && mid.querySelector(".sift-filed-confirm")) return null;
   // Is our filing pane still in #mid? On navigation back to Revue, app.js re-draws its mock
   // detail into #mid, so the pane is no longer ours and must be re-rendered — but on a mere
   // queue/analysis refresh it's intact and we must NOT disrupt it (would restart playback).
