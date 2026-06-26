@@ -71,16 +71,30 @@ function ensureZone(): HTMLElement {
   return zone;
 }
 
-/** One task row: icon + name on the left, tabular done/total (+ optional Stop) on the right, thin
- * bar below. While `stopping`, the label reads "Stopping…" and the Stop button is hidden. */
-function row(kind: TaskKind, p: TaskProgress): string {
+/** Structural signature of a row: everything that fixes its STRUCTURE / static text (and whether the
+ * Stop button exists) — but NOT the two values that move every tick (done/total + bar width). Same
+ * sig ⇒ update in place; changed sig ⇒ rebuild this row only. */
+function rowSig(kind: TaskKind, p: TaskProgress): string {
+  const showStop = p.state === "running" && !p.stopping && cancelHandlers.has(kind);
+  const label = p.stopping ? "Stopping…" : LABELS[kind];
+  return `${p.state}|${p.stopping ? 1 : 0}|${showStop ? 1 : 0}|${label}`;
+}
+
+/** Outer class for a row (only the error modifier varies). */
+function rowClassOf(p: TaskProgress): string {
+  return p.state === "error" ? "sift-pz-row error" : "sift-pz-row";
+}
+
+/** INNER HTML of a row (head + track) — the outer `.sift-pz-row` is the cached rowEl. Built ONCE on
+ * creation, and again only when the signature changes; NOT on every tick. While `stopping`, the label
+ * reads "Stopping…" and the Stop button is omitted. */
+function rowInner(kind: TaskKind, p: TaskProgress): string {
   const pct = p.total > 0 ? Math.min(100, Math.round((p.done / p.total) * 100)) : 0;
-  const rowClass = p.state === "error" ? "sift-pz-row error" : "sift-pz-row";
   const label = p.stopping ? "Stopping…" : LABELS[kind];
   // Stop button only while actively running, not already stopping, and a cancel action exists.
   const showStop = p.state === "running" && !p.stopping && cancelHandlers.has(kind);
-  // INSTRUMENTATION (cancel-bug-live2): the Stop button HTML is regenerated here on every render that
-  // includes a running file task — a burst of these = the button churns under the cursor mid-click.
+  // INSTRUMENTATION (cancel-bug-live2): logs only when the button HTML is actually (re)built — i.e. on
+  // row creation / a signature change, NOT every tick. Should fire ~once per batch after this refactor.
   if (showStop && kind === "file") {
     console.log(`[pz] stop button (re)created kind=${kind} render#${renderSeq}`);
   }
@@ -88,32 +102,82 @@ function row(kind: TaskKind, p: TaskProgress): string {
     ? `<button class="sift-pz-cancel" type="button" data-pz-cancel="${kind}" title="Stop" aria-label="Stop ${LABELS[kind]}"><i class="ti ti-x" aria-hidden="true"></i></button>`
     : "";
   return (
-    `<div class="${rowClass}">` +
     `<div class="sift-pz-head">` +
     `<span class="sift-pz-name"><i class="ti ${ICONS[kind]}" aria-hidden="true"></i>${label}</span>` +
     `<span class="sift-pz-end"><span class="sift-pz-count">${p.done}/${p.total}</span>${stop}</span>` +
     `</div>` +
-    `<div class="sift-pz-track"><div class="sift-pz-fill" style="width:${pct}%"></div></div>` +
-    `</div>`
+    `<div class="sift-pz-track"><div class="sift-pz-fill" style="width:${pct}%"></div></div>`
   );
 }
 
-// INSTRUMENTATION (cancel-bug-live2): count zone redraws. Each render rebuilds zone.innerHTML,
-// destroying+recreating the Stop button — a click whose mousedown/mouseup straddle a render can be
-// lost. Bursts here (driven by file:progress AND analyze setTask from watcher events) = the suspect.
+// INSTRUMENTATION (cancel-bug-live2): count zone redraws. After this refactor a redraw on a stable
+// signature is just two text writes (count + bar width), not a full innerHTML rebuild.
 let renderSeq = 0;
 
-/** Redraw the zone from the current Map. Empty ⇒ the zone is hidden (no placeholder). */
+/** Live DOM handles for one rendered row, kept ACROSS renders so ticks update in place instead of
+ * rebuilding. `sig` is the structural signature; while it is unchanged only countEl/fillEl change. */
+interface RowCache {
+  rowEl: HTMLElement;
+  countEl: HTMLElement;
+  fillEl: HTMLElement;
+  sig: string;
+}
+const rowCache = new Map<TaskKind, RowCache>();
+
+/** Reconcile the zone from the current Map — CREATE ONCE, UPDATE IN PLACE. A row's structure (and its
+ * Stop button) is built only on first appearance or when its signature changes; every other tick
+ * writes just the two moving values. So a burst of `analyze` ticks never rebuilds the `file` row's
+ * Stop button. Empty ⇒ the zone is hidden (no placeholder). */
 function render(): void {
   console.log(`[pz] render zone #${++renderSeq} tasks=${[...tasks.keys()].join(",") || "(none)"}`);
   const zone = ensureZone();
   if (tasks.size === 0) {
     zone.style.display = "none";
     zone.innerHTML = "";
+    rowCache.clear();
     return;
   }
   zone.style.display = "";
-  zone.innerHTML = [...tasks.entries()].map(([kind, p]) => row(kind, p)).join("");
+
+  // Drop rows whose kind is no longer active.
+  for (const [kind, cached] of rowCache) {
+    if (!tasks.has(kind)) {
+      cached.rowEl.remove();
+      rowCache.delete(kind);
+    }
+  }
+
+  // Create or update each active row, in insertion order (= display order).
+  for (const [kind, p] of tasks) {
+    const sig = rowSig(kind, p);
+    const cached = rowCache.get(kind);
+    if (!cached) {
+      // New row: build the outer element + structure ONCE, append at the end (insertion order).
+      const rowEl = document.createElement("div");
+      rowEl.className = rowClassOf(p);
+      rowEl.innerHTML = rowInner(kind, p);
+      zone.appendChild(rowEl);
+      rowCache.set(kind, {
+        rowEl,
+        countEl: requireEl<HTMLElement>(".sift-pz-count", "progress-zone row", rowEl),
+        fillEl: requireEl<HTMLElement>(".sift-pz-fill", "progress-zone row", rowEl),
+        sig,
+      });
+    } else if (cached.sig !== sig) {
+      // Structure/label/button changed (start, Stop click, done) → rebuild THIS row's content only;
+      // the rowEl node stays in place, so order and the zone's delegated listener are untouched.
+      cached.rowEl.className = rowClassOf(p);
+      cached.rowEl.innerHTML = rowInner(kind, p);
+      cached.countEl = requireEl<HTMLElement>(".sift-pz-count", "progress-zone row", cached.rowEl);
+      cached.fillEl = requireEl<HTMLElement>(".sift-pz-fill", "progress-zone row", cached.rowEl);
+      cached.sig = sig;
+    } else {
+      // Same structure → write only the two moving values. No innerHTML, no node churn.
+      const pct = p.total > 0 ? Math.min(100, Math.round((p.done / p.total) * 100)) : 0;
+      cached.countEl.textContent = `${p.done}/${p.total}`;
+      cached.fillEl.style.width = `${pct}%`;
+    }
+  }
 }
 
 /** Set/replace the active run for `kind` and redraw. */
