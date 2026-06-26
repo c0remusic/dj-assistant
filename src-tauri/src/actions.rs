@@ -133,7 +133,16 @@ pub fn revert_batch(conn: &Connection, batch_id: &str) -> Result<(), RevertError
     // RE-TRYABLE: the rows already reverted stay marked undone, so a re-run resumes with only the
     // still-live rows instead of blocking on an already-restored file. Fail-fast on the FS error.
     for (id, _tid, kind, from_path, to_path) in &rows {
-        revert_one_fs(kind, from_path.as_deref(), to_path.as_deref())?;
+        if let Err(e) = revert_one_fs(kind, from_path.as_deref(), to_path.as_deref()) {
+            // Surface the underlying FS failure (it carries the OS error string, e.g. Windows
+            // "Access is denied. (os error 5)") instead of letting it vanish behind the `?`. The
+            // convert step's `remove_file` is the one that strands a `.aiff` next to a restored
+            // `.aif` when it is blocked by a held handle — this log is how we SEE why.
+            log::error!(
+                "revert_batch {batch_id}: FS step '{kind}' failed (from={from_path:?} to={to_path:?}): {e}"
+            );
+            return Err(e);
+        }
         conn.execute("UPDATE actions SET undone=1 WHERE id=?1", params![id])?;
     }
 
