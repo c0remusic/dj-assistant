@@ -6,9 +6,9 @@
 //! a missing library root surfaces as the sentinel `"NoLibraryRoot"` so the front can route
 //! the user to the settings panel rather than show a raw message.
 //!
-//! Note: `file_track`/`file_batch` hold the DB lock across the (possibly multi-second) ffmpeg
-//! encode. That is acceptable for a single-user desktop app and keeps filing atomic; if the
-//! background analysis worker ever contends visibly, move the encode off the lock.
+//! Note: the slow ffmpeg encode runs OUTSIDE the DB lock. `file_track` splits plan/execute/commit
+//! so the lock is released around the encode; `file_batch` runs detached on a background thread and
+//! takes the lock PER FILE — so a long filing never freezes the UI nor blocks the analysis worker.
 
 use crate::actions::{self, JournalEntry};
 use crate::dedup::{self, DupMatch};
@@ -21,7 +21,7 @@ use crate::settings;
 use rusqlite::Connection;
 use std::path::PathBuf;
 use std::sync::Mutex;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 /// Resolve the configured library root, or the `"NoLibraryRoot"` sentinel error when unset
 /// or blank. All filing/bin commands need this.
@@ -76,23 +76,101 @@ pub fn file_track(
     Ok(res)
 }
 
-/// File every green track of `track_ids` into `bin_rel`; yellow/unreadable/errored ones stay
-/// pending and come back in `needs_validation`.
+/// Launch filing of `track_ids` into `bin_rel` IN THE BACKGROUND and return immediately. The
+/// actual work (per-file convert/tag/move + journal) runs on a dedicated thread via
+/// `run_file_batch`, taking and releasing the DB lock PER FILE — so a long batch never freezes
+/// the UI nor blocks the analysis worker (a sync command holding the lock across the whole batch
+/// would do both). The library root is resolved synchronously so a missing one fails the invoke
+/// right away (front routes to Settings via the `"NoLibraryRoot"` sentinel). When the run finishes
+/// it emits `file:done` with the `BatchResult` summary. Filing logic (plan/execute/commit) and the
+/// `actions` journal are unchanged — only the execution site and the lock scope move.
 #[tauri::command]
 pub fn file_batch(
     app: AppHandle,
     conn: State<'_, Mutex<Connection>>,
     track_ids: Vec<i64>,
     bin_rel: String,
-) -> Result<BatchResult, String> {
-    let res = {
+) -> Result<(), String> {
+    let (root, tmpl) = {
         let conn = conn.lock().map_err(|e| e.to_string())?;
-        let root = library_root(&conn)?;
-        let tmpl = template(&conn);
-        filing::file_batch(&conn, &root, &tmpl, &track_ids, &bin_rel)
+        (library_root(&conn)?, template(&conn))
     };
-    app.emit("queue:changed", ()).ok();
-    Ok(res)
+    // Detach onto a named OS thread (blocking work: ffmpeg encodes + fs moves + rusqlite). Fail-fast:
+    // if the thread can't even be started, surface it to the front rather than dropping the batch.
+    let app_bg = app.clone();
+    std::thread::Builder::new()
+        .name("file-batch".into())
+        .spawn(move || run_file_batch(&app_bg, root, tmpl, track_ids, bin_rel))
+        .map_err(|e| format!("file_batch: failed to start background task: {e}"))?;
+    Ok(())
+}
+
+/// Background body of `file_batch` (off the main thread). Files each id by REUSING the three
+/// filing primitives with a PER-FILE lock window: phase 1 `plan_file` (lock) → phase 2
+/// `execute_file` (NO lock: the slow ffmpeg encode + fs moves) → phase 3 `commit_file` (lock:
+/// journal `actions` + mark filed). A track with no auto-file canonical (yellow + no Discogs
+/// identity) or that errors mid-filing is left pending and reported in `needs_validation` — same
+/// outcome as the old in-process `filing::file_batch`. Emits `file:done` with the summary.
+fn run_file_batch(
+    app: &AppHandle,
+    root: PathBuf,
+    tmpl: String,
+    track_ids: Vec<i64>,
+    bin_rel: String,
+) {
+    let state = app.state::<Mutex<Connection>>();
+    let mut filed = 0usize;
+    let mut needs_validation = Vec::new();
+
+    for id in track_ids {
+        // Phase 1 (lock): pick the auto-file canonical + build the plan. No fileable name → pending.
+        let plan = {
+            let conn = match state.lock() {
+                Ok(c) => c,
+                Err(e) => {
+                    log::error!("file_batch: DB lock poisoned before file {id}: {e}");
+                    break;
+                }
+            };
+            match filing::batch_canonical(&conn, id) {
+                Some(c) => match filing::plan_file(&conn, &root, &tmpl, id, &bin_rel, None, Some(c)) {
+                    Ok(p) => p,
+                    Err(_) => {
+                        needs_validation.push(id);
+                        continue;
+                    }
+                },
+                None => {
+                    needs_validation.push(id);
+                    continue;
+                }
+            }
+        };
+        // Phase 2 (NO lock): the slow ffmpeg encode + file moves.
+        let log = match filing::execute_file(&plan) {
+            Ok(l) => l,
+            Err(_) => {
+                needs_validation.push(id);
+                continue;
+            }
+        };
+        // Phase 3 (lock): journal the effects + mark filed (rolls back the FS on a DB error).
+        let conn = match state.lock() {
+            Ok(c) => c,
+            Err(e) => {
+                log::error!("file_batch: DB lock poisoned committing file {id}: {e}");
+                break;
+            }
+        };
+        match filing::commit_file(&conn, &plan, log) {
+            Ok(_) => filed += 1,
+            Err(_) => needs_validation.push(id),
+        }
+    }
+
+    // Done: hand the summary to the front, which refreshes the view (replacing the end-of-batch
+    // `queue:changed` the synchronous command used to emit).
+    app.emit("file:done", &BatchResult { filed, needs_validation }).ok();
 }
 
 /// Mark a track for re-sourcing (Écartés). Status-only at this milestone.

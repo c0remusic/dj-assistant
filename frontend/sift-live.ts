@@ -5,6 +5,7 @@ import {
   listQueue,
   listBins,
   fileBatch,
+  onFileDone,
   rejectBatch,
   onQueueChanged,
   onAnalysisChanged,
@@ -37,7 +38,7 @@ import {
 import { renderEcartes } from "./ecartes-view";
 import { renderHomeSources, pickAndAddFolder } from "./home-sources";
 import { installDragDrop, injectLeanStyle, injectTitlebar, installScrollAutohide } from "./chrome";
-import type { QueueItem, Bin } from "../shared/contracts";
+import type { QueueItem, Bin, BatchResult } from "../shared/contracts";
 import { requireEl } from "./dom";
 import { setTask, clearTask } from "./progress-zone";
 
@@ -378,27 +379,56 @@ function setReviewMode(m: "detail" | "batch") {
   }
 }
 
-/** File every ticked (green) track into the chosen bin. The backend emits queue:changed, which
- * drives the redraw; we only surface the count + any tracks it bounced back for validation. */
+/** Launch background filing of every ticked (green) track into the chosen bin, then return — the
+ * work runs off the main thread, so the UI stays responsive and analysis can keep running. A
+ * spinner note is shown; the per-run summary AND the view refresh arrive later via the `file:done`
+ * event (see `onFileBatchDone`). Filed tracks leave the queue, so the refresh prunes them from the
+ * ticked set automatically. */
 async function runBatchFile() {
   const ids = [...batchSel];
   if (ids.length === 0) return;
+  fileNote(
+    '<i class="ti ti-loader sift-spin" style="font-size:var(--text-md);vertical-align:-1px"></i> Filing in the background…',
+  );
   try {
-    const res = await fileBatch(ids, batchBin);
-    for (const id of ids) if (!res.needs_validation.includes(id)) batchSel.delete(id);
-    const foot = requireEl("#filfoot", "runBatchFile");
-    if (foot) {
-      const msg = res.needs_validation.length
-        ? `${res.filed} filed · ${res.needs_validation.length} need validation`
-        : `${res.filed} filed`;
-      foot.insertAdjacentHTML(
-        "afterbegin",
-        `<div style="font-size:var(--text-sm);color:var(--color-text-success);margin-bottom:10px"><i class="ti ti-check" style="font-size:var(--text-md);vertical-align:-1px"></i> ${msg}</div>`,
-      );
-    }
+    // Resolves as soon as the background task STARTS; the summary comes via file:done.
+    await fileBatch(ids, batchBin);
   } catch (err) {
-    console.error("file_batch failed", err);
+    // Launch-time rejections only (NoLibraryRoot, or the task couldn't start).
+    const code = String(err);
+    fileNote(
+      code.includes("NoLibraryRoot")
+        ? "No library root configured — set one in Settings."
+        : `Filing failed to start: ${esc(code)}`,
+      "var(--color-text-danger)",
+    );
+    console.error("file_batch launch failed", err);
   }
+}
+
+/** Insert/replace a transient note at the top of the batch rail (#filfoot), if it is on screen. */
+function fileNote(html: string, color = "var(--color-text-secondary)") {
+  const foot = document.getElementById("filfoot");
+  if (!foot) return;
+  foot.querySelector("[data-file-note]")?.remove();
+  foot.insertAdjacentHTML(
+    "afterbegin",
+    `<div data-file-note style="font-size:var(--text-sm);color:${color};margin-bottom:10px">${html}</div>`,
+  );
+}
+
+/** End-of-(background-)filing handler, fired by the `file:done` event. Refreshes the view (as the
+ * end-of-batch queue:changed used to) then shows the run summary — but only if the batch rail is
+ * still on screen, since the user may have navigated away while the batch ran. */
+async function onFileBatchDone(res: BatchResult) {
+  await refresh();
+  const msg = res.needs_validation.length
+    ? `${res.filed} filed · ${res.needs_validation.length} need validation`
+    : `${res.filed} filed`;
+  fileNote(
+    `<i class="ti ti-check" style="font-size:var(--text-md);vertical-align:-1px"></i> ${msg}`,
+    "var(--color-text-success)",
+  );
 }
 
 /** Send every ticked track to Écartés for re-sourcing (backend emits queue:changed → redraw). */
@@ -756,6 +786,7 @@ export function installLiveWiring() {
   });
 
   void onQueueChanged(refresh);
+  void onFileDone(onFileBatchDone);
 
   // Analysis pings can arrive several times per second — debounce the queue redraw.
   let t: ReturnType<typeof setTimeout> | undefined;

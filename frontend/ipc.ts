@@ -78,12 +78,16 @@ export const fileTrack = (
     edited: edited ?? null,
   });
 
-/** File every green track of `trackIds` into `binRel`; yellow/errored ones come back in
- * `needs_validation`. */
-export const fileBatch = (
-  trackIds: number[],
-  binRel: string,
-): Promise<BatchResult> => invoke("file_batch", { trackIds, binRel });
+/** Launch background filing of `trackIds` into `binRel`. Resolves as soon as the background task
+ * is STARTED (not when it finishes) — subscribe to `onFileDone` for the end-of-batch summary.
+ * Rejects synchronously on NoLibraryRoot, or if the background task can't be started. */
+export const fileBatch = (trackIds: number[], binRel: string): Promise<void> =>
+  invoke("file_batch", { trackIds, binRel });
+
+/** Subscribe to "file:done" (the background filing batch finished). Payload = run summary.
+ * Returns an unlisten fn. */
+export const onFileDone = (cb: (r: BatchResult) => void): Promise<UnlistenFn> =>
+  listen<BatchResult>("file:done", (e) => cb(e.payload));
 
 /** Reject a batch of tracks for re-sourcing (each → Écartés). Returns how many were marked and
  * which ids failed (a misfire is reported, never aborts the rest). */

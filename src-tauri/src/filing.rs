@@ -329,10 +329,12 @@ pub fn commit_file(conn: &Connection, plan: &FilePlan, log: Vec<FsLog>) -> Resul
     Ok(FileResult { path: plan.dest.clone(), batch_id: plan.batch_id.clone() })
 }
 
-/// File one track into `bin_rel` under `root`, holding `conn` throughout (used by tests and
-/// `file_batch`). The interactive IPC path (`ipc_filing::file_track`) instead runs the three
-/// phases with the lock released around the encode. See module docs for the ordering and the
-/// mono-location / undo contract.
+/// File one track into `bin_rel` under `root`, holding `conn` throughout — a synchronous test
+/// convenience that chains the three phases under a single lock. Production never holds the lock
+/// across the encode: the interactive path (`ipc_filing::file_track`) and the detached batch
+/// (`ipc_filing::run_file_batch`) run the phases with the lock released around it. See module docs
+/// for the ordering and the mono-location / undo contract.
+#[cfg(test)]
 pub fn file_track(
     conn: &Connection,
     root: &Path,
@@ -371,38 +373,20 @@ fn canonical_from_metadata(conn: &Connection, track_id: i64) -> rusqlite::Result
     }
 }
 
-/// File every green track of `track_ids` into `bin_rel`; leave yellow (or unreadable) ones
-/// pending and return their ids in `needs_validation`. A track that errors during filing is
-/// also returned as needing validation (not silently dropped). A track identified via Discogs
-/// (persisted in `metadata`) files on that high-confidence name; otherwise the tag/filename
-/// reconcile must come out Green.
-pub fn file_batch(
-    conn: &Connection,
-    root: &Path,
-    template: &str,
-    track_ids: &[i64],
-    bin_rel: &str,
-) -> BatchResult {
-    let mut filed = 0usize;
-    let mut needs_validation = Vec::new();
-    for &id in track_ids {
-        let canonical = match canonical_from_metadata(conn, id) {
-            Ok(Some(c)) => Some(c),
-            Ok(None) => match reconcile_track(conn, id) {
-                Ok(c) if c.confidence == naming::Confidence::Green => Some(c),
-                _ => None,
-            },
-            Err(_) => None,
-        };
-        match canonical {
-            Some(c) => match file_track(conn, root, template, id, bin_rel, None, Some(c)) {
-                Ok(_) => filed += 1,
-                Err(_) => needs_validation.push(id),
-            },
-            None => needs_validation.push(id),
-        }
+/// Pick the canonical name to AUTO-file a batch track on, or `None` if it must stay pending for
+/// manual review. A track identified via Discogs (persisted in `metadata`) files on that
+/// high-confidence name; otherwise the tag/filename reconcile must come out Green. Pure DB read —
+/// the detached batch loop (`ipc_filing::file_batch`) calls this under the per-file lock, before
+/// planning the file, then runs the same plan/execute/commit phases as the interactive path.
+pub fn batch_canonical(conn: &Connection, track_id: i64) -> Option<Canonical> {
+    match canonical_from_metadata(conn, track_id) {
+        Ok(Some(c)) => Some(c),
+        Ok(None) => match reconcile_track(conn, track_id) {
+            Ok(c) if c.confidence == naming::Confidence::Green => Some(c),
+            _ => None,
+        },
+        Err(_) => None,
     }
-    BatchResult { filed, needs_validation }
 }
 
 /// Mark a track for re-sourcing (goes to Écartés, M4b): status `resourcing` + a `reject`
