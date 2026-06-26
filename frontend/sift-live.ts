@@ -199,11 +199,8 @@ function pushFileProgress(p: FileProgress) {
  * frozen, so the cancel looks ignored and the user re-clicks into the void. We also drop an
  * immediate note at #filfoot (where they clicked File) so the click visibly registers right there. */
 function onFileStop() {
-  // INSTRUMENTATION (cancel-bug-live): prove the click reaches the handler and whether it short-circuits.
-  console.log("[cancel] STOP CLICKED — fileStopping(before)=", fileStopping);
   if (fileStopping) return;
   fileStopping = true;
-  console.log("[cancel] fileStopping(after)=", fileStopping);
   if (lastFileProgress) {
     setTask("file", {
       done: lastFileProgress.done,
@@ -217,11 +214,7 @@ function onFileStop() {
   fileNote(
     '<i class="ti ti-loader sift-spin" style="font-size:var(--text-md);vertical-align:-1px"></i> Stop requested — finishing the current file…',
   );
-  // INSTRUMENTATION (cancel-bug-live): confirm invoke("file_cancel") is actually CALLED and resolves.
-  console.log("[cancel] invoking file_cancel…");
-  fileCancel()
-    .then(() => console.log("[cancel] file_cancel resolved"))
-    .catch((e) => console.error("[cancel] file_cancel FAILED", e));
+  void fileCancel();
 }
 
 /** Detail|Batch segmented control (board `topseg`), injected once at the top of the queue
@@ -495,21 +488,17 @@ async function onFileBatchDone(res: BatchResult) {
   const base = res.needs_validation.length
     ? `${res.filed} filed · ${res.needs_validation.length} need validation`
     : `${res.filed} filed`;
-  // Refresh the view, then post the run summary at #filfoot. It MUST go after refresh so it survives
-  // renderBatch's wholesale rail rebuild (renderBatchRail sets #filfoot.innerHTML) — but in a
-  // `finally`, because a rejecting refresh (renderHomeSources/renderQueue use requireEl) would
-  // otherwise skip it and strand the "Filing in the background…" spinner note. The summary must
-  // always replace that note on file:done, exactly as the sidebar row clears on file:done.
-  try {
-    await refresh();
-  } finally {
-    fileNote(
-      `<i class="ti ti-check" style="font-size:var(--text-md);vertical-align:-1px"></i> ${
-        res.cancelled ? `Filing cancelled · ${base}` : base
-      }`,
-      "var(--color-text-success)",
-    );
-  }
+  // Refresh the view, then post the run summary at #filfoot — after refresh so it survives
+  // renderBatch's wholesale rail rebuild (renderBatchRail sets #filfoot.innerHTML). refresh() no
+  // longer throws on an unmounted view (each renderer no-ops when its root is absent), so the
+  // earlier try/finally guard around it is no longer needed.
+  await refresh();
+  fileNote(
+    `<i class="ti ti-check" style="font-size:var(--text-md);vertical-align:-1px"></i> ${
+      res.cancelled ? `Filing cancelled · ${base}` : base
+    }`,
+    "var(--color-text-success)",
+  );
 }
 
 /** Send every ticked track to Écartés for re-sourcing (backend emits queue:changed → redraw). */

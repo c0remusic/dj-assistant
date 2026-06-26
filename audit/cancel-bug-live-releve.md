@@ -74,7 +74,89 @@ sépare T1 (rien ne part) de T2/T3 (ça part mais la boucle ne réagit pas).
 
 ---
 
-═══ STOP ═══ Instrumentation seulement. On lit les logs réels (1 clic, sans recliquer), on désigne
-T1/T2/T3/T4, PUIS on corrige la vraie cause. Aucune correction tant que les logs n'ont pas tranché.
-NE PAS toucher (rappel) : la logique de filing (plan/execute/commit), le moteur revert, la
-confirmation « Filed ↩ », TRASH_PURGE_DAYS, P-6.
+═══ (instrumentation — section conservée pour mémoire) ═══
+
+---
+
+## CAUSE RÉELLE PROUVÉE (trace live)
+
+Le moteur d'annulation est **CORRECT** (aucun T1/T2/T3/T4) : au 1er clic, tout part bien —
+```
+[cancel] STOP CLICKED — fileStopping(before)= false
+[cancel] fileStopping(after)= true
+[cancel] invoking file_cancel… → file_cancel resolved
+```
+Le flag passe, `file_cancel` répond. Le bug est AILLEURS, dans la FIN de cycle, révélé par :
+```
+Uncaught (in promise) Error: requireEl: élément introuvable ".home-left" (renderHomeSources)
+    at refresh (sift-live.ts:528)
+    at onFileBatchDone (sift-live.ts:504)
+```
+
+### Le chemin exact (cité)
+1. La boucle voit le flag → `break` → émet `file:done` → **`onFileBatchDone`** ([sift-live.ts:482](frontend/sift-live.ts:482)).
+2. `onFileBatchDone` vide la zone (branche `cancelled`, 484-494) **puis** `try { await refresh() }`
+   ([sift-live.ts:504](frontend/sift-live.ts:504)).
+3. **`refresh()` rend TOUTES les vues à l'aveugle**, sans regarder la vue active
+   ([sift-live.ts:527-531](frontend/sift-live.ts:527)) :
+   ```
+   await renderHomeSources();  // 528
+   await renderQueue();        // 529
+   await updateRevueBadge();   // 530
+   ```
+4. **`renderHomeSources`** fait `requireEl(".home-left", …)` ([home-sources.ts:59](frontend/home-sources.ts:59)).
+   `.home-left` n'existe que quand la **Home** est montée dans `#content`. Or on est en **Review** →
+   `requireEl` **throw** (P-4 fail-fast). (Le `requireEl("#content")` ligne 17 passe — `#content` est
+   toujours là ; c'est `.home-left`, propre à la Home, qui manque.)
+5. L'exception remonte hors de `await refresh()` → **`renderQueue()` et `updateRevueBadge()` ne
+   s'exécutent JAMAIS** → la vue Review n'est PAS rafraîchie (les morceaux filés ne sont pas retirés
+   du lot) → l'écran semble inchangé → **impression que « ça n'a pas marché »** → l'utilisateur
+   reclique. L'annulation, elle, a bien eu lieu au 1er clic.
+
+### Réponses aux 4 points
+1. **refresh()** rend Home + Queue + badge Revue **inconditionnellement**, sans tester la vue active
+   ([sift-live.ts:527](frontend/sift-live.ts:527)). C'est l'héritier du « tout rafraîchir » de
+   `queue:changed`. `renderHomeSources` est donc appelé même en Review.
+2. **renderHomeSources** exige `.home-left` car il réécrit le bloc « Watched folders » dans la colonne
+   gauche de la Home. Cet élément n'existe **que** sur la Home. Il **devrait être SKIPPÉ** quand la
+   Home n'est pas montée — exactement comme `renderQueue` qui fait déjà `if (!ql) return`
+   ([sift-live.ts:91-92](frontend/sift-live.ts:91)).
+3. **Le try/finally du BUG 1** ([sift-live.ts:503-512](frontend/sift-live.ts:503)) **n'a pas empêché**
+   la casse : un `finally` n'**attrape pas** l'exception — il exécute le `fileNote(résumé)` PUIS
+   **re-propage** l'erreur. Donc le résumé est bien posté, mais l'exception ressort quand même
+   (« Uncaught in promise ») **et** `renderQueue`/`updateRevueBadge` (à l'intérieur de `refresh`,
+   APRÈS le throw) ne tournent pas. Le try/finally était un pansement sur le **symptôme** (la note),
+   pas sur la **racine** (refresh qui throw).
+4. **Autres fragilités du chemin refresh()** :
+   - `renderHomeSources` → `requireEl(".home-left")` **throw hors-Home** (la racine du bug). NON gardé.
+   - `renderQueue` → `if (!ql) return` ([:92](frontend/sift-live.ts:92)) le protège hors-Review ; ses
+     autres `requireEl("#fldz")`/`requireEl("#mid")` ne sont atteints que si `#ql` existe (donc on est
+     en Review). **Auto-gardé**, faible risque.
+   - `updateRevueBadge` → `requireEl('.nav-badge[data-badge="revue"]')` cible le **nav** (toujours
+     monté) ([:537](frontend/sift-live.ts:537)). **Sûr.**
+   → Seul `renderHomeSources` est la vue-renderer **non auto-gardée**. C'est l'asymétrie à corriger.
+
+## VERDICT
+- **Cause** : `refresh()` rend une vue (Home) **non montée** → `renderHomeSources` fait
+  `requireEl(".home-left")` qui **throw** → la fin du cycle (`renderQueue`, `updateRevueBadge`, la
+  suite) est cassée et l'erreur sort en « Uncaught in promise ». Le moteur d'annulation est correct.
+- **Correction RACINE recommandée (option B, la plus cohérente)** : rendre **chaque view-renderer
+  auto-gardé** — `renderHomeSources` doit **no-op proprement** (early `return`) quand sa racine
+  (`.home-left`/la Home) n'est pas montée, **exactement** comme `renderQueue` fait déjà
+  `if (!ql) return`. « Une seule façon de faire » = tout renderer baille si sa vue n'est pas à
+  l'écran ; `refresh()` peut alors appeler les trois sans risque. Changement minimal, symétrique au
+  pattern existant, ne touche pas au moteur.
+  - *Alternative (option A, plus lourde)* : `refresh()` ne rend QUE la vue active (il doit alors
+    connaître la vue active). Plus de surface, et `renderQueue` est déjà auto-gardé → B est plus
+    simple et plus fidèle à l'archi.
+- **Impact BUG 1 (texte « Filing in the background… » résiduel)** : **même cause racine.** Avant le
+  pansement fed9590, le throw de `refresh()` sautait le `fileNote(résumé)` → la note restait. Le
+  try/finally a forcé la note, mais a laissé la racine. Une fois `renderHomeSources` auto-gardé,
+  `refresh()` se termine normalement → le résumé se poste dans le flux normal **et** la vue se
+  rafraîchit. Le pansement try/finally devient **redondant** (inoffensif ; à simplifier plus tard).
+
+═══ STOP ═══ Cause RÉELLE prouvée (exception `requireEl(".home-left")` dans `refresh()` hors-Home →
+fin de cycle cassée). Reco racine = auto-garder `renderHomeSources` (pattern `if (!ql) return` de
+`renderQueue`). AUCUNE correction tant que tu n'as pas validé l'approche.
+NE PAS toucher (avant validation) : le moteur d'annulation (PROUVÉ correct), filing/revert,
+TRASH_PURGE_DAYS, P-6.

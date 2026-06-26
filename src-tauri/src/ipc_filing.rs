@@ -104,10 +104,7 @@ pub fn file_batch(
         (library_root(&conn)?, template(&conn))
     };
     // Reset the cancel flag for THIS batch so a past cancel can't abort it instantly.
-    // INSTRUMENTATION (cancel-bug-live): log the flag address at reset to compare with the loop/cancel.
-    let fc_reset = app.state::<FilingCancel>();
-    log::info!("file_batch reset cancel=false (FilingCancel flag @ {:p})", &fc_reset.0);
-    fc_reset.0.store(false, Ordering::SeqCst);
+    app.state::<FilingCancel>().0.store(false, Ordering::SeqCst);
     // Detach onto a named OS thread (blocking work: ffmpeg encodes + fs moves + rusqlite). Fail-fast:
     // if the thread can't even be started, surface it to the front rather than dropping the batch.
     let app_bg = app.clone();
@@ -124,11 +121,7 @@ pub fn file_batch(
 /// is untouched. A no-op if no batch is running (the next batch resets the flag anyway).
 #[tauri::command]
 pub fn file_cancel(app: AppHandle) -> Result<(), String> {
-    // INSTRUMENTATION (cancel-bug-live): prove file_cancel is reached AND that it stores into the
-    // SAME managed AtomicBool the loop reads — compare this `{:p}` with run_file_batch's START log.
-    let fc = app.state::<FilingCancel>();
-    log::info!("file_cancel CALLED, storing true (FilingCancel flag @ {:p})", &fc.0);
-    fc.0.store(true, Ordering::SeqCst);
+    app.state::<FilingCancel>().0.store(true, Ordering::SeqCst);
     Ok(())
 }
 
@@ -159,22 +152,13 @@ fn run_file_batch(
     let mut filed = 0usize;
     let mut needs_validation = Vec::new();
     let mut cancelled = false;
-    // INSTRUMENTATION (cancel-bug-live): the address logged here MUST equal the one logged by
-    // file_cancel/file_batch — if it differs, the loop reads a different AtomicBool than the one the
-    // command stores into (T2: flag not shared), which would make the cancel never take effect.
-    log::info!("run_file_batch START: total={total} (FilingCancel flag @ {:p})", &cancel.0);
 
     for id in track_ids {
         // Stop-net cancel (sous-étape 3): checked BETWEEN files, never mid `execute_file`, so no
         // file is left half-processed and the DB stays consistent. The in-flight file (if any) has
         // already finished its three phases; we simply don't start a new one. Nothing is rolled
         // back — what is filed stays filed.
-        // INSTRUMENTATION (cancel-bug-live): log the value READ each iteration. If file_cancel logged
-        // "storing true" but this stays cancel=false, the flag is not shared (T2); if it flips to true
-        // and we still don't break, that's T3.
-        let cancel_now = cancel.0.load(Ordering::SeqCst);
-        log::info!("run_file_batch loop check: id={id} cancel={cancel_now}");
-        if cancel_now {
+        if cancel.0.load(Ordering::SeqCst) {
             cancelled = true;
             break;
         }
