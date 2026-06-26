@@ -216,9 +216,17 @@ pub fn plan_file(
         return Err(FilingError::Upscale);
     }
 
+    // A conformant file is MOVED as-is (no transcode), so its container is unchanged — keep its own
+    // extension instead of forcing target.ext(). This stops a `.aif` source from being renamed to
+    // `.aiff`: with a single possible output name, a blocked revert (external lock, os error 32 —
+    // proved in the revert-duplicate relevé) can no longer strand a `.aif` beside a `.aiff`. The
+    // conversion path produces a genuinely new file, which keeps the canonical target extension.
+    let conformant = encode::is_conformant(&source, target);
+    let out_ext = if conformant { ext_of(&source) } else { target.ext().to_string() };
+
     let dest_dir = library::safe_join(root, bin_rel).map_err(FilingError::Io)?;
     std::fs::create_dir_all(&dest_dir).map_err(|e| FilingError::Io(e.to_string()))?;
-    let filename = naming::render_filename(template, &canonical, target.ext());
+    let filename = naming::render_filename(template, &canonical, &out_ext);
     let dest = library::ensure_unique(&dest_dir.join(&filename));
 
     let extras = TagExtras {
@@ -235,7 +243,7 @@ pub fn plan_file(
     };
 
     Ok(FilePlan {
-        conformant: encode::is_conformant(&source, target),
+        conformant,
         source,
         dest: dest.to_string_lossy().to_string(),
         target,
@@ -552,6 +560,47 @@ mod tests {
         let trash_rows: i64 = conn.query_row("SELECT count(*) FROM actions WHERE type='trash' AND undone=0", [], |r| r.get(0)).unwrap();
         assert_eq!(convert_rows, 1);
         assert_eq!(trash_rows, 1);
+    }
+
+    /// Root fix for the `.aif`/`.aiff` revert-duplicate: a CONFORMANT AIFF is moved (no transcode),
+    /// so it must keep its own extension instead of being forced to the canonical `.aiff`. We build a
+    /// conformant 3-letter `.aif` by encoding the lossless fixture to AIFF 16/44.1, then file it and
+    /// assert the destination stays `.aif` and the action was a `move` (not `convert`). With a single
+    /// possible output name, a later blocked revert can no longer leave a `.aif` next to a `.aiff`.
+    #[test]
+    fn files_conformant_aif_preserving_its_extension() {
+        let conn = db();
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("lib");
+        std::fs::create_dir_all(root.join("House")).unwrap();
+        let Some(flac) = fixture("real_lossless.flac") else {
+            eprintln!("skip: no fixture");
+            return;
+        };
+        crate::ffmpeg::init_ffmpeg_path();
+
+        // A conformant source whose extension is the 3-letter `.aif` (the case formerly forced to `.aiff`).
+        let aif_src = dir.path().join("src.aif");
+        crate::encode::encode(&flac, aif_src.to_str().unwrap(), crate::encode::Target::Aiff1644).unwrap();
+        assert!(crate::encode::is_conformant(aif_src.to_str().unwrap(), crate::encode::Target::Aiff1644), "the built .aif is conformant");
+        conn.execute("INSERT INTO tracks(path, status) VALUES(?1, 'pending')", params![aif_src.to_str().unwrap()]).unwrap();
+        let id = conn.last_insert_rowid();
+
+        let res = file_track(&conn, &root, "{artist} - {title}", id, "House", None, Some(Canonical {
+            artist: "Larry Heard".into(), title: "Can You Feel It".into(), version: None,
+            confidence: crate::naming::Confidence::Green,
+        })).unwrap();
+
+        // Moved keeping `.aif` — NOT forced to the 4-letter `.aiff`.
+        assert!(res.path.ends_with("Larry Heard - Can You Feel It.aif"), "dest keeps .aif: {}", res.path);
+        assert!(!res.path.ends_with(".aiff"), "must not force .aiff on a moved conformant file");
+        assert!(std::path::Path::new(&res.path).exists());
+        assert!(!aif_src.exists(), "moved out of source (mono-location)");
+        // It was a pure MOVE: no conversion, no trash.
+        let moves: i64 = conn.query_row("SELECT count(*) FROM actions WHERE type='move' AND undone=0", [], |r| r.get(0)).unwrap();
+        let converts: i64 = conn.query_row("SELECT count(*) FROM actions WHERE type='convert' AND undone=0", [], |r| r.get(0)).unwrap();
+        assert_eq!(moves, 1, "conformant .aif is moved");
+        assert_eq!(converts, 0, "no conversion for an already-conformant file");
     }
 
     #[test]
