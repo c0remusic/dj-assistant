@@ -39,6 +39,7 @@ import { renderHomeSources, pickAndAddFolder } from "./home-sources";
 import { installDragDrop, injectLeanStyle, injectTitlebar, installScrollAutohide } from "./chrome";
 import type { QueueItem, Bin } from "../shared/contracts";
 import { requireEl } from "./dom";
+import { setTask, clearTask } from "./progress-zone";
 
 // Latest live queue items, kept so a queue-row click can recover the full item (id +
 // verdict) the filing pane needs.
@@ -95,23 +96,10 @@ async function renderQueue(touchDetail = true) {
   }
   currentItems = items;
   ensureReviewSeg();
-  let progressHtml = "";
-  try {
-    const p = await analysisProgress();
-    if (p.total > 0) {
-      const pct = Math.round((p.done / p.total) * 100);
-      const label =
-        p.done >= p.total
-          ? `${p.total} analyzed`
-          : `${p.done} / ${p.total} analyzed`;
-      progressHtml = `<div style="margin:0 0 8px"><div style="display:flex;justify-content:space-between;font-size:var(--text-sm);color:var(--color-text-tertiary);margin-bottom:3px"><span>Background analysis</span><span>${label}</span></div><div style="height:4px;border-radius:2px;background:rgba(237,233,224,.12);overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--color-text-info,#8ecce8);transition:width .3s"></div></div></div>`;
-    }
-  } catch (e) {
-    console.error("analysisProgress failed", e);
-  }
+  // Background-analysis progress moved to the global progress zone (bottom of #nav, persistent
+  // across views) — see pushAnalyzeProgress, fed by the analysis:changed event below.
 
   ql.innerHTML =
-    progressHtml +
     (items
       .map(
         (it) =>
@@ -148,6 +136,33 @@ async function renderQueue(touchDetail = true) {
         }
       }
     }
+  }
+}
+
+// Global progress zone — feed the "analyze" row from the EXISTING analysis poll/events (no engine
+// rewrite). `analysis_progress` returns (done, total) over PENDING tracks; a track stays pending
+// after it's analysed (until filed), so done==total is the RESTING state, not "busy". So we show
+// the row only while done<total (actively analysing), then flash a brief 100% "done" before hiding.
+let analyzeWasRunning = false;
+let analyzeClearTimer: ReturnType<typeof setTimeout> | undefined;
+async function pushAnalyzeProgress() {
+  try {
+    const p = await analysisProgress();
+    if (p.total > 0 && p.done < p.total) {
+      clearTimeout(analyzeClearTimer);
+      analyzeWasRunning = true;
+      setTask("analyze", { done: p.done, total: p.total, state: "running" });
+    } else if (analyzeWasRunning) {
+      // Reached done==total (or the queue drained): flash 100% then auto-hide the row.
+      analyzeWasRunning = false;
+      setTask("analyze", { done: p.total, total: p.total, state: "done" });
+      clearTimeout(analyzeClearTimer);
+      analyzeClearTimer = setTimeout(() => clearTask("analyze"), 1200);
+    } else {
+      clearTask("analyze");
+    }
+  } catch (e) {
+    console.error("analysisProgress failed", e);
   }
 }
 
@@ -748,12 +763,17 @@ export function installLiveWiring() {
     // A report may have changed (re-analysed / replaced file) → drop the in-session cache so
     // the next open re-fetches from the DB (the source of truth) instead of serving it stale.
     void import("./report-view").then((m) => m.clearReportCache());
+    // Update the global progress zone immediately (cheap count poll), decoupled from the queue
+    // redraw debounce so the bar advances live during a continuous analysis burst.
+    void pushAnalyzeProgress();
     clearTimeout(t);
-    // touchDetail=false: redraw the queue list + progress only; never re-open the open track
-    // (that aborts the player's audio load).
+    // touchDetail=false: redraw the queue list only; never re-open the open track (that aborts
+    // the player's audio load).
     t = setTimeout(() => void renderQueue(false), 300);
   });
 
+  // Catch an analysis already in flight when the app opens (events only fire on each item after).
+  void pushAnalyzeProgress();
   void refresh();
 }
 
