@@ -54,12 +54,14 @@ export function setCancelHandler(kind: TaskKind, fn: () => void): void {
 function ensureZone(): HTMLElement {
   let zone = document.getElementById("sift-progress-zone");
   if (!zone) {
-    const nav = requireEl("#nav", "progress-zone ensureZone");
+    const foot = requireEl(".nav-foot", "progress-zone ensureZone");
     zone = document.createElement("div");
     zone.id = "sift-progress-zone";
     zone.className = "sift-progress-zone";
-    // Appended after the `margin-top:auto` Settings item ⇒ pinned to the very bottom of the rail.
-    nav.appendChild(zone);
+    // Inserted ABOVE Settings inside the bottom group (`.nav-foot` carries the margin-top:auto). The
+    // zone grows UPWARD into the rail's free space, so Settings stays pinned to the very bottom and no
+    // nav item shifts when a background task starts.
+    foot.prepend(zone);
     // One delegated listener for the per-row Stop buttons; routes to the registered cancel handler.
     zone.addEventListener("click", (e) => {
       const btn = (e.target as HTMLElement).closest<HTMLElement>("[data-pz-cancel]");

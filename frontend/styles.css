@@ -60,6 +60,10 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--color-background
 .nv.on{background:rgba(255,255,255,.06);color:var(--color-text-secondary);font-weight:500;box-shadow:inset 2px 0 0 rgba(255,255,255,.32)}
 .nav-badge{font-size:10px;font-weight:600;color:var(--color-text-tertiary);background:rgba(255,255,255,.06);border-radius:999px;padding:1px 7px;flex:none}
 .nav-badge:empty{display:none}
+/* Bottom group of the rail: holds the margin-top:auto (so Settings stays pinned to the very bottom)
+   and stacks the progress zone ABOVE Settings. The zone grows UPWARD into the free space, so neither
+   Settings nor the nav items above it shift when a background task starts. */
+.nav-foot{margin-top:auto;display:flex;flex-direction:column;gap:1px}
 /* Global background-task progress (bottom of #nav, persistent across views). One row per active
    task: icon + name + tabular done/total + a thin accent bar. Hidden when idle (via JS display). */
 .sift-progress-zone{display:flex;flex-direction:column;gap:var(--space-8);margin-top:var(--space-8);padding-top:var(--space-8);border-top:0.5px solid var(--color-border-tertiary)}
