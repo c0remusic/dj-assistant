@@ -128,16 +128,20 @@ pub fn revert_batch(conn: &Connection, batch_id: &str) -> Result<(), RevertError
         }
     }
 
-    // Reverse each row's filesystem effect (newest first).
-    for (_id, _tid, kind, from_path, to_path) in &rows {
+    // Reverse each row's filesystem effect (newest first), marking each row undone AS SOON AS its
+    // revert succeeds. This keeps a PARTIAL failure (an FS error on a later row) consistent and
+    // RE-TRYABLE: the rows already reverted stay marked undone, so a re-run resumes with only the
+    // still-live rows instead of blocking on an already-restored file. Fail-fast on the FS error.
+    for (id, _tid, kind, from_path, to_path) in &rows {
         revert_one_fs(kind, from_path.as_deref(), to_path.as_deref())?;
+        conn.execute("UPDATE actions SET undone=1 WHERE id=?1", params![id])?;
     }
 
-    // Restore track + mark rows undone. Also clear the filing-time columns so the re-queued
-    // track carries no stale target/confidence, and drop the metadata row written at filing
-    // time so a later reconcile starts fresh. (analyzed_at is left intact — the file is
-    // unchanged, so its analysis/verdict stay valid and need no recompute.) Note: the
-    // embedded tag write done at filing time is NOT reversed (no tag action is journaled).
+    // Every row reverted: restore the track. Clear the filing-time columns so the re-queued track
+    // carries no stale target/confidence, and drop the metadata row written at filing time so a
+    // later reconcile starts fresh. (analyzed_at is left intact — the file is unchanged, so its
+    // analysis/verdict stay valid and need no recompute.) Note: the embedded tag write done at
+    // filing time is NOT reversed (no tag action is journaled).
     if let Some(tid) = track_id {
         conn.execute(
             "UPDATE tracks SET status='pending', folder=NULL, target_format=NULL, confidence=NULL
@@ -146,10 +150,6 @@ pub fn revert_batch(conn: &Connection, batch_id: &str) -> Result<(), RevertError
         )?;
         conn.execute("DELETE FROM metadata WHERE track_id=?1", params![tid])?;
     }
-    conn.execute(
-        "UPDATE actions SET undone=1 WHERE batch_id=?1 AND undone=0",
-        params![batch_id],
-    )?;
     Ok(())
 }
 
@@ -396,6 +396,71 @@ mod tests {
             .query_row("SELECT count(*) FROM actions WHERE batch_id='bc' AND undone=0", [], |r| r.get(0))
             .unwrap();
         assert_eq!(live, 0, "all rows marked undone");
+    }
+
+    /// Partial-failure recovery: if an FS error hits a LATER action in the batch (here `convert`,
+    /// processed second), the work already done (here `trash`, processed first) must stay marked
+    /// undone so a re-run RESUMES instead of blocking on an already-restored file. Reproduces the
+    /// real convert+trash filing; the convert revert is made to fail by pointing its `to` at a
+    /// non-empty directory (`remove_file` errors), standing in for any transient FS error.
+    #[test]
+    fn revert_batch_resumes_after_partial_fs_failure() {
+        let conn = db();
+        let dir = tempfile::tempdir().unwrap();
+
+        let source = dir.path().join("orig.flac");
+        let converted = dir.path().join("House/orig.aiff");
+        let trashed = dir.path().join(".sift-trash/1__orig.flac");
+        std::fs::create_dir_all(trashed.parent().unwrap()).unwrap();
+        std::fs::write(&trashed, b"original-flac").unwrap();
+        // Make the convert revert FAIL on the first pass: `converted` is a non-empty DIRECTORY, so
+        // remove_file(converted) errors (stand-in for a locked/undeletable file).
+        std::fs::create_dir_all(&converted).unwrap();
+        std::fs::write(converted.join("inner"), b"x").unwrap();
+
+        conn.execute(
+            "INSERT INTO tracks(path, status, folder, target_format, confidence)
+             VALUES(?1, 'filed', 'House', 'aiff_16_44', 'green')",
+            params![source.to_str().unwrap()],
+        )
+        .unwrap();
+        let track_id = conn.last_insert_rowid();
+        record(&conn, "bp", Some(track_id), "convert", Some(source.to_str().unwrap()), Some(converted.to_str().unwrap())).unwrap();
+        record(&conn, "bp", Some(track_id), "trash", Some(source.to_str().unwrap()), Some(trashed.to_str().unwrap())).unwrap();
+
+        // First pass: trash reverts (original restored), convert FAILS. The partial work must be
+        // PERSISTED row-by-row — trash marked undone — not discarded.
+        let err = revert_batch(&conn, "bp");
+        assert!(matches!(err, Err(RevertError::Blocked(_))), "convert remove_file fails on a dir");
+        assert!(source.exists(), "the trash step already restored the original");
+        let trash_undone: i64 = conn
+            .query_row("SELECT undone FROM actions WHERE batch_id='bp' AND type='trash'", [], |r| r.get(0))
+            .unwrap();
+        let convert_undone: i64 = conn
+            .query_row("SELECT undone FROM actions WHERE batch_id='bp' AND type='convert'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(trash_undone, 1, "the succeeded action is marked undone immediately");
+        assert_eq!(convert_undone, 0, "the failed action stays live for a retry");
+        let status: String = conn
+            .query_row("SELECT status FROM tracks WHERE id=?1", params![track_id], |r| r.get(0))
+            .unwrap();
+        assert_eq!(status, "filed", "status is NOT reset until the batch is fully reverted");
+
+        // Clear the FS error (the path becomes a normal file), then re-run: it RESUMES with only the
+        // still-live convert row and FINISHES — no block on the already-restored trash.
+        std::fs::remove_dir_all(&converted).unwrap();
+        std::fs::write(&converted, b"converted-cdj").unwrap();
+
+        revert_batch(&conn, "bp").unwrap();
+        assert!(!converted.exists(), "converted file deleted on the retry");
+        let live: i64 = conn
+            .query_row("SELECT count(*) FROM actions WHERE batch_id='bp' AND undone=0", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(live, 0, "all rows undone after the retry");
+        let status: String = conn
+            .query_row("SELECT status FROM tracks WHERE id=?1", params![track_id], |r| r.get(0))
+            .unwrap();
+        assert_eq!(status, "pending", "track reset once the batch is fully reverted");
     }
 
     #[test]
