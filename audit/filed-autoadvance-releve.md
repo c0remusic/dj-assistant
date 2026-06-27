@@ -385,3 +385,363 @@ noms. Lien avec le chantier checker CDJ (la nouveauté = intégration check+enco
 
 NB révision : mon 1er conseil "garde la marque Sift" était trop générique (vaut pour produit large
 quotidien type Notion/Figma, pas pour utilitaire mono-promesse cherchable). Réflexion ouverte.
+
+
+---
+
+## RELEVÉ LAYOUT FLUIDE — cause ISOLÉE (lecture seule, styles.css lu en entier 149 lignes)
+
+### Théorie du crime PROUVÉE : le layout fluide est déjà à 90% en place. Seul .dest dévie.
+
+Cartographie hauteur/scroll des 4 colonnes (styles.css) :
+- **.wrap** (racine) : height:100vh; display:flex; flex-direction:column. ✓ socle plein écran.
+- **.title/.pitch/.sub** : flex:none (en-tête fixe). ✓
+- **.pa** (zone principale, contient les colonnes) : flex:1; min-height:280px; display:flex;
+  overflow:hidden. ✓ délègue le scroll aux colonnes, ne scrolle pas elle-même.
+- **.sb** (menu/sidebar, = "#nav") : width:200px; flex:none; flex column. .nav-foot{margin-top:
+  auto} → Réglages + progression ancrés en bas. ✓ DÉJÀ pattern Claude Desktop.
+- **.queue** : flex:none; flex column; overflow:hidden + #ql{flex:1; min-height:0; overflow-y:
+  auto}. ✓ la LISTE scrolle seule, titre/pbar restent fixes. DÉJÀ correct.
+- **.mid** (centre) : flex:1; min-width:0; flex column; overflow:hidden + .mid-scroll{flex:1;
+  min-height:0; overflow-y:auto; flex column}. ✓ DÉJÀ correct (conteneur fixe + zone scroll
+  interne). NB : ceci EXISTE — mais le rapport openReportInto/.sift-fil-report peut avoir SON
+  PROPRE overflow:auto imbriqué dans .mid-scroll → reste de nesting noté en 1c. À re-vérifier au
+  moment du fix : si .mid-scroll suffit, retirer l'overflow interne du rapport.
+
+### LA CAUSE (ligne 134) — .dest scrolle EN ENTIER
+.dest{width:260px;flex:none;display:flex;flex-direction:column;padding:13px 12px;...;**overflow-y:auto**}
+→ overflow-y:auto est sur la COLONNE ENTIÈRE. Quand l'arbre #fldz est long, TOUTE la colonne
+scrolle : titre "Destination" + arbre #fldz + rail #filfoot (File/Format) ensemble. Donc le
+bouton File peut sortir de vue. C'est le problème pressenti par Antoine.
+Structure HTML (app.js:74) : .dest > [col-h "Destination"] + [#fldz arbre] + [#filfoot rail].
+Aucune sous-zone scrollable dédiée (contrairement à .queue/#ql et .mid/.mid-scroll).
+
+### FIX CIBLÉ (chirurgical, PAS une refonte) — à coder ensuite
+Reproduire le pattern .queue/.mid sur .dest :
+- .dest : overflow-y:auto → **overflow:hidden** (la colonne ne scrolle plus en bloc).
+- titre "Destination" (.col-h) : flex:none (ancré haut). Déjà non-flex, OK.
+- arbre #fldz : devient la zone scrollable → **flex:1; min-height:0; overflow-y:auto**.
+- rail #filfoot : flex:none (ancré bas, toujours visible). margin-top:14px actuel à conserver/
+  ajuster.
+Résultat : titre + File ancrés, seul l'arbre scrolle s'il déborde. Élastique à toute taille de
+fenêtre (resizable:true déjà en place). Tester grand/petit/plein écran + arbre court/long.
+
+### Autres overflow vus (non concernés, RAS) : .home-left/.home-right (vue Accueil) ont déjà
+leur propre overflow-y:auto — vue distincte, pas touchée par ce chantier.
+
+### CONCLUSION : le "chantier layout fluide" se réduit à UN fix ciblé sur .dest (+ vérifier le
+nesting résiduel du rapport dans .mid-scroll). Beaucoup plus petit que craint. 3 colonnes/4 déjà
+conformes.
+
+
+---
+
+## "FILER SUR PLACE" — cadrage validé (NON codé, chantier séparé APRÈS le layout)
+Antoine a confirmé la définition et le périmètre. À coder dans son propre relevé/prompt, pas
+mélangé au layout.
+
+DÉFINITION VALIDÉE : "filer sur place" = filer un morceau en pointant la DESTINATION sur son
+DOSSIER SOURCE, au lieu d'un dossier de l'arbre bibliothèque. PAS destructeur — c'est la même
+mécanique de filing (encode + tag + rename via le plan existant), avec bin = dossier source.
+Le filet revert reste INTACT (original → .sift-trash journalisé, comme un filing normal).
+
+PREUVE CODE : la destination de filing est un CHEMIN PHYSIQUE RÉEL, pas une biblio interne.
+settings.rs:7 — LIBRARY_ROOT = "chemin absolu de la racine bibliothèque sous laquelle vivent les
+bins" ; un bin = sous-dossier réel (bin_rel). Filer dans "House/" = écrire physiquement dans
+<LIBRARY_ROOT>/House/. Donc "sur place" = pointer la destination sur le dossier source du fichier.
+Confirmé par Antoine : "l'arbre biblio se réfère à un chemin physique réel, pas une biblio
+interne de Sift".
+
+VITESSE / REVERT (rappel décision actée) : l'original n'est JAMAIS détruit (revert sûr = principe
+non négociable). Détruire l'original ne gagne AUCUNE vitesse (le coût d'un filing = l'encode
+ffmpeg ; le déplacement de l'original est un rename instantané same-disk). Donc pas de "mode
+écrasement sec". (≠ chantier corbeille centrale vs same-disk, qui reste lui non tranché.)
+
+PÉRIMÈTRE PROBABLE (à chiffrer dans le relevé dédié) : exposer "dossier source" comme cible de
+filing (mono et/ou batch), dans l'UI de destination (.dest). Petit et sûr si la lecture ci-dessus
+tient. À faire le moment venu : relevé dédié → prompt borné → test live.
+
+
+---
+
+## CLÔTURE LAYOUT — 2 fix validés en live, 2 commits séparés
+Chantier layout bouclé. Le "layout fluide" s'est réduit à 2 fix ciblés (le reste était déjà bon).
+
+FIX 1 (scroll) — styles.css + filing.ts:839 :
+- .dest : overflow-y:auto → overflow:hidden. #fldz : flex:1;min-height:0;overflow-y:auto (arbre
+  scrolle seul). #filfoot : flex:none (File ancré, toujours visible).
+- #mid : wrapper .sift-fil-scroll (flex:1;min-height:0;overflow:auto) enrobant .sift-fil-report
+  + .sift-fil-editor ; overflow retiré du seul report (évite double scroll). .sift-fil-dup reste
+  flex:none en tête. .sift-fil-report/.sift-fil-editor restent queryables (seq-guard player OK).
+- Résultat : colonne droite = arbre scrolle / File visible ; centre scrolle d'un bloc. Validé live.
+Commit : fix(layout) scroll par zone.
+
+FIX 2 (bug SPACE) — app.js:311, cause racine PROUVÉE :
+- Symptôme : SPACE dans la Revue jouait le son (installFilingKeys/togglePlay OK) MAIS repeignait
+  les données de DÉMO du mockup (« Mr. Fingers » = T[0] de app.js).
+- Cause : main.ts:5 importe app.js INCONDITIONNELLEMENT → le mockup tourne même en Tauri. Son
+  handler keydown (app.js:310, sur #pa) ligne 314 : e.key===' ' → playing=!playing;renderMid()
+  réaffichait T (démo). Handler VESTIGE du mockup, doublon d'installFilingKeys (live). Pas de
+  stopImmediatePropagation côté live → les deux tiraient. (NB : bug présent depuis toujours,
+  jamais déclenché car Antoine n'avait jamais testé SPACE ; PAS causé par le fix scroll — fausse
+  piste écartée.)
+- Fix : garde `if('__TAURI_INTERNALS__' in window) return;` en tête du handler app.js (même test
+  que main.ts:14 inTauri). Hors Tauri (démo Vercel) le mockup garde son clavier complet. Live
+  intouché. Validé : SPACE joue le son sans basculer sur la démo ; ↑/↓/Enter/X/I OK.
+Commit séparé : fix(revue) garde Tauri sur handler clavier vestige.
+
+ARCHI NOTÉE (utile pour la suite) : app.js (mockup statique, données T factices + son propre
+render/handlers) tourne TOUJOURS ; la couche live (sift-live.ts/filing.ts) se superpose en Tauri.
+Les handlers/rendus du mockup sont des vestiges potentiels à garder par inTauri si jamais ils
+ré-émergent (pattern: `if('__TAURI_INTERNALS__' in window) return;`).
+
+FILE D'ATTENTE (ordre) : "filer sur place" (cadré) → étape 2 (rail=résultat + Final name à
+droite + auto-avance, retirer return null syncDetail:937) → étape 3 (détacher file_track) →
+checker CDJ.
+
+
+---
+
+## "FILER SUR PLACE" — UI validée + relevé code (cadrage avant prompt)
+
+### Ligne directrice UI VALIDÉE (Antoine, maquette ok)
+"Sur place" n'est PAS une action séparée — c'est une DESTINATION de plus, présentée selon le mode :
+- Mode DÉTAIL : une case "Sur place (dossier source)" en bas de la colonne destination .dest,
+  sous l'arbre #fldz, au-dessus de File. Cochée → File envoie CE morceau dans son dossier source.
+- Mode BATCH : une entrée "Dossier source de chaque morceau" dans le sélecteur de destination du
+  lot (binSelectHtml, le dropdown actuel Library root/House/Techno…). Choisie → "Traiter N sur
+  place" envoie CHAQUE morceau dans son propre dossier source.
+MÊME moteur, MÊME filet (original → corbeille revertable, fichier propre reste sur place). Pas de
+logique dupliquée, un seul modèle mental : "je choisis où ça va, puis je file/traite".
+
+### Comportement VALIDÉ (Antoine) : convertir/nettoyer + laisser le résultat dans le dossier
+source ; l'original part à la corbeille .sift-trash (revertable). PAS de destruction sèche.
+
+### Relevé code (lecture seule, filing.rs)
+- plan_file(conn, root, template, track_id, **bin_rel**, override_target, edited) (filing.rs:198)
+  construit la destination ligne 227 : `dest_dir = library::safe_join(root, bin_rel)`. Donc
+  destination = root + bin_rel. PREUVE que la destination est un chemin physique réel.
+- PIÈGE : safe_join(root, bin_rel) suppose une cible SOUS root. Or "sur place" = dossier du
+  SOURCE, qui peut être HORS de root (sources de partout). Donc on NE peut PAS passer par
+  safe_join/bin_rel pour "sur place" → il faut un point de bascule : si "sur place", dest_dir =
+  dossier parent du `source` directement (Path::new(&source).parent()), en IGNORANT root/bin_rel.
+- CAS CONFORMANT vs NON (filing.rs:224-225, prouvé) : un fichier conformant est DÉPLACÉ tel quel
+  (garde son extension, pas de transcode) ; un non-conformant est TRANSCODÉ (nouveau fichier).
+  Conséquence "sur place" : un conformant filé dans son propre dossier source = quasi no-op
+  (renommage au même endroit selon le template) ; un non-conformant = nouveau fichier propre dans
+  le dossier source + original → corbeille. Cohérent avec le besoin "nettoyer un dossier de
+  téléchargements". ensure_unique gère déjà les collisions de nom.
+- Le moteur de filing (phases 1/2/3, FilePlan) reste identique — seul le calcul de dest_dir change
+  selon un drapeau "sur place". L'original part déjà à la corbeille via la mécanique existante
+  (move_to_trash / trash_file_fs), revert intact.
+
+### À CADRER ENCORE avant prompt (points ouverts du relevé)
+1. Front : comment passer le drapeau "sur place" jusqu'à plan_file (mono via fileTrack ; batch via
+   file_batch). Probable : une valeur de bin_rel sentinelle (ex. "__SOURCE__") OU un param booléen
+   dédié. Décider proprement (pas de fallback ambigu).
+2. binSelectHtml (sift-live.ts:384) : ajouter l'entrée "Dossier source de chaque morceau".
+3. Colonne .dest détail : ajouter la case (renderFoot/renderEditor ? à localiser).
+4. Cas limite conformant no-op : que montrer à l'utilisateur (le morceau est déjà propre et à sa
+   place) — message ? rien ? À trancher.
+NON codé. Prochaine session "filer sur place" : finir ces 4 points → prompt borné → test live.
+
+
+---
+
+## "FILER SUR PLACE" — 4 points ouverts TRANCHÉS (prêt pour prompt)
+
+PT1 (front → moteur) TRANCHÉ : SENTINELLE de binRel. fileTrack(trackId, binRel, …) et
+fileBatch(trackIds, binRel) passent TOUS deux la destination comme une simple string binRel
+(ipc.ts:68 et :85) jusqu'à plan_file. Donc "sur place" = valeur réservée binRel = "__SOURCE__".
+Côté Rust plan_file (filing.rs:198) : si bin_rel == "__SOURCE__" → dest_dir = Path::new(&source)
+.parent() (dossier du source), au lieu de safe_join(root, bin_rel). UN SEUL point de bascule,
+ZÉRO nouveau paramètre à propager (le booléen inPlace toucherait 6 endroits → écarté). Voyage dans
+le canal binRel existant. Risque collision nom de dossier "__SOURCE__" ≈ nul (bins viennent de
+l'arbre, pas d'une saisie libre).
+
+PT2 (dropdown batch) TRANCHÉ : binSelectHtml (sift-live.ts:384) construit les <option> depuis
+batchBins. Ajouter une option en tête value="__SOURCE__" libellé "Dossier source de chaque
+morceau". Sélectionnée → batchBin="__SOURCE__" → fileBatch(ids,"__SOURCE__"). Mécaniquement
+identique à un dossier normal.
+
+PT3 (case détail) TRANCHÉ sur le principe : case "Sur place (dossier source)" en bas de .dest
+sous l'arbre #fldz. Cochée → File appelle fileTrack(id, "__SOURCE__", …) au lieu du binRel choisi
+(la case écrit "__SOURCE__" dans la destination courante de l'état filing). Emplacement exact
+(renderFoot vs colonne .dest) à confirmer au moment du prompt. Même mécanisme que le batch.
+
+PT4 (cas no-op conformant) TRANCHÉ : PAS de cas spécial. Un morceau déjà conforme filé sur place
+= traité comme un filing normal (confirmation Filed habituelle, renommage au même endroit via
+template + ensure_unique, original → corbeille). Raffiner SEULEMENT si ça gêne à l'usage. Ne pas
+coder de subtilité prématurée.
+
+### PRÊT POUR PROMPT (quand on l'attaque) — périmètre
+Rust : plan_file gère bin_rel=="__SOURCE__" → dest_dir = parent du source (ignore root/safe_join).
+Vérifier que le reste (conformant move / non-conformant transcode, ensure_unique, original →
+trash, phases 1/2/3, revert) marche tel quel avec ce dest_dir. Front : option dropdown batch
+(binSelectHtml) + case détail (.dest) écrivant "__SOURCE__". Test live : (a) batch sur place d'un
+dossier mixte (conformes + non-conformes) → fichiers propres dans leurs dossiers source, originaux
+en corbeille, revert OK ; (b) mono sur place via la case ; (c) un déjà-conforme = filing normal.
+Constante "__SOURCE__" définie UNE fois (shared/contracts ou un const partagé), pas en dur
+dispersé.
+
+
+---
+
+## ÉTAPE 2 — relevé (rail=résultat + auto-avance) — théorie PROUVÉE, non codé
+
+### Mécanique actuelle (prouvée, filing.ts)
+- doRanger (clic File) : fileTrack(...) ligne 714 → puis showFiledConfirm. Commentaire 715-717 :
+  "le panneau ne s'auto-avance plus après filing" (comportement intermédiaire actuel).
+- showFiledConfirm (732+) : écrit la carte "Filed ✓ ↩ Revert" dans #mid (LE CENTRE), met
+  state.track=null (737), state.filedConfirm=set, et VIDE le rail #filfoot (750). C'est la version
+  intermédiaire — PAS la cible.
+- syncDetail (964-989) décide quel morceau afficher au refresh de la queue :
+  * L.968 : `if (state.filedConfirm && mid.querySelector(".sift-filed-confirm")) return null;`
+    ← C'EST LE BLOCAGE de l'auto-avance (commentaire : "ne PAS auto-avancer vers le prochain").
+  * Garde-fou player (paneIsOurs + state.track) L.972-977 : si morceau ouvert & panneau intact →
+    NE JAMAIS switcher (sinon tue le player en chargement → waveform sans son). Avertissement fort.
+  * L.980-987 : si pas de morceau ouvert → openFilingInto(mid, items[0]) = L'AUTO-AVANCE, qui
+    EXISTE DÉJÀ et marche. Elle est juste court-circuitée par le return null L.968.
+
+### Théorie étape 2 (limpide)
+L'auto-avance n'est pas à construire (elle existe L.985-987). Elle est DÉSACTIVÉE par : (1) le
+return null L.968, (2) showFiledConfirm qui prend #mid + met state.track=null + bloque. Pour
+l'étape 2, INVERSER le flux :
+- showFiledConfirm n'écrit plus dans #mid (centre) mais dans le RAIL (#filfoot/.dest) = "panneau
+  résultat/après".
+- retirer/conditionner le return null L.968.
+- après filing, syncDetail charge le morceau suivant dans #mid (auto-avance existante).
+
+### RISQUE CENTRAL (prouvé, à respecter dans le prompt)
+Commentaire filing.ts:973-976 (lettres de sang) : "si un morceau est ouvert et le panneau intact,
+ne JAMAIS switcher — sinon détruit le player en plein chargement et coupe l'audio (waveform depuis
+peaks mais pas de son)". C'est le bug waveform-sans-son déjà combattu. L'étape 2 marche sur un fil :
+auto-avancer APRÈS filing (le morceau filé n'est plus → switcher légitime) SANS casser la règle qui
+protège le player PENDANT l'écoute (switcher interdit). Distinguer "morceau filé → avancer" de
+"morceau juste analysé → ne rien toucher" = LA subtilité à coder juste.
+Aussi : installFilingKeys fait `if(!state.track) return` (911) → après auto-avance, state.track
+DOIT pointer le nouveau morceau sinon le clavier (SPACE/Enter/…) meurt. openFilingInto repose
+state.track (834), donc ça suit si l'avance passe bien par openFilingInto.
+
+### À CADRER (décisions produit, avant prompt) — NON tranché
+1. Où va le bandeau "Filed ↩" dans le rail : en haut de #filfoot ? format exact (option C décidée
+   = bandeau fin en haut du rail, contrôles du prochain morceau dessous).
+2. UN bandeau à la fois (pas d'historique empilé — chantier séparé déjà noté).
+3. Le "Final name" migre-t-il à droite À CE MOMENT (décision actée : oui à l'étape 2) → le rail
+   devient résultat/après (Chemin → Nom complet → Taille).
+4. Revert depuis le rail : le bouton ↩ doit garder le batch_id (le bandeau en a besoin). Si étape 3
+   (file_track détaché) pas encore faite, doRanger a encore le FileResult en retour direct → OK ;
+   sinon via événement.
+RISQUE = player. À faire à tête reposée. Prompt borné + test live : filer → avance auto au suivant,
+bandeau Filed dans le rail, SPACE joue le NOUVEAU morceau (clavier vivant), revert depuis le rail OK.
+
+
+---
+
+## ÉTAPE 2 — placement du bandeau Filed : DÉCISION = A (pied de rail)
+
+CODÉ (non commité) : étape 2 fonctionne, 6 points testés OK (auto-avance, bandeau rail, SPACE joue
+le nouveau morceau avec son, revert ciblé, croix, garde-fou player préservé). Implémentation Claude
+Code : doRanger auto-avance via listQueue()→openFilingInto(mid,items[0]) (chemin existant réutilisé,
+pas de clone) sinon clearPane ; showFiledConfirm(batchId,bin,filedPath) prepend .sift-filed-banner
+dans #filfoot ; syncDetail return-null mort retiré, garde-fou player intact ; renderFoot préserve le
+.sift-filed-banner à travers son innerHTML ; doRevert retire le bandeau au lieu de clearPane (ne
+yank pas le player du morceau auto-avancé). 2 écarts assumés : (a) pas de taille dans le bandeau
+(FileResult = {path,batch_id} seulement, pas d'octets — l'ajouter = étendre FileResult Rust/IPC,
+hors périmètre étape 2 ; petite étape séparée si voulu) ; (b) revert silencieux (reste sur le morceau
+courant, le fichier reverté revient dans la queue via queue:changed) au lieu de sauter sur le fichier
+reverté — choisi pour ne pas casser le player.
+
+PLACEMENT actuel = au-dessus de Format (prepend en tête de #filfoot, donc au-dessus de la pile
+Format→File→Discard). Antoine pas satisfait.
+DÉCISION = OPTION A : bandeau en PIED de rail, SOUS File + Discard. Contrôles (Format/File/Discard)
+gardent leur place habituelle en haut, inchangés. = append dans #filfoot au lieu de prepend, + dans
+renderFoot restaurer le bandeau en append (foot.append) au lieu de prepend.
+RAISON (Antoine) : cohérence FUTURE avec le mode batch — Antoine anticipe un batch où l'état des
+fichiers traités défilera en PIED de rail ; aligner le détail dès maintenant = un seul endroit "ce
+qui vient de se passer" dans les deux modes.
+PARI ASSUMÉ (relevé honnête) : le batch ACTUEL met son résumé (Selection/Destination/Will encode)
+en HAUT de #filfoot (sift-live.ts:393-404) et sa progression part dans la zone de progression du
+nav rail GAUCHE (onFileProgress/onFileDone, ~196-200), PAS en pied de #filfoot. Donc "l'état défile
+en pied de #filfoot" est une INTENTION future, pas l'existant. Si plus tard le défilé batch va dans
+la zone gauche, A ne serait plus aligné — mais re-déplacer (append↔prepend) reste trivial. Pari
+conscient, coût quasi nul, on y va.
+Options écartées : B (au-dessus de Destination = sortir le bandeau de #filfoot vers #fldz/.dest,
+plus de travail) ; C (centre #mid en haut = re-toucher la zone player stabilisée, plus risqué,
+jugé plus élégant par Antoine mais sacrifié pour la cohérence batch).
+
+
+---
+
+## CHANTIER FUTUR — rapatrier l'état/progression BATCH vers le pied du rail droit
+
+INTENTION (Antoine, lecture 2 confirmée) : aujourd'hui l'état + la progression du mode BATCH
+vivent dans le NAV RAIL GAUCHE (zone de progression, via onFileProgress/onFileDone, sift-live.ts
+~196-217 ; fileNote/#filfoot pour le feedback immédiat du Stop). Antoine l'avait mis à gauche "un
+peu par défaut". À TERME il veut le rapatrier en PIED du RAIL DROIT (#filfoot), pour qu'il rejoigne
+le bandeau Filed du mode détail (option A, placé en bas du rail droit). But = UN SEUL endroit "ce
+qui vient de se passer / ce qui défile" en pied de rail droit, cohérent entre détail et batch.
+
+CONSÉQUENCE sur le micro-prompt "placement A" (déplacement vertical du Filed haut→bas) : NE PAS le
+traiter comme une fin en soi isolée. Le placement A n'est que la 1re moitié de ce chantier de
+convergence. Penser le déplacement Filed + rapatriement batch ENSEMBLE le jour où on l'attaque,
+plutôt que toucher #filfoot deux fois. Tempo laissé à Antoine.
+
+À RELEVER quand on l'attaquera (lecture seule d'abord) : où exactement la progression batch est
+rendue à gauche (nav rail / progress-zone.ts : setTask/clearTask/setCancelHandler), ce qui
+déclenche son affichage (onFileProgress/onFileDone dans sift-live.ts), et comment la déplacer en
+pied de #filfoot SANS casser le Stop-net (fileCancel) ni le compteur figé pendant un encode. Risque
+= la zone de progression est aussi utilisée par l'ANALYSE (pas que le filing) — vérifier qu'on ne
+déplace que la partie filing/batch, pas l'analyse. À cadrer en maquette avant prompt.
+
+STATUT : noté, NON cadré, NON codé. Le placement vertical A du Filed (micro-prompt déjà rédigé)
+attend cette décision de tempo — soit on le fait seul maintenant, soit on l'absorbe dans ce
+chantier de convergence.
+
+
+NAMING — idée "marque + descripteur accolé" (Antoine, à chaud, à mûrir en phase promo)
+Antoine : et si on attachait toujours un descripteur au nom, type "Sift, DJ assistant", pour
+clarifier ce que fait l'app (Sift seul ne dit rien — un inconnu ne sait pas si c'est un jeu, un
+sampler, un plugin) ? Réflexe JUSTE : le motif "Nom — Descripteur" marche précisément pour les
+outils au nom abstrait (Notion, Linear, Arc). Il résout la gêne sans renoncer au nom.
+NUANCE (le descripteur porte le positionnement) : "DJ assistant" est clair MAIS trop large/muet —
+ça évoque un outil de mix ou de reco, pas la promesse précise de Sift (préparation : encoder +
+ranger pour que ça marche au club). "Assistant" sous-vend. Or on a acté que pour un utilitaire
+mono-promesse, la DÉCOUVRABILITÉ (mots que les DJ tapent quand ils ont le problème) bat la
+mémorabilité. Le descripteur est justement le bon endroit pour injecter ces mots ET expliquer.
+Donc : pas n'importe quel descripteur — celui qui dit la promesse précise ET attrape la recherche.
+Pistes par angle (à départager en promo, PAS à chaud) :
+  - rangement : "Sift — DJ library prep" / "prep your DJ library"
+  - compatibilité (l'angle CDJ = différenciateur identifié) : "Sift — get your tracks CDJ-ready"
+  - geste : "Sift — encode & file your music"
+STATUT : idée capturée, cohérente avec la doctrine naming ci-dessus (marque + tagline-promesse).
+À trancher en phase promo, avec le nom lui-même, la page tuple.live et le pitch — PAS en fin de
+session de dev. Lien direct avec le chantier checker CDJ (le descripteur "CDJ-ready" n'a de poids
+que si le check existe).
+
+
+---
+
+## ÉTAPE 2 — CLÔTURÉE (testée OK, à commiter)
+
+Placement A appliqué et testé : bandeau Filed en BAS de #filfoot (sous Discard). Claude Code :
+prepend→append aux 3 endroits (showFiledConfirm + les 2 points de préservation de renderFoot),
+margin-bottom→margin-top, ET commentaires périmés "prepended/above"→"appended/below" corrigés.
+tsc vert. 3 points live OK : (a) bandeau en bas sous Discard ; (b) clic chip format → bandeau reste
+en bas (préservation à travers renderFoot OK) ; (c) ↩ Revert + ✕ marchent depuis le bas.
+ÉTAPE 2 COMPLÈTE : auto-avance après filing (centre saute au prochain pending via
+listQueue→openFilingInto, chemin réutilisé) + bandeau Filed dans le rail (pas dans #mid) + garde-fou
+player préservé (SPACE joue le nouveau morceau avec son, refresh analyse ne switche pas) + revert
+ciblé batch_id depuis le bandeau + croix. 2 écarts assumés : pas de taille dans le bandeau
+(FileResult={path,batch_id}, l'ajouter = étendre FileResult Rust/IPC, petite étape séparée si voulu)
++ revert silencieux (reste sur le morceau courant, fichier reverté revient via queue:changed, ne
+yank pas le player).
+COMMITS : feat(filing): étape 2 — auto-advance after filing + Filed banner in rail | puis relevé
+séparé docs(audit): étape 2 placement + chantier convergence batch + idée naming.
+
+ÉTAT FILE D'ATTENTE après étape 2 :
+- "filer sur place" : 4 points tranchés, prompt PRÊT (non rédigé en entier, périmètre dans le relevé). PROCHAIN candidat code.
+- chantier convergence batch (état batch gauche → pied rail droit) : noté, non cadré. Absorbera peut-être un re-look du placement Filed.
+- étape 3 (file_track mono détaché façon file_batch) : noté.
+- checker CDJ : chantier majeur, après.
+- naming + descripteur accolé : phase promo, pas à chaud.
