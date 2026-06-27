@@ -839,8 +839,10 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
   mid.innerHTML =
     '<div class="sift-fil" style="display:flex;flex-direction:column;height:100%;min-height:0">' +
     '<div class="sift-fil-dup" style="flex:none"></div>' +
-    '<div class="sift-fil-report" style="flex:1;min-height:0;overflow:auto"></div>' +
-    '<div class="sift-fil-editor" style="flex:none;margin-top:8px;padding-top:8px;border-top:0.5px solid var(--color-border-tertiary)"></div>' +
+    '<div class="sift-fil-scroll" style="flex:1;min-height:0;overflow:auto">' +
+    '<div class="sift-fil-report"></div>' +
+    '<div class="sift-fil-editor" style="margin-top:8px;padding-top:8px;border-top:0.5px solid var(--color-border-tertiary)"></div>' +
+    '</div>' +
     "</div>";
   const reportEl = requireEl<HTMLElement>(".sift-fil-report", "openFilingInto", mid);
   // The validation footer now lives in the right rail (#filfoot in the .dest column), below the
