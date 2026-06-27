@@ -309,6 +309,11 @@ function openLink(u){window.open(u,'_blank','noopener');}
   });
   pa.addEventListener('input',function(e){if(e.target.dataset.act==='tempo'){tempo=parseInt(e.target.value,10);var o=document.getElementById('tout');if(o)o.textContent=(tempo>0?'+':'')+tempo+'%';}});
   pa.addEventListener('keydown',function(e){
+    // Live (Tauri): the real keyboard layer (installFilingKeys) owns SPACE/Enter/X/1-9. This
+    // mockup handler is a web-demo vestige — if it ran here, its renderMid() would repaint the
+    // demo data (Mr. Fingers) over the real track. Same inTauri test as main.ts. Hors Tauri
+    // (démo web Vercel) il reste actif.
+    if('__TAURI_INTERNALS__' in window)return;
     if(e.target.id==='newin'){if(e.key==='Enter'){var val=e.target.value.trim();if(val){FOLDERS.push(val);creating=false;fileTo(FOLDERS.length-1);}}else if(e.key==='Escape'){creating=false;render();}return;}
     if(e.target.tagName==='INPUT')return;if(view!=="revue"||revMode!=="detail")return;
     var nk=parseInt(e.key,10);
