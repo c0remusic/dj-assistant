@@ -7,6 +7,7 @@
 import {
   reconcile,
   fileTrack,
+  listQueue,
   rejectTrack,
   trashTrack,
   listBins,
@@ -543,8 +544,12 @@ async function doIdentify(
 /** Render the filing rail (format + actions) into `foot`. The metadata editor (Identify + editable
  *  fields + final-name preview + genres) lives in the center now — see `renderEditor`. */
 function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
+  // Preserve the "Filed" banner across re-renders: it is appended at the BOTTOM of #filfoot (étape 2)
+  // and must survive renderFoot's innerHTML rewrite (e.g. a format-chip click) until the next filing or ✕.
+  const filedBanner = foot.querySelector(".sift-filed-banner");
   if (!state.canonical) {
     foot.innerHTML = "";
+    if (filedBanner) foot.append(filedBanner);
     return;
   }
 
@@ -571,6 +576,7 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
     `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px">${chips}</div>` +
     `<button data-fil="ranger" style="width:100%;background:var(--color-background-info);color:var(--color-text-info);border:none;font-weight:500;margin-bottom:6px"><i class="ti ti-corner-down-left" style="font-size:var(--text-md);vertical-align:-2px"></i> File → <span class="sift-fil-bin">${esc(binLabel())}</span> <span class="kbd">⏎</span></button>` +
     secondary;
+  if (filedBanner) foot.append(filedBanner); // restore the banner below the freshly-rendered controls
 
   foot.querySelectorAll<HTMLElement>('[data-fil="fmt"]').forEach((el) =>
     el.addEventListener("click", () => {
@@ -712,10 +718,25 @@ async function doRanger(mid: HTMLElement): Promise<void> {
       '<i class="ti ti-loader-2 sift-spin" style="font-size:var(--text-md);vertical-align:-2px"></i> Filing…';
   try {
     const res = await fileTrack(state.track.id, state.binRel, state.target, state.canonical);
-    // Persistent, TARGETED "Filed ↩" confirmation on this file (revert via its own batch_id),
-    // replacing the old transient "Filed [Undo]" toast. Pauses here until the user opens another
-    // track or reverts — the pane no longer auto-advances after filing.
-    showFiledConfirm(mid, res.batch_id, binLabel());
+    // Capture the "after" facts for the rail banner BEFORE we advance (state resets on the next open).
+    const filedPath = res.path;
+    const batchId = res.batch_id;
+    const bin = binLabel();
+    // Auto-advance: the filed track has left the pending list, so switching away from it here is
+    // LEGITIMATE — this is the one place allowed to switch outside syncDetail's player guard, because
+    // we KNOW the current track was just filed (never on a passive analysis refresh). Reuse the
+    // existing load path openFilingInto; fresh pending list → items[0] is the next track to file.
+    let items: QueueItem[] = [];
+    try {
+      items = await listQueue();
+    } catch (err) {
+      console.error("listQueue failed after filing", err);
+    }
+    if (items.length) await openFilingInto(mid, items[0]);
+    else clearPane(mid); // no pending left → neutral center; the banner still shows in the rail
+    // Filed confirmation as a banner at the BOTTOM of the right rail, under the new track's controls
+    // (renderFoot, run by openFilingInto above, already wrote them; the banner is appended below them).
+    showFiledConfirm(batchId, bin, filedPath);
   } catch (e) {
     const msg = String(e);
     if (msg.includes("NoLibraryRoot")) toast("No library root configured.", false);
@@ -729,38 +750,55 @@ async function doRanger(mid: HTMLElement): Promise<void> {
   }
 }
 
-/** Render the persistent "Filed ✓ ↩ Revert" confirmation for the just-filed track into #mid
- *  (Detail mode). The revert is TARGETED on this file's `batchId` (revert_batch), available
- *  indefinitely via the journal — not a 6s window. It stays until the user opens another track
- *  (openFilingInto clears it) or reverts. */
-function showFiledConfirm(mid: HTMLElement, batchId: string, bin: string): void {
-  state.track = null;
-  state.canonical = null;
-  state.target = null;
+/** Show the "Filed ✓ ↩" confirmation as a BANNER at the TOP of the right rail (#filfoot), above the
+ *  next track's controls — the center has already auto-advanced to the next pending track (doRanger).
+ *  This is the "after" proof for the file just filed: name + destination path + a targeted Revert.
+ *  ONE banner at a time (replaces any prior). Revert is targeted on this file's `batchId`
+ *  (revert_batch), available indefinitely via the journal; the ✕ dismisses the banner without
+ *  reverting. Does NOT touch #mid or state.track — the advance owns those. */
+function showFiledConfirm(batchId: string, bin: string, filedPath: string): void {
   state.filedConfirm = { batchId, bin };
-  mid.innerHTML =
-    '<div class="sift-filed-confirm" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--space-12);padding:20px;text-align:center">' +
-    `<div style="display:flex;align-items:center;gap:var(--space-8);font-size:var(--text-lg);color:var(--color-text-success)"><i class="ti ti-check" style="font-size:var(--text-xl)"></i> Filed → ${esc(bin)}</div>` +
-    '<button data-fil="revert" style="display:inline-flex;align-items:center;gap:6px;font-size:var(--text-md);padding:6px 14px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);color:var(--color-text-secondary);cursor:pointer"><i class="ti ti-arrow-back-up" style="font-size:var(--text-md);vertical-align:-2px"></i> Revert</button>' +
-    '<div style="font-size:var(--text-sm);color:var(--color-text-tertiary)">Select another track in the queue to continue.</div>' +
-    "</div>";
-  // No filing controls on the confirmation — clear the rail footer (non-throw: the Review rail may be
-  // gone if the user navigated away while the file completed).
   const foot = document.getElementById("filfoot");
-  if (foot) foot.innerHTML = "";
-  mid
-    .querySelector('[data-fil="revert"]')
-    ?.addEventListener("click", () => void doRevert(mid, batchId));
+  if (!foot) return; // rail gone (navigated away while the file completed) — nothing to show
+  const filename = filedPath.split(/[\\/]/).pop() || filedPath;
+  foot.querySelector(".sift-filed-banner")?.remove(); // one at a time — replace any prior banner
+  const banner = document.createElement("div");
+  banner.className = "sift-filed-banner";
+  // CDS single-side accent: success border-left, square corners. Success tint sets it apart from the
+  // secondary-coloured rail. renderFoot preserves this node across its re-renders (format clicks).
+  // margin-top (not -bottom): the banner sits at the BOTTOM of the rail, under Discard — space it above.
+  banner.style.cssText =
+    "margin-top:12px;padding:7px 10px;background:var(--color-background-success);border-left:2px solid var(--color-text-success);font-size:var(--text-sm)";
+  banner.innerHTML =
+    `<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">` +
+    `<i class="ti ti-check" style="font-size:var(--text-md);color:var(--color-text-success)"></i>` +
+    `<span style="color:var(--color-text-success);font-weight:500">Filed</span>` +
+    `<span style="color:var(--color-text-tertiary);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">→ ${esc(bin)}</span>` +
+    `<button data-fil="filed-close" title="Dismiss" style="margin-left:auto;flex:none;background:none;border:none;color:var(--color-text-tertiary);cursor:pointer;padding:0;line-height:1"><i class="ti ti-x" style="font-size:var(--text-md)"></i></button>` +
+    `</div>` +
+    `<div style="color:var(--color-text-secondary);font-family:var(--font-mono);font-size:var(--text-xs);word-break:break-all;line-height:1.5;margin-bottom:3px">${esc(filename)}</div>` +
+    `<div style="color:var(--color-text-tertiary);font-family:var(--font-mono);font-size:var(--text-2xs);word-break:break-all;line-height:1.4;margin-bottom:7px">${esc(filedPath)}</div>` +
+    `<button data-fil="revert" style="display:inline-flex;align-items:center;gap:5px;font-size:var(--text-sm);padding:3px 10px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);color:var(--color-text-secondary);cursor:pointer"><i class="ti ti-arrow-back-up" style="font-size:var(--text-md);vertical-align:-2px"></i> Revert</button>`;
+  foot.append(banner); // at the BOTTOM of the rail — last child, under Format → File → Discard
+  banner.querySelector('[data-fil="revert"]')?.addEventListener("click", () => void doRevert(batchId));
+  banner.querySelector('[data-fil="filed-close"]')?.addEventListener("click", () => {
+    banner.remove();
+    state.filedConfirm = null;
+  });
 }
 
 /** Revert THIS file's filing, targeted on its `batchId` (revert_batch). On success the engine
  *  puts the track back to pending and emits queue:changed → the queue refreshes. On a Blocked
  *  engine error (e.g. the original was purged from the trash) show a clear message rather than
  *  failing mutely. The revert engine itself is untouched here. */
-async function doRevert(mid: HTMLElement, batchId: string): Promise<void> {
+async function doRevert(batchId: string): Promise<void> {
   try {
     await revertBatch(batchId);
-    clearPane(mid); // drops the confirmation; the queue:changed refresh loads the next pending
+    // The filing is undone → drop the banner. The reverted file returns to pending (backend emits
+    // queue:changed → the queue list refreshes). We do NOT clearPane: the auto-advanced track in
+    // #mid stays put (syncDetail's player guard keeps it), so reverting never yanks the player.
+    document.getElementById("filfoot")?.querySelector(".sift-filed-banner")?.remove();
+    state.filedConfirm = null;
     toast("Reverted — back in the queue", false);
   } catch (e) {
     const msg = String(e);
@@ -962,10 +1000,9 @@ export async function refreshBins(fldz: HTMLElement): Promise<void> {
  * click, and after filing one the next opens automatically. Empty queue → neutral prompt.
  * Returns the id now shown (for the caller to highlight its row), or null. */
 export function syncDetail(mid: HTMLElement, items: QueueItem[]): number | null {
-  // A "Filed ✓ ↩" confirmation is up for the just-filed track → keep it (do NOT auto-advance to
-  // the next pending). It is dismissed when the user opens another track (openFilingInto) or
-  // reverts; the move stays revertable in the journal regardless of what's shown.
-  if (state.filedConfirm && mid.querySelector(".sift-filed-confirm")) return null;
+  // The "Filed ✓ ↩" confirmation now lives as a banner in the right rail (#filfoot), not in #mid, so
+  // it no longer blocks auto-advance — after filing, doRanger explicitly advances #mid to the next
+  // pending. syncDetail's job here is unchanged: keep the open track stable, else load the first pending.
   // Is our filing pane still in #mid? On navigation back to Revue, app.js re-draws its mock
   // detail into #mid, so the pane is no longer ours and must be re-rendered — but on a mere
   // queue/analysis refresh it's intact and we must NOT disrupt it (would restart playback).
