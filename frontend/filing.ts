@@ -358,12 +358,20 @@ function refreshFootButton(): void {
   if (btn) btn.textContent = binLabel();
 }
 
+/** Re-sync the center filename preview from the current canonical + target. The preview lives in
+ *  the center editor while the format chips live in the rail, so a format change in the rail must
+ *  refresh this node (the extension follows state.target). Probe non-throw: the editor may be gone. */
+function refreshPreview(): void {
+  const prev = document.querySelector<HTMLElement>(".sift-fil-prev");
+  if (prev) prev.textContent = `→ ${previewName()}`;
+}
+
 /** Apply an identity result to the editing fields + filename preview.
  * [C3] `host` + `allCandidates` are kept so we can show a "changer" confirmation row
  * instead of dead-ending (no new API call needed — re-renders from in-memory list). */
 function onIdentityApplied(
   applied: AppliedIdentity,
-  foot: HTMLElement,
+  editor: HTMLElement,
   mid: HTMLElement,
   host: HTMLElement,
   allCandidates: Candidate[],
@@ -384,16 +392,15 @@ function onIdentityApplied(
   state.canonical.version = version;
 
   // Update the editable inputs directly.
-  const aInp = foot.querySelector<HTMLInputElement>('[data-fil="artist"]');
-  const tInp = foot.querySelector<HTMLInputElement>('[data-fil="title"]');
-  const vInp = foot.querySelector<HTMLInputElement>('[data-fil="version"]');
+  const aInp = editor.querySelector<HTMLInputElement>('[data-fil="artist"]');
+  const tInp = editor.querySelector<HTMLInputElement>('[data-fil="title"]');
+  const vInp = editor.querySelector<HTMLInputElement>('[data-fil="version"]');
   if (aInp) aInp.value = applied.canonical.artist;
   if (tInp) tInp.value = baseTitle;
   if (vInp) vInp.value = version ?? "";
 
   // Refresh the filename preview using the same logic as the input handler.
-  const prev = foot.querySelector<HTMLElement>(".sift-fil-prev");
-  if (prev) prev.textContent = `→ ${previewName()}`;
+  refreshPreview();
   updateHeaderName(mid);
 
   // Verdict-panel MATCH chip — qualitative (the backend has no % score): green confidence reads
@@ -418,9 +425,9 @@ function onIdentityApplied(
     }
   }
 
-  // [m11] Render genre/style chips with tooltip so they read as informational Discogs tags.
-  // .sift-genres lives in the rail footer now, so query `foot` rather than the #mid pane.
-  const genEl = foot.querySelector<HTMLElement>(".sift-genres");
+  // [m11] Render genre/style chips with tooltip so they read as informational Discogs sub-genres.
+  // .sift-genres lives in the center editor host now, so query `editor` rather than the #mid pane.
+  const genEl = editor.querySelector<HTMLElement>(".sift-genres");
   if (genEl) {
     genEl.innerHTML = applied.styles
       .map((s) => `<span class="sift-genre-chip" title="Discogs sub-genres">${esc(s)}</span>`)
@@ -447,7 +454,7 @@ function onIdentityApplied(
     // Re-show the full candidate list from memory (no new API call).
     host.innerHTML = "";
     renderCandidates(host, allCandidates);
-    wireCandidateClicks(host, allCandidates, foot, mid, idBtn);
+    wireCandidateClicks(host, allCandidates, editor, mid, idBtn);
   });
 
   // [C1] Relabel Identifier → Ré-identifier once an identity has been applied.
@@ -459,7 +466,7 @@ function onIdentityApplied(
 function wireCandidateClicks(
   host: HTMLElement,
   candidates: Candidate[],
-  foot: HTMLElement,
+  editor: HTMLElement,
   mid: HTMLElement,
   idBtn: HTMLButtonElement,
 ): void {
@@ -472,7 +479,7 @@ function wireCandidateClicks(
       el.style.pointerEvents = "none";
       void applyIdentity(state.track.id, c)
         .then((applied) => {
-          onIdentityApplied(applied, foot, mid, host, candidates, idBtn);
+          onIdentityApplied(applied, editor, mid, host, candidates, idBtn);
         })
         .catch((e) => {
           el.style.opacity = "";
@@ -488,7 +495,7 @@ function wireCandidateClicks(
 async function doIdentify(
   btn: HTMLButtonElement,
   host: HTMLElement,
-  foot: HTMLElement,
+  editor: HTMLElement,
   mid: HTMLElement,
 ): Promise<void> {
   if (!state.track) return;
@@ -503,7 +510,7 @@ async function doIdentify(
   try {
     candidates = await identify(trackId);
     renderCandidates(host, candidates);
-    wireCandidateClicks(host, candidates, foot, mid, btn);
+    wireCandidateClicks(host, candidates, editor, mid, btn);
   } catch (err) {
     const msg = String(err);
     if (msg.includes("NO_TOKEN")) {
@@ -533,18 +540,13 @@ async function doIdentify(
   }
 }
 
-/** Render the filing footer (editor + format + actions) into `foot`. */
+/** Render the filing rail (format + actions) into `foot`. The metadata editor (Identify + editable
+ *  fields + final-name preview + genres) lives in the center now — see `renderEditor`. */
 function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
-  const c = state.canonical;
-  if (!c) {
+  if (!state.canonical) {
     foot.innerHTML = "";
     return;
   }
-  // [I6] Add tooltip to confidence badge so the colour is self-explanatory
-  const badge =
-    c.confidence === "green"
-      ? '<span title="Title and artist extracted confidently" style="display:inline-flex;align-items:center;gap:4px;font-size:var(--text-xs);color:var(--color-text-success)"><i class="ti ti-circle-check" style="font-size:var(--text-sm)"></i> metadata trusted</span>'
-      : '<span title="Title or artist couldn\'t be extracted with certainty — check the fields" style="display:inline-flex;align-items:center;gap:4px;font-size:var(--text-xs);color:var(--color-text-warning)"><i class="ti ti-alert-circle" style="font-size:var(--text-sm)"></i> check fields</span>';
 
   const lossy = rail === "lossy";
   const chips = (["mp3_320", "aiff_16_44", "wav_16_44"] as Target[])
@@ -563,52 +565,18 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
     ? '<button data-fil="resource" style="width:100%;color:var(--color-text-warning)" title="Fake file — goes to Discarded (⌫)"><span class="kbd">⌫</span> <i class="ti ti-alert-triangle" style="font-size:var(--text-md);vertical-align:-2px"></i> Re-source</button>'
     : '<button data-fil="trash" style="width:100%;color:var(--color-text-danger)" title="Send to trash (⌫)"><span class="kbd">⌫</span> <i class="ti ti-trash" style="font-size:var(--text-md);vertical-align:-2px"></i> Discard</button>';
 
-  const inputCss =
-    "font-size:var(--text-md);padding:4px 7px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);color:var(--color-text-primary);min-width:0";
-
-  // [C1] Identifier is the first action visible — placed above the inputs with a gold filled
-  // style so it reads as the primary entry point when reviewing a new track.
-  // [C2] title= explains what it does; label shows keyboard shortcut hint (I).
-  // Vertical validation rail (lives in the narrow .dest column): metadata source on top
-  // (editor + Identify), then the system.md stack FINAL NAME → GENRES → FORMAT → CTA.
+  // The rail keeps the system.md stack tail: FORMAT → CTA (File) → secondary (Discard/Re-source).
   foot.innerHTML =
-    `<div style="margin-bottom:8px">${badge}</div>` +
-    `<div style="display:grid;grid-template-columns:1fr;gap:5px;margin-bottom:8px">` +
-    `<input data-fil="artist" placeholder="Artist" value="${esc(c.artist)}" style="${inputCss}">` +
-    `<input data-fil="title" placeholder="Title" value="${esc(c.title)}" style="${inputCss}">` +
-    `<input data-fil="version" placeholder="Version" value="${esc(c.version ?? "")}" style="${inputCss}">` +
-    `</div>` +
-    `<button data-fil="identifier" class="sift-id-btn" style="width:100%;margin-bottom:8px" title="Search metadata on Discogs (cover, label, year, genres)"><i class="ti ti-search" style="font-size:var(--text-md);vertical-align:-1px"></i> Identify <span class="kbd" style="font-size:var(--text-2xs);border-color:rgba(0,0,0,.18);color:rgba(0,0,0,.5)">I</span></button>` +
-    `<div class="sift-cands" hidden style="margin-bottom:8px"></div>` +
-    `<div class="col-h" style="margin-bottom:4px">Final name</div>` +
-    `<div class="sift-fil-prev" style="font-size:var(--text-xs);color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;line-height:1.5;margin-bottom:10px">→ ${esc(previewName())}</div>` +
-    `<div class="col-h" style="margin-bottom:4px">Genres</div>` +
-    `<div class="sift-genres" style="margin-bottom:10px;min-height:1px"></div>` +
     `<div class="col-h" style="margin-bottom:4px">Format</div>` +
     `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px">${chips}</div>` +
     `<button data-fil="ranger" style="width:100%;background:var(--color-background-info);color:var(--color-text-info);border:none;font-weight:500;margin-bottom:6px"><i class="ti ti-corner-down-left" style="font-size:var(--text-md);vertical-align:-2px"></i> File → <span class="sift-fil-bin">${esc(binLabel())}</span> <span class="kbd">⏎</span></button>` +
     secondary;
 
-  const upd = () => {
-    const a = foot.querySelector<HTMLInputElement>('[data-fil="artist"]');
-    const t = foot.querySelector<HTMLInputElement>('[data-fil="title"]');
-    const v = foot.querySelector<HTMLInputElement>('[data-fil="version"]');
-    if (!state.canonical) return;
-    state.canonical.artist = a?.value ?? "";
-    state.canonical.title = t?.value ?? "";
-    state.canonical.version = v?.value.trim() ? v.value.trim() : null;
-    const prev = foot.querySelector<HTMLElement>(".sift-fil-prev");
-    if (prev) prev.textContent = `→ ${previewName()}`;
-    updateHeaderName(mid); // keep the report header's clean name in sync with edits
-  };
-  foot
-    .querySelectorAll<HTMLInputElement>('[data-fil="artist"],[data-fil="title"],[data-fil="version"]')
-    .forEach((el) => el.addEventListener("input", upd));
-
   foot.querySelectorAll<HTMLElement>('[data-fil="fmt"]').forEach((el) =>
     el.addEventListener("click", () => {
       state.target = (el.dataset.t as Target) || null;
       renderFoot(foot, mid, rail);
+      refreshPreview(); // the chosen format sets the filename extension shown in the center preview
     }),
   );
 
@@ -621,11 +589,69 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
   foot
     .querySelector('[data-fil="trash"]')
     ?.addEventListener("click", () => void doSecondary(mid, "trash"));
+}
 
-  const idBtn = foot.querySelector<HTMLButtonElement>('[data-fil="identifier"]');
-  const candsHost = foot.querySelector<HTMLElement>(".sift-cands");
+/** Render the center metadata editor (Identify + editable fields + final-name preview + genres)
+ *  into `host`, below the analysis report. Moved out of the rail (`renderFoot`) so the fields that
+ *  change the cover/name sit next to them. One-shot innerHTML — called once per track open, not on a
+ *  burst event, so create-once/update-in-place is not required here. `rail` is accepted for symmetry
+ *  with renderFoot; the editor itself is format-agnostic (the extension comes from state.target). */
+function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string): void {
+  void rail;
+  const c = state.canonical;
+  if (!c) {
+    host.innerHTML = "";
+    return;
+  }
+
+  // [I6] Add tooltip to confidence badge so the colour is self-explanatory.
+  const badge =
+    c.confidence === "green"
+      ? '<span title="Title and artist extracted confidently" style="display:inline-flex;align-items:center;gap:4px;font-size:var(--text-xs);color:var(--color-text-success)"><i class="ti ti-circle-check" style="font-size:var(--text-sm)"></i> metadata trusted</span>'
+      : '<span title="Title or artist couldn\'t be extracted with certainty — check the fields" style="display:inline-flex;align-items:center;gap:4px;font-size:var(--text-xs);color:var(--color-text-warning)"><i class="ti ti-alert-circle" style="font-size:var(--text-sm)"></i> check fields</span>';
+
+  const inputCss =
+    "font-size:var(--text-md);padding:4px 7px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);color:var(--color-text-primary);min-width:0";
+
+  // [C1] "Fetch metadata from Discogs" is the primary entry point (gold filled), above the inputs.
+  // [C2] title= explains what it does; the kbd hint shows the I shortcut.
+  // Vertical order: pick the Discogs release FIRST (badge → Fetch → candidates), then edit the
+  // fields it populates (artist/title/version → Genres directly under Version), then the Final name
+  // preview. `.sift-cands` sits above the inputs so choosing a release precedes editing.
+  host.innerHTML =
+    `<div class="col-h" style="margin-bottom:6px">Métadonnées</div>` +
+    `<div style="margin-bottom:8px">${badge}</div>` +
+    `<button data-fil="identifier" class="sift-id-btn" style="width:100%;margin-bottom:8px" title="Search metadata on Discogs (cover, label, year, genres)"><i class="ti ti-search" style="font-size:var(--text-md);vertical-align:-1px"></i> Fetch metadata from Discogs <span class="kbd" style="font-size:var(--text-2xs);border-color:rgba(0,0,0,.18);color:rgba(0,0,0,.5)">I</span></button>` +
+    `<div class="sift-cands" hidden style="margin-bottom:8px"></div>` +
+    `<div style="display:grid;grid-template-columns:1fr;gap:5px;margin-bottom:8px">` +
+    `<input data-fil="artist" placeholder="Artist" value="${esc(c.artist)}" style="${inputCss}">` +
+    `<input data-fil="title" placeholder="Title" value="${esc(c.title)}" style="${inputCss}">` +
+    `<input data-fil="version" placeholder="Version" value="${esc(c.version ?? "")}" style="${inputCss}">` +
+    `</div>` +
+    `<div class="col-h" style="margin-bottom:4px">Genres</div>` +
+    `<div class="sift-genres" style="margin-bottom:10px;min-height:1px"></div>` +
+    `<div class="col-h" style="margin-bottom:4px">Final name</div>` +
+    `<div class="sift-fil-prev" style="font-size:var(--text-xs);color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;line-height:1.5;margin-bottom:10px">→ ${esc(previewName())}</div>`;
+
+  const upd = () => {
+    const a = host.querySelector<HTMLInputElement>('[data-fil="artist"]');
+    const t = host.querySelector<HTMLInputElement>('[data-fil="title"]');
+    const v = host.querySelector<HTMLInputElement>('[data-fil="version"]');
+    if (!state.canonical) return;
+    state.canonical.artist = a?.value ?? "";
+    state.canonical.title = t?.value ?? "";
+    state.canonical.version = v?.value.trim() ? v.value.trim() : null;
+    refreshPreview();
+    updateHeaderName(mid); // keep the report header's clean name in sync with edits
+  };
+  host
+    .querySelectorAll<HTMLInputElement>('[data-fil="artist"],[data-fil="title"],[data-fil="version"]')
+    .forEach((el) => el.addEventListener("input", upd));
+
+  const idBtn = host.querySelector<HTMLButtonElement>('[data-fil="identifier"]');
+  const candsHost = host.querySelector<HTMLElement>(".sift-cands");
   if (idBtn && candsHost) {
-    idBtn.addEventListener("click", () => void doIdentify(idBtn, candsHost, foot, mid));
+    idBtn.addEventListener("click", () => void doIdentify(idBtn, candsHost, host, mid));
   }
 }
 
@@ -814,6 +840,7 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
     '<div class="sift-fil" style="display:flex;flex-direction:column;height:100%;min-height:0">' +
     '<div class="sift-fil-dup" style="flex:none"></div>' +
     '<div class="sift-fil-report" style="flex:1;min-height:0;overflow:auto"></div>' +
+    '<div class="sift-fil-editor" style="flex:none;margin-top:8px;padding-top:8px;border-top:0.5px solid var(--color-border-tertiary)"></div>' +
     "</div>";
   const reportEl = requireEl<HTMLElement>(".sift-fil-report", "openFilingInto", mid);
   // The validation footer now lives in the right rail (#filfoot in the .dest column), below the
@@ -855,6 +882,7 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
   else if (["mp3", "m4a", "aac", "ogg"].includes(ext)) rail = "lossy";
 
   renderFoot(footEl, mid, rail);
+  renderEditor(requireEl<HTMLElement>(".sift-fil-editor", "openFilingInto", mid), mid, rail);
   updateHeaderName(mid); // show the clean proposed name in the report header
 
   // Verdict-panel chip (board: LOSSLESS · MATCH · UNIQUE): append UNIQUE by default, DUPLICATE

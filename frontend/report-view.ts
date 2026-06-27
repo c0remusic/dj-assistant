@@ -261,6 +261,9 @@ function spectroAndTagsHtml(r: AnalysisReport): string {
     row("Sample rate", r.sample_rate + " Hz") +
     row("Peaks (coverage)", peaksCoverage(r)) +
     `</div></div></div>` +
+    // Source-file tag diagnostics (read-only): an autonomous, ALWAYS-VISIBLE block at the end of the
+    // report — outside the collapsible Proof box. Metadata diagnostics (cover, ID3) are a different
+    // family from the spectrum/encoding info and must not be hidden behind the Proof toggle.
     `<div style="margin-bottom:4px">` +
     `<div style="font-size:var(--text-2xs);letter-spacing:.05em;text-transform:uppercase;color:var(--color-text-tertiary);margin-bottom:5px">Tags</div>` +
     `<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 28px;font-size:var(--text-md)">` +
