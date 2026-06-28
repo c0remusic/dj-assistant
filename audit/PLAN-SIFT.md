@@ -66,6 +66,17 @@ dépendances (F). Chaque étape = testable + commitable seule. Un chantier à la
   artist — title, PAS besoin de format/pays/liste candidats. Zéro réseau à l'ouverture, zéro stockage
   en plus. DÉCISION ANTOINE : le bouton "change" à froid RELANCE un Fetch Discogs (la liste des
   candidats d'origine n'est plus en mémoire à froid) — logique et simple, pas de stockage en plus.
+- **B7. BUG cohérence chip/nom (trouvé 28/06 en testant B3).** previewName() (filing.ts:338) retombe
+  sur "mp3_320" EN DUR quand state.target est null, MAIS la chip surlignée (filing.ts:641) retombe sur
+  defaultTarget(rail) (= aiff si lossless, mp3 si lossy). Deux défauts DIFFÉRENTS quand target=null →
+  le nom peut afficher .mp3 alors que la chip AIFF est allumée (rail lossless). FIX : une seule source
+  de vérité pour le défaut — previewName doit utiliser le MÊME défaut que la chip (state.target ??
+  defaultTarget(rail)), pas "mp3_320" en dur. Front pur. (Révélé par B3 qui met nom+chips côte à côte.)
+- **B8. (FUTUR) Option UPSCALE / NEVER UPSCALE.** Idée Antoine : un toggle dans le menu. Aujourd'hui
+  le code grise DÉJÀ AIFF/WAV en dur pour une source lossy (renderFoot:637-640 "can't upscale a lossy
+  file"). B8 = rendre ce verrou OPTIONNEL : NEVER UPSCALE (défaut actuel, chips lossless grisées/lock
+  pour un mp3) vs UPSCALE (autorise quand même). Cohérent ADN Sift (pas de faux lossless). Distinct
+  de B7 (B7 = bug, B8 = feature). À cadrer plus tard.
 
 ## CHANTIER TRANSVERSAL — TAGS CDJ-SAFE (lié au checker CDJ F3)
 DÉCLENCHEUR (Antoine, à propos de B4) : "s'assurer que les tags écrits soient compatibles CDJ".
