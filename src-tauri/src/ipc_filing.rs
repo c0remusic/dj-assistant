@@ -70,6 +70,10 @@ pub struct TrackRelease {
     pub label: Option<String>,
     pub year: Option<i64>,
     pub cover_path: Option<String>,
+    /// The track's sub-genres (track_genres), in stored order — the SAME list `write_tags_full`
+    /// would join into the file's Genre field. The front shows them on open and uses them (joined)
+    /// to detect when the file's tags diverge from the displayed identity.
+    pub genres: Vec<String>,
     pub identified: bool,
 }
 
@@ -79,35 +83,130 @@ pub fn track_release(
     track_id: i64,
 ) -> Result<TrackRelease, String> {
     let conn = conn.lock().map_err(|e| e.to_string())?;
-    conn.query_row(
-        "SELECT artist, title, version, label, year, cover_path, discogs_release_id FROM metadata WHERE track_id=?1",
-        rusqlite::params![track_id],
-        |r| {
-            let discogs_release_id: Option<String> = r.get(6)?;
-            Ok(TrackRelease {
-                artist: r.get(0)?,
-                title: r.get(1)?,
-                version: r.get(2)?,
-                label: r.get(3)?,
-                year: r.get(4)?,
-                cover_path: r.get(5)?,
-                identified: discogs_release_id.is_some(),
-            })
-        },
-    )
-    .optional()
-    .map_err(|e| e.to_string())
-    .map(|opt| {
-        opt.unwrap_or(TrackRelease {
+    let genres = crate::genres::get_genres(&conn, track_id).unwrap_or_default();
+    let base = conn
+        .query_row(
+            "SELECT artist, title, version, label, year, cover_path, discogs_release_id FROM metadata WHERE track_id=?1",
+            rusqlite::params![track_id],
+            |r| {
+                let discogs_release_id: Option<String> = r.get(6)?;
+                Ok(TrackRelease {
+                    artist: r.get(0)?,
+                    title: r.get(1)?,
+                    version: r.get(2)?,
+                    label: r.get(3)?,
+                    year: r.get(4)?,
+                    cover_path: r.get(5)?,
+                    genres: Vec::new(),
+                    identified: discogs_release_id.is_some(),
+                })
+            },
+        )
+        .optional()
+        .map_err(|e| e.to_string())?;
+    Ok(match base {
+        Some(mut tr) => {
+            tr.genres = genres;
+            tr
+        }
+        None => TrackRelease {
             artist: None,
             title: None,
             version: None,
             label: None,
             year: None,
             cover_path: None,
+            genres,
             identified: false,
-        })
+        },
     })
+}
+
+/// The file's REAL tag values (the fields `write_tags_full` owns), read once on open so the front
+/// can flag — in memory, no per-keystroke disk read — when the displayed/Discogs identity has not
+/// yet been written to the file. `genre_joined` is the single Genre field exactly as the file holds
+/// it (the joined form `write_tags_full` produces), so the comparison matches like-for-like. Cover
+/// is deliberately omitted (not needed for the comparison, and shipping its bytes would be wasteful).
+#[derive(Serialize)]
+pub struct FileTags {
+    pub artist: Option<String>,
+    pub title: Option<String>,
+    pub label: Option<String>,
+    pub year: Option<i64>,
+    pub genre_joined: Option<String>,
+}
+
+#[tauri::command]
+pub fn track_file_tags(
+    conn: State<'_, Mutex<Connection>>,
+    track_id: i64,
+) -> Result<FileTags, String> {
+    // Path under the lock; the actual file read happens AFTER releasing it (a disk read must not
+    // freeze every other DB user — same split as apply_tags).
+    let path: String = {
+        let conn = conn.lock().map_err(|e| e.to_string())?;
+        conn.query_row("SELECT path FROM tracks WHERE id=?1", rusqlite::params![track_id], |r| r.get(0))
+            .map_err(|_| format!("track {track_id} not found"))?
+    };
+    let snap = crate::tagging::read_tags_full(&path)?;
+    Ok(FileTags {
+        artist: snap.artist,
+        title: snap.title,
+        label: snap.label,
+        year: snap.year,
+        genre_joined: snap.genre_joined,
+    })
+}
+
+/// Apply the edited identity (artist/title) + the track's stored enrichment (label/year/genres/
+/// cover) onto the file's ID3 tags IN PLACE — no encode, no move, no status change. Captures the
+/// OLD tags first and journals them as a revertable `tag_edit` action; returns its batch_id so the
+/// front can offer a targeted undo. Works on ANY file, conformant or not. Mirrors filing's tag
+/// write (`load_tag_extras` + `write_tags_full`) so an Apply and a File write the same tags.
+#[tauri::command]
+pub fn apply_tags(
+    app: AppHandle,
+    conn: State<'_, Mutex<Connection>>,
+    track_id: i64,
+    edited: Canonical,
+) -> Result<String, String> {
+    // (1) Path + the same enrichment fields filing would write — under the lock.
+    let (path, extras) = {
+        let conn = conn.lock().map_err(|e| e.to_string())?;
+        let path: String = conn
+            .query_row("SELECT path FROM tracks WHERE id=?1", rusqlite::params![track_id], |r| r.get(0))
+            .map_err(|_| format!("track {track_id} not found"))?;
+        let extras = filing::load_tag_extras(&conn, track_id);
+        (path, extras)
+    };
+
+    // (2) Snapshot the OLD tags BEFORE writing (lock released — pure file read). Fail-fast if the
+    // file can't be read: nothing has changed yet.
+    let snapshot = crate::tagging::read_tags_full(&path)?;
+
+    // (3) Write the NEW tags: artist/title from the edit, label/year/genres/cover from the DB — the
+    // SAME set filing writes. On failure we stop; nothing is journaled.
+    crate::tagging::write_tags_full(
+        &path,
+        &edited.artist,
+        &edited.title,
+        extras.label.as_deref(),
+        extras.year,
+        &extras.genres,
+        extras.cover_path.as_deref(),
+    )?;
+
+    // (4) Journal the snapshot as a revertable tag_edit (from_path = the file, to_path = NULL). No
+    // status change, no move — the revert just rewrites the old tags back.
+    let meta = serde_json::to_string(&snapshot).map_err(|e| e.to_string())?;
+    let batch_id = filing::new_batch_id(track_id);
+    {
+        let conn = conn.lock().map_err(|e| e.to_string())?;
+        actions::record_with_meta(&conn, &batch_id, Some(track_id), "tag_edit", Some(&path), None, Some(&meta))
+            .map_err(|e| e.to_string())?;
+    }
+    app.emit("queue:changed", ()).ok();
+    Ok(batch_id)
 }
 
 /// File one track into `bin_rel`. `target` overrides the rail default (e.g. force MP3);

@@ -101,6 +101,12 @@ const MIGRATIONS: &[&str] = &[
     );
     CREATE INDEX idx_track_genres_track ON track_genres(track_id);
     "#,
+    // v7 — revertable "Apply ID3 tags": a free-form JSON column on the journal where the
+    // tag_edit action stores the OLD tags captured before the write, so a revert can restore
+    // them. Other action types leave it NULL.
+    r#"
+    ALTER TABLE actions ADD COLUMN meta TEXT;
+    "#,
 ];
 
 /// Applies any migrations the DB hasn't seen yet, tracked via PRAGMA user_version.
@@ -243,5 +249,19 @@ mod tests {
         // settings table exists and is writable
         conn.execute("INSERT INTO settings(key,value) VALUES('k','v')", [])
             .expect("settings table usable");
+    }
+
+    #[test]
+    fn actions_has_v7_meta_column() {
+        let conn = Connection::open_in_memory().unwrap();
+        run_migrations(&conn).unwrap();
+        let acols: Vec<String> = conn
+            .prepare("SELECT name FROM pragma_table_info('actions')")
+            .unwrap()
+            .query_map([], |r| r.get::<_, String>(0))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+        assert!(acols.contains(&"meta".to_string()), "actions missing column meta");
     }
 }

@@ -22,6 +22,7 @@ import type {
   LibraryFilter,
   MetadataEdit,
   TrackRelease,
+  FileTags,
 } from "../shared/contracts";
 
 export const appInfo = (): Promise<AppInfo> => invoke("app_info");
@@ -65,10 +66,20 @@ export const onAnalysisChanged = (cb: () => void): Promise<UnlistenFn> =>
 export const reconcile = (trackId: number): Promise<Canonical> =>
   invoke("reconcile", { trackId });
 
-/** Read-only release facts (label/year) from the persisted `metadata` table. Both null when the
- * track has no metadata row. Fast DB read, no network — used to show label/year on a cold open. */
+/** Read-only release facts (label/year/genres) from the persisted `metadata` table. Fast DB read,
+ * no network — used to show label/year/genres on a cold open. */
 export const trackRelease = (trackId: number): Promise<TrackRelease> =>
   invoke("track_release", { trackId });
+
+/** Read the file's REAL tags once (artist/title/label/year/genre joined). Used in memory to flag
+ * when the displayed identity hasn't been written to the file yet — no per-keystroke disk read. */
+export const trackFileTags = (trackId: number): Promise<FileTags> =>
+  invoke("track_file_tags", { trackId });
+
+/** Write the edited tags onto the file IN PLACE (no move, no encode, no status change). Journaled
+ * as a revertable `tag_edit`; resolves to the new batch_id so the front can offer a targeted undo. */
+export const applyTags = (trackId: number, edited: Canonical): Promise<string> =>
+  invoke("apply_tags", { trackId, edited });
 
 /** File one track into `binRel`. `target` overrides the rail default; `edited` overrides
  * the reconciled metadata with the user's corrections. Resolves to the filed path. */

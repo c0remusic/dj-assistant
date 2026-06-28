@@ -99,7 +99,8 @@ fn file_name_of(path: &str) -> String {
 
 /// A unique batch id: track id + millis + a process-monotonic counter, so two filings of the
 /// same track within the same millisecond (file → undo → re-file) can never share a batch_id.
-fn new_batch_id(track_id: i64) -> String {
+/// Shared with `apply_tags` so a tag-edit batch gets the same collision-free id scheme.
+pub(crate) fn new_batch_id(track_id: i64) -> String {
     use std::sync::atomic::{AtomicU64, Ordering};
     static SEQ: AtomicU64 = AtomicU64::new(0);
     let ms = std::time::SystemTime::now()
@@ -167,6 +168,24 @@ pub struct TagExtras {
     pub cover_path: Option<String>,
 }
 
+/// Load the enrichment tag fields (label, year, genres, cover) for a track from the DB. The single
+/// source of these values for tag writes — used by both `plan_file` (filing) and `apply_tags` (the
+/// in-place ID3 write), so the two write the SAME label/year/genres/cover a track carries.
+pub fn load_tag_extras(conn: &Connection, track_id: i64) -> TagExtras {
+    TagExtras {
+        label: conn
+            .query_row("SELECT label FROM metadata WHERE track_id=?1", params![track_id], |r| r.get::<_, Option<String>>(0))
+            .ok().flatten(),
+        year: conn
+            .query_row("SELECT year FROM metadata WHERE track_id=?1", params![track_id], |r| r.get::<_, Option<i64>>(0))
+            .ok().flatten(),
+        genres: crate::genres::get_genres(conn, track_id).unwrap_or_default(),
+        cover_path: conn
+            .query_row("SELECT cover_path FROM metadata WHERE track_id=?1", params![track_id], |r| r.get::<_, Option<String>>(0))
+            .ok().flatten(),
+    }
+}
+
 /// A filing decided under the DB lock (phase 1), ready to run lock-free (phase 2) and then
 /// be committed under the lock (phase 3). Holding the connection across the multi-second
 /// ffmpeg encode would freeze every other DB user (analysis workers + all IPC); splitting
@@ -184,11 +203,14 @@ pub struct FilePlan {
     extras: TagExtras,
 }
 
-/// One filesystem effect performed in phase 2, to be journaled in phase 3.
+/// One filesystem effect performed in phase 2, to be journaled in phase 3. `meta` carries the
+/// optional JSON payload of the journal's `meta` column — used by the conformant filing's `tag_edit`
+/// row to stash the OLD tags (so a revert can restore them); `None` for the plain move/convert/trash.
 pub struct FsLog {
     kind: &'static str,
     from: String,
     to: String,
+    meta: Option<String>,
 }
 
 /// The string value persisted in `tracks.target_format`.
@@ -251,18 +273,7 @@ pub fn plan_file(
     let ignore_self = if conformant { Some(Path::new(&source)) } else { None };
     let dest = library::ensure_unique(&dest_dir.join(&filename), ignore_self);
 
-    let extras = TagExtras {
-        label: conn
-            .query_row("SELECT label FROM metadata WHERE track_id=?1", params![track_id], |r| r.get::<_, Option<String>>(0))
-            .ok().flatten(),
-        year: conn
-            .query_row("SELECT year FROM metadata WHERE track_id=?1", params![track_id], |r| r.get::<_, Option<i64>>(0))
-            .ok().flatten(),
-        genres: crate::genres::get_genres(conn, track_id).unwrap_or_default(),
-        cover_path: conn
-            .query_row("SELECT cover_path FROM metadata WHERE track_id=?1", params![track_id], |r| r.get::<_, Option<String>>(0))
-            .ok().flatten(),
-    };
+    let extras = load_tag_extras(conn, track_id);
 
     Ok(FilePlan {
         conformant,
@@ -283,14 +294,22 @@ pub fn plan_file(
 pub fn execute_file(plan: &FilePlan) -> Result<Vec<FsLog>, FilingError> {
     let mut log = Vec::new();
     if plan.conformant {
-        // tag in place, then move the single physical file into the bin
+        // A conformant filing tags the file IN PLACE then MOVES it — no trashed original to restore
+        // from. So capture the OLD tags FIRST (fail clear if unreadable — never file without the net),
+        // and journal them as a `tag_edit` row BEFORE the `move`. revert_batch undoes newest-first, so
+        // it reverses the move (file back at `source`) THEN restores the old tags at `source` — the
+        // exact path the tag_edit row points at. Reuses the B4 snapshot/restore mechanism verbatim.
+        let old_tags = tagging::read_tags_full(&plan.source).map_err(FilingError::Tag)?;
+        let snapshot = serde_json::to_string(&old_tags)
+            .map_err(|e| FilingError::Tag(format!("serialize tag snapshot: {e}")))?;
+        log.push(FsLog { kind: "tag_edit", from: plan.source.clone(), to: plan.source.clone(), meta: Some(snapshot) });
         tagging::write_tags_full(
             &plan.source, &plan.canonical.artist, &plan.canonical.title,
             plan.extras.label.as_deref(), plan.extras.year, &plan.extras.genres,
             plan.extras.cover_path.as_deref(),
         ).map_err(FilingError::Tag)?;
         std::fs::rename(&plan.source, &plan.dest).map_err(|e| FilingError::Io(e.to_string()))?;
-        log.push(FsLog { kind: "move", from: plan.source.clone(), to: plan.dest.clone() });
+        log.push(FsLog { kind: "move", from: plan.source.clone(), to: plan.dest.clone(), meta: None });
     } else {
         // transcode into the bin, tag the result, then trash the original (mono-location)
         encode::encode(&plan.source, &plan.dest, plan.target).map_err(|e| match e {
@@ -305,9 +324,9 @@ pub fn execute_file(plan: &FilePlan) -> Result<Vec<FsLog>, FilingError> {
             let _ = std::fs::remove_file(&plan.dest); // drop the orphan transcode
             return Err(FilingError::Tag(e));
         }
-        log.push(FsLog { kind: "convert", from: plan.source.clone(), to: plan.dest.clone() });
+        log.push(FsLog { kind: "convert", from: plan.source.clone(), to: plan.dest.clone(), meta: None });
         match trash_file_fs(&plan.root, plan.track_id, &plan.source) {
-            Ok(trash) => log.push(FsLog { kind: "trash", from: plan.source.clone(), to: trash }),
+            Ok(trash) => log.push(FsLog { kind: "trash", from: plan.source.clone(), to: trash, meta: None }),
             Err(e) => {
                 let _ = std::fs::remove_file(&plan.dest);
                 return Err(e);
@@ -327,6 +346,16 @@ fn rollback_fs(log: &[FsLog]) {
             "convert" => {
                 let _ = std::fs::remove_file(&fs.to);
             }
+            // Conformant filing: undo the in-place tag write by restoring the captured old tags at
+            // `from` (the file is back there — the move row, newer, was reversed just above). Reuses
+            // the B4 restore; best-effort like the rest of this rollback (errors are swallowed).
+            "tag_edit" => {
+                if let Some(meta) = &fs.meta {
+                    if let Ok(snap) = serde_json::from_str::<tagging::TagsSnapshot>(meta) {
+                        let _ = tagging::restore_tags(&fs.from, &snap);
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -340,9 +369,9 @@ pub fn commit_file(conn: &Connection, plan: &FilePlan, log: Vec<FsLog>) -> Resul
         let _ = conn.execute("DELETE FROM actions WHERE batch_id=?1", params![plan.batch_id]);
     };
     for fs in &log {
-        if let Err(e) =
-            actions::record(conn, &plan.batch_id, Some(plan.track_id), fs.kind, Some(&fs.from), Some(&fs.to))
-        {
+        if let Err(e) = actions::record_with_meta(
+            conn, &plan.batch_id, Some(plan.track_id), fs.kind, Some(&fs.from), Some(&fs.to), fs.meta.as_deref(),
+        ) {
             undo(conn);
             return Err(FilingError::Db(e.to_string()));
         }
@@ -554,6 +583,41 @@ mod tests {
         assert_eq!(folder.as_deref(), Some("House"));
         let moves: i64 = conn.query_row("SELECT count(*) FROM actions WHERE type='move' AND undone=0", [], |r| r.get(0)).unwrap();
         assert_eq!(moves, 1);
+    }
+
+    /// Reverting a CONFORMANT filing must remove the Discogs tags FROM THE FILE (restore the old
+    /// ones), not just move the file back — else the file still carries the applied tags and the B9
+    /// "not written" marker would wrongly stay hidden. The conformant filing journals tag_edit+move;
+    /// revert undoes the move (file → source) THEN restores the captured old tags at source.
+    #[test]
+    fn revert_of_conformant_filing_restores_old_file_tags() {
+        let conn = db();
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("lib");
+        std::fs::create_dir_all(root.join("House")).unwrap();
+        let Some((id, src)) = seed_track(&conn, dir.path(), "real_320.mp3", "src.mp3") else {
+            eprintln!("skip: no fixture");
+            return;
+        };
+        // Give the source file KNOWN old tags before filing.
+        crate::tagging::write_tags_full(src.to_str().unwrap(), "OLD Artist", "OLD Title", None, None, &[], None).unwrap();
+
+        let res = file_track(&conn, &root, "{artist} - {title}", id, "House", None, Some(Canonical {
+            artist: "NEW Artist".into(), title: "NEW Title".into(), version: None,
+            confidence: crate::naming::Confidence::Green,
+        })).unwrap();
+        // Filed: file moved into the bin, carrying the NEW tags.
+        let after = crate::tagging::read_tags_full(&res.path).unwrap();
+        assert_eq!(after.artist.as_deref(), Some("NEW Artist"), "filing wrote the new tags");
+
+        // Revert the whole filing batch (move undone, then old tags restored).
+        crate::actions::revert_batch(&conn, &res.batch_id).unwrap();
+
+        assert!(src.exists(), "the file is moved back to its source");
+        assert!(!std::path::Path::new(&res.path).exists(), "nothing left at the bin destination");
+        let restored = crate::tagging::read_tags_full(src.to_str().unwrap()).unwrap();
+        assert_eq!(restored.artist.as_deref(), Some("OLD Artist"), "old file tags restored on revert");
+        assert_eq!(restored.title.as_deref(), Some("OLD Title"));
     }
 
     #[test]

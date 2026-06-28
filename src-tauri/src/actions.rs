@@ -6,8 +6,10 @@
 use rusqlite::{params, Connection};
 use serde::Serialize;
 
-/// A raw action row as loaded for reverting: (id, track_id, type, from_path, to_path).
-type ActionRow = (i64, Option<i64>, String, Option<String>, Option<String>);
+/// A raw action row as loaded for reverting: (id, track_id, type, from_path, to_path, meta).
+/// `meta` is the free-form JSON column (v7): the `tag_edit` action stores its old-tags snapshot
+/// there; every other type leaves it NULL.
+type ActionRow = (i64, Option<i64>, String, Option<String>, Option<String>, Option<String>);
 
 /// Why a revert could not proceed (nothing is changed when this is returned).
 #[derive(Debug, Clone, PartialEq)]
@@ -43,10 +45,24 @@ pub fn record(
     from_path: Option<&str>,
     to_path: Option<&str>,
 ) -> rusqlite::Result<i64> {
+    record_with_meta(conn, batch_id, track_id, kind, from_path, to_path, None)
+}
+
+/// Like `record`, plus the free-form `meta` JSON column (v7). Used by `apply_tags` to stash the
+/// old-tags snapshot a `tag_edit` revert needs. `record` is the thin no-meta wrapper.
+pub fn record_with_meta(
+    conn: &Connection,
+    batch_id: &str,
+    track_id: Option<i64>,
+    kind: &str,
+    from_path: Option<&str>,
+    to_path: Option<&str>,
+    meta: Option<&str>,
+) -> rusqlite::Result<i64> {
     conn.execute(
-        "INSERT INTO actions(track_id, type, from_path, to_path, batch_id)
-         VALUES(?1, ?2, ?3, ?4, ?5)",
-        params![track_id, kind, from_path, to_path, batch_id],
+        "INSERT INTO actions(track_id, type, from_path, to_path, batch_id, meta)
+         VALUES(?1, ?2, ?3, ?4, ?5, ?6)",
+        params![track_id, kind, from_path, to_path, batch_id, meta],
     )?;
     Ok(conn.last_insert_rowid())
 }
@@ -57,6 +73,7 @@ fn revert_one_fs(
     kind: &str,
     from_path: Option<&str>,
     to_path: Option<&str>,
+    meta: Option<&str>,
 ) -> Result<(), RevertError> {
     use std::path::Path;
     match kind {
@@ -88,6 +105,20 @@ fn revert_one_fs(
         }
         // status-only action — nothing on disk to reverse
         "reject" => Ok(()),
+        // the file's tags were rewritten in place (Apply ID3 tags); `from_path` is the file and
+        // `meta` holds the snapshot of the OLD tags captured before the write. Restore them exactly.
+        // Guards: refuse cleanly if the file is gone or the snapshot is missing/corrupt; restore_tags
+        // saves last, so a mid-restore failure leaves the file unchanged.
+        "tag_edit" => {
+            let path = from_path.ok_or_else(|| RevertError::Blocked("tag_edit missing from_path".into()))?;
+            if !Path::new(path).exists() {
+                return Err(RevertError::Blocked(format!("file gone: {path}")));
+            }
+            let meta = meta.ok_or_else(|| RevertError::Blocked("tag_edit missing tag snapshot".into()))?;
+            let snap: crate::tagging::TagsSnapshot = serde_json::from_str(meta)
+                .map_err(|e| RevertError::Blocked(format!("bad tag snapshot: {e}")))?;
+            crate::tagging::restore_tags(path, &snap).map_err(RevertError::Blocked)
+        }
         other => Err(RevertError::Blocked(format!("unknown action type: {other}"))),
     }
 }
@@ -98,12 +129,12 @@ fn revert_one_fs(
 pub fn revert_batch(conn: &Connection, batch_id: &str) -> Result<(), RevertError> {
     // Load this batch's live rows, newest first.
     let mut stmt = conn.prepare(
-        "SELECT id, track_id, type, from_path, to_path FROM actions
+        "SELECT id, track_id, type, from_path, to_path, meta FROM actions
          WHERE batch_id=?1 AND undone=0 ORDER BY id DESC",
     )?;
     let rows: Vec<ActionRow> = stmt
         .query_map(params![batch_id], |r| {
-            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?))
         })?
         .collect::<rusqlite::Result<_>>()?;
     if rows.is_empty() {
@@ -132,8 +163,8 @@ pub fn revert_batch(conn: &Connection, batch_id: &str) -> Result<(), RevertError
     // revert succeeds. This keeps a PARTIAL failure (an FS error on a later row) consistent and
     // RE-TRYABLE: the rows already reverted stay marked undone, so a re-run resumes with only the
     // still-live rows instead of blocking on an already-restored file. Fail-fast on the FS error.
-    for (id, _tid, kind, from_path, to_path) in &rows {
-        if let Err(e) = revert_one_fs(kind, from_path.as_deref(), to_path.as_deref()) {
+    for (id, _tid, kind, from_path, to_path, meta) in &rows {
+        if let Err(e) = revert_one_fs(kind, from_path.as_deref(), to_path.as_deref(), meta.as_deref()) {
             // Surface the underlying FS failure (it carries the OS error string, e.g. Windows
             // "Access is denied. (os error 5)") instead of letting it vanish behind the `?`. The
             // convert step's `remove_file` is the one that strands a `.aiff` next to a restored
@@ -146,18 +177,26 @@ pub fn revert_batch(conn: &Connection, batch_id: &str) -> Result<(), RevertError
         conn.execute("UPDATE actions SET undone=1 WHERE id=?1", params![id])?;
     }
 
-    // Every row reverted: restore the track. Clear the filing-time columns so the re-queued track
-    // carries no stale target/confidence, and drop the metadata row written at filing time so a
-    // later reconcile starts fresh. (analyzed_at is left intact — the file is unchanged, so its
-    // analysis/verdict stay valid and need no recompute.) Note: the embedded tag write done at
-    // filing time is NOT reversed (no tag action is journaled).
+    // Every row reverted: restore the track to pending and clear the filing-time columns so the
+    // re-queued track carries no stale target/confidence. The metadata row (the IDENTIFICATION work:
+    // artist/title/version/label/year/genres/discogs_release_id) is KEPT — reverting a FILING (the
+    // file move/encode) must not throw away the identification. The result is the already-supported
+    // "pending + identified" state (same as an identified-not-yet-filed track), so on reopen the
+    // identity is restored and the B9 "tags not written" marker correctly shows (the file was rolled
+    // back without the Discogs tags). (analyzed_at is left intact — the file is unchanged.)
+    //
+    // A tag_edit-only batch is NOT a filing: it never moved the file nor set 'filed', so reverting it
+    // must touch ONLY the file's tags (done above) — never flip the track to pending. Skip the whole
+    // block for such a batch. (Filing batches still NEVER journal a tag action.)
+    let tag_only = rows.iter().all(|(_, _, kind, _, _, _)| kind.as_str() == "tag_edit");
     if let Some(tid) = track_id {
-        conn.execute(
-            "UPDATE tracks SET status='pending', folder=NULL, target_format=NULL, confidence=NULL
-             WHERE id=?1",
-            params![tid],
-        )?;
-        conn.execute("DELETE FROM metadata WHERE track_id=?1", params![tid])?;
+        if !tag_only {
+            conn.execute(
+                "UPDATE tracks SET status='pending', folder=NULL, target_format=NULL, confidence=NULL
+                 WHERE id=?1",
+                params![tid],
+            )?;
+        }
     }
     Ok(())
 }
@@ -263,7 +302,7 @@ mod tests {
         let to = dir.path().join("bin/orig.mp3");
         std::fs::create_dir_all(to.parent().unwrap()).unwrap();
         std::fs::write(&to, b"x").unwrap(); // currently at destination
-        revert_one_fs("move", Some(from.to_str().unwrap()), Some(to.to_str().unwrap())).unwrap();
+        revert_one_fs("move", Some(from.to_str().unwrap()), Some(to.to_str().unwrap()), None).unwrap();
         assert!(from.exists() && !to.exists());
     }
 
@@ -275,7 +314,7 @@ mod tests {
         std::fs::create_dir_all(to.parent().unwrap()).unwrap();
         std::fs::write(&from, b"old").unwrap(); // origin already taken → must not overwrite
         std::fs::write(&to, b"new").unwrap();
-        let err = revert_one_fs("move", Some(from.to_str().unwrap()), Some(to.to_str().unwrap()));
+        let err = revert_one_fs("move", Some(from.to_str().unwrap()), Some(to.to_str().unwrap()), None);
         assert!(matches!(err, Err(RevertError::Blocked(_))));
         assert!(to.exists()); // nothing moved
     }
@@ -285,13 +324,73 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let converted = dir.path().join("out.aiff");
         std::fs::write(&converted, b"x").unwrap();
-        revert_one_fs("convert", Some("/orig.flac"), Some(converted.to_str().unwrap())).unwrap();
+        revert_one_fs("convert", Some("/orig.flac"), Some(converted.to_str().unwrap()), None).unwrap();
         assert!(!converted.exists());
     }
 
     #[test]
     fn revert_reject_is_noop() {
-        assert!(revert_one_fs("reject", None, None).is_ok());
+        assert!(revert_one_fs("reject", None, None, None).is_ok());
+    }
+
+    fn fixture(name: &str) -> Option<String> {
+        let p = format!("fixtures/{name}");
+        if Path::new(&p).exists() {
+            Some(p)
+        } else {
+            None
+        }
+    }
+
+    /// The judge of the whole feature: applying then reverting a `tag_edit` must restore the file's
+    /// original tags EXACTLY, while leaving the track's status and metadata row untouched (a tag edit
+    /// is not a filing — it never moved the file nor set 'filed').
+    #[test]
+    fn revert_tag_edit_restores_tags_without_touching_status_or_metadata() {
+        let Some(src) = fixture("real_320.mp3") else {
+            eprintln!("skip: no fixture");
+            return;
+        };
+        let conn = db();
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("track.mp3");
+        std::fs::copy(&src, &file).unwrap();
+        let path = file.to_str().unwrap();
+
+        // A PENDING track with a metadata row — both must survive a tag_edit revert.
+        conn.execute("INSERT INTO tracks(path, status) VALUES(?1, 'pending')", params![path]).unwrap();
+        let tid = conn.last_insert_rowid();
+        conn.execute(
+            "INSERT INTO metadata(track_id, artist, title) VALUES(?1, 'orig-a', 'orig-t')",
+            params![tid],
+        )
+        .unwrap();
+
+        // Capture old tags, apply new ones, journal the snapshot as a tag_edit (as apply_tags does).
+        let before = crate::tagging::read_tags_full(path).unwrap();
+        crate::tagging::write_tags_full(path, "NEW A", "NEW T", Some("NEW L"), Some(2030), &["Acid".to_string()], None).unwrap();
+        let meta = serde_json::to_string(&before).unwrap();
+        record_with_meta(&conn, "tg", Some(tid), "tag_edit", Some(path), None, Some(&meta)).unwrap();
+
+        revert_batch(&conn, "tg").unwrap();
+
+        // Tags restored to the original snapshot, exactly.
+        assert_eq!(crate::tagging::read_tags_full(path).unwrap(), before);
+        // Status and metadata row untouched.
+        let status: String = conn.query_row("SELECT status FROM tracks WHERE id=?1", params![tid], |r| r.get(0)).unwrap();
+        assert_eq!(status, "pending", "a tag_edit revert must not change status");
+        let meta_rows: i64 = conn.query_row("SELECT count(*) FROM metadata WHERE track_id=?1", params![tid], |r| r.get(0)).unwrap();
+        assert_eq!(meta_rows, 1, "a tag_edit revert must not drop metadata");
+        // Row marked undone.
+        let live: i64 = conn.query_row("SELECT count(*) FROM actions WHERE batch_id='tg' AND undone=0", [], |r| r.get(0)).unwrap();
+        assert_eq!(live, 0);
+    }
+
+    #[test]
+    fn revert_tag_edit_blocked_when_file_gone() {
+        // Missing file → Blocked, nothing changes (the snapshot can't be applied to a vanished file).
+        let err = revert_one_fs("tag_edit", Some("/no/such/file.mp3"), None, Some("{}"));
+        assert!(matches!(err, Err(RevertError::Blocked(_))));
     }
 
     /// Insert a filed track + its convert/move batch, with the file physically at `to`.
@@ -385,7 +484,7 @@ mod tests {
         assert!(!converted.exists(), "converted file must be deleted");
         assert!(!trashed.exists(), "trashed original must have been moved back");
 
-        // Track back to pending, filing columns cleared, metadata dropped, all rows undone.
+        // Track back to pending, filing columns cleared, metadata PRESERVED, all rows undone.
         let (status, folder, tf, cf): (String, Option<String>, Option<String>, Option<String>) = conn
             .query_row(
                 "SELECT status, folder, target_format, confidence FROM tracks WHERE id=?1",
@@ -397,10 +496,17 @@ mod tests {
         assert_eq!(folder, None);
         assert_eq!(tf, None);
         assert_eq!(cf, None);
-        let meta: i64 = conn
-            .query_row("SELECT count(*) FROM metadata WHERE track_id=?1", params![track_id], |r| r.get(0))
+        // Reverting a FILING must NOT erase the identification: the metadata row survives so the
+        // track comes back "pending + identified" (no need to re-fetch Discogs).
+        let (meta, artist): (i64, Option<String>) = conn
+            .query_row(
+                "SELECT count(*), max(artist) FROM metadata WHERE track_id=?1",
+                params![track_id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
             .unwrap();
-        assert_eq!(meta, 0, "metadata dropped on revert");
+        assert_eq!(meta, 1, "metadata identity preserved on a filing revert");
+        assert_eq!(artist.as_deref(), Some("A"), "the identified artist survives the revert");
         let live: i64 = conn
             .query_row("SELECT count(*) FROM actions WHERE batch_id='bc' AND undone=0", [], |r| r.get(0))
             .unwrap();

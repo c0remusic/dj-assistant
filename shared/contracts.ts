@@ -158,7 +158,7 @@ export interface EcarteItem {
 export interface JournalEntry {
   batch_id: string;
   track_id: number | null;
-  kind: "convert" | "move" | "trash" | "reject";
+  kind: "convert" | "move" | "trash" | "reject" | "tag_edit";
   to_path: string | null;
   ts: string;
 }
@@ -198,7 +198,22 @@ export interface TrackRelease {
   label: string | null;
   year: number | null;
   cover_path: string | null;
+  /** The track's sub-genres in stored order — the same list write_tags_full joins into the file's
+   * Genre field. Shown on open; the joined form feeds the file-vs-display discrepancy check. */
+  genres: string[];
   identified: boolean;
+}
+
+/** The file's REAL tag values (the fields write_tags_full owns), read once on open via
+ * `track_file_tags`. Compared IN MEMORY against the displayed identity to flag tags not yet written
+ * to the file (no per-keystroke disk read). `genre_joined` is the single Genre field exactly as the
+ * file holds it (write_tags_full's joined "A; B" form). Mirror of Rust `ipc_filing::FileTags`. */
+export interface FileTags {
+  artist: string | null;
+  title: string | null;
+  label: string | null;
+  year: number | null;
+  genre_joined: string | null;
 }
 
 export interface LibraryFolder { name: string; count: number; }

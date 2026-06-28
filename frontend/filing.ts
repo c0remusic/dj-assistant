@@ -16,13 +16,15 @@ import {
   setSetting,
   undoLast,
   revertBatch,
+  applyTags,
   findDuplicate,
   identify,
   applyIdentity,
   trackRelease,
+  trackFileTags,
 } from "./ipc";
 import type { Candidate, AppliedIdentity } from "./ipc";
-import type { DupMatch, TrackRelease } from "../shared/contracts";
+import type { DupMatch, TrackRelease, FileTags } from "../shared/contracts";
 import { open } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { openReportInto, togglePlay, vchipHtml } from "./report-view";
@@ -66,6 +68,13 @@ interface RevueState {
   // from `releaseCache` on open, or set from `applied` on identify; null = unknown (no display).
   label: string | null;
   year: number | null;
+  // The would-write sub-genres for the open track (DB track_genres order), shown in .sift-genres and
+  // compared (joined) against the file. Set on open from track_release, or from `applied.styles`.
+  genres: string[];
+  // The file's REAL tags, snapshotted ONCE on open (and re-read after an Apply/File). The marker
+  // compares the displayed identity to THIS in-memory snapshot — never a per-keystroke disk read.
+  // null until the open-time read resolves.
+  fileTags: FileTags | null;
   // After a Detail-mode filing, the just-filed track's batch_id + bin label → drives the
   // persistent "Filed ↩" confirmation in #mid (targeted revert via the journal). Null = none up.
   filedConfirm: { batchId: string; bin: string } | null;
@@ -84,6 +93,8 @@ const state: RevueState = {
   rail: "unknown",
   label: null,
   year: null,
+  genres: [],
+  fileTags: null,
   filedConfirm: null,
 };
 
@@ -411,6 +422,60 @@ function refreshReleaseLine(): void {
     `<span>${value}</span></div>`;
 }
 
+/** Render the genre chips into `.sift-genres` from `state.genres` (single source — set on open from
+ *  track_release, or from `applied.styles` on identify). Empty list → empty box (no chips). */
+function renderGenres(): void {
+  const el = document.querySelector<HTMLElement>(".sift-genres");
+  if (!el) return; // editor not mounted
+  el.innerHTML = state.genres
+    .map((s) => `<span class="sift-genre-chip" title="Discogs sub-genres">${esc(s)}</span>`)
+    .join("");
+}
+
+/** Join genres EXACTLY like write_tags_full (trim, drop empties, "A; B"), so the comparison against
+ *  the file's single Genre field is like-for-like. */
+const joinGenres = (g: string[]): string => g.map((s) => s.trim()).filter(Boolean).join("; ");
+
+/** Which displayed tag fields would CHANGE the file if written — i.e. diverge from `state.fileTags`.
+ *  Mirrors write_tags_full's semantics: artist/title are ALWAYS written (compare directly), while
+ *  label/year/genres are only written when non-empty (an empty would-write never clears the file, so
+ *  it is NOT a discrepancy). All comparison is in memory against the on-open snapshot — no disk read. */
+function tagFieldDiffs(): { artist: boolean; title: boolean; label: boolean; year: boolean; genres: boolean; any: boolean } {
+  const f = state.fileTags;
+  const c = state.canonical;
+  const none = { artist: false, title: false, label: false, year: false, genres: false, any: false };
+  if (!f || !c) return none; // snapshot not loaded yet → show nothing rather than a false alarm
+  const norm = (s: string | null | undefined): string => (s ?? "").trim();
+  const artist = norm(c.artist) !== norm(f.artist);
+  const title = norm(c.title) !== norm(f.title);
+  const labelW = norm(state.label);
+  const label = labelW !== "" && labelW !== norm(f.label);
+  const yearW = state.year ?? 0;
+  const year = yearW > 0 && yearW !== (f.year ?? 0);
+  const genresW = joinGenres(state.genres);
+  const genres = genresW !== "" && genresW !== norm(f.genre_joined);
+  return { artist, title, label, year, genres, any: artist || title || label || year || genres };
+}
+
+/** Show/hide the "tags not written" banner and mark the diverging fields. Cheap (a few
+ *  querySelectors + class toggles) — safe to call on open, on each field edit, and after Apply/File.
+ *  Reads `state.fileTags` (the cached snapshot), never the disk. */
+function refreshDiscrepancy(): void {
+  const editor = document.querySelector<HTMLElement>(".sift-fil-editor");
+  if (!editor) return;
+  const d = tagFieldDiffs();
+  const banner = editor.querySelector<HTMLElement>(".sift-tag-warn");
+  // Visibility via display ONLY (the banner has no `hidden` attribute — that conflicted with an
+  // inline display and kept it stuck on). flex when there's a discrepancy, none otherwise.
+  if (banner) banner.style.display = d.any ? "flex" : "none";
+  const mark = (sel: string, on: boolean) =>
+    editor.querySelector<HTMLElement>(sel)?.classList.toggle("sift-tag-stale", on);
+  mark('[data-fil="artist"]', d.artist);
+  mark('[data-fil="title"]', d.title);
+  mark(".sift-release", d.label || d.year);
+  mark(".sift-genres", d.genres);
+}
+
 /** Apply an identity result to the editing fields + filename preview.
  * [C3] `host` + `allCandidates` are kept so we can show a "changer" confirmation row
  * instead of dead-ending (no new API call needed — re-renders from in-memory list). */
@@ -478,14 +543,10 @@ function onIdentityApplied(
     }
   }
 
-  // [m11] Render genre/style chips with tooltip so they read as informational Discogs sub-genres.
-  // .sift-genres lives in the center editor host now, so query `editor` rather than the #mid pane.
-  const genEl = editor.querySelector<HTMLElement>(".sift-genres");
-  if (genEl) {
-    genEl.innerHTML = applied.styles
-      .map((s) => `<span class="sift-genre-chip" title="Discogs sub-genres">${esc(s)}</span>`)
-      .join("");
-  }
+  // [m11] Genres: store the would-write list (single source) and render the chips. The list also
+  // feeds the file-vs-display discrepancy check (joined form), so it must live in state, not only DOM.
+  state.genres = applied.styles;
+  renderGenres();
 
   // [C3] Collapse candidate zone to a confirmation row + "changer" link (no dead-end).
   // Re-labelling the Identifier button to "Ré-identifier" is also handled here.
@@ -502,6 +563,11 @@ function onIdentityApplied(
 
   // [C1] Relabel Identifier → Ré-identifier once an identity has been applied.
   idBtn.innerHTML = '<i class="ti ti-refresh" style="font-size:var(--text-sm);vertical-align:-1px"></i> Re-identify';
+
+  // The displayed identity just changed while the FILE keeps its old tags → surface the gap, and
+  // reset the Apply button (a prior "Appliqué ✓" no longer reflects this new identity).
+  resetApplyButton(editor);
+  refreshDiscrepancy();
 }
 
 /** Markup for the "Identified: artist — title" confirmation line (cover thumb + "change" button).
@@ -728,7 +794,14 @@ function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string): void {
     // refreshReleaseLine() below from state; stays empty (no gap) when neither value is known.
     `<div class="sift-release"></div>` +
     `<div class="col-h" style="margin-bottom:4px">Genres</div>` +
-    `<div class="sift-genres" style="margin-bottom:10px;min-height:1px"></div>`;
+    `<div class="sift-genres" style="margin-bottom:10px;min-height:1px"></div>` +
+    // Apply ID3 tags: write these fields onto the file in place (no move, no encode, no 'filed'
+    // change), revertable. Distinct from File (rail) — a neutral secondary button in the editor.
+    `<button data-fil="applytags" style="width:100%;font-size:var(--text-sm);color:var(--color-text-secondary)" title="Write these tags into the file in place — no move, no encode, fully revertable"><i class="ti ti-tag" style="font-size:var(--text-md);vertical-align:-2px"></i> Apply ID3 tags</button>` +
+    // Discrepancy banner — sits JUST BELOW Apply. Hidden by default via inline display:none; the LONE
+    // visibility mechanism is refreshDiscrepancy toggling style.display (no `hidden`+display conflict).
+    // Look lives in .sift-tag-warn (styles.css). Shown only when the display diverges from the file.
+    `<div class="sift-tag-warn" style="display:none"><i class="ti ti-alert-triangle" style="font-size:var(--text-md);flex:none"></i><span>Tags non écrits dans le fichier — <strong>File</strong> ou <strong>Apply</strong> pour les graver</span></div>`;
 
   const upd = () => {
     const a = host.querySelector<HTMLInputElement>('[data-fil="artist"]');
@@ -740,6 +813,7 @@ function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string): void {
     state.canonical.version = v?.value.trim() ? v.value.trim() : null;
     refreshPreview();
     updateHeaderName(mid); // keep the report header's clean name in sync with edits
+    refreshDiscrepancy(); // editing a field may make the display diverge from the file (or re-converge)
   };
   host
     .querySelectorAll<HTMLInputElement>('[data-fil="artist"],[data-fil="title"],[data-fil="version"]')
@@ -751,11 +825,96 @@ function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string): void {
     idBtn.addEventListener("click", () => void doIdentify(idBtn, candsHost, host, mid));
   }
 
+  const applyBtn = host.querySelector<HTMLButtonElement>('[data-fil="applytags"]');
+  if (applyBtn) setApplyIdle(applyBtn); // idle on every fresh render; doApplyTags flips it to "applied"
+
   refreshReleaseLine(); // read-only Label · Année from state (restored from cache on open); empty when none
 }
 
-/** A transient toast at the bottom-right with an optional "Annuler" action. */
-function toast(message: string, undo: boolean): void {
+// Apply-button state machine. ONE button toggles between "Apply ID3 tags" (writes the file) and
+// "Appliqué ✓ — Annuler" (reverts the batch just written). `onclick` is reassigned (not
+// addEventListener) so a toggle never stacks handlers.
+const APPLY_IDLE_HTML =
+  '<i class="ti ti-tag" style="font-size:var(--text-md);vertical-align:-2px"></i> Apply ID3 tags';
+
+/** Put the Apply button in its idle "write" state. */
+function setApplyIdle(btn: HTMLButtonElement): void {
+  btn.disabled = false;
+  btn.style.color = "var(--color-text-secondary)";
+  btn.innerHTML = APPLY_IDLE_HTML;
+  btn.onclick = () => void doApplyTags(btn);
+}
+
+/** Put the Apply button in its "applied — click to undo" state (the whole button reverts `batchId`). */
+function setApplyApplied(btn: HTMLButtonElement, batchId: string): void {
+  btn.disabled = false;
+  btn.style.color = "var(--color-text-success)";
+  btn.innerHTML =
+    '<i class="ti ti-circle-check" style="font-size:var(--text-md);vertical-align:-2px"></i> Appliqué ✓ — <span style="text-decoration:underline">Annuler</span>';
+  btn.onclick = () => void doUndoApply(btn, batchId);
+}
+
+/** Reset a possibly-"applied" Apply button back to idle (e.g. when the identity changes under it). */
+function resetApplyButton(scope: HTMLElement): void {
+  const btn = scope.querySelector<HTMLButtonElement>('[data-fil="applytags"]');
+  if (btn) setApplyIdle(btn);
+}
+
+/** Write the current edited tags onto the file in place (apply_tags). On success the file matches
+ *  the display, so re-snapshot to clear the marker and flip the button to "Appliqué ✓ — Annuler".
+ *  No move/encode/status change — works on any file. openSeq-guarded: a later open never repaints
+ *  this track's state/UI. */
+async function doApplyTags(btn: HTMLButtonElement): Promise<void> {
+  if (!state.track || !state.canonical) return;
+  const trackId = state.track.id;
+  const edited = state.canonical;
+  const myseq = openSeq;
+  btn.disabled = true;
+  btn.innerHTML =
+    '<i class="ti ti-loader-2 sift-spin" style="font-size:var(--text-md);vertical-align:-2px"></i> Applying…';
+  try {
+    const batchId = await applyTags(trackId, edited);
+    const snap = await trackFileTags(trackId); // file changed → refresh the in-memory snapshot
+    if (myseq !== openSeq) return; // another track opened meanwhile — leave its state/UI alone
+    state.fileTags = snap;
+    refreshDiscrepancy(); // file == display now → marker clears
+    setApplyApplied(btn, batchId);
+  } catch (e) {
+    console.error("apply_tags failed", e);
+    toast("Échec de l'écriture des tags", false);
+    if (myseq === openSeq) setApplyIdle(btn);
+  }
+}
+
+/** Undo the just-applied tag write (targeted revert of its batch). The file returns to its old tags
+ *  → re-snapshot → the marker reappears and the button returns to idle. openSeq-guarded. */
+async function doUndoApply(btn: HTMLButtonElement, batchId: string): Promise<void> {
+  const trackId = state.track?.id;
+  const myseq = openSeq;
+  btn.disabled = true;
+  btn.innerHTML =
+    '<i class="ti ti-loader-2 sift-spin" style="font-size:var(--text-md);vertical-align:-2px"></i> Annulation…';
+  try {
+    await revertBatch(batchId);
+    if (trackId != null) {
+      const snap = await trackFileTags(trackId);
+      if (myseq !== openSeq) return;
+      state.fileTags = snap;
+    }
+    if (myseq !== openSeq) return;
+    refreshDiscrepancy(); // file back to old tags → display diverges again → marker reappears
+    setApplyIdle(btn);
+  } catch (e) {
+    console.error("revert tag_edit failed", e);
+    toast("Revert impossible", false);
+    if (myseq === openSeq) setApplyApplied(btn, batchId); // stay applied so the user can retry
+  }
+}
+
+/** A transient toast at the bottom-right with an optional "Undo" action. With `onUndo` the Undo
+ *  button runs that callback (e.g. a targeted revert of a specific batch); without it, Undo falls
+ *  back to `undoLast` (the LIFO most-recent action) and clears the detail pane. */
+function toast(message: string, undo: boolean, onUndo?: () => void): void {
   document.getElementById("sift-toast")?.remove();
   const el = document.createElement("div");
   el.id = "sift-toast";
@@ -769,6 +928,10 @@ function toast(message: string, undo: boolean): void {
   document.body.appendChild(el);
   el.querySelector('[data-fil="undo"]')?.addEventListener("click", () => {
     el.remove();
+    if (onUndo) {
+      onUndo(); // targeted revert (e.g. revertBatch of THIS tag_edit) — pane stays as-is
+      return;
+    }
     void undoLast()
       .then(() => {
         // the just-filed track is back in the queue — clear the stale detail pane
@@ -938,6 +1101,8 @@ function clearPane(mid: HTMLElement): void {
   state.target = null;
   state.label = null;
   state.year = null;
+  state.genres = [];
+  state.fileTags = null;
   state.filedConfirm = null;
   mid.innerHTML =
     '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--color-text-tertiary);font-size:var(--text-md);padding:20px;text-align:center">Select a track in the queue to listen and file it.</div>';
@@ -1028,9 +1193,10 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
     if (slot) slot.innerHTML = dupBanner(m);
   });
 
-  // Analysis report, metadata reconcile, and the persisted release facts are independent DB reads —
-  // run them in parallel so the footer renders as soon as they complete rather than sequentially.
-  const [, canonical, release] = await Promise.all([
+  // Analysis report, metadata reconcile, the persisted release facts, and the file's REAL tags are
+  // independent reads — run them in parallel so the footer renders as soon as they complete. The
+  // file-tags read is the ONE disk read for the discrepancy marker (cached after; never per-keystroke).
+  const [, canonical, release, fileTags] = await Promise.all([
     openReportInto(reportEl, item.path),
     reconcile(item.id).catch((e): Canonical => {
       console.error("reconcile failed", e);
@@ -1038,7 +1204,13 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
     }),
     trackRelease(item.id).catch((e): TrackRelease => {
       console.error("track_release failed", e);
-      return { artist: null, title: null, version: null, label: null, year: null, cover_path: null, identified: false };
+      return { artist: null, title: null, version: null, label: null, year: null, cover_path: null, genres: [], identified: false };
+    }),
+    // On failure: leave fileTags null (no marker) and log it — never assert a discrepancy we could
+    // not measure (no silent false alarm).
+    trackFileTags(item.id).catch((e): FileTags | null => {
+      console.error("track_file_tags failed", e);
+      return null;
     }),
   ]);
   if (myseq !== openSeq) return; // a newer open started while we awaited — don't paint this track
@@ -1065,6 +1237,10 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
   // its identity + label/year back. Keep the cache in sync so later re-opens stay synchronous.
   state.label = release.label;
   state.year = release.year;
+  // Would-write genres (shown in .sift-genres, compared joined) + the file's real-tags snapshot,
+  // both cached here for the in-memory discrepancy check. fileTags may be null (read failed → no marker).
+  state.genres = release.genres;
+  state.fileTags = fileTags;
   releaseCache.set(item.id, { label: release.label, year: release.year });
   // Tidy the casing of a version parsed from a (often lowercase) filename: "original mix"
   // → "Original Mix". Title/artist are left as reconciled.
@@ -1086,6 +1262,8 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
   if (release.identified && state.canonical) {
     restoreIdentifiedLine(editorEl, mid, state.canonical.artist, state.canonical.title, release.cover_path);
   }
+  renderGenres(); // fill .sift-genres from state.genres (also shows genres on reopen, not just fresh fetch)
+  refreshDiscrepancy(); // flag the marker if the file's tags differ from the displayed identity
   updateHeaderName(mid); // show the clean proposed name in the report header
 
   // Verdict-panel chip (board: LOSSLESS · MATCH · UNIQUE): append UNIQUE by default, DUPLICATE

@@ -149,3 +149,11 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-text-info)}
 .sift-spin{animation:sift-spin .7s linear infinite;display:inline-block}
 .sift-genres{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;margin-bottom:4px}
 .sift-genre-chip{font-size:11px;padding:2px 8px;border-radius:999px;background:rgba(59,125,240,.12);color:var(--color-text-info);cursor:default}
+/* "Tags not written to the file" banner, shown just below Apply. Look only — visibility is driven
+   solely by inline display (none ↔ flex) in refreshDiscrepancy, never the `hidden` attribute. Amber
+   (warning) tokens — the SAME "attention / to handle" language as the duplicate marker. */
+.sift-tag-warn{align-items:center;gap:7px;margin-top:6px;padding:6px 9px;border-radius:var(--border-radius-md);background:var(--color-background-warning);border:1px solid var(--color-text-warning);color:var(--color-text-warning);font-size:var(--text-sm)}
+/* Field whose displayed value is NOT yet written to the file (see refreshDiscrepancy): desaturated +
+   italic + a SOLID amber border (no dashes), using warning tokens. !important overrides the inputs'
+   inline border. */
+.sift-tag-stale{font-style:italic;filter:saturate(.55);border:1px solid var(--color-text-warning)!important;background:var(--color-background-warning)!important;border-radius:var(--border-radius-md)!important;padding:3px 5px}
