@@ -371,9 +371,9 @@ function refreshFootButton(): void {
   if (btn) btn.textContent = binLabel();
 }
 
-/** Re-sync the center filename preview from the current canonical + target. The preview lives in
- *  the center editor while the format chips live in the rail, so a format change in the rail must
- *  refresh this node (the extension follows state.target). Probe non-throw: the editor may be gone. */
+/** Re-sync the filename preview from the current canonical + target. The preview lives in the rail
+ *  (#filfoot) right below the format chips, so a format change or a field edit must refresh this
+ *  node (the extension follows state.target). Probe non-throw: the rail may be gone. */
 function refreshPreview(): void {
   const prev = document.querySelector<HTMLElement>(".sift-fil-prev");
   if (prev) prev.textContent = `→ ${previewName()}`;
@@ -648,10 +648,14 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
     ? '<button data-fil="resource" style="width:100%;color:var(--color-text-warning)" title="Fake file — goes to Discarded (⌫)"><span class="kbd">⌫</span> <i class="ti ti-alert-triangle" style="font-size:var(--text-md);vertical-align:-2px"></i> Re-source</button>'
     : '<button data-fil="trash" style="width:100%;color:var(--color-text-danger)" title="Send to trash (⌫)"><span class="kbd">⌫</span> <i class="ti ti-trash" style="font-size:var(--text-md);vertical-align:-2px"></i> Discard</button>';
 
-  // The rail keeps the system.md stack tail: FORMAT → CTA (File) → secondary (Discard/Re-source).
+  // The rail keeps the system.md stack tail: FORMAT → Final name → CTA (File) → secondary. The
+  // filename preview sits right above File so you see the name about to be produced next to the
+  // action that produces it. Rebuilt inside this innerHTML so a format-chip re-render keeps it.
   foot.innerHTML =
     `<div class="col-h" style="margin-bottom:4px">Format</div>` +
     `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px">${chips}</div>` +
+    `<div class="col-h" style="margin-bottom:4px">Final name</div>` +
+    `<div class="sift-fil-prev" style="font-size:var(--text-xs);color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;line-height:1.5;margin-bottom:12px">→ ${esc(previewName())}</div>` +
     `<button data-fil="ranger" style="width:100%;background:var(--color-background-info);color:var(--color-text-info);border:none;font-weight:500;margin-bottom:6px"><i class="ti ti-corner-down-left" style="font-size:var(--text-md);vertical-align:-2px"></i> File → <span class="sift-fil-bin">${esc(binLabel())}</span> <span class="kbd">⏎</span></button>` +
     secondary;
   if (filedBanner) foot.append(filedBanner); // restore the banner below the freshly-rendered controls
@@ -660,7 +664,7 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
     el.addEventListener("click", () => {
       state.target = (el.dataset.t as Target) || null;
       renderFoot(foot, mid, rail);
-      refreshPreview(); // the chosen format sets the filename extension shown in the center preview
+      refreshPreview(); // the chosen format sets the filename extension shown in the rail preview
     }),
   );
 
@@ -675,9 +679,9 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
     ?.addEventListener("click", () => void doSecondary(mid, "trash"));
 }
 
-/** Render the center metadata editor (Identify + editable fields + final-name preview + genres)
- *  into `host`, below the analysis report. Moved out of the rail (`renderFoot`) so the fields that
- *  change the cover/name sit next to them. One-shot innerHTML — called once per track open, not on a
+/** Render the center metadata editor (Identify + editable fields + genres) into `host`, below the
+ *  analysis report. The final-name preview lives in the rail (`renderFoot`) next to the File button;
+ *  this pane ends with genres. One-shot innerHTML — called once per track open, not on a
  *  burst event, so create-once/update-in-place is not required here. `rail` is accepted for symmetry
  *  with renderFoot; the editor itself is format-agnostic (the extension comes from state.target). */
 function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string): void {
@@ -700,8 +704,9 @@ function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string): void {
   // [C1] "Fetch metadata from Discogs" is the primary entry point (gold filled), above the inputs.
   // [C2] title= explains what it does; the kbd hint shows the I shortcut.
   // Vertical order: pick the Discogs release FIRST (badge → Fetch → candidates), then edit the
-  // fields it populates (artist/title/version → Genres directly under Version), then the Final name
-  // preview. `.sift-cands` sits above the inputs so choosing a release precedes editing.
+  // fields it populates (artist/title/version → Genres directly under Version). The Final name
+  // preview moved to the rail (next to File). `.sift-cands` sits above the inputs so choosing a
+  // release precedes editing.
   host.innerHTML =
     `<div class="col-h" style="margin-bottom:6px">Métadonnées</div>` +
     `<div style="margin-bottom:8px">${badge}</div>` +
@@ -716,9 +721,7 @@ function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string): void {
     // refreshReleaseLine() below from state; stays empty (no gap) when neither value is known.
     `<div class="sift-release"></div>` +
     `<div class="col-h" style="margin-bottom:4px">Genres</div>` +
-    `<div class="sift-genres" style="margin-bottom:10px;min-height:1px"></div>` +
-    `<div class="col-h" style="margin-bottom:4px">Final name</div>` +
-    `<div class="sift-fil-prev" style="font-size:var(--text-xs);color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;line-height:1.5;margin-bottom:10px">→ ${esc(previewName())}</div>`;
+    `<div class="sift-genres" style="margin-bottom:10px;min-height:1px"></div>`;
 
   const upd = () => {
     const a = host.querySelector<HTMLInputElement>('[data-fil="artist"]');
