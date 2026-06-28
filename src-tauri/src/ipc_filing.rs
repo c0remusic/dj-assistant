@@ -18,7 +18,7 @@ use crate::filing::{self, BatchResult, FileResult, RejectBatchResult};
 use crate::library::{self, Bin};
 use crate::naming::Canonical;
 use crate::settings;
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension};
 use serde::Serialize;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -52,6 +52,62 @@ fn template(conn: &Connection) -> String {
 pub fn reconcile(conn: State<'_, Mutex<Connection>>, track_id: i64) -> Result<Canonical, String> {
     let conn = conn.lock().map_err(|e| e.to_string())?;
     filing::reconcile_track(&conn, track_id).map_err(|e| e.to_string())
+}
+
+/// Read-only identity + release facts persisted by `apply_identity` in the `metadata` table.
+/// `identified` is true when a Discogs release was chosen (`discogs_release_id` not NULL) — the
+/// front then trusts `artist`/`title` here over what `reconcile` recomputes from the file tags
+/// (which are untouched until filing). All fields are NULL / `identified:false` when there is no
+/// metadata row yet. Fast DB read under the lock, NO network. Deliberately a sibling of `reconcile`
+/// rather than folded into `Canonical` (the filename/tag contract): `version` is the remix/dub split
+/// off the chosen Discogs title and persisted in `metadata.version` by `apply_identity`, so the
+/// picked release survives a reopen; the front falls back to reconcile's version when it is NULL.
+#[derive(Serialize)]
+pub struct TrackRelease {
+    pub artist: Option<String>,
+    pub title: Option<String>,
+    pub version: Option<String>,
+    pub label: Option<String>,
+    pub year: Option<i64>,
+    pub cover_path: Option<String>,
+    pub identified: bool,
+}
+
+#[tauri::command]
+pub fn track_release(
+    conn: State<'_, Mutex<Connection>>,
+    track_id: i64,
+) -> Result<TrackRelease, String> {
+    let conn = conn.lock().map_err(|e| e.to_string())?;
+    conn.query_row(
+        "SELECT artist, title, version, label, year, cover_path, discogs_release_id FROM metadata WHERE track_id=?1",
+        rusqlite::params![track_id],
+        |r| {
+            let discogs_release_id: Option<String> = r.get(6)?;
+            Ok(TrackRelease {
+                artist: r.get(0)?,
+                title: r.get(1)?,
+                version: r.get(2)?,
+                label: r.get(3)?,
+                year: r.get(4)?,
+                cover_path: r.get(5)?,
+                identified: discogs_release_id.is_some(),
+            })
+        },
+    )
+    .optional()
+    .map_err(|e| e.to_string())
+    .map(|opt| {
+        opt.unwrap_or(TrackRelease {
+            artist: None,
+            title: None,
+            version: None,
+            label: None,
+            year: None,
+            cover_path: None,
+            identified: false,
+        })
+    })
 }
 
 /// File one track into `bin_rel`. `target` overrides the rail default (e.g. force MP3);

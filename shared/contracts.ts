@@ -184,6 +184,23 @@ export interface LibraryTrack {
   folder: string | null;
 }
 
+/** Read-only identity + release facts for a track, from the persisted `metadata` table. Mirror of
+ * Rust `ipc_filing::TrackRelease`. `identified` = a Discogs release was chosen → the front trusts
+ * `artist`/`title` here over reconcile (which recomputes from the still-untouched file tags). All
+ * null / `identified:false` when there is no metadata row. `version` is the remix/dub split off the
+ * chosen Discogs title and persisted in the `metadata.version` column, so the picked release survives
+ * a close+reopen; the front falls back to reconcile's version when it is null. NOT folded into
+ * `Canonical`. */
+export interface TrackRelease {
+  artist: string | null;
+  title: string | null;
+  version: string | null;
+  label: string | null;
+  year: number | null;
+  cover_path: string | null;
+  identified: boolean;
+}
+
 export interface LibraryFolder { name: string; count: number; }
 export interface LibraryFacets { folders: LibraryFolder[]; genres: LibraryFolder[]; }
 

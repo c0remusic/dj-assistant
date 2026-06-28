@@ -21,6 +21,7 @@ import type {
   LibraryFacets,
   LibraryFilter,
   MetadataEdit,
+  TrackRelease,
 } from "../shared/contracts";
 
 export const appInfo = (): Promise<AppInfo> => invoke("app_info");
@@ -63,6 +64,11 @@ export const onAnalysisChanged = (cb: () => void): Promise<UnlistenFn> =>
 /** Reconcile a track's tags + filename into the canonical record + confidence. */
 export const reconcile = (trackId: number): Promise<Canonical> =>
   invoke("reconcile", { trackId });
+
+/** Read-only release facts (label/year) from the persisted `metadata` table. Both null when the
+ * track has no metadata row. Fast DB read, no network — used to show label/year on a cold open. */
+export const trackRelease = (trackId: number): Promise<TrackRelease> =>
+  invoke("track_release", { trackId });
 
 /** File one track into `binRel`. `target` overrides the rail default; `edited` overrides
  * the reconciled metadata with the user's corrections. Resolves to the filed path. */

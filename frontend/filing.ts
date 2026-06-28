@@ -19,9 +19,10 @@ import {
   findDuplicate,
   identify,
   applyIdentity,
+  trackRelease,
 } from "./ipc";
 import type { Candidate, AppliedIdentity } from "./ipc";
-import type { DupMatch } from "../shared/contracts";
+import type { DupMatch, TrackRelease } from "../shared/contracts";
 import { open } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { openReportInto, togglePlay, vchipHtml } from "./report-view";
@@ -56,6 +57,11 @@ interface RevueState {
   track: QueueItem | null; // currently open track
   canonical: Canonical | null; // reconciled (then user-edited) metadata
   target: Target | null; // format override (null = backend rail default)
+  // Read-only Discogs release facts for the open track. NOT part of Canonical (which drives the
+  // filename/tags and is a Rust-mirrored contract) — kept here so the editor can show them. Loaded
+  // from `releaseCache` on open, or set from `applied` on identify; null = unknown (no display).
+  label: string | null;
+  year: number | null;
   // After a Detail-mode filing, the just-filed track's batch_id + bin label → drives the
   // persistent "Filed ↩" confirmation in #mid (targeted revert via the journal). Null = none up.
   filedConfirm: { batchId: string; bin: string } | null;
@@ -71,6 +77,8 @@ const state: RevueState = {
   track: null,
   canonical: null,
   target: null,
+  label: null,
+  year: null,
   filedConfirm: null,
 };
 
@@ -371,6 +379,31 @@ function refreshPreview(): void {
   if (prev) prev.textContent = `→ ${previewName()}`;
 }
 
+// Per-track Discogs release facts (label/year), captured when an identity is applied so they
+// survive a close+reopen of the SAME track within the session. `reconcile` (the only open-time
+// read) doesn't return label/year, and re-reading would need a new IPC — so we hold them in memory.
+// Keyed by track id. Cross-session reopen won't repopulate this (a fresh process starts empty).
+const releaseCache = new Map<number, { label: string | null; year: number | null }>();
+
+/** Fill (or clear) the read-only "Label · Année" line from state.label/year. Shows only what
+ *  exists — nothing at all when both are absent (no empty "—"). Mutates a stable `.sift-release`
+ *  container (create-once), so an identify can refresh it without re-rendering the whole editor. */
+function refreshReleaseLine(): void {
+  const el = document.querySelector<HTMLElement>(".sift-release");
+  if (!el) return; // editor not mounted (navigated away)
+  const label = state.label && state.label.trim() ? state.label.trim() : null;
+  const year = state.year != null ? String(state.year) : null;
+  if (!label && !year) {
+    el.innerHTML = "";
+    return;
+  }
+  const value = [label, year].filter(Boolean).map((s) => esc(s as string)).join(" · ");
+  el.innerHTML =
+    `<div style="display:flex;align-items:center;gap:6px;font-size:var(--text-sm);color:var(--color-text-secondary);margin-bottom:10px">` +
+    `<i class="ti ti-tag" style="font-size:var(--text-md);color:var(--color-text-tertiary)" title="Release (Discogs)"></i>` +
+    `<span>${value}</span></div>`;
+}
+
 /** Apply an identity result to the editing fields + filename preview.
  * [C3] `host` + `allCandidates` are kept so we can show a "changer" confirmation row
  * instead of dead-ending (no new API call needed — re-renders from in-memory list). */
@@ -408,6 +441,14 @@ function onIdentityApplied(
   refreshPreview();
   updateHeaderName(mid);
 
+  // Read-only release facts from the chosen Discogs release. Cache them on the track so a
+  // close+reopen within the session re-shows them (reconcile doesn't carry label/year). Choosing a
+  // different candidate re-enters here with the new release → the line updates in place.
+  state.label = applied.label;
+  state.year = applied.year;
+  if (state.track) releaseCache.set(state.track.id, { label: applied.label, year: applied.year });
+  refreshReleaseLine();
+
   // Verdict-panel MATCH chip — qualitative (the backend has no % score): green confidence reads
   // as a confident MATCH, yellow as CHECK MATCH. Replaces any prior MATCH chip on re-identify.
   const vchips = mid.querySelector<HTMLElement>(".sift-vchips");
@@ -441,18 +482,8 @@ function onIdentityApplied(
 
   // [C3] Collapse candidate zone to a confirmation row + "changer" link (no dead-end).
   // Re-labelling the Identifier button to "Ré-identifier" is also handled here.
-  const coverThumb = applied.cover_path
-    ? `<img src="${esc(convertFileSrc(applied.cover_path))}" alt="" style="width:28px;height:28px;border-radius:3px;object-fit:cover;flex:none">`
-    : `<span style="width:28px;height:28px;border-radius:3px;background:var(--color-background-secondary);display:inline-flex;align-items:center;justify-content:center;flex:none"><i class="ti ti-vinyl" style="font-size:var(--text-lg);color:var(--color-text-tertiary)"></i></span>`;
   host.hidden = false;
-  host.innerHTML =
-    `<div style="display:flex;align-items:center;gap:7px;padding:4px 2px">` +
-    coverThumb +
-    `<span style="flex:1;min-width:0;font-size:var(--text-md);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">` +
-    `<span style="color:var(--color-text-secondary)">Identified:</span> ${esc(applied.canonical.artist)} — ${esc(applied.canonical.title)}` +
-    `</span>` +
-    `<button class="sift-cand-jump" data-fil="cand-changer" style="font-size:var(--text-sm);padding:2px 8px;flex:none">change</button>` +
-    `</div>`;
+  host.innerHTML = identifiedLineHtml(applied.canonical.artist, applied.canonical.title, applied.cover_path);
 
   const changerBtn = host.querySelector<HTMLElement>('[data-fil="cand-changer"]');
   changerBtn?.addEventListener("click", () => {
@@ -464,6 +495,49 @@ function onIdentityApplied(
 
   // [C1] Relabel Identifier → Ré-identifier once an identity has been applied.
   idBtn.innerHTML = '<i class="ti ti-refresh" style="font-size:var(--text-sm);vertical-align:-1px"></i> Re-identify';
+}
+
+/** Markup for the "Identified: artist — title" confirmation line (cover thumb + "change" button).
+ *  Single source of truth, reused by a fresh fetch (onIdentityApplied) and by the reopen of an
+ *  already-identified track (restoreIdentifiedLine) so both render identically. */
+function identifiedLineHtml(artist: string, title: string, coverPath: string | null): string {
+  const coverThumb = coverPath
+    ? `<img src="${esc(convertFileSrc(coverPath))}" alt="" style="width:28px;height:28px;border-radius:3px;object-fit:cover;flex:none">`
+    : `<span style="width:28px;height:28px;border-radius:3px;background:var(--color-background-secondary);display:inline-flex;align-items:center;justify-content:center;flex:none"><i class="ti ti-vinyl" style="font-size:var(--text-lg);color:var(--color-text-tertiary)"></i></span>`;
+  return (
+    `<div style="display:flex;align-items:center;gap:7px;padding:4px 2px">` +
+    coverThumb +
+    `<span style="flex:1;min-width:0;font-size:var(--text-md);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">` +
+    `<span style="color:var(--color-text-secondary)">Identified:</span> ${esc(artist)} — ${esc(title)}` +
+    `</span>` +
+    `<button class="sift-cand-jump" data-fil="cand-changer" style="font-size:var(--text-sm);padding:2px 8px;flex:none">change</button>` +
+    `</div>`
+  );
+}
+
+/** On (re)open of an already-identified track (track_release.identified), show the "Identified" line
+ *  in place of the bare Fetch button — same markup as a fresh fetch, rebuilt from `metadata` (cover
+ *  included), ZERO network. The original candidate list is gone after a close / cold start, so here
+ *  "change" re-runs a Discogs fetch (Antoine's call) rather than re-showing a list we no longer have.
+ *  `editor` is the center editor host; `.sift-cands` + the Identifier button live inside it. */
+function restoreIdentifiedLine(
+  editor: HTMLElement,
+  mid: HTMLElement,
+  artist: string,
+  title: string,
+  coverPath: string | null,
+): void {
+  const host = editor.querySelector<HTMLElement>(".sift-cands");
+  const idBtn = editor.querySelector<HTMLButtonElement>('[data-fil="identifier"]');
+  if (!host || !idBtn) return;
+  host.hidden = false;
+  host.innerHTML = identifiedLineHtml(artist, title, coverPath);
+  // [C1] Match the post-fetch state: the primary button reads "Re-identify".
+  idBtn.innerHTML = '<i class="ti ti-refresh" style="font-size:var(--text-sm);vertical-align:-1px"></i> Re-identify';
+  // Cold-start "change": the original candidates aren't in memory → re-run a Discogs fetch.
+  host.querySelector<HTMLElement>('[data-fil="cand-changer"]')?.addEventListener("click", () => {
+    void doIdentify(idBtn, host, editor, mid);
+  });
 }
 
 /** Wire clicks on rendered candidate buttons.
@@ -638,6 +712,9 @@ function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string): void {
     `<input data-fil="title" placeholder="Title" value="${esc(c.title)}" style="${inputCss}">` +
     `<input data-fil="version" placeholder="Version" value="${esc(c.version ?? "")}" style="${inputCss}">` +
     `</div>` +
+    // Read-only release facts (Label · Année) between the editable identity and Genres. Filled by
+    // refreshReleaseLine() below from state; stays empty (no gap) when neither value is known.
+    `<div class="sift-release"></div>` +
     `<div class="col-h" style="margin-bottom:4px">Genres</div>` +
     `<div class="sift-genres" style="margin-bottom:10px;min-height:1px"></div>` +
     `<div class="col-h" style="margin-bottom:4px">Final name</div>` +
@@ -663,6 +740,8 @@ function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string): void {
   if (idBtn && candsHost) {
     idBtn.addEventListener("click", () => void doIdentify(idBtn, candsHost, host, mid));
   }
+
+  refreshReleaseLine(); // read-only Label · Année from state (restored from cache on open); empty when none
 }
 
 /** A transient toast at the bottom-right with an optional "Annuler" action. */
@@ -847,6 +926,8 @@ function clearPane(mid: HTMLElement): void {
   state.track = null;
   state.canonical = null;
   state.target = null;
+  state.label = null;
+  state.year = null;
   state.filedConfirm = null;
   mid.innerHTML =
     '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--color-text-tertiary);font-size:var(--text-md);padding:20px;text-align:center">Select a track in the queue to listen and file it.</div>';
@@ -903,6 +984,12 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
   state.track = item;
   state.target = null;
   state.canonical = null;
+  // Seed read-only release facts SYNCHRONOUSLY from the session cache (set on a prior identify this
+  // session) so a re-open paints label/year with no flash. The persisted `metadata` table is the
+  // source of truth and is read below (trackRelease) — it primes the cold-start case (cache empty).
+  const cachedRelease = releaseCache.get(item.id);
+  state.label = cachedRelease?.label ?? null;
+  state.year = cachedRelease?.year ?? null;
   state.filedConfirm = null; // opening a track dismisses any "Filed ↩" confirmation
 
   mid.innerHTML =
@@ -931,18 +1018,44 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
     if (slot) slot.innerHTML = dupBanner(m);
   });
 
-  // Analysis report and metadata reconcile are independent DB reads — run them in
-  // parallel so the footer renders as soon as both complete rather than sequentially.
-  const [, canonical] = await Promise.all([
+  // Analysis report, metadata reconcile, and the persisted release facts are independent DB reads —
+  // run them in parallel so the footer renders as soon as they complete rather than sequentially.
+  const [, canonical, release] = await Promise.all([
     openReportInto(reportEl, item.path),
     reconcile(item.id).catch((e): Canonical => {
       console.error("reconcile failed", e);
       return { artist: "", title: "", version: null, confidence: "yellow" };
     }),
+    trackRelease(item.id).catch((e): TrackRelease => {
+      console.error("track_release failed", e);
+      return { artist: null, title: null, version: null, label: null, year: null, cover_path: null, identified: false };
+    }),
   ]);
-  if (myseq !== openSeq) return;
+  if (myseq !== openSeq) return; // a newer open started while we awaited — don't paint this track
 
-  state.canonical = canonical;
+  // When a Discogs identity was applied earlier but not yet filed, the file tags still hold the OLD
+  // name, so reconcile (which reads those tags) would wipe the chosen identity on reopen. Trust the
+  // persisted metadata instead: artist/title from `metadata`, confidence green (a validated Discogs
+  // match), and version kept from reconcile (the filename — metadata has no version column and
+  // Discogs has no version field). Not identified → reconcile stays the source, as before.
+  state.canonical =
+    release.identified && release.artist && release.title
+      ? {
+          artist: release.artist,
+          title: release.title,
+          // Prefer the remix/dub stored when the release was chosen; fall back to reconcile's
+          // filename-parsed version (metadata has none for that track, e.g. a Discogs title with
+          // no parenthetical but a "(Dub)" filename).
+          version: release.version ?? canonical.version,
+          confidence: "green",
+        }
+      : canonical;
+  // The persisted `metadata` table is the source of truth for label/year (the session cache above
+  // was only a flash-avoiding seed). Cold start: this is where an identified-not-filed track gets
+  // its identity + label/year back. Keep the cache in sync so later re-opens stay synchronous.
+  state.label = release.label;
+  state.year = release.year;
+  releaseCache.set(item.id, { label: release.label, year: release.year });
   // Tidy the casing of a version parsed from a (often lowercase) filename: "original mix"
   // → "Original Mix". Title/artist are left as reconciled.
   if (state.canonical.version) state.canonical.version = titleCase(state.canonical.version);
@@ -954,7 +1067,14 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
   else if (["mp3", "m4a", "aac", "ogg"].includes(ext)) rail = "lossy";
 
   renderFoot(footEl, mid, rail);
-  renderEditor(requireEl<HTMLElement>(".sift-fil-editor", "openFilingInto", mid), mid, rail);
+  const editorEl = requireEl<HTMLElement>(".sift-fil-editor", "openFilingInto", mid);
+  renderEditor(editorEl, mid, rail);
+  // Already-identified track → show the "Identified" line (cover + release) in place of the bare
+  // Fetch button, rebuilt from metadata (no network). Runs inside the openSeq-guarded section above,
+  // so a superseded open never paints this onto the wrong track.
+  if (release.identified && state.canonical) {
+    restoreIdentifiedLine(editorEl, mid, state.canonical.artist, state.canonical.title, release.cover_path);
+  }
   updateHeaderName(mid); // show the clean proposed name in the report header
 
   // Verdict-panel chip (board: LOSSLESS · MATCH · UNIQUE): append UNIQUE by default, DUPLICATE

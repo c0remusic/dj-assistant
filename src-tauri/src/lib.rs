@@ -76,6 +76,7 @@ pub fn run() {
             ipc::open_url,
             ipc::playback_url,
             ipc_filing::reconcile,
+            ipc_filing::track_release,
             ipc_filing::file_track,
             ipc_filing::file_batch,
             ipc_filing::file_cancel,

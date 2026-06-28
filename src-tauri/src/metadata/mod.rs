@@ -77,6 +77,26 @@ pub struct AppliedIdentity {
     pub cover_path: Option<String>,
 }
 
+/// Split a trailing "(Version)" group off a Discogs title:
+/// `"Love Foolosophy (Knee Deep Remix)"` → `("Love Foolosophy", Some("Knee Deep Remix"))`.
+/// Returns `(trimmed title, None)` when there is no clean trailing parenthetical (no group, nested
+/// parens, or an empty base). Mirrors the front's display-time split so a stored title and a
+/// freshly-fetched one render the same base + version — this is what makes the chosen remix survive
+/// a close+reopen (the file tags still hold the old name until filing).
+fn split_title_version(title: &str) -> (String, Option<String>) {
+    let t = title.trim();
+    if t.ends_with(')') {
+        if let Some(open) = t.rfind('(') {
+            let inner = &t[open + 1..t.len() - 1];
+            let base = t[..open].trim();
+            if !inner.is_empty() && !inner.contains('(') && !inner.contains(')') && !base.is_empty() {
+                return (base.to_string(), Some(inner.trim().to_string()));
+            }
+        }
+    }
+    (t.to_string(), None)
+}
+
 /// Persist a chosen candidate for `track_id`: upsert the single-value fields into `metadata`,
 /// replace the track's sub-genres, and (when provided) record the downloaded cover path. The
 /// cover download itself happens in the command layer (network); this fn is pure DB so it is
@@ -87,14 +107,18 @@ pub fn apply_identity(
     c: &Candidate,
     cover_path: Option<String>,
 ) -> rusqlite::Result<AppliedIdentity> {
+    // Store the clean base title + the extracted remix/dub in the `version` column, so a reopen
+    // reads back the chosen identity (the file tags still hold the old name until filing). The
+    // returned canonical keeps the FULL title — the front splits it for its live display.
+    let (base_title, version) = split_title_version(&c.title);
     conn.execute(
-        "INSERT INTO metadata(track_id, artist, title, label, year, cover_path, discogs_release_id, source)
-         VALUES(?1,?2,?3,?4,?5,?6,?7,?8)
+        "INSERT INTO metadata(track_id, artist, title, version, label, year, cover_path, discogs_release_id, source)
+         VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9)
          ON CONFLICT(track_id) DO UPDATE SET
-            artist=excluded.artist, title=excluded.title, label=excluded.label,
-            year=excluded.year, cover_path=excluded.cover_path,
+            artist=excluded.artist, title=excluded.title, version=excluded.version,
+            label=excluded.label, year=excluded.year, cover_path=excluded.cover_path,
             discogs_release_id=excluded.discogs_release_id, source=excluded.source",
-        params![track_id, c.artist, c.title, c.label, c.year, cover_path, c.release_id, c.source],
+        params![track_id, c.artist, base_title, version, c.label, c.year, cover_path, c.release_id, c.source],
     )?;
     crate::genres::set_genres(conn, track_id, &c.styles)?;
     if cover_path.is_some() {
@@ -199,6 +223,32 @@ mod tests {
         other.styles = vec!["Techno".into()];
         apply_identity(&conn, 1, &other, None).unwrap();
         assert_eq!(crate::genres::get_genres(&conn, 1).unwrap(), vec!["Techno".to_string()]);
+    }
+
+    #[test]
+    fn split_title_version_extracts_trailing_paren() {
+        assert_eq!(
+            split_title_version("Love Foolosophy (Knee Deep Remix)"),
+            ("Love Foolosophy".to_string(), Some("Knee Deep Remix".to_string())),
+        );
+        assert_eq!(split_title_version("Mystery of Love"), ("Mystery of Love".to_string(), None));
+        // Empty base (the whole title is the parenthetical) → no split.
+        assert_eq!(split_title_version("(Instrumental)"), ("(Instrumental)".to_string(), None));
+    }
+
+    #[test]
+    fn apply_persists_base_title_and_version() {
+        let conn = db();
+        let mut c = sample();
+        c.title = "Can You Feel It (Larry Heard Remix)".into();
+        apply_identity(&conn, 1, &c, None).unwrap();
+        let (title, version): (String, Option<String>) = conn
+            .query_row("SELECT title, version FROM metadata WHERE track_id=1", [], |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })
+            .unwrap();
+        assert_eq!(title, "Can You Feel It");
+        assert_eq!(version.as_deref(), Some("Larry Heard Remix"));
     }
 
     #[test]
