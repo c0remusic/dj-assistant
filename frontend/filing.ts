@@ -57,6 +57,10 @@ interface RevueState {
   track: QueueItem | null; // currently open track
   canonical: Canonical | null; // reconciled (then user-edited) metadata
   target: Target | null; // format override (null = backend rail default)
+  // Analysed rail of the open track ("lossless" | "lossy" | "unknown"), set in openFilingInto. The
+  // single source for the default format when target is null — used by BOTH the lit chip and the
+  // Final-name preview (defaultTarget) so they never disagree on open.
+  rail: string;
   // Read-only Discogs release facts for the open track. NOT part of Canonical (which drives the
   // filename/tags and is a Rust-mirrored contract) — kept here so the editor can show them. Loaded
   // from `releaseCache` on open, or set from `applied` on identify; null = unknown (no display).
@@ -77,6 +81,7 @@ const state: RevueState = {
   track: null,
   canonical: null,
   target: null,
+  rail: "unknown",
   label: null,
   year: null,
   filedConfirm: null,
@@ -335,7 +340,9 @@ function previewName(): string {
   const c = state.canonical;
   if (!c) return "";
   const ver = c.version && c.version.trim() ? ` (${c.version.trim()})` : "";
-  const ext = targetExt(state.target ?? "mp3_320");
+  // Same default as the lit format chip (renderFoot): state.target when set, else defaultTarget(rail).
+  // A hard-coded "mp3_320" here made an AIFF-source preview show ".mp3" while the AIFF chip was lit.
+  const ext = targetExt(state.target ?? defaultTarget(state.rail));
   return `${c.artist} - ${c.title}${ver}.${ext}`;
 }
 
@@ -1068,6 +1075,7 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
   let rail = "unknown";
   if (["flac", "wav", "aif", "aiff", "alac"].includes(ext)) rail = "lossless";
   else if (["mp3", "m4a", "aac", "ogg"].includes(ext)) rail = "lossy";
+  state.rail = rail; // so previewName/refreshPreview default the extension like the lit chip does
 
   renderFoot(footEl, mid, rail);
   const editorEl = requireEl<HTMLElement>(".sift-fil-editor", "openFilingInto", mid);
