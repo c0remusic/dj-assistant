@@ -35,9 +35,9 @@ dépendances (F). Chaque étape = testable + commitable seule. Un chantier à la
   (display only), PAS éditables. Raison : le choix de la RELEASE parmi les candidats Discogs fixe déjà
   le bon label/année (pressage original vs réédition) → éditer serait redondant. → vraiment 2 lignes
   front, zéro Rust, zéro extension de Canonical.
-- **B3. "Final name" à droite** (= 1.1). Déplacer le preview centre→rail, refreshPreview suit.
-  Maquette d'abord. APRÈS B2 (le label/année peut changer ce que le rail affiche).
-  → B1+B2+B3 pensés ENSEMBLE, commités séparément. Réponse directe aux microfix.
+- **B3. ✅ FAIT + TESTÉ + commité — "Final name" déplacé au centre→rail, entre Format et File.**
+  refreshPreview trouve toujours .sift-fil-prev (querySelector global). renderFoot le reconstruit dans
+  son innerHTML (survit au clic de format). Commentaires stale corrigés.
 - **B4. Action "Apply ID3 tags" (NOUVELLE, revertable).** Besoin Antoine : corriger les métadonnées
   d'un fichier SANS le filer — écrire les tags ID3 (artiste/titre/label/année/genre/pochette depuis
   Discogs ou champs édités) SUR PLACE, sans encode, sans déplacement, sans changement de statut
@@ -77,6 +77,40 @@ dépendances (F). Chaque étape = testable + commitable seule. Un chantier à la
   file"). B8 = rendre ce verrou OPTIONNEL : NEVER UPSCALE (défaut actuel, chips lossless grisées/lock
   pour un mp3) vs UPSCALE (autorise quand même). Cohérent ADN Sift (pas de faux lossless). Distinct
   de B7 (B7 = bug, B8 = feature). À cadrer plus tard.
+- **B4. ✅ FONDATION FAITE (non commitée) — action "Apply ID3 tags" revertable.** Migration v7
+  (actions.meta TEXT) ; tagging.rs read_tags_full + restore_tags (inverse fidèle SET-ou-REMOVE, vide
+  restauré vide) ; actions.rs record_with_meta + branche revert "tag_edit" ; ipc_filing apply_tags
+  (snapshot fichier AVANT write — ipc_filing.rs:137, prouvé correct) ; UI bouton + toast Undo.
+  Claude Code a DÉVIÉ du prompt à raison : write_tags_full ne peut pas vider un champ → il a créé
+  restore_tags. Cover stockée en bytes dans le JSON meta (auto-contenu, pas de side-file).
+  PROBLÈME RÉVÉLÉ AU TEST (→ B9) : la confirmation/undo via toast n'est pas claire, ET surtout
+  l'affichage à la réouverture montre l'identité Discogs (B5/B6) alors que le FICHIER ne la contient
+  pas encore → l'utilisateur croit à tort que c'est appliqué. B4 ne se commite PAS seul : il faut B9.
+  À FAIRE sur B4 même : déplacer Undo/confirmation sur le bouton Apply lui-même (pas un toast séparé).
+- **B9. Marqueur "tags non écrits dans le fichier" (Philosophie 2, décidé 28/06).** PROBLÈME : depuis
+  B5/B6 l'identité Discogs se réaffiche à la réouverture, MAIS le fichier garde ses vieux tags jusqu'au
+  File/Apply (apply_identity n'écrit QU'EN base — mod.rs:90, prouvé). L'écran ment donc sur l'état du
+  fichier → crainte Antoine "l'utilisateur croit que c'est appliqué". SOLUTION = garder l'identité
+  affichée MAIS marqueur d'écart fort. DÉCISIONS : (1) FORCE = niveau B = bandeau "non écrit" + champs
+  DÉSATURÉS/italique/bordure pointillée ambre (l'œil voit l'écart sans lire ; le bandeau seul = niveau
+  A = insuffisant, rejeté). (2) DÉTECTION = Détection 1 = comparer les VRAIS tags du fichier
+  (read_tags_full, déjà codé en B4) à l'identité affichée — PAS un flag de statut (Détection 2 rejetée
+  car elle ment au cas re-fetch-après-Apply, exactement ce qu'Antoine veut éviter). Le marqueur
+  s'actualise à TOUT changement : disparaît au File/Apply (fichier rattrape), réapparaît si on édite/
+  re-fetch. PERF : lire le fichier UNE fois à l'ouverture (snapshot mémoire), puis comparer l'affichage
+  courant à ce snapshot mémoire à chaque édition — NE PAS relire le disque à chaque frappe.
+- **B10. ✅ FAIT + TESTÉ + à commiter — Revert d'un filing CONFORME retire les tags écrits.** PROBLÈME prouvé :
+  le filing conforme (execute_file, filing.rs:293-299) fait write_tags_full PUIS move, et journalise
+  un "move". Le revert d'un "move" ne défait QUE le déplacement → les tags Discogs restent collés dans
+  le fichier après revert. Du coup à la réouverture du morceau reverté, fichier==affichage → pas de
+  marqueur jaune → l'utilisateur croit à tort que c'est appliqué. (Le non-conforme est déjà propre :
+  le revert restaure l'original depuis le trash, qui n'a jamais eu les tags.) DÉCISION ANTOINE : revert
+  d'un filing = les infos Discogs quittent le fichier → champs JAUNES à la réouverture. MÉCANIQUE
+  (laissée à Claude Code) : réutiliser le snapshot/restauration de tags de B4 — le filing conforme
+  capture les anciens tags AVANT write_tags_full et les journalise pour que le revert les restaure
+  (approche probable : journaliser tag_edit + move, le revert existant défait les deux dans l'ordre
+  move puis tag_edit). Ne concerne QUE le conforme. Ferme la boucle B4/B9/B10 : identité préservée au
+  revert (B9 metadata gardée) MAIS tags retirés du fichier (B10) → marqueur jaune honnête.
 
 ## CHANTIER TRANSVERSAL — TAGS CDJ-SAFE (lié au checker CDJ F3)
 DÉCLENCHEUR (Antoine, à propos de B4) : "s'assurer que les tags écrits soient compatibles CDJ".
