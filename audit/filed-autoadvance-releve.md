@@ -745,3 +745,120 @@ séparé docs(audit): étape 2 placement + chantier convergence batch + idée na
 - étape 3 (file_track mono détaché façon file_batch) : noté.
 - checker CDJ : chantier majeur, après.
 - naming + descripteur accolé : phase promo, pas à chaud.
+
+
+---
+
+## CONCURRENTS / CHECKER — comparatif prouvé par le code (corrige une explication antérieure fausse)
+
+### CORRECTION IMPORTANTE : Sift fait DÉJÀ la fake-detection spectrale
+Lecture du code (src-tauri/src/analysis/verdict.rs + worker.rs) : Sift analyse l'AUDIO, pas
+seulement le format déclaré. Mon comparatif marketing antérieur ("MLD analyse l'audio, Sift juge le
+format déclaré") était FAUX. verdict.rs est dédié à la détection de fraude par cutoff spectral :
+- mesure cutoff_hz réel (où le spectre s'arrête) — stocké en base (worker.rs:75).
+- LOSSLESS déclaré (FLAC/AIFF/WAV) : cutoff ≥ 20000 Hz (LOSSLESS_OK_HZ) → authentique ; cutoff bas
+  → FAKE lossless (MP3 ré-encapsulé) ; entre les deux → zone grise.
+- LOSSY déclaré : table du cutoff minimum attendu par bitrate (320→19000, 256→18000, 192→16500,
+  160→15500, 128→14500). Déclaré 320 qui coupe à 16k → transcodé up depuis source pourrie → fraude.
+- MP3 honnêtement bas (128 coupant à 14.5k) reste Ok (pas puni d'être un vrai 128).
+- AUTRES mesures déjà calculées et stockées : clip_runs, clip_pct, true_peak_dbtp, dc_offset,
+  phase_correlation, dual_mono, truncated, silence_head/tail_ms, container_ok, codec_error,
+  id3_version, has_cover, tags_cdj_ok, spectrogram, peaks. (worker.rs persist_report)
+→ La question d'Antoine (départager bons/mauvais rips vinyl) a DÉJÀ une réponse dans Sift : un
+mauvais rip / transcode qui coupe bas est flaggé par verdict.rs. Améliorations possibles : (1) mieux
+EXPOSER le verdict + le spectre à l'utilisateur (MLD montre un graphe par morceau + score 1–10 ;
+vérifier ce que Sift affiche réellement aujourd'hui) ; (2) affiner les seuils (déjà reconfigurables,
+"Réglages M2b+" verdict.rs:14).
+
+### Music Library Doctor (musiclibrarydoctor.com) — concurrent sérieux
+Fait : Track Matcher (import playlists Spotify/YouTube Music → Rekordbox/Serato/VirtualDJ, complète
+les manquants) ; score qualité FFT 1–10 + fake-320/fake-FLAC avec graphe spectral par morceau ;
+scan doublons par empreinte Chromaprint (même enregistrement à travers MP3/FLAC/AIFF, bitrates,
+renommages, tags sales) ; Folder Library mode (sans logiciel DJ) ; Sound Recognition (identifie +
+renomme fichiers mal nommés) ; Smart Source Upgrade (remplace fichiers usés). Intégration NATIVE :
+lit master.db Rekordbox (déchiffré), crates Serato, .vdjfolder VirtualDJ — pas d'export XML. ADN
+sécurité ~ Sift : rien supprimé auto, copies → corbeille, on approuve chaque suppression, revert.
+Prix : free tier (scan complet + conversion playlists gratuite à vie) ; lifetime ~29$ founding ;
+mensuel 4.99$. Local-first, Mac+Windows. Très orienté SEO (100+ guides sur codes/erreurs/migrations).
+LIGNE DE PARTAGE RÉELLE Sift vs MLD (après lecture code, PAS sur la qualité — les 2 la font) :
+- MLD travaille DANS les bases des logiciels DJ ; Sift sur les fichiers + son arbre → c'est l'onglet
+  REKORDBOX de Sift (prévu, pas codé). Antoine a raison : Q3 (bases DJ) = chantier Rekordbox.
+- MLD a doublons par empreinte Chromaprint sur TOUTE la biblio ; Sift a doublons dans la QUEUE
+  (nom/sound-confirmed), pas l'empreinte cross-format sur la biblio → c'est le chantier BIBLIOTHÈQUE
+  (prévu). Antoine a raison : Q2 (doublons biblio) = chantier bibliothèque.
+- MLD importe Spotify/YouTube → HORS ADN Sift, ne pas suivre.
+- DIFFÉRENCIATEUR SIFT QUI RESTE LIBRE : check CDJ PHYSIQUE (32-bit float, en-tête EXTENSIBLE
+  0xFFFE, E-8305, multicanal, sample rate hors 44.1/48). MLD vérifie la QUALITÉ de l'audio (fake),
+  PAS la COMPATIBILITÉ hardware du conteneur. tags_cdj_ok + container_ok existent déjà dans le report
+  Sift → base déjà là pour pousser ce différenciateur.
+
+### Vinyl Rip Quality Checker (vinyl-rip-quality-checker.hub2.day) — PAS un concurrent, complément
+N'analyse AUCUN fichier. Checklist MANUELLE/humaine EN AMONT de la capture : on coche Pass/Fail/Skip
+à la main pendant qu'on rippe un vinyle, résumé imprimable, données dans le navigateur, no tracking.
+Couvre : stylet (propreté, force de lecture, anti-skate), préampli phono + gain staging (pics ~ -6
+dB, zéro = clipping irréversible), sample rate ≥ 44.1/16-bit, format (lossless d'abord, MP3 = copie
+seulement JAMAIS le master), passe d'écoute complète (wow/flutter, sibilance, balance L/R). 3 tiers
+matériel (budget/mid/audiophile). Affiliation Amazon (préamplis/styli).
+POSITION : prévention à la CAPTURE (bien ripper) — l'autre bout de la chaîne que Sift/MLD (détecter
+après coup). Entièrement complémentaire. Sa doctrine format = celle de Sift (lossless master, MP3
+copie). Ce qu'il demande à l'humain de vérifier à l'oreille (clipping, gain), Sift le DÉTECTE déjà
+sur le fichier (clip_runs/clip_pct/true_peak_dbtp).
+
+### CARTOGRAPHIE 3 positions sur la même chaîne
+1. Vinyl Rip Checker = AVANT/pendant la capture, manuel, humain (bien ripper).
+2. Sift + MLD = APRÈS, automatique, sur le fichier (détecter raté/faux).
+   Dans cette catégorie : qualité spectrale (Sift ET MLD) | bases DJ + doublons acoustiques (MLD =
+   chantiers biblio + Rekordbox de Sift) | check CDJ physique (territoire LIBRE de Sift).
+STATUT : aucune action immédiate. Confirme la roadmap existante (biblio, Rekordbox, checker CDJ).
+Ne PAS dévier de "filer sur place" (prompt prêt) comme prochain code.
+
+
+---
+
+## CHANTIER VINYLE — mesures de qualité de rip (cadré, NON codé, À REVOIR)
+
+⚠️ STATUT INCERTAIN : Antoine n'est PAS sûr de vouloir ce chantier. Exploration/cadrage seulement,
+à reconsidérer entièrement avant tout engagement. Ne PAS le traiter comme acté ni le faire remonter
+comme prochain candidat code. La pertinence même (Sift doit-il aller sur le terrain qualité-de-rip ?)
+reste ouverte.
+
+DÉCLENCHEUR : Antoine — le check qualité d'un rip vinyl est aujourd'hui seulement à l'écoute ;
+chercher des paramètres OBJECTIFS (mesurables) qui corrèlent avec le jugement subjectif de l'oreille,
+pour les défauts PROPRES AU VINYLE que verdict.rs (fake/cutoff) ne capture pas. Un rip peut avoir un
+spectre parfait à 20k ET être mauvais (clic, souffle, wow, déséquilibre).
+
+POSTURE PRODUIT TRANCHÉE (importante) : Sift MONTRE LES MESURES, l'HUMAIN JUGE (comme le Vinyl Rip
+Checker). PAS de verdict auto bon/mauvais rip → désamorce le risque de faux positif (clic voulu, wow
+artistique, bruit de surface intentionnel). Simplifie le DSP : pas de seuil à défendre, juste une
+mesure honnête + preuve visuelle. Antoine tranche.
+
+CE QUE SIFT MESURE DÉJÀ et qui s'applique au vinyl (worker.rs report, à EXPOSER) : clip_runs,
+clip_pct, true_peak_dbtp (gain trop chaud = écrêtage, défaut n°1 du rip maison) ; dc_offset
+(interface mal calibrée) ; phase_correlation, dual_mono (câblage/balance L/R) ; silence_head/tail_ms
+(blancs mal coupés). → une partie de la checklist vinyle (gain, balance) est DÉJÀ couverte, juste
+pas exposée comme "qualité de rip".
+
+LES 4 AXES VOULUS (multi-select Antoine = les 4), PAR COÛT CROISSANT :
+1. EXPOSER L'EXISTANT — coût quasi nul, zéro DSP. Afficher clipping/true-peak/balance/phase/DC/
+   silences dans le rapport comme indicateurs de qualité de rip lisibles. PREMIER PAS. Commence par
+   un relevé lecture-seule de ce que report-view.ts montre AUJOURD'HUI du verdict + des mesures.
+2. CLICS & POPS — coût moyen. Détection de transitoires (discontinuités brutales / dérivée du
+   signal), comptage "N clics". En mode montre-la-mesure, aucun jugement requis.
+3. SOUFFLE / BRUIT DE SURFACE — coût moyen. Plancher de bruit mesuré sur les passages calmes,
+   affiché en dB. Pas de verdict.
+4. WOW & FLUTTER — coût ÉLEVÉ, vrai DSP. Pitch qui ondule sur sons tenus ; suivi de pitch ou
+   isolation porteuse ~3150 Hz (norme W&F). Le plus distinctif "vinyle" MAIS le plus technique,
+   touche le plus le moteur d'analyse Rust stabilisé.
+ORDRE LOGIQUE : exposer l'existant → clics → souffle → wow&flutter.
+
+MISES EN GARDE (détective, avant tout code) :
+- Faux positifs : sur vinyle, clic/wow/bruit peuvent être INTENTIONNELS (samples, effet, master qui
+  imite le vinyle). L'oreille distingue défaut-de-capture vs intention ; un algo non. La posture
+  "montre, ne juge pas" neutralise ce risque — la GARDER absolument.
+- Touche le moteur d'analyse Rust (worker + analysis/*), cœur stabilisé. Axes 2-4 = vrai DSP, pas
+  une session. NE PAS l'attaquer au détriment de "filer sur place" (prompt prêt, mûr).
+
+STATUT : cadré, NON codé. Prochain pas quand on l'attaque = relevé lecture-seule report-view.ts (ce
+qui est affiché aujourd'hui). Place dans la file : APRÈS "filer sur place". Lien avec le chantier
+checker CDJ (même esprit "vérifier que le fichier tient ce qu'il promet") et avec "mieux exposer le
+verdict spectral" déjà noté.
