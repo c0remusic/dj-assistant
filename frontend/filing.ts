@@ -27,7 +27,11 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { openReportInto, togglePlay, vchipHtml } from "./report-view";
 import { renderCandidates } from "./identify-shared";
 import type { Bin, Canonical, Target, QueueItem } from "../shared/contracts";
+import { FILE_IN_PLACE } from "../shared/contracts";
 import { requireEl } from "./dom";
+
+/** Banner label when a track was filed in place (its own source folder, not a tree bin). */
+const IN_PLACE_BIN_LABEL = "source folder";
 
 const LIBRARY_ROOT = "library_root";
 
@@ -705,7 +709,11 @@ function setActionsDisabled(disabled: boolean): void {
 /** Ranger the current track into the selected bin. */
 async function doRanger(mid: HTMLElement): Promise<void> {
   if (!state.track || !state.canonical || acting) return;
-  if (state.binRel === null) {
+  // "Sur place" checked → destination is the track's own source folder (sentinel), bypassing the
+  // tree selection. The sentinel rides the normal binRel channel — no separate flag (single channel).
+  const inPlace = fileInPlaceChecked();
+  const dest = inPlace ? FILE_IN_PLACE : state.binRel;
+  if (dest === null) {
     toast("Choose a destination folder.", false);
     return;
   }
@@ -717,11 +725,11 @@ async function doRanger(mid: HTMLElement): Promise<void> {
     ranger.innerHTML =
       '<i class="ti ti-loader-2 sift-spin" style="font-size:var(--text-md);vertical-align:-2px"></i> Filing…';
   try {
-    const res = await fileTrack(state.track.id, state.binRel, state.target, state.canonical);
+    const res = await fileTrack(state.track.id, dest, state.target, state.canonical);
     // Capture the "after" facts for the rail banner BEFORE we advance (state resets on the next open).
     const filedPath = res.path;
     const batchId = res.batch_id;
-    const bin = binLabel();
+    const bin = inPlace ? IN_PLACE_BIN_LABEL : binLabel();
     // Auto-advance: the filed track has left the pending list, so switching away from it here is
     // LEGITIMATE — this is the one place allowed to switch outside syncDetail's player guard, because
     // we KNOW the current track was just filed (never on a passive analysis refresh). Reuse the
@@ -866,6 +874,29 @@ function dupBanner(m: DupMatch): string {
 // (prevents a slow analyze/reconcile from clobbering the pane of a track opened since).
 let openSeq = 0;
 
+/** True when the detail-mode "file in place" checkbox is ticked: File targets the track's own
+ *  source folder (FILE_IN_PLACE) instead of the bin selected in the #fldz tree. */
+function fileInPlaceChecked(): boolean {
+  return !!document.querySelector<HTMLInputElement>('[data-fil="inplace"]')?.checked;
+}
+
+/** Insert the "file in place" checkbox ONCE, as a sibling between the bin tree (#fldz) and the
+ *  action stack (#filfoot) — the least intrusive spot in the .dest column. Its checked state
+ *  persists across track opens (so a run of in-place filings needs one tick). */
+function ensureInPlaceToggle(): void {
+  if (document.getElementById("fil-inplace")) return;
+  const foot = document.getElementById("filfoot");
+  if (!foot?.parentElement) return;
+  const wrap = document.createElement("label");
+  wrap.id = "fil-inplace";
+  wrap.style.cssText =
+    "display:flex;align-items:center;gap:7px;margin-top:12px;font-size:var(--text-sm);color:var(--color-text-secondary);cursor:pointer";
+  wrap.innerHTML =
+    '<input type="checkbox" data-fil="inplace" style="cursor:pointer;flex:none">' +
+    '<span>Sur place <span style="color:var(--color-text-tertiary)">(dossier source)</span></span>';
+  foot.parentElement.insertBefore(wrap, foot);
+}
+
 /** Render the analysis report + filing footer for `item` into the #mid pane. */
 export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise<void> {
   const myseq = ++openSeq;
@@ -886,6 +917,7 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
   // The validation footer now lives in the right rail (#filfoot in the .dest column), below the
   // destination tree — so #mid is a pure son-first detail and the rail holds the filing stack.
   const footEl = requireEl("#filfoot", "openFilingInto");
+  ensureInPlaceToggle(); // "Sur place" checkbox between the tree and the action stack (once)
 
   // Duplicate check (by name, sound-confirmed when available) — drives both the banner slot and
   // the verdict-panel UNIQUE/DUPLICATE chip (appended once the panel exists, see end of fn).

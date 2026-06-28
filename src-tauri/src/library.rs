@@ -277,10 +277,23 @@ pub fn create_bin(root: &Path, parent_rel: &str, name: &str) -> Result<Bin, Stri
     Ok(Bin { rel, name: safe, depth })
 }
 
+/// True when `a` and `b` denote the same on-disk file. Prefers `canonicalize` (resolves
+/// case/`.`/`..`/symlinks — needed on Windows where paths are case-insensitive), and falls
+/// back to a plain `PathBuf` compare when either side can't be canonicalized (doesn't exist).
+fn same_path(a: &Path, b: &Path) -> bool {
+    match (a.canonicalize(), b.canonicalize()) {
+        (Ok(x), Ok(y)) => x == y,
+        _ => a == b,
+    }
+}
+
 /// Return a path that does not already exist, appending " (N)" before the extension when
-/// the given path is taken. Used so filing never overwrites an existing file.
-pub fn ensure_unique(path: &Path) -> PathBuf {
-    if !path.exists() {
+/// the given path is taken. Used so filing never overwrites an existing file. `ignore` is an
+/// optional "self" path that does NOT count as a collision — pass the source file when filing
+/// in place so a conformant track keeps its own name instead of gaining a parasitic " (2)".
+pub fn ensure_unique(path: &Path, ignore: Option<&Path>) -> PathBuf {
+    let is_self = |p: &Path| ignore.is_some_and(|ig| same_path(p, ig));
+    if !path.exists() || is_self(path) {
         return path.to_path_buf();
     }
     let parent = path.parent().unwrap_or_else(|| Path::new("."));
@@ -291,7 +304,7 @@ pub fn ensure_unique(path: &Path) -> PathBuf {
             Some(e) => parent.join(format!("{stem} ({n}).{e}")),
             None => parent.join(format!("{stem} ({n})")),
         };
-        if !candidate.exists() {
+        if !candidate.exists() || is_self(&candidate) {
             return candidate;
         }
     }
@@ -379,10 +392,19 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let base = dir.path().join("Track.mp3");
         // free → unchanged
-        assert_eq!(ensure_unique(&base), base);
+        assert_eq!(ensure_unique(&base, None), base);
         // occupied → " (2)"
         std::fs::write(&base, b"x").unwrap();
-        assert_eq!(ensure_unique(&base), dir.path().join("Track (2).mp3"));
+        assert_eq!(ensure_unique(&base, None), dir.path().join("Track (2).mp3"));
+    }
+
+    #[test]
+    fn ensure_unique_keeps_name_when_collision_is_the_ignored_self() {
+        let dir = tempfile::tempdir().unwrap();
+        let base = dir.path().join("Track.aiff");
+        std::fs::write(&base, b"x").unwrap();
+        // the file exists, but it IS the source we're filing in place → keep the name, no " (2)"
+        assert_eq!(ensure_unique(&base, Some(&base)), base);
     }
 
     // ── M6b library browser tests ────────────────────────────────────────────

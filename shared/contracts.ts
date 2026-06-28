@@ -1,5 +1,11 @@
 // Wire contract — mirror of src-tauri/src/ipc.rs serde structs.
 // Keep field names and types in sync with the Rust side. Bump when the Rust side changes.
+
+/** Sentinel `binRel` meaning "file in place" (destination = each track's own source folder).
+ * Mirror of Rust `filing::FILE_IN_PLACE`; the two literals MUST stay identical. Travels through
+ * the normal `binRel` channel — no separate flag — and the backend resolves it in `plan_file`. */
+export const FILE_IN_PLACE = "__SOURCE__";
+
 export interface AppInfo {
   name: string;
   version: string;

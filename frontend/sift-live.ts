@@ -41,7 +41,11 @@ import { renderEcartes } from "./ecartes-view";
 import { renderHomeSources, pickAndAddFolder } from "./home-sources";
 import { installDragDrop, injectLeanStyle, injectTitlebar, installScrollAutohide } from "./chrome";
 import type { QueueItem, Bin, BatchResult, FileProgress } from "../shared/contracts";
+import { FILE_IN_PLACE } from "../shared/contracts";
 import { requireEl } from "./dom";
+
+/** Human label for the batch destination (resolves the in-place sentinel to its prose). */
+const IN_PLACE_LABEL = "Dossier source de chaque morceau";
 import { setTask, clearTask, setCancelHandler } from "./progress-zone";
 
 // Latest live queue items, kept so a queue-row click can recover the full item (id +
@@ -385,6 +389,8 @@ function binSelectHtml(): string {
   const opt = (rel: string, label: string) =>
     `<option value="${esc(rel)}"${rel === batchBin ? " selected" : ""}>${esc(label)}</option>`;
   const opts =
+    // File-in-place first: each track lands in its OWN source folder (no library bin).
+    opt(FILE_IN_PLACE, IN_PLACE_LABEL) +
     opt("", "Library root") +
     batchBins.map((b) => opt(b.rel, `${"  ".repeat(Math.max(0, b.depth - 1))}${b.name}`)).join("");
   return `<select data-sift="batchbin" style="font-size:var(--text-sm);padding:6px 9px;border-radius:var(--border-radius-md);background:var(--color-background-secondary);color:var(--color-text-secondary);border:0.5px solid var(--color-border-tertiary);max-width:200px">${opts}</select>`;
@@ -396,7 +402,7 @@ function renderBatchRail(reviewN: number) {
   const foot = requireEl("#filfoot", "renderBatchRail");
   const fldz = requireEl("#fldz", "renderBatchRail");
   fldz.style.display = reviewMode === "batch" ? "none" : "";
-  const dest = batchBin || "Library root";
+  const dest = batchBin === FILE_IN_PLACE ? IN_PLACE_LABEL : batchBin || "Library root";
   const block = (label: string, body: string) =>
     `<div style="margin-bottom:14px"><div class="col-h" style="margin:0 0 4px">${label}</div><div style="font-size:var(--text-md);color:var(--color-text-secondary)">${body}</div></div>`;
   foot.innerHTML =

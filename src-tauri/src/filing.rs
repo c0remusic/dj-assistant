@@ -11,6 +11,13 @@ use rusqlite::{params, Connection};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 
+/// Sentinel destination meaning "file in place": the track's destination is its OWN source
+/// folder, not a bin under the library root. Travels through `bin_rel` like any other
+/// destination (the single decision channel) — `plan_file` resolves it instead of `safe_join`.
+/// The frontend mirrors this exact literal (`shared/contracts.ts` `FILE_IN_PLACE`); keep them
+/// in sync. Must never reach `library::safe_join` (it would create a literal `__SOURCE__` dir).
+pub const FILE_IN_PLACE: &str = "__SOURCE__";
+
 /// Why filing could not complete (nothing is left half-filed on these — see ordering).
 #[derive(Debug, Clone, PartialEq)]
 pub enum FilingError {
@@ -121,7 +128,7 @@ pub fn reconcile_track(conn: &Connection, track_id: i64) -> Result<Canonical, Fi
 fn trash_file_fs(root: &Path, track_id: i64, source: &str) -> Result<String, FilingError> {
     let trash_dir = root.join(".sift-trash");
     std::fs::create_dir_all(&trash_dir).map_err(|e| FilingError::Io(e.to_string()))?;
-    let dest = library::ensure_unique(&trash_dir.join(format!("{track_id}__{}", file_name_of(source))));
+    let dest = library::ensure_unique(&trash_dir.join(format!("{track_id}__{}", file_name_of(source))), None);
     std::fs::rename(source, &dest).map_err(|e| FilingError::Io(e.to_string()))?;
     Ok(dest.to_string_lossy().to_string())
 }
@@ -224,10 +231,25 @@ pub fn plan_file(
     let conformant = encode::is_conformant(&source, target);
     let out_ext = if conformant { ext_of(&source) } else { target.ext().to_string() };
 
-    let dest_dir = library::safe_join(root, bin_rel).map_err(FilingError::Io)?;
+    // The single point where the destination directory is decided. The `FILE_IN_PLACE` sentinel
+    // means "file into the track's own source folder" — resolve it to `source.parent()` and NEVER
+    // route it through `safe_join` (which would sanitize it into a literal `root/__SOURCE__` dir).
+    let dest_dir = if bin_rel == FILE_IN_PLACE {
+        Path::new(&source)
+            .parent()
+            .ok_or_else(|| FilingError::Io("source file has no parent directory".into()))?
+            .to_path_buf()
+    } else {
+        library::safe_join(root, bin_rel).map_err(FilingError::Io)?
+    };
     std::fs::create_dir_all(&dest_dir).map_err(|e| FilingError::Io(e.to_string()))?;
     let filename = naming::render_filename(template, &canonical, &out_ext);
-    let dest = library::ensure_unique(&dest_dir.join(&filename));
+    // Ignore the source itself as a collision ONLY for the conformant (move) path: filing a
+    // conformant track in place onto its own (already-correct) name must keep that name, not bump
+    // it to " (2)". The non-conformant path ENCODES source → dest, so dest must never equal source
+    // (FFmpeg reading and writing the same file would corrupt it) — keep the normal collision bump.
+    let ignore_self = if conformant { Some(Path::new(&source)) } else { None };
+    let dest = library::ensure_unique(&dest_dir.join(&filename), ignore_self);
 
     let extras = TagExtras {
         label: conn
