@@ -20,6 +20,7 @@ use crate::naming::Canonical;
 use crate::settings;
 use rusqlite::{Connection, OptionalExtension};
 use serde::Serialize;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
@@ -253,6 +254,9 @@ pub fn file_batch(
     conn: State<'_, Mutex<Connection>>,
     track_ids: Vec<i64>,
     bin_rel: String,
+    // Per-track encode-target override (batch format chips). Absent ids fall back to the auto target
+    // derived from the source rail (encode::target_for) — exactly the pre-chips behaviour.
+    targets: Option<HashMap<i64, Target>>,
 ) -> Result<(), String> {
     let (root, tmpl) = {
         let conn = conn.lock().map_err(|e| e.to_string())?;
@@ -265,7 +269,7 @@ pub fn file_batch(
     let app_bg = app.clone();
     std::thread::Builder::new()
         .name("file-batch".into())
-        .spawn(move || run_file_batch(&app_bg, root, tmpl, track_ids, bin_rel))
+        .spawn(move || run_file_batch(&app_bg, root, tmpl, track_ids, bin_rel, targets))
         .map_err(|e| format!("file_batch: failed to start background task: {e}"))?;
     Ok(())
 }
@@ -300,6 +304,7 @@ fn run_file_batch(
     tmpl: String,
     track_ids: Vec<i64>,
     bin_rel: String,
+    targets: Option<HashMap<i64, Target>>,
 ) {
     let state = app.state::<Mutex<Connection>>();
     let cancel = app.state::<FilingCancel>();
@@ -331,7 +336,15 @@ fn run_file_batch(
                 }
             };
             match filing::batch_canonical(&conn, id) {
-                Some(c) => match filing::plan_file(&conn, &root, &tmpl, id, &bin_rel, None, Some(c)) {
+                Some(c) => match filing::plan_file(
+                    &conn,
+                    &root,
+                    &tmpl,
+                    id,
+                    &bin_rel,
+                    targets.as_ref().and_then(|m| m.get(&id)).copied(),
+                    Some(c),
+                ) {
                     Ok(p) => p,
                     Err(_) => {
                         needs_validation.push(id);

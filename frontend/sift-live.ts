@@ -3,7 +3,6 @@
 import {
   removeSource,
   listQueue,
-  listBins,
   fileBatch,
   fileCancel,
   onFileDone,
@@ -35,18 +34,30 @@ import {
   syncDetail,
   installUndoShortcut,
   installFilingKeys,
+  renderBinsForBatch,
+  refreshBinsForBatch,
+  clearBinPick,
+  defaultTarget,
+  TARGET_LABEL,
 } from "./filing";
 // Views/chrome extracted from this god-module (audit P-3) — kept stateless, wired here.
 import { renderEcartes } from "./ecartes-view";
 import { renderHomeSources, pickAndAddFolder } from "./home-sources";
 import { installDragDrop, injectLeanStyle, injectTitlebar, installScrollAutohide } from "./chrome";
-import type { QueueItem, Bin, BatchResult, FileProgress } from "../shared/contracts";
+import type { QueueItem, BatchResult, FileProgress, Target } from "../shared/contracts";
 import { FILE_IN_PLACE } from "../shared/contracts";
 import { requireEl } from "./dom";
 
 /** Human label for the batch destination (resolves the in-place sentinel to its prose). */
 const IN_PLACE_LABEL = "Dossier source de chaque morceau";
 import { setTask, clearTask, setCancelHandler } from "./progress-zone";
+import {
+  startBatchTracklist,
+  previewBatchTracklist,
+  updateBatchTracklist,
+  finishBatchTracklist,
+  clearBatchTracklist,
+} from "./batch-tracklist";
 
 // Latest live queue items, kept so a queue-row click can recover the full item (id +
 // verdict) the filing pane needs.
@@ -57,11 +68,21 @@ let currentItems: QueueItem[] = [];
 // pruned to the currently-ready set on every batch render so a filed/removed id can't linger.
 let reviewMode: "detail" | "batch" = "detail";
 const batchSel = new Set<number>();
-// Destination bin chosen in the batch action bar (forward-slash rel; "" = library root). Kept
-// across renders so the dropdown doesn't reset while triaging.
+// Fakes ticked for DISCARD (never filed — Sift never ranges a fake lossless). Kept separate from
+// batchSel (fileables → File) so the rail action button can be adaptive (File n / Discard n / both).
+const batchFakeSel = new Set<number>();
+// Batch "file in place" toggle (FILE_IN_PLACE). Kept apart from batchBin so the picked folder is
+// remembered while in-place is on. Effective destination = batchInPlace ? FILE_IN_PLACE : batchBin.
+let batchInPlace = false;
+// Per-format-group encode target chosen via the group-header chips. Unset rail → its auto default
+// (defaultTarget). Fed to the filer per track at submit (file_batch targets map).
+const groupTarget: Partial<Record<"lossless" | "lossy" | "unknown", Target>> = {};
+// The ordered ids submitted to the currently-running batch — drives the per-track tracklist (the
+// nth `file:progress.done` maps to batchTrackIds[n]). Set at submit, used at file:done.
+let batchTrackIds: number[] = [];
+// Destination bin chosen in the batch folder tree (forward-slash rel; "" = library root). Kept
+// across renders so the choice doesn't reset while triaging.
 let batchBin = "";
-// Cached bins for the batch destination dropdown (loaded when entering batch mode).
-let batchBins: Bin[] = [];
 
 // Bibliothèque browser state: active filter, which facet column (folder/genre) is shown,
 // and the last fetched track list (so a row-click can recover the track's path).
@@ -178,6 +199,9 @@ async function pushAnalyzeProgress() {
 // done==total the row flashes 100% "done" then auto-hides after 1.2s, exactly like the analyze row.
 let fileClearTimer: ReturnType<typeof setTimeout> | undefined;
 let fileStopping = false;
+// True from the moment a batch File/Discard launches until file:done (or discard completes) — drives
+// the rail button between its adaptive state and "Stop".
+let batchRunning = false;
 let lastFileProgress: FileProgress | null = null;
 function pushFileProgress(p: FileProgress) {
   lastFileProgress = p;
@@ -191,8 +215,13 @@ function pushFileProgress(p: FileProgress) {
   } else {
     setTask("file", { done: p.total, total: p.total, state: "done" });
     clearTimeout(fileClearTimer);
-    fileClearTimer = setTimeout(() => clearTask("file"), 1200);
+    fileClearTimer = setTimeout(() => {
+      clearTask("file");
+      clearBatchTracklist();
+      refreshBatchTracksPreview(); // in-place: bring the source-folder preview back after the run
+    }, 1200);
   }
+  updateBatchTracklist(p.done); // first `done` rows = done, the (done)-th = running, rest = waiting
 }
 
 /** Stop button on the global zone's Filing row → request a stop-net cancel (sous-étape 3). The
@@ -320,6 +349,27 @@ function renderBatch() {
     );
   };
 
+  // Fakes are selectable to DISCARD (their own tick set), never to file. grey/unanalyzed stay
+  // read-only (reviewRow) — they need a human in Detail first.
+  const fakeRow = (it: QueueItem) => {
+    const on = batchFakeSel.has(it.id);
+    return (
+      `<div class="bx-row" data-sift="batchpickfake" data-id="${it.id}" style="display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:var(--border-radius-md);cursor:pointer;${
+        on ? "background:rgba(255,255,255,.045)" : ""
+      }">` +
+      `<span class="bx-ck" style="flex:none;width:15px;height:15px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid ${
+        on ? "var(--color-text-danger)" : "var(--color-border-secondary)"
+      };background:${on ? "var(--color-background-danger)" : "transparent"}">${
+        on ? '<i class="ti ti-check" style="font-size:var(--text-xs);color:var(--color-text-danger)"></i>' : ""
+      }</span>` +
+      verdictDot(it.verdict) +
+      nameCell(it, true) +
+      '<span style="flex:none;font-size:var(--text-2xs);font-weight:600;letter-spacing:.03em;padding:2px 7px;border-radius:999px;background:var(--color-background-danger);color:var(--color-text-danger)">FAKE</span>' +
+      `<button data-sift="batchopen" data-id="${it.id}" style="flex:none;font-size:var(--text-xs);padding:2px 8px;color:var(--color-text-info)">open in Detail</button>` +
+      `</div>`
+    );
+  };
+
   const allOn = ready.length > 0 && batchSel.size === ready.length;
   const sectionHead = (label: string, n: number, extra = "") =>
     `<div style="display:flex;align-items:center;justify-content:space-between;margin:0 0 6px"><div class="col-h" style="margin:0">${label} · ${n}</div>${extra}</div>`;
@@ -330,23 +380,26 @@ function renderBatch() {
     const xs = ready.filter((it) => (it.rail ?? "unknown") === rail);
     if (!xs.length) return "";
     return (
-      `<div style="margin:2px 0 6px"><div style="display:flex;align-items:center;justify-content:space-between;padding:3px 9px"><span style="font-size:var(--text-xs);letter-spacing:.04em;text-transform:uppercase;color:var(--color-text-tertiary)">${railLabel(
-        rail,
-      )} · ${xs.length}</span><span style="font-size:var(--text-xs);color:var(--color-text-tertiary)">→ ${outputFormat(
-        rail,
-      )}</span></div>${xs.map(readyRow).join("")}</div>`
+      `<div style="margin:2px 0 6px">` +
+      groupHeaderHtml("file", rail, railLabel(rail), xs.map((it) => it.id), groupChipsHtml(rail)) +
+      xs.map(readyRow).join("") +
+      `</div>`
     );
   };
+  const fakes = review.filter((it) => it.verdict === "fake");
+  const reviewRest = review.filter((it) => it.verdict !== "fake");
+  // Only global control kept: a single Tout / Aucun toggle. Per-format selection now lives in the
+  // group-header checkboxes (no redundant per-format quick buttons up here).
   const readyHead = sectionHead(
     "READY TO FILE",
     ready.length,
-    `<span style="display:flex;gap:8px">` +
-      `<button data-sift="batchall" style="font-size:var(--text-xs);padding:2px 8px;color:var(--color-text-info)">${
-        allOn ? "Clear" : `Select all ${ready.length}`
-      }</button>` +
-      `</span>`,
+    `<button data-sift="batchall" style="font-size:var(--text-xs);padding:2px 8px;color:var(--color-text-info)">${
+      allOn ? "Aucun (clear)" : "Tout"
+    }</button>`,
   );
 
+  // No center action bar: the destination + adaptive File/Discard/Stop button now live solely in the
+  // right rail (renderBatchRail), mirroring the Detail screen's CTA-in-the-rail grammar.
   mid.innerHTML =
     `<div style="display:flex;flex-direction:column;height:100%;min-height:0">` +
     `<div style="flex:1;min-height:0;overflow-y:auto;padding-right:2px">` +
@@ -356,17 +409,11 @@ function renderBatch() {
     (review.length
       ? `<div style="margin-top:16px"></div>` +
         sectionHead("NEEDS REVIEW", review.length) +
-        review.map(reviewRow).join("")
+        (fakes.length
+          ? groupHeaderHtml("fake", "fake", "Fakes", fakes.map((it) => it.id)) + fakes.map(fakeRow).join("")
+          : "") +
+        reviewRest.map(reviewRow).join("")
       : "") +
-    `</div>` +
-    // Action bar
-    `<div style="flex:none;display:flex;align-items:center;gap:9px;padding:11px 2px 2px;border-top:0.5px solid var(--color-border-tertiary);margin-top:8px">` +
-    binSelectHtml() +
-    `<div style="flex:1"></div>` +
-    `<button data-sift="batchdiscard" style="font-size:var(--text-sm);padding:7px 12px;border-radius:var(--border-radius-md);background:var(--color-background-danger);color:var(--color-text-danger)">Discard (${batchSel.size})</button>` +
-    `<button data-sift="batchfile" style="font-size:var(--text-sm);font-weight:600;padding:7px 14px;border-radius:var(--border-radius-md);background:#2f6fe0;color:#e5eeff;${
-      batchSel.size ? "" : "opacity:.5;pointer-events:none"
-    }">File selection (${batchSel.size})</button>` +
     `</div></div>`;
 
   renderBatchRail(review.length);
@@ -377,23 +424,118 @@ function railLabel(rail: "lossless" | "lossy" | "unknown"): string {
   return rail === "lossless" ? "Lossless" : rail === "lossy" ? "Lossy" : "Unknown rail";
 }
 
-/** The output format the filer encodes to for a rail — mirrors Rust `encode::target_for`
- * (lossless → AIFF 16/44.1; lossy/unknown → MP3 320). Shown so batch filing is not a black box. */
-function outputFormat(rail: "lossless" | "lossy" | "unknown"): string {
-  return rail === "lossless" ? "AIFF · 16-bit · 44.1 kHz" : "MP3 320";
+/** Tri-state of a group's checkbox given its item ids and the active selection set. */
+function groupState(ids: number[], sel: Set<number>): "empty" | "partial" | "full" {
+  if (ids.length === 0) return "empty";
+  let n = 0;
+  for (const id of ids) if (sel.has(id)) n++;
+  return n === 0 ? "empty" : n === ids.length ? "full" : "partial";
 }
 
-/** Destination dropdown for the batch bar — a real <select> of the user's bins (root + each
- * folder), reflecting `batchBin`. */
-function binSelectHtml(): string {
-  const opt = (rel: string, label: string) =>
-    `<option value="${esc(rel)}"${rel === batchBin ? " selected" : ""}>${esc(label)}</option>`;
-  const opts =
-    // File-in-place first: each track lands in its OWN source folder (no library bin).
-    opt(FILE_IN_PLACE, IN_PLACE_LABEL) +
-    opt("", "Library root") +
-    batchBins.map((b) => opt(b.rel, `${"  ".repeat(Math.max(0, b.depth - 1))}${b.name}`)).join("");
-  return `<select data-sift="batchbin" style="font-size:var(--text-sm);padding:6px 9px;border-radius:var(--border-radius-md);background:var(--color-background-secondary);color:var(--color-text-secondary);border:0.5px solid var(--color-border-tertiary);max-width:200px">${opts}</select>`;
+/** A group header row: tri-state checkbox + col-h label + count + optional right-aligned extra.
+ *  `kind` routes the toggle to the right selection set ("file" → batchSel, "fake" → batchFakeSel). */
+function groupHeaderHtml(
+  kind: "file" | "fake",
+  railKey: string,
+  label: string,
+  ids: number[],
+  extra = "",
+): string {
+  const st = groupState(ids, kind === "file" ? batchSel : batchFakeSel);
+  const box =
+    st === "full"
+      ? '<span class="sift-bgrp-box on"><i class="ti ti-check"></i></span>'
+      : st === "partial"
+        ? '<span class="sift-bgrp-box partial"><i class="ti ti-minus"></i></span>'
+        : '<span class="sift-bgrp-box"></span>';
+  return (
+    `<div class="sift-bgrp-head" data-sift="batchgroup" data-kind="${kind}" data-rail="${esc(railKey)}" style="cursor:pointer">` +
+    box +
+    `<span class="col-h" style="margin:0">${esc(label)} · ${ids.length}</span>` +
+    `<span style="flex:1"></span>${extra}</div>`
+  );
+}
+
+/** The active encode target for a format group: the chip the user picked, else the rail's default. */
+function railTarget(rail: "lossless" | "lossy" | "unknown"): Target {
+  return groupTarget[rail] ?? defaultTarget(rail);
+}
+
+/** Per-group format chips (MP3 / AIFF / WAV), shown on the right of a group header. Same `chip`/
+ *  `chip on` look as the détail (renderFoot). A lossy source can't be upscaled, so AIFF/WAV are hard-
+ *  greyed (matching renderFoot's rule) — pointer-events:none so a greyed chip can't toggle the group. */
+function groupChipsHtml(rail: "lossless" | "lossy" | "unknown"): string {
+  const active = railTarget(rail);
+  return (["mp3_320", "aiff_16_44", "wav_16_44"] as Target[])
+    .map((t) => {
+      // Greyed chip still carries data-sift="batchfmt" (no data-t) so its click is swallowed by the
+      // batchfmt handler instead of falling through to the group-header toggle.
+      if (rail === "lossy" && t !== "mp3_320")
+        return `<span class="chip" data-sift="batchfmt" data-rail="${rail}" title="Pas d'upscale depuis une source lossy" style="opacity:.4;cursor:not-allowed">${TARGET_LABEL[t]}</span>`;
+      return `<span class="chip${active === t ? " on" : ""}" data-sift="batchfmt" data-rail="${rail}" data-t="${t}">${TARGET_LABEL[t]}</span>`;
+    })
+    .join(" ");
+}
+
+
+/** The destination actually passed to the filer (FILE_IN_PLACE sentinel, or the picked folder rel). */
+function batchDest(): string {
+  return batchInPlace ? FILE_IN_PLACE : batchBin;
+}
+/** Human label for the batch destination — shown in the rail récap + name preview. */
+function batchDestLabel(): string {
+  return batchInPlace ? IN_PLACE_LABEL : batchBin || "Library root";
+}
+/** A folder click in the #fldz tree (batch pick mode) -> set batchBin, drop in-place, re-render. */
+function onBatchBinPick(rel: string): void {
+  batchBin = rel;
+  batchInPlace = false; // choosing a folder turns off "file in place"
+  const fldz = document.getElementById("fldz");
+  if (fldz) renderBinsForBatch(fldz, batchBin, onBatchBinPick);
+  renderBatchRail(currentItems.filter((it) => it.verdict !== "ok").length);
+}
+/** Representative batch final-name preview: count of fileables -> destination. previewName() needs the
+ *  open track's canonical (absent in batch), so a per-track name isn't reachable front-only. */
+function batchPreview(): string {
+  const n = batchSel.size;
+  if (n === 0) return "—";
+  return `${n} morceau${n > 1 ? "x" : ""} → ${batchDestLabel()}/…`;
+}
+/** Ensure the batch destination UI around #fldz: the tree is in batch pick mode, and a "file in
+ *  place" checkbox sits right under it (a sibling, so renderBins' innerHTML rebuild can't wipe it). */
+function ensureBatchDestUI(): void {
+  const fldz = document.getElementById("fldz");
+  if (!fldz) return;
+  fldz.style.opacity = batchInPlace ? ".45" : "";
+  fldz.style.pointerEvents = batchInPlace ? "none" : "";
+  let box = document.getElementById("sift-inplace");
+  if (!box) {
+    box = document.createElement("label");
+    box.id = "sift-inplace";
+    box.style.cssText =
+      "display:flex;align-items:center;gap:7px;margin-top:8px;font-size:var(--text-sm);color:var(--color-text-secondary);cursor:pointer";
+    fldz.parentElement?.insertBefore(box, fldz.nextSibling);
+  }
+  box.innerHTML = `<input type="checkbox" data-sift="inplace"${
+    batchInPlace ? " checked" : ""
+  } style="accent-color:var(--color-text-info)"> ${esc(IN_PLACE_LABEL)}`;
+}
+
+/** The single rail action button. Adaptive before a run (Filer / Discarder / both / disabled),
+ *  "Stop" during one. `running` swaps to the Stop affordance (wired to onFileStop). */
+function actionButtonHtml(running: boolean): string {
+  if (running) {
+    return '<button data-sift="batchstop" class="sift-baction" style="background:var(--color-background-danger);color:var(--color-text-danger)"><i class="ti ti-player-stop" style="font-size:var(--text-md);vertical-align:-2px"></i> Stop</button>';
+  }
+  const fileN = batchSel.size;
+  const fakeN = batchFakeSel.size;
+  if (fileN === 0 && fakeN === 0)
+    return '<button class="sift-baction" disabled style="background:var(--color-background-info);color:var(--color-text-info);opacity:.5;pointer-events:none">Filer (0)</button>';
+  if (fakeN === 0)
+    return `<button data-sift="batchaction" class="sift-baction" style="background:var(--color-background-info);color:var(--color-text-info)"><i class="ti ti-corner-down-left" style="font-size:var(--text-md);vertical-align:-2px"></i> Filer (${fileN})</button>`;
+  if (fileN === 0)
+    return `<button data-sift="batchaction" class="sift-baction" style="background:var(--color-background-danger);color:var(--color-text-danger)"><i class="ti ti-trash" style="font-size:var(--text-md);vertical-align:-2px"></i> Discarder (${fakeN})</button>`;
+  return `<button data-sift="batchaction" class="sift-baction" style="background:var(--color-background-info);color:var(--color-text-info)">Filer (${fileN}) · Discarder (${fakeN})</button>`;
 }
 
 /** Right-rail summary for batch mode (board's SELECTION / DESTINATION / WILL ENCODE / EXCLUDED).
@@ -401,36 +543,54 @@ function binSelectHtml(): string {
 function renderBatchRail(reviewN: number) {
   const foot = requireEl("#filfoot", "renderBatchRail");
   const fldz = requireEl("#fldz", "renderBatchRail");
-  fldz.style.display = reviewMode === "batch" ? "none" : "";
-  const dest = batchBin === FILE_IN_PLACE ? IN_PLACE_LABEL : batchBin || "Library root";
-  const block = (label: string, body: string) =>
-    `<div style="margin-bottom:14px"><div class="col-h" style="margin:0 0 4px">${label}</div><div style="font-size:var(--text-md);color:var(--color-text-secondary)">${body}</div></div>`;
+  fldz.style.display = ""; // batch now shows the #fldz folder tree (the destination explorer)
+  ensureBatchDestUI();
+  const head = (label: string) => `<div class="col-h" style="margin:0 0 4px">${label}</div>`;
+  // Preserve the LIVE run's progress list across this wholesale rebuild (renderBatch rebuilds the rail
+  // on every selection change). Not while idle — the choice-time preview is rebuilt fresh below.
+  const keepTracks = batchRunning ? foot.querySelector("#sift-batch-tracks") : null;
+  const keepNote = foot.querySelector("[data-file-note]");
+  // In-place mode has NO single destination (each track returns to its own source folder), so the
+  // unique "Destination" line would lie — drop it; the per-track preview shows the real folders instead.
+  const destBlock = batchInPlace
+    ? ""
+    : `<div style="margin-bottom:14px">${head("Destination")}<div style="font-size:var(--text-md);color:var(--color-text-secondary)">${esc(
+        batchDestLabel(),
+      )}</div></div>`;
   foot.innerHTML =
-    block("Selection", `${batchSel.size} selected`) +
-    block("Destination", esc(dest)) +
-    block("Will file", `${batchSel.size} clean track${batchSel.size === 1 ? "" : "s"} → ${esc(dest)}`) +
-    block("Excluded", `${reviewN} need review · filed safely only when clean`);
+    `<div style="margin-bottom:14px">${head("Selection")}<div style="font-size:var(--text-md);color:var(--color-text-primary);font-weight:500">${
+      batchSel.size
+    } à filer${batchFakeSel.size ? ` · ${batchFakeSel.size} à jeter` : ""}</div></div>` +
+    destBlock +
+    `<div style="margin-bottom:14px">${head("Final name")}<div class="sift-fil-prev" style="font-size:var(--text-xs);color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;line-height:1.5">${esc(
+      batchPreview(),
+    )}</div></div>` +
+    `<div style="margin-bottom:14px">${head("Excluded")}<div style="font-size:var(--text-sm);color:var(--color-text-tertiary)">${reviewN} need review · filed safely only when clean</div></div>` +
+    `<div id="sift-batch-tracks"></div>` +
+    `<div class="sift-baction-slot">${actionButtonHtml(batchRunning)}</div>`;
+  if (keepNote) foot.insertAdjacentElement("afterbegin", keepNote);
+  if (keepTracks) foot.querySelector("#sift-batch-tracks")!.replaceWith(keepTracks);
+  else refreshBatchTracksPreview(); // in-place → show the per-track source folders at choice time
 }
 
-/** Switch between detail and batch review. On entering batch we (re)load the bins for the
- * destination dropdown; on leaving we restore the per-track filing pane. */
+/** Switch between detail and batch review. On entering batch the #fldz tree becomes the destination
+ * explorer (batch pick mode); on leaving we restore the per-track filing pane. */
 function setReviewMode(m: "detail" | "batch") {
   reviewMode = m;
   ensureReviewSeg();
   const fldz = requireEl("#fldz", "setReviewMode");
-  fldz.style.display = m === "batch" ? "none" : "";
+  // Batch now SHOWS the #fldz tree (it is the destination explorer); detail keeps showing it too.
+  fldz.style.display = "";
   if (m === "batch") {
-    listBins()
-      .then((b) => {
-        batchBins = b;
-        renderBatch();
-      })
-      .catch((err) => {
-        console.error("listBins failed", err);
-        batchBins = [];
-        renderBatch();
-      });
+    renderBatch();
+    // Drive the #fldz tree in batch pick mode (loads bins, clicks set batchBin via onBatchBinPick).
+    void refreshBinsForBatch(fldz, batchBin, onBatchBinPick);
   } else {
+    // Leave batch pick mode: tree reverts to detail's state.binRel, remove the in-place checkbox.
+    clearBinPick();
+    document.getElementById("sift-inplace")?.remove();
+    fldz.style.opacity = "";
+    fldz.style.pointerEvents = "";
     void renderQueue(true);
   }
 }
@@ -445,12 +605,25 @@ async function runBatchFile() {
   if (ids.length === 0) return;
   fileStopping = false;
   lastFileProgress = null;
+  // Flip the rail button to Stop and (re)build the rail so the progress slot exists before mounting.
+  batchRunning = true;
+  renderBatchRail(currentItems.filter((it) => it.verdict !== "ok").length);
+  // Mount the per-track list (ordered like the submitted ids) before launching — the first row
+  // shows "running" immediately; file:progress/file:done drive the rest. No backend event needed.
+  batchTrackIds = ids;
+  startBatchTracklist(ensureBatchTracklistHost(), ids.map(batchTrackItem));
   fileNote(
     '<i class="ti ti-loader sift-spin" style="font-size:var(--text-md);vertical-align:-1px"></i> Filing in the background…',
   );
+  // Per-track encode target from the group chips (each id → its rail's chosen/default target).
+  const targets: Record<number, Target> = {};
+  for (const id of ids) {
+    const it = currentItems.find((q) => q.id === id);
+    targets[id] = railTarget((it?.rail ?? "unknown") as "lossless" | "lossy" | "unknown");
+  }
   try {
     // Resolves as soon as the background task STARTS; the summary comes via file:done.
-    await fileBatch(ids, batchBin);
+    await fileBatch(ids, batchDest(), targets);
   } catch (err) {
     // Launch-time rejections only (NoLibraryRoot, or the task couldn't start).
     const code = String(err);
@@ -462,6 +635,56 @@ async function runBatchFile() {
     );
     console.error("file_batch launch failed", err);
   }
+}
+
+/** Display name for a batch row: the queue item's artist — title, else its filename/path. */
+function batchTrackName(id: number): string {
+  const it = currentItems.find((q) => q.id === id);
+  if (!it) return `#${id}`;
+  return [it.artist, it.title].filter(Boolean).join(" — ") || it.filename || it.path;
+}
+
+/** Readable source-folder label for "file in place" mode: the parent folder NAME of `path` (its
+ *  immediate containing directory), prefixed with `…<sep>`. Front-only, no disk read — handles both
+ *  Windows `\` and POSIX `/` separators. E.g. `C:\Music\Crate Diggin\x.flac` → `…\Crate Diggin`. */
+function sourceFolderLabel(path: string): string {
+  const sep = path.includes("\\") ? "\\" : "/";
+  const parts = path.split(/[\\/]/).filter(Boolean);
+  if (parts.length < 2) return path; // no parent folder to show — fall back to the raw path
+  return `…${sep}${parts[parts.length - 2]}`;
+}
+
+/** A per-track list item; the source-folder suffix is attached only in "file in place" mode (the one
+ *  case where each track's destination differs — its own source folder — so a single récap line lies). */
+function batchTrackItem(id: number): { id: number; name: string; suffix?: string } {
+  const it = currentItems.find((q) => q.id === id);
+  const suffix = batchInPlace && it ? sourceFolderLabel(it.path) : undefined;
+  return { id, name: batchTrackName(id), suffix };
+}
+
+/** (Re)render the choice-time preview of the per-track list into #sift-batch-tracks: the in-place
+ *  source folders, visible BEFORE a run. No-op during a run (the live list owns the container) or
+ *  when not in-place (no per-track destinations to show). */
+function refreshBatchTracksPreview(): void {
+  if (reviewMode !== "batch" || batchRunning) return;
+  const host = document.getElementById("sift-batch-tracks");
+  if (!host) return;
+  if (batchInPlace) previewBatchTracklist(host, [...batchSel].map(batchTrackItem));
+  else host.innerHTML = "";
+}
+
+/** Stable container for the per-track list, mounted in the right rail (#filfoot) under the batch
+ *  récap and above the action button, so all batch progress lives next to the controls that drive it. */
+function ensureBatchTracklistHost(): HTMLElement {
+  let el = document.getElementById("sift-batch-tracks");
+  if (!el) {
+    // The rail slot (renderBatchRail's #sift-batch-tracks div) isn't mounted yet — create a detached
+    // node and append it to the rail; renderBatchRail preserves it (keepTracks) on its next rebuild.
+    el = document.createElement("div");
+    el.id = "sift-batch-tracks";
+    document.getElementById("filfoot")?.appendChild(el);
+  }
+  return el;
 }
 
 /** Insert/replace a transient note at the top of the batch rail (#filfoot), if it is on screen. */
@@ -480,15 +703,27 @@ function fileNote(html: string, color = "var(--color-text-secondary)") {
  * still on screen, since the user may have navigated away while the batch ran. */
 async function onFileBatchDone(res: BatchResult) {
   fileStopping = false;
+  batchRunning = false; // the later refresh() repaints the rail button back to its adaptive state
+  // Final per-track reconcile: filed ids = done, needs_validation ids = failed. A cancelled run only
+  // processed the first `lastFileProgress.done` ids; the rest never started (left at waiting).
+  const processed = res.cancelled ? batchTrackIds.slice(0, lastFileProgress?.done ?? 0) : batchTrackIds;
+  const failed = new Set(res.needs_validation);
+  finishBatchTracklist(processed.filter((id) => !failed.has(id)), res.needs_validation);
   if (res.cancelled) {
     // Stop-net end: no 100% done-flash came from progress (done<total). Flash the partial then hide.
     clearTimeout(fileClearTimer);
     const lp = lastFileProgress;
     if (lp) {
       setTask("file", { done: lp.done, total: lp.total, state: "done" });
-      fileClearTimer = setTimeout(() => clearTask("file"), 1200);
+      fileClearTimer = setTimeout(() => {
+        clearTask("file");
+        clearBatchTracklist();
+        refreshBatchTracksPreview();
+      }, 1200);
     } else {
       clearTask("file");
+      clearBatchTracklist();
+      refreshBatchTracksPreview();
     }
   }
   const base = res.needs_validation.length
@@ -509,13 +744,18 @@ async function onFileBatchDone(res: BatchResult) {
 
 /** Send every ticked track to Écartés for re-sourcing (backend emits queue:changed → redraw). */
 async function runBatchDiscard() {
-  const ids = [...batchSel];
+  const ids = [...batchFakeSel];
   if (ids.length === 0) return;
+  batchRunning = true;
+  renderBatchRail(currentItems.filter((it) => it.verdict !== "ok").length);
   try {
     await rejectBatch(ids);
-    batchSel.clear();
+    batchFakeSel.clear();
   } catch (err) {
     console.error("reject_batch failed", err);
+  } finally {
+    batchRunning = false;
+    await refresh();
   }
 }
 
@@ -836,6 +1076,35 @@ export function installLiveWiring() {
       if (batchSel.size === ready.length) batchSel.clear();
       else for (const it of ready) batchSel.add(it.id);
       renderBatch();
+    } else if (act === "batchgroup") {
+      e.stopPropagation();
+      const kind = el.dataset.kind === "fake" ? "fake" : "file";
+      const railKey = el.dataset.rail ?? "";
+      const ids =
+        kind === "fake"
+          ? currentItems.filter((it) => it.verdict === "fake").map((it) => it.id)
+          : currentItems
+              .filter((it) => it.verdict === "ok" && (it.rail ?? "unknown") === railKey)
+              .map((it) => it.id);
+      const sel = kind === "fake" ? batchFakeSel : batchSel;
+      // empty/partial → check all; full → clear all (tri-state toggle).
+      const full = ids.length > 0 && ids.every((id) => sel.has(id));
+      for (const id of ids) if (full) sel.delete(id);
+        else sel.add(id);
+      renderBatch();
+    } else if (act === "batchpickfake") {
+      e.stopPropagation();
+      const id = Number(el.dataset.id);
+      if (batchFakeSel.has(id)) batchFakeSel.delete(id);
+      else batchFakeSel.add(id);
+      renderBatch();
+    } else if (act === "batchfmt") {
+      e.stopPropagation(); // don't let the chip click bubble to the group-header toggle
+      const t = el.dataset.t; // greyed (disabled) chips carry no data-t → no-op
+      if (t) {
+        groupTarget[el.dataset.rail as "lossless" | "lossy" | "unknown"] = t as Target;
+        renderBatch();
+      }
     } else if (act === "batchopen") {
       e.stopPropagation();
       const id = Number(el.dataset.id);
@@ -843,20 +1112,25 @@ export function installLiveWiring() {
       setReviewMode("detail");
       const mid = requireEl("#mid", "batchopen");
       if (item && mid) void openFilingInto(mid, item);
-    } else if (act === "batchfile") {
+    } else if (act === "batchaction") {
       e.stopPropagation();
-      void runBatchFile();
-    } else if (act === "batchdiscard") {
+      // Adaptive dispatch: file the ticked fileables, else discard the ticked fakes. When both are
+      // ticked the button reads "Filer · Discarder" and runs the File batch (Stop/progress follows it).
+      if (batchSel.size) void runBatchFile();
+      else if (batchFakeSel.size) void runBatchDiscard();
+    } else if (act === "batchstop") {
       e.stopPropagation();
-      void runBatchDiscard();
+      onFileStop();
     }
   });
 
-  // Destination dropdown (batch bar) — a <select>, so it needs change, not click.
+  // "File in place" checkbox (under the #fldz tree, batch mode) — a checkbox, so it needs change.
   requireEl("#pa", "installLiveWiring").addEventListener("change", (e) => {
-    const sel = (e.target as HTMLElement).closest<HTMLSelectElement>('select[data-sift="batchbin"]');
-    if (sel) {
-      batchBin = sel.value;
+    const ip = (e.target as HTMLElement).closest<HTMLInputElement>('input[data-sift="inplace"]');
+    if (ip) {
+      batchInPlace = ip.checked;
+      const fldz = document.getElementById("fldz");
+      if (fldz) renderBinsForBatch(fldz, batchBin, onBatchBinPick);
       renderBatchRail(currentItems.filter((it) => it.verdict !== "ok").length);
     }
   });

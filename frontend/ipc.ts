@@ -99,8 +99,11 @@ export const fileTrack = (
 /** Launch background filing of `trackIds` into `binRel`. Resolves as soon as the background task
  * is STARTED (not when it finishes) — subscribe to `onFileDone` for the end-of-batch summary.
  * Rejects synchronously on NoLibraryRoot, or if the background task can't be started. */
-export const fileBatch = (trackIds: number[], binRel: string): Promise<void> =>
-  invoke("file_batch", { trackIds, binRel });
+export const fileBatch = (
+  trackIds: number[],
+  binRel: string,
+  targets?: Record<number, Target>,
+): Promise<void> => invoke("file_batch", { trackIds, binRel, targets: targets ?? null });
 
 /** Subscribe to "file:done" (the background filing batch finished). Payload = run summary.
  * Returns an unlisten fn. */

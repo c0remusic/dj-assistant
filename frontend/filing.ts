@@ -183,13 +183,21 @@ function childrenOf(rel: string): Bin[] {
   return state.bins.filter((b) => b.depth === depth + 1 && b.rel.startsWith(rel + "/"));
 }
 
+// Optional batch pick context: when set, the #fldz tree highlights `selectedRel` and routes a folder
+// click to `onPick` (→ batchBin in sift-live) instead of detail's state.binRel. null = detail mode.
+let binPick: { selectedRel: string | null; onPick: (rel: string) => void } | null = null;
+/** The rel currently highlighted in the tree — batch pick context when active, else detail's. */
+function selRel(): string | null {
+  return binPick ? binPick.selectedRel : state.binRel;
+}
+
 /** Recursive HTML for one tree node + its children when expanded. The root (depth 0,
  * rel "") sits at the top; folders nest under it, each with a caret when it has
  * sub-folders. Selecting a node sets it as the filing destination. */
 function binNodeHtml(node: { rel: string; name: string; depth: number }): string {
   const kids = childrenOf(node.rel);
   const isOpen = expanded.has(node.rel);
-  const on = node.rel === state.binRel ? " on" : "";
+  const on = node.rel === selRel() ? " on" : "";
   const indent = node.depth * 13;
   const caret = kids.length
     ? `<span data-fil="caret" data-rel="${esc(node.rel)}" title="${isOpen ? "Collapse" : "Expand"}" style="display:inline-block;width:14px;text-align:center;cursor:pointer;color:var(--color-text-tertiary);transition:transform .2s;${
@@ -216,7 +224,7 @@ function binNodeHtml(node: { rel: string; name: string; depth: number }): string
 /** Flat selectable row for the filtered view: shows the full relative path so the location is
  * obvious without the tree context, with the same highlight + absolute-path tooltip as the tree. */
 function flatBinHtml(b: Bin): string {
-  const on = b.rel === state.binRel ? " on" : "";
+  const on = b.rel === selRel() ? " on" : "";
   const sel = on ? "background:var(--color-background-info);border-radius:var(--border-radius-sm,4px);" : "";
   const color = on ? "var(--color-text-info)" : "var(--color-text-tertiary)";
   return `<div class="fld${on}" data-fil="bin" data-rel="${esc(b.rel)}" title="${esc(
@@ -305,9 +313,14 @@ export function renderBins(fldz: HTMLElement): void {
   );
   fldz.querySelectorAll<HTMLElement>('[data-fil="bin"]').forEach((el) =>
     el.addEventListener("click", () => {
-      state.binRel = el.dataset.rel ?? null;
-      renderBins(fldz);
-      refreshFootButton();
+      const rel = el.dataset.rel ?? "";
+      if (binPick) {
+        binPick.onPick(rel); // batch: caller updates batchBin + re-renders tree/rail/preview
+      } else {
+        state.binRel = rel;
+        renderBins(fldz);
+        refreshFootButton();
+      }
     }),
   );
   fldz.querySelector('[data-fil="newbin"]')?.addEventListener("click", () => {
@@ -330,11 +343,11 @@ export function renderBins(fldz: HTMLElement): void {
 }
 
 /** Default target from the analysed rail (lossless → AIFF, else MP3 320). */
-function defaultTarget(rail: string): Target {
+export function defaultTarget(rail: string): Target {
   return rail === "lossless" ? "aiff_16_44" : "mp3_320";
 }
 
-const TARGET_LABEL: Record<Target, string> = {
+export const TARGET_LABEL: Record<Target, string> = {
   mp3_320: "MP3 320",
   aiff_16_44: "AIFF",
   wav_16_44: "WAV",
@@ -1334,6 +1347,32 @@ export function installUndoShortcut(): void {
 export async function refreshBins(fldz: HTMLElement): Promise<void> {
   await loadBins();
   renderBins(fldz);
+}
+
+/** Render the tree in batch pick mode (no reload — state.bins already loaded). */
+export function renderBinsForBatch(
+  fldz: HTMLElement,
+  selectedRel: string | null,
+  onPick: (rel: string) => void,
+): void {
+  binPick = { selectedRel, onPick };
+  renderBins(fldz);
+}
+
+/** Load bins then render the tree in batch pick mode (entry when switching into batch). */
+export async function refreshBinsForBatch(
+  fldz: HTMLElement,
+  selectedRel: string | null,
+  onPick: (rel: string) => void,
+): Promise<void> {
+  binPick = { selectedRel, onPick };
+  await loadBins();
+  renderBins(fldz);
+}
+
+/** Leave batch pick mode → tree reverts to detail's state.binRel. */
+export function clearBinPick(): void {
+  binPick = null;
 }
 
 /** Keep the detail pane in sync with the queue: if the open track is still pending, leave it
