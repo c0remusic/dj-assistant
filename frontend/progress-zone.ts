@@ -54,6 +54,10 @@ export function setCancelHandler(kind: TaskKind, fn: () => void): void {
 function ensureZone(): HTMLElement {
   let zone = document.getElementById("sift-progress-zone");
   if (!zone) {
+    // The node is absent — either first run, or it was relocated into a view (batch rail) and then
+    // destroyed by a #content rebuild on view-switch. Drop the stale rowCache so render() rebuilds the
+    // rows fresh into this new node (its handles would otherwise point at the detached, dead nodes).
+    rowCache.clear();
     const foot = requireEl(".nav-foot", "progress-zone ensureZone");
     zone = document.createElement("div");
     zone.id = "sift-progress-zone";
@@ -69,6 +73,22 @@ function ensureZone(): HTMLElement {
     });
   }
   return zone;
+}
+
+/** Relocate the single persistent zone into `parent` (e.g. the batch rail slot). The node is MOVED,
+ *  not cloned, so rowCache + the delegated Stop listener stay valid → setTask/clearTask remain the one
+ *  source of truth, no rendering logic is duplicated. No-op if it is already there. */
+export function mountProgressZone(parent: HTMLElement): void {
+  const zone = ensureZone();
+  if (zone.parentElement !== parent) parent.appendChild(zone);
+}
+
+/** Return the zone to its default home: prepended above Settings in the nav sidebar (.nav-foot). Used
+ *  when leaving batch mode so detail keeps the progress zone on the left, exactly as before. */
+export function homeProgressZone(): void {
+  const foot = requireEl(".nav-foot", "progress-zone homeProgressZone");
+  const zone = ensureZone();
+  if (foot.firstElementChild !== zone) foot.prepend(zone);
 }
 
 /** Structural signature of a row: everything that fixes its STRUCTURE / static text (and whether the

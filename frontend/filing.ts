@@ -185,7 +185,8 @@ function childrenOf(rel: string): Bin[] {
 
 // Optional batch pick context: when set, the #fldz tree highlights `selectedRel` and routes a folder
 // click to `onPick` (→ batchBin in sift-live) instead of detail's state.binRel. null = detail mode.
-let binPick: { selectedRel: string | null; onPick: (rel: string) => void } | null = null;
+let binPick: { selectedRel: string | null; onPick: (rel: string) => void; inert: boolean } | null =
+  null;
 /** The rel currently highlighted in the tree — batch pick context when active, else detail's. */
 function selRel(): string | null {
   return binPick ? binPick.selectedRel : state.binRel;
@@ -288,6 +289,16 @@ export function renderBins(fldz: HTMLElement): void {
         )}</div>`;
 
   fldz.innerHTML = filterRow + body + newRow;
+
+  // Batch in-place greys the tree (inert). Re-assert it on EVERY render, because renderBins is also
+  // reached from the filter input / caret / folder-click paths that bypass ensureBatchDestUI — without
+  // this the opacity set once by ensureBatchDestUI goes stale (it only refreshed on a rail rebuild,
+  // e.g. the "Aucun (clear)" button, which is why clear appeared to toggle the bug). Detail mode keeps
+  // binPick === null and is never greyed.
+  if (binPick) {
+    fldz.style.opacity = binPick.inert ? ".4" : "1";
+    fldz.style.pointerEvents = binPick.inert ? "none" : "auto";
+  }
 
   // Re-render on every keystroke loses focus — restore it (caret at end) while filtering.
   if (filtering) {
@@ -1354,8 +1365,9 @@ export function renderBinsForBatch(
   fldz: HTMLElement,
   selectedRel: string | null,
   onPick: (rel: string) => void,
+  inert: boolean,
 ): void {
-  binPick = { selectedRel, onPick };
+  binPick = { selectedRel, onPick, inert };
   renderBins(fldz);
 }
 
@@ -1364,8 +1376,9 @@ export async function refreshBinsForBatch(
   fldz: HTMLElement,
   selectedRel: string | null,
   onPick: (rel: string) => void,
+  inert: boolean,
 ): Promise<void> {
-  binPick = { selectedRel, onPick };
+  binPick = { selectedRel, onPick, inert };
   await loadBins();
   renderBins(fldz);
 }
@@ -1373,6 +1386,13 @@ export async function refreshBinsForBatch(
 /** Leave batch pick mode → tree reverts to detail's state.binRel. */
 export function clearBinPick(): void {
   binPick = null;
+}
+
+/** Update the batch tree's inert (greyed) flag WITHOUT rebuilding the tree — so binPick.inert stays
+ *  the single source of truth that renderBins re-asserts on every render (incl. queue refreshes during
+ *  a run). Called by the rail's ensureBatchDestUI on each rebuild. No-op outside batch pick mode. */
+export function setBinPickInert(inert: boolean): void {
+  if (binPick) binPick.inert = inert;
 }
 
 /** Keep the detail pane in sync with the queue: if the open track is still pending, leave it

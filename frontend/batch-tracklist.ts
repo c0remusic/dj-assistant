@@ -56,24 +56,6 @@ export function startBatchTracklist(
   if (rows.length) paint(rows[0], "run");
 }
 
-/** Static (pre-run) render of the SAME list — all rows neutral ("wait"), no run-state tracking — so
- *  the per-track source folders are visible AT CHOICE TIME in "file in place" mode. A real run then
- *  replaces this via startBatchTracklist. Deliberately does NOT touch the module rows/host used by
- *  the run lifecycle, so updateBatchTracklist/clearBatchTracklist can't interfere with the preview. */
-export function previewBatchTracklist(
-  container: HTMLElement,
-  items: { id: number; name: string; suffix?: string }[],
-): void {
-  const list = items
-    .map(({ name, suffix }) => `<div class="sift-bt-row">${rowInner(name, suffix)}</div>`)
-    .join("");
-  container.innerHTML = `<div class="sift-bt-head">Batch</div><div class="sift-bt-list">${list}</div>`;
-  container.querySelectorAll<HTMLElement>(".sift-bt-pill").forEach((p) => {
-    p.className = `sift-bt-pill ${PILL.wait.cls}`;
-    p.innerHTML = PILL.wait.html;
-  });
-}
-
 function paint(row: BtRow, s: BtState): void {
   if (row.state === s) return;
   row.state = s;

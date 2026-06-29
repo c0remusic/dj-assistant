@@ -37,6 +37,7 @@ import {
   renderBinsForBatch,
   refreshBinsForBatch,
   clearBinPick,
+  setBinPickInert,
   defaultTarget,
   targetExt,
   TARGET_LABEL,
@@ -51,10 +52,15 @@ import { requireEl } from "./dom";
 
 /** Human label for the batch destination (resolves the in-place sentinel to its prose). */
 const IN_PLACE_LABEL = "Dossier source de chaque morceau";
-import { setTask, clearTask, setCancelHandler } from "./progress-zone";
+import {
+  setTask,
+  clearTask,
+  setCancelHandler,
+  mountProgressZone,
+  homeProgressZone,
+} from "./progress-zone";
 import {
   startBatchTracklist,
-  previewBatchTracklist,
   updateBatchTracklist,
   finishBatchTracklist,
   clearBatchTracklist,
@@ -513,15 +519,16 @@ function onBatchBinPick(rel: string): void {
   batchBin = rel;
   batchInPlace = false; // choosing a folder turns off "file in place"
   const fldz = document.getElementById("fldz");
-  if (fldz) renderBinsForBatch(fldz, batchBin, onBatchBinPick);
+  if (fldz) renderBinsForBatch(fldz, batchBin, onBatchBinPick, batchInPlace);
   renderBatchRail(currentItems.filter((it) => it.verdict !== "ok").length);
 }
-/** The naming MOTIF (not 1752 computed names): the front's filename convention rendered as a
- *  placeholder `Artiste - Titre.<ext>`, one line per DISTINCT chosen extension among the selected
- *  groups (so lossless→aiff + lossy→mp3 shows two lines). Returns READY HTML (`<br>`-joined; dest is
- *  esc'd, the rest is literal). Convention = the default template `{artist} - {title}{version}`
- *  (settings DEFAULT_TEMPLATE); a customized FILENAME_TEMPLATE isn't exposed to the front, so this
- *  would go stale exactly like the detail "Final name" preview already does. */
+/** The naming MOTIF (not 1752 computed names): the front's filename convention rendered as a single
+ *  placeholder line `Artiste - Titre.<ext>`. When the selected groups span several formats the tail
+ *  condenses to `.{aiff|mp3}` (distinct extensions, sorted, "|"-joined) rather than one line per
+ *  format. Returns READY HTML (dest is esc'd; "Artiste - Titre" + the ext tokens are literal/safe).
+ *  Convention = the default template `{artist} - {title}{version}` (settings DEFAULT_TEMPLATE); a
+ *  customized FILENAME_TEMPLATE isn't exposed to the front, so this would go stale exactly like the
+ *  detail "Final name" preview already does. */
 function batchNameMotifHtml(): string {
   if (batchSel.size === 0) return "—";
   const dest = esc(batchDestLabel());
@@ -535,15 +542,25 @@ function batchNameMotifHtml(): string {
     if (!exts.includes(ext)) exts.push(ext);
   }
   if (!exts.length) return "—";
-  return exts.map((ext) => `${dest}/Artiste - Titre.${ext}`).join("<br>");
+  exts.sort();
+  const tail = exts.length === 1 ? exts[0] : `{${exts.join("|")}}`;
+  // In-place: each track returns to its OWN folder, so a "Library root/" prefix would lie — show the
+  // bare name motif. Tree mode: prefix with the chosen destination.
+  return batchInPlace ? `Artiste - Titre.${tail}` : `${dest}/Artiste - Titre.${tail}`;
 }
 /** Ensure the batch destination UI around #fldz: the tree is in batch pick mode, and a "file in
  *  place" checkbox sits right under it (a sibling, so renderBins' innerHTML rebuild can't wipe it). */
 function ensureBatchDestUI(): void {
   const fldz = document.getElementById("fldz");
   if (!fldz) return;
-  fldz.style.opacity = batchInPlace ? ".45" : "";
-  fldz.style.pointerEvents = batchInPlace ? "none" : "";
+  // In-place GREYS the tree (visible but inert) — never hides it; the tree only picks a real folder.
+  // ensureBatchDestUI runs on EVERY renderBatchRail (incl. run start and the post-run refresh), so
+  // syncing binPick.inert here makes it the single source of truth: a later renderBins (queue refresh
+  // during/after a run) re-asserts the SAME state, never an opacity that drifted from batchInPlace.
+  setBinPickInert(batchInPlace);
+  fldz.style.display = ""; // belt-and-suspenders: a greyed tree must stay laid out, not collapse
+  fldz.style.opacity = batchInPlace ? ".4" : "1";
+  fldz.style.pointerEvents = batchInPlace ? "none" : "auto";
   let box = document.getElementById("sift-inplace");
   if (!box) {
     box = document.createElement("label");
@@ -555,6 +572,12 @@ function ensureBatchDestUI(): void {
   box.innerHTML = `<input type="checkbox" data-sift="inplace"${
     batchInPlace ? " checked" : ""
   } style="accent-color:var(--color-text-info)"> ${esc(IN_PLACE_LABEL)}`;
+  // The DETAIL in-place toggle (#fil-inplace, ensureInPlaceToggle) is a sibling of #filfoot that
+  // survives the batch rail rebuild — it would show "Sur place (dossier source)" beside our batch
+  // checkbox (the doublon). Hide it in batch (its checked state is preserved); setReviewMode("detail")
+  // restores it. Batch's only in-place control is #sift-inplace.
+  const detToggle = document.getElementById("fil-inplace");
+  if (detToggle) detToggle.style.display = "none";
 }
 
 /** The single rail action button. Adaptive before a run (Filer / Discarder / both / disabled),
@@ -586,32 +609,40 @@ function renderBatchRail(reviewN: number) {
   // on every selection change). Not while idle — the choice-time preview is rebuilt fresh below.
   const keepTracks = batchRunning ? foot.querySelector("#sift-batch-tracks") : null;
   const keepNote = foot.querySelector("[data-file-note]");
-  // In-place mode has NO single destination (each track returns to its own source folder), so the
-  // unique "Destination" line would lie — drop it; the per-track preview shows the real folders instead.
-  const destBlock = batchInPlace
-    ? ""
-    : `<div style="margin-bottom:14px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:9px 11px">${head(
-        "Destination",
-      )}<div style="font-size:var(--text-md);color:var(--color-text-secondary)">${esc(
-        batchDestLabel(),
-      )}</div></div>`;
+  // The progress zone may live in THIS rail from a prior render; park it back in its nav home before the
+  // innerHTML wipe (which would destroy the node + its live rowCache), then re-mount into the fresh slot.
+  if (foot.querySelector("#sift-progress-zone")) homeProgressZone();
+  // Destination pill in BOTH modes: a real folder (tree mode) or the in-place RULE label
+  // ("Dossier source de chaque morceau") — batchDestLabel() resolves which. In-place states the rule
+  // once here instead of listing each track's folder.
+  const destBlock = `<div style="margin-bottom:14px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:9px 11px">${head(
+    "Destination",
+  )}<div style="font-size:var(--text-md);color:var(--color-text-secondary)">${esc(
+    batchDestLabel(),
+  )}</div></div>`;
   // "Excluded" is folded into Selection as a discreet (tertiary) suffix — no separate block.
   const jeter = batchFakeSel.size ? ` · ${batchFakeSel.size} à jeter` : "";
   const exclus = reviewN
     ? ` · <span style="color:var(--color-text-tertiary)">${reviewN} exclus (en review)</span>`
     : "";
-  // Order: Destination (pill, top) → Selection (+ exclus) → Final name (motif) → tracks → action.
+  // Order: Destination (pill, top) → Selection (+ exclus) → Final name (motif) → progress → tracks →
+  // action. #sift-batch-progress is the slot the global progress zone is relocated into (batch only),
+  // so Filing/Analysing shows here in the rail instead of the left sidebar.
   foot.innerHTML =
     destBlock +
     `<div style="margin-bottom:14px">${head("Selection")}<div style="font-size:var(--text-md);color:var(--color-text-primary);font-weight:500">${
       batchSel.size
     } à filer${jeter}${exclus}</div></div>` +
     `<div style="margin-bottom:14px">${head("Final name")}<div class="sift-fil-prev" style="font-size:var(--text-xs);color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;line-height:1.5">${batchNameMotifHtml()}</div></div>` +
+    `<div id="sift-batch-progress"></div>` +
     `<div id="sift-batch-tracks"></div>` +
     `<div class="sift-baction-slot">${actionButtonHtml(batchRunning)}</div>`;
   if (keepNote) foot.insertAdjacentElement("afterbegin", keepNote);
   if (keepTracks) foot.querySelector("#sift-batch-tracks")!.replaceWith(keepTracks);
-  else refreshBatchTracksPreview(); // in-place → show the per-track source folders at choice time
+  else refreshBatchTracksPreview(); // idle → keep the per-track list empty (it is a run-only artifact)
+  // Move the single progress zone into the rail (batch). setTask/clearTask keep driving the same node,
+  // so Filing X/N + Analysing render here with no duplicated logic. Detail restores it via setReviewMode.
+  mountProgressZone(requireEl("#sift-batch-progress", "renderBatchRail progress slot"));
 }
 
 /** Switch between detail and batch review. On entering batch the #fldz tree becomes the destination
@@ -622,16 +653,27 @@ function setReviewMode(m: "detail" | "batch") {
   const fldz = requireEl("#fldz", "setReviewMode");
   // Batch now SHOWS the #fldz tree (it is the destination explorer); detail keeps showing it too.
   fldz.style.display = "";
+  // The static "Destination" header is the mockup's first direct .col-h child of .dest (app.js), above
+  // #fldz. Batch prints its OWN "Destination" pill in the récap (#filfoot) → hide the static one to kill
+  // the doublon; restore it for detail. Same hide/restore pattern as the #fil-inplace toggle.
+  const destHead = fldz.parentElement?.querySelector<HTMLElement>(":scope > .col-h") ?? null;
   if (m === "batch") {
+    if (destHead) destHead.style.display = "none";
     renderBatch();
     // Drive the #fldz tree in batch pick mode (loads bins, clicks set batchBin via onBatchBinPick).
-    void refreshBinsForBatch(fldz, batchBin, onBatchBinPick);
+    void refreshBinsForBatch(fldz, batchBin, onBatchBinPick, batchInPlace);
   } else {
+    if (destHead) destHead.style.display = "";
     // Leave batch pick mode: tree reverts to detail's state.binRel, remove the in-place checkbox.
     clearBinPick();
     document.getElementById("sift-inplace")?.remove();
+    // Restore the detail in-place toggle hidden by ensureBatchDestUI (so detail shows its own case).
+    const detToggle = document.getElementById("fil-inplace");
+    if (detToggle) detToggle.style.display = "";
     fldz.style.opacity = "";
     fldz.style.pointerEvents = "";
+    // Return the progress zone to its left-sidebar home (it was relocated into the batch rail).
+    homeProgressZone();
     void renderQueue(true);
   }
 }
@@ -685,33 +727,22 @@ function batchTrackName(id: number): string {
   return [it.artist, it.title].filter(Boolean).join(" — ") || it.filename || it.path;
 }
 
-/** Readable source-folder label for "file in place" mode: the parent folder NAME of `path` (its
- *  immediate containing directory), prefixed with `…<sep>`. Front-only, no disk read — handles both
- *  Windows `\` and POSIX `/` separators. E.g. `C:\Music\Crate Diggin\x.flac` → `…\Crate Diggin`. */
-function sourceFolderLabel(path: string): string {
-  const sep = path.includes("\\") ? "\\" : "/";
-  const parts = path.split(/[\\/]/).filter(Boolean);
-  if (parts.length < 2) return path; // no parent folder to show — fall back to the raw path
-  return `…${sep}${parts[parts.length - 2]}`;
+/** A per-track list item (id + display name). In-place mode no longer attaches a source-folder
+ *  suffix: the récap states the RULE once ("Dossier source de chaque morceau"), so the per-track
+ *  list stays identical to normal mode (name + status pill, no per-file path inventory). */
+function batchTrackItem(id: number): { id: number; name: string } {
+  return { id, name: batchTrackName(id) };
 }
 
-/** A per-track list item; the source-folder suffix is attached only in "file in place" mode (the one
- *  case where each track's destination differs — its own source folder — so a single récap line lies). */
-function batchTrackItem(id: number): { id: number; name: string; suffix?: string } {
-  const it = currentItems.find((q) => q.id === id);
-  const suffix = batchInPlace && it ? sourceFolderLabel(it.path) : undefined;
-  return { id, name: batchTrackName(id), suffix };
-}
-
-/** (Re)render the choice-time preview of the per-track list into #sift-batch-tracks: the in-place
- *  source folders, visible BEFORE a run. No-op during a run (the live list owns the container) or
- *  when not in-place (no per-track destinations to show). */
+/** At choice time the per-track list is NOT shown in either mode: dumping the (up to ~1752) selected
+ *  filenames row-by-row only duplicates the "N à filer" count and the "Final name" motif, drowning the
+ *  récap. The list is a RUN artifact — startBatchTracklist mounts it live when filing begins. So here we
+ *  just keep #sift-batch-tracks empty. No-op during a run (the live list owns the container). */
 function refreshBatchTracksPreview(): void {
   if (reviewMode !== "batch" || batchRunning) return;
   const host = document.getElementById("sift-batch-tracks");
   if (!host) return;
-  if (batchInPlace) previewBatchTracklist(host, [...batchSel].map(batchTrackItem));
-  else host.innerHTML = "";
+  host.innerHTML = "";
 }
 
 /** Stable container for the per-track list, mounted in the right rail (#filfoot) under the batch
@@ -1181,7 +1212,7 @@ export function installLiveWiring() {
     if (ip) {
       batchInPlace = ip.checked;
       const fldz = document.getElementById("fldz");
-      if (fldz) renderBinsForBatch(fldz, batchBin, onBatchBinPick);
+      if (fldz) renderBinsForBatch(fldz, batchBin, onBatchBinPick, batchInPlace);
       renderBatchRail(currentItems.filter((it) => it.verdict !== "ok").length);
     }
   });

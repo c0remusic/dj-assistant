@@ -95,6 +95,11 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--color-background
 .dest{width:260px;flex:none;display:flex;flex-direction:column;padding:13px 12px;background:var(--color-background-secondary);border-left:0.5px solid var(--color-border-tertiary);overflow:hidden}
 #fldz{flex:1;min-height:0;overflow-y:auto}
 #filfoot{flex:none}
+/* Batch per-track list: cap it so a long run can't push the récap + action button out of the rail.
+   .dest is a flex column with overflow:hidden and #filfoot is flex:none → an unbounded list overflows
+   and gets clipped (button cut off). 36vh ≈ a third of the viewport: enough rows to be useful while the
+   récap above and the action button below stay on-screen; the list scrolls past that. */
+#sift-batch-tracks{max-height:36vh;overflow-y:auto}
 .col-h{font-size:10px;letter-spacing:.05em;color:var(--color-text-tertiary);text-transform:uppercase;margin-bottom:6px}
 .pill{display:inline-flex;align-items:center;gap:4px;background:var(--color-background-secondary);color:var(--color-text-secondary);padding:2px 7px;border-radius:var(--border-radius-md);font-size:11px}
 .fld{display:flex;align-items:center;gap:6px;padding:6px 7px;border-radius:var(--border-radius-md);color:var(--color-text-secondary);cursor:pointer;font-size:12px}
