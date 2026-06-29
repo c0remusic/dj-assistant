@@ -125,10 +125,69 @@ les CDJ exigent, puis corriger UNE FOIS pour tout l'écriture de tags. Rattaché
 le différenciateur). NE PAS mélanger avec B4 : coder B4 d'abord, ce chantier à part.
 
 ## PHASE C — convergence batch
-- **C1. Vérifier ce que le batch reverte déjà** (lecture seule : revert_batch existe, quel
-  déclencheur côté batch ?).
-- **C2. Bandeau Filed + revert dans le rail batch** + rapatrier l'état batch (nav rail GAUCHE →
-  pied rail DROIT). Design à cadrer (batch = N morceaux). Après C1. (= 2.1)
+- **C1. ✅ RELEVÉ FAIT (28/06).** Le batch (run_file_batch, ipc_filing.rs:297) traite chaque fichier
+  INDIVIDUELLEMENT (plan/execute/commit, même chemin que l'unitaire) → chaque morceau a SON batch_id
+  et SON entrée journal, donc chacun est revertable seul via revert_batch (rien à recoder côté revert).
+  Le batch émet file:progress {done,total} (par fichier TERMINÉ, pas de % interne) + file:done
+  {filed, needs_validation, cancelled}. Annulation stop-net entre fichiers, rien rollback. CÔTÉ FRONT :
+  onFileDone/onFileProgress DÉJÀ branchés (sift-live.ts:865-866, zone progress + Stop câblés) ;
+  revertBatch/doRevert OK ; bandeau Filed unitaire OK (showFiledConfirm). MANQUE : journal() exposé
+  (ipc.ts) mais branché à AUCUNE vue ; pas de récap batch persistant ; pas de barre PAR track.
+  list_journal (actions.rs:241) renvoie par batch live newest-first : batch_id, track_id, kind
+  (convert|move|trash|reject), to_path, ts, capé par limit. PAS scopé session (liste tous les batches
+  live) → "journal de session" = afficher les N derniers via limit (pas de notion de session à coder).
+- **C2. ✅ CADRÉ (28/06) — vue Journal + barres de progression + tout-revert. À CODER (un bloc).**
+  DÉCISIONS Antoine : (1) Vue JOURNAL permanente (onglet) — brancher list_journal à un écran, revert
+  par ligne (revertBatch existe). Limite N derniers batches (≈50) ; "vue étendue sessions précédentes"
+  = PLUS TARD (juste une limite plus grande). (2) Barre PAR track à 3 ÉTATS (en attente / en cours
+  animé indéterminé / fait·échoué) — PAS de vrai % (l'instrumentation FFmpeg -progress = chantier
+  FUTUR noté ; et de toute façon un conforme = move quasi-instantané, pas de % utile). Pilotée par
+  file:progress (qui dit quel fichier est fait) → marquer chaque ligne attente→cours→fait. (3) Barre
+  GÉNÉRALE X/total (file:progress, données déjà là). (4) TOUT REVERT = annuler le DERNIER BATCH
+  (borné, sûr) — PAS l'historique entier. À TRANCHER au cadrage : le Journal montre-t-il tout
+  (convert/move/trash/reject) ou seulement les filings (convert/move) ? (recoupe l'onglet Jetés C-bis).
+  CHANTIERS FUTURS notés : vrai % FFmpeg par track (instrumenter ffmpeg -progress).
+  --- CADRAGE FINAL (28/06, décisions Antoine) ---
+  Découpé en DEUX prompts testables séparément (gros bloc → bugs subtils, cf. soirée B). Claude Code
+  doit utiliser le SKILL "superpowers" (installé) pour l'implémentation.
+  PROMPT 1 — BARRES DE PROGRESSION (pendant le batch) : barre PAR track à 3 états (attente / en cours
+  animé indéterminé / fait·échoué) pilotée par file:progress ; barre GÉNÉRALE X/total. Indépendant du
+  Journal, testable seul.
+  PROMPT 2 — JOURNAL (après le batch) : (a) vue Journal de SESSION (onglet) catégories repliables
+  Filés/Jetés/Rejetés ; (b) page Journal ÉTENDU = arbre SESSION → BATCH → morceaux. "Par session"
+  exige un VRAI marqueur de session → migration légère : colonne session_id sur actions, générée au
+  lancement de l'app, écrite sur chaque action (batch_id existe déjà pour le niveau batch). (c) REVERT
+  à TROIS portées : par track (↩ par ligne, SANS confirmation, léger) / par CATÉGORIE (borné à
+  l'AFFICHÉ — le bouton compte ce qu'on voit, zéro surprise — AVEC confirmation) / dernier BATCH (avec
+  confirmation si gros lot). Le "tout" GLOBAL (tout l'historique) ne vit QUE dans la vue étendue où
+  tout est visible (principe : une action de masse ne touche jamais plus que ce qu'on voit). Reverts
+  par type : filé→défiler (revert_batch, retire tags+pending), jeté→restaurer (restore_track),
+  rejeté→remettre en file. VÉRIFIER si revert_batch gère déjà les 3 types ou s'il faut router.
+  (d) L'onglet JETÉS garde son rôle PROPRE (stock de morceaux écartés à re-sourcer plus tard, hors
+  batch) — PAS absorbé par le Journal ; deux angles sur la donnée (Journal = "je viens de faire,
+  annuler" ; Jetés = "stock à traiter à tête reposée").
+
+### C2-bis — RE-SKIN BATCH ✅ LIVRÉ (29/06), testé live, commité
+Convergence visuelle batch↔détail. Front pur sauf format par groupe (targets map
+par track → file_batch/run_file_batch ; plan_file acceptait déjà override_target).
+Détail inchangé. 4 itérations : re-skin 3 zones / sélection groupe + bouton
+adaptatif + explorer partagé / sur-place par morceau / récap réordonné + collapse.
+REPORTS :
+- Label·Année par ligne (Ready to file) : NON FAIT. QueueItem n'a ni label ni
+  year → extension backend (QueueItem Rust + SQL). Cosmétique.
+- File + discard simultané en un clic : ÉCARTÉ (cocher fileables+fakes lance le
+  File seul). À rajouter si l'usage le réclame.
+
+### CHANTIERS TRANSVERSAUX SETTINGS→AFFICHAGE (à faire ENSEMBLE, détail+batch)
+Deux réglages Settings existent en UI mais N'AGISSENT PAS encore sur l'affichage.
+À câbler UNE FOIS, transversal (sinon on recrée la divergence détail/batch qu'on
+vient de supprimer) :
+- B8 — toggle UPSCALE/NEVER UPSCALE : aujourd'hui le grisage AIFF/WAV pour source
+  lossy est EN DUR (détail + batch). À brancher sur le réglage.
+- APERÇU NOM = VRAI TEMPLATE : l'aperçu "Final name" (détail ET batch) montre le
+  template PAR DÉFAUT, pas FILENAME_TEMPLATE customisé. Option B = IPC lecture
+  seule get_filename_template, lue par les deux modes. Périmé si l'utilisateur
+  personnalise le template.
 
 ## PHASE C-bis — TRASH CENTRALISÉ + onglet "Jetés" (décision archi 28/06)
 PROBLÈME prouvé (filing.rs:309) : trash_file_fs utilise TOUJOURS plan.root (racine de la biblio

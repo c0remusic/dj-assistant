@@ -38,6 +38,7 @@ import {
   refreshBinsForBatch,
   clearBinPick,
   defaultTarget,
+  targetExt,
   TARGET_LABEL,
 } from "./filing";
 // Views/chrome extracted from this god-module (audit P-3) — kept stateless, wired here.
@@ -68,6 +69,12 @@ let currentItems: QueueItem[] = [];
 // pruned to the currently-ready set on every batch render so a filed/removed id can't linger.
 let reviewMode: "detail" | "batch" = "detail";
 const batchSel = new Set<number>();
+// Auto-fill the ticks to "all ready" ONCE, on the first batch render that has ready items. Without
+// this guard renderBatch re-filled whenever batchSel hit 0, which silently undid "Aucun (clear)".
+let batchSelInit = false;
+// Group keys (`kind:railKey`, e.g. "file:lossless"/"fake:fake") whose row list is COLLAPSED. Persists
+// across re-renders like batchBin/batchSel. Collapsing hides rows only — never touches the selection.
+const batchCollapsed = new Set<string>();
 // Fakes ticked for DISCARD (never filed — Sift never ranges a fake lossless). Kept separate from
 // batchSel (fileables → File) so the rail action button can be adaptive (File n / Discard n / both).
 const batchFakeSel = new Set<number>();
@@ -282,10 +289,14 @@ function renderBatch() {
   const mid = requireEl("#mid", "renderBatch");
   const ready = currentItems.filter((it) => it.verdict === "ok");
   const review = currentItems.filter((it) => it.verdict !== "ok");
-  // Prune ticks to the live ready set; default to all-ready selected the first time.
+  // Prune ticks to the live ready set; default to all-ready selected ONCE (first render with ready
+  // items). Guarded by batchSelInit so an explicit "Aucun (clear)" (batchSel→0) is NOT re-filled.
   const readyIds = new Set(ready.map((it) => it.id));
   for (const id of [...batchSel]) if (!readyIds.has(id)) batchSel.delete(id);
-  if (batchSel.size === 0) for (const it of ready) batchSel.add(it.id);
+  if (!batchSelInit && ready.length) {
+    batchSelInit = true;
+    for (const it of ready) batchSel.add(it.id);
+  }
 
   // BEFORE (file name) + AFTER (Discogs artist — title once identified). When not yet identified
   // only the filename shows; identifying it (Identify all) reveals the clean name above the file.
@@ -379,10 +390,11 @@ function renderBatch() {
   const railGroup = (rail: "lossless" | "lossy" | "unknown") => {
     const xs = ready.filter((it) => (it.rail ?? "unknown") === rail);
     if (!xs.length) return "";
+    const collapsed = batchCollapsed.has(`file:${rail}`);
     return (
       `<div style="margin:2px 0 6px">` +
       groupHeaderHtml("file", rail, railLabel(rail), xs.map((it) => it.id), groupChipsHtml(rail)) +
-      xs.map(readyRow).join("") +
+      (collapsed ? "" : xs.map(readyRow).join("")) +
       `</div>`
     );
   };
@@ -410,7 +422,8 @@ function renderBatch() {
       ? `<div style="margin-top:16px"></div>` +
         sectionHead("NEEDS REVIEW", review.length) +
         (fakes.length
-          ? groupHeaderHtml("fake", "fake", "Fakes", fakes.map((it) => it.id)) + fakes.map(fakeRow).join("")
+          ? groupHeaderHtml("fake", "fake", "Fakes", fakes.map((it) => it.id)) +
+            (batchCollapsed.has("fake:fake") ? "" : fakes.map(fakeRow).join(""))
           : "") +
         reviewRest.map(reviewRow).join("")
       : "") +
@@ -448,8 +461,17 @@ function groupHeaderHtml(
       : st === "partial"
         ? '<span class="sift-bgrp-box partial"><i class="ti ti-minus"></i></span>'
         : '<span class="sift-bgrp-box"></span>';
+  // Collapse chevron: its own data-sift so the click resolves to "batchcollapse" (closest [data-sift])
+  // and is swallowed there — never bubbling to the group-header tri-state toggle (same nesting trick
+  // as the format chips). Collapsing hides rows only; the checkbox count stays driven by `ids`.
+  const gkey = `${kind}:${railKey}`;
+  const collapsed = batchCollapsed.has(gkey);
+  const chev = `<span data-sift="batchcollapse" data-gkey="${esc(gkey)}" style="flex:none;display:inline-flex;align-items:center;cursor:pointer;color:var(--color-text-tertiary)"><i class="ti ti-chevron-${
+    collapsed ? "right" : "down"
+  }" style="font-size:var(--text-md)"></i></span>`;
   return (
     `<div class="sift-bgrp-head" data-sift="batchgroup" data-kind="${kind}" data-rail="${esc(railKey)}" style="cursor:pointer">` +
+    chev +
     box +
     `<span class="col-h" style="margin:0">${esc(label)} · ${ids.length}</span>` +
     `<span style="flex:1"></span>${extra}</div>`
@@ -494,12 +516,26 @@ function onBatchBinPick(rel: string): void {
   if (fldz) renderBinsForBatch(fldz, batchBin, onBatchBinPick);
   renderBatchRail(currentItems.filter((it) => it.verdict !== "ok").length);
 }
-/** Representative batch final-name preview: count of fileables -> destination. previewName() needs the
- *  open track's canonical (absent in batch), so a per-track name isn't reachable front-only. */
-function batchPreview(): string {
-  const n = batchSel.size;
-  if (n === 0) return "—";
-  return `${n} morceau${n > 1 ? "x" : ""} → ${batchDestLabel()}/…`;
+/** The naming MOTIF (not 1752 computed names): the front's filename convention rendered as a
+ *  placeholder `Artiste - Titre.<ext>`, one line per DISTINCT chosen extension among the selected
+ *  groups (so lossless→aiff + lossy→mp3 shows two lines). Returns READY HTML (`<br>`-joined; dest is
+ *  esc'd, the rest is literal). Convention = the default template `{artist} - {title}{version}`
+ *  (settings DEFAULT_TEMPLATE); a customized FILENAME_TEMPLATE isn't exposed to the front, so this
+ *  would go stale exactly like the detail "Final name" preview already does. */
+function batchNameMotifHtml(): string {
+  if (batchSel.size === 0) return "—";
+  const dest = esc(batchDestLabel());
+  const exts: string[] = [];
+  for (const rail of ["lossless", "lossy", "unknown"] as const) {
+    const has = currentItems.some(
+      (it) => it.verdict === "ok" && (it.rail ?? "unknown") === rail && batchSel.has(it.id),
+    );
+    if (!has) continue;
+    const ext = targetExt(railTarget(rail));
+    if (!exts.includes(ext)) exts.push(ext);
+  }
+  if (!exts.length) return "—";
+  return exts.map((ext) => `${dest}/Artiste - Titre.${ext}`).join("<br>");
 }
 /** Ensure the batch destination UI around #fldz: the tree is in batch pick mode, and a "file in
  *  place" checkbox sits right under it (a sibling, so renderBins' innerHTML rebuild can't wipe it). */
@@ -554,18 +590,23 @@ function renderBatchRail(reviewN: number) {
   // unique "Destination" line would lie — drop it; the per-track preview shows the real folders instead.
   const destBlock = batchInPlace
     ? ""
-    : `<div style="margin-bottom:14px">${head("Destination")}<div style="font-size:var(--text-md);color:var(--color-text-secondary)">${esc(
+    : `<div style="margin-bottom:14px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:9px 11px">${head(
+        "Destination",
+      )}<div style="font-size:var(--text-md);color:var(--color-text-secondary)">${esc(
         batchDestLabel(),
       )}</div></div>`;
+  // "Excluded" is folded into Selection as a discreet (tertiary) suffix — no separate block.
+  const jeter = batchFakeSel.size ? ` · ${batchFakeSel.size} à jeter` : "";
+  const exclus = reviewN
+    ? ` · <span style="color:var(--color-text-tertiary)">${reviewN} exclus (en review)</span>`
+    : "";
+  // Order: Destination (pill, top) → Selection (+ exclus) → Final name (motif) → tracks → action.
   foot.innerHTML =
+    destBlock +
     `<div style="margin-bottom:14px">${head("Selection")}<div style="font-size:var(--text-md);color:var(--color-text-primary);font-weight:500">${
       batchSel.size
-    } à filer${batchFakeSel.size ? ` · ${batchFakeSel.size} à jeter` : ""}</div></div>` +
-    destBlock +
-    `<div style="margin-bottom:14px">${head("Final name")}<div class="sift-fil-prev" style="font-size:var(--text-xs);color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;line-height:1.5">${esc(
-      batchPreview(),
-    )}</div></div>` +
-    `<div style="margin-bottom:14px">${head("Excluded")}<div style="font-size:var(--text-sm);color:var(--color-text-tertiary)">${reviewN} need review · filed safely only when clean</div></div>` +
+    } à filer${jeter}${exclus}</div></div>` +
+    `<div style="margin-bottom:14px">${head("Final name")}<div class="sift-fil-prev" style="font-size:var(--text-xs);color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;line-height:1.5">${batchNameMotifHtml()}</div></div>` +
     `<div id="sift-batch-tracks"></div>` +
     `<div class="sift-baction-slot">${actionButtonHtml(batchRunning)}</div>`;
   if (keepNote) foot.insertAdjacentElement("afterbegin", keepNote);
@@ -1073,8 +1114,12 @@ export function installLiveWiring() {
     } else if (act === "batchall") {
       e.stopPropagation();
       const ready = currentItems.filter((it) => it.verdict === "ok");
-      if (batchSel.size === ready.length) batchSel.clear();
-      else for (const it of ready) batchSel.add(it.id);
+      // "Clear" state (all ready ticked) → wipe BOTH selections so the action button falls back to the
+      // disabled "Filer (0)"; otherwise select all ready.
+      if (batchSel.size === ready.length) {
+        batchSel.clear();
+        batchFakeSel.clear();
+      } else for (const it of ready) batchSel.add(it.id);
       renderBatch();
     } else if (act === "batchgroup") {
       e.stopPropagation();
@@ -1091,6 +1136,12 @@ export function installLiveWiring() {
       const full = ids.length > 0 && ids.every((id) => sel.has(id));
       for (const id of ids) if (full) sel.delete(id);
         else sel.add(id);
+      renderBatch();
+    } else if (act === "batchcollapse") {
+      e.stopPropagation(); // don't bubble to the group-header tri-state toggle
+      const gkey = el.dataset.gkey ?? "";
+      if (batchCollapsed.has(gkey)) batchCollapsed.delete(gkey);
+      else batchCollapsed.add(gkey);
       renderBatch();
     } else if (act === "batchpickfake") {
       e.stopPropagation();

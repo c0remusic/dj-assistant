@@ -353,7 +353,7 @@ export const TARGET_LABEL: Record<Target, string> = {
   wav_16_44: "WAV",
 };
 
-function targetExt(t: Target): string {
+export function targetExt(t: Target): string {
   if (t === "mp3_320") return "mp3";
   if (t === "wav_16_44") return "wav";
   return "aiff";
