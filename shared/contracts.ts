@@ -154,13 +154,19 @@ export interface EcarteItem {
   title: string;
 }
 
-/** One consultable undo-journal entry (a live batch, summarized by its latest action). */
+/** One consultable undo-journal entry (a live batch, summarized by its first action). */
 export interface JournalEntry {
   batch_id: string;
   track_id: number | null;
-  kind: "convert" | "move" | "trash" | "reject" | "tag_edit";
+  /** First action type of the batch — determines display category.
+   *  "convert"|"move" → Filés; "trash" → Jetés; "reject" → Rejetés. */
+  kind: "convert" | "move" | "trash" | "reject";
+  from_path: string | null;
   to_path: string | null;
   ts: string;
+  session_id: string | null;
+  /** Distinct track count in the batch — used to gate the last-batch confirmation on > 10. */
+  track_count: number;
 }
 
 // ---- M6b library browser (mirror of library.rs) ----

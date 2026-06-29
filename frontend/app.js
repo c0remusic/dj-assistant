@@ -33,7 +33,7 @@ function openLink(u){window.open(u,'_blank','noopener');}
   function block(){content.style.display="block";content.style.padding="14px 18px";content.style.overflowY="auto";}
   function render(){Array.prototype.forEach.call(nav.querySelectorAll('.nv'),function(n){n.classList.toggle('on',n.dataset.view===view);});
     if(view==="revue")return revMode==="batch"?renderBatch():renderRevue();
-    if(view==="home")return renderHome();if(view==="biblio")return renderBiblio();if(view==="rkb")return renderRkb();if(view==="cle")return renderCle();if(view==="ecarts")return renderEcarts();return renderReglages();}
+    if(view==="home")return renderHome();if(view==="biblio")return renderBiblio();if(view==="rkb")return renderRkb();if(view==="cle")return renderCle();if(view==="ecarts")return renderEcarts();if(view==="journal")return renderJournal();return renderReglages();}
 
   function renderHome(){
     content.style.display="flex";content.style.padding="14px 18px";content.style.overflowY="auto";content.style.flexDirection="column";
@@ -226,6 +226,8 @@ function openLink(u){window.open(u,'_blank','noopener');}
     {id:'amazon',label:'Amazon',url:function(q){return 'https://www.amazon.fr/s?k='+q+'&i=digital-music';}},
     {id:'apple',label:'Apple Music',url:function(q){return 'https://music.apple.com/fr/search?term='+q;}}
   ];
+
+  function renderJournal(){block();content.innerHTML='';if(window.__siftJournal)window.__siftJournal();}
 
   function renderEcarts(){block();
     var ecarts=T.filter(function(x){return x.status==="resource"||x.status==="trash";});

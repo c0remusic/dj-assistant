@@ -107,6 +107,11 @@ const MIGRATIONS: &[&str] = &[
     r#"
     ALTER TABLE actions ADD COLUMN meta TEXT;
     "#,
+    // v8 — Journal session grouping: tag each new action with the app session that produced it.
+    // Actions from before this migration keep session_id = NULL → front shows them under "Antérieur".
+    r#"
+    ALTER TABLE actions ADD COLUMN session_id TEXT;
+    "#,
 ];
 
 /// Applies any migrations the DB hasn't seen yet, tracked via PRAGMA user_version.
@@ -263,5 +268,19 @@ mod tests {
             .map(|r| r.unwrap())
             .collect();
         assert!(acols.contains(&"meta".to_string()), "actions missing column meta");
+    }
+
+    #[test]
+    fn actions_has_v8_session_id_column() {
+        let conn = Connection::open_in_memory().unwrap();
+        run_migrations(&conn).unwrap();
+        let acols: Vec<String> = conn
+            .prepare("SELECT name FROM pragma_table_info('actions')")
+            .unwrap()
+            .query_map([], |r| r.get::<_, String>(0))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+        assert!(acols.contains(&"session_id".to_string()), "actions missing column session_id");
     }
 }

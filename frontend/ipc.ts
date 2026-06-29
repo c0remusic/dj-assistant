@@ -146,9 +146,14 @@ export const undoLast = (): Promise<string | null> => invoke("undo_last");
 export const revertBatch = (batchId: string): Promise<void> =>
   invoke("revert_batch", { batchId });
 
-/** Recent live (not-yet-undone) batches, newest first. */
-export const listJournal = (limit = 20): Promise<JournalEntry[]> =>
-  invoke("list_journal", { limit });
+/** Recent live batches, newest first. `sessionId` = current session → Journal tab;
+ *  omit (undefined) → all sessions → extended journal page. */
+export const listJournal = (limit = 50, sessionId?: string): Promise<JournalEntry[]> =>
+  invoke("list_journal", { limit, sessionId: sessionId ?? null });
+
+/** The session ID generated at this app launch (from settings). Used to filter
+ *  list_journal to the current session in the Journal tab. */
+export const getSessionId = (): Promise<string> => invoke("get_session_id");
 
 /** Read one app setting (null when unset). */
 export const getSetting = (key: string): Promise<string | null> =>

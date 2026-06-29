@@ -49,6 +49,7 @@ import { installDragDrop, injectLeanStyle, injectTitlebar, installScrollAutohide
 import type { QueueItem, BatchResult, FileProgress, Target } from "../shared/contracts";
 import { FILE_IN_PLACE } from "../shared/contracts";
 import { requireEl } from "./dom";
+import { renderJournal } from "./journal";
 
 /** Human label for the batch destination (resolves the in-place sentinel to its prose). */
 const IN_PLACE_LABEL = "Dossier source de chaque morceau";
@@ -1036,6 +1037,7 @@ export function installLiveWiring() {
   window.__siftEcarts = renderEcartes;
   window.__siftReglages = () => void renderReglagesLive();
   window.__siftBiblio = () => void renderBiblioLive();
+  window.__siftJournal = () => void renderJournal();
   injectLeanStyle();
   injectTitlebar();
   installUndoShortcut();
@@ -1196,10 +1198,20 @@ export function installLiveWiring() {
       if (item && mid) void openFilingInto(mid, item);
     } else if (act === "batchaction") {
       e.stopPropagation();
-      // Adaptive dispatch: file the ticked fileables, else discard the ticked fakes. When both are
-      // ticked the button reads "Filer · Discarder" and runs the File batch (Stop/progress follows it).
-      if (batchSel.size) void runBatchFile();
-      else if (batchFakeSel.size) void runBatchDiscard();
+      // Adaptive dispatch. Combined (both ticked): file runs with its progress UI (Stop follows it);
+      // discard fires in parallel as a fast fire-and-forget — IDs captured before clear.
+      if (batchSel.size && batchFakeSel.size) {
+        const discardIds = [...batchFakeSel];
+        batchFakeSel.clear();
+        void runBatchFile();
+        void rejectBatch(discardIds).catch((err: unknown) =>
+          console.error("reject_batch (combined) failed", err),
+        );
+      } else if (batchSel.size) {
+        void runBatchFile();
+      } else if (batchFakeSel.size) {
+        void runBatchDiscard();
+      }
     } else if (act === "batchstop") {
       e.stopPropagation();
       onFileStop();
@@ -1250,5 +1262,6 @@ declare global {
     __siftEcarts?: () => void;
     __siftReglages?: () => void;
     __siftBiblio?: () => void;
+    __siftJournal?: () => void;
   }
 }

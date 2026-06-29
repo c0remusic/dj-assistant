@@ -60,8 +60,9 @@ pub fn record_with_meta(
     meta: Option<&str>,
 ) -> rusqlite::Result<i64> {
     conn.execute(
-        "INSERT INTO actions(track_id, type, from_path, to_path, batch_id, meta)
-         VALUES(?1, ?2, ?3, ?4, ?5, ?6)",
+        "INSERT INTO actions(track_id, type, from_path, to_path, batch_id, meta, session_id)
+         VALUES(?1, ?2, ?3, ?4, ?5, ?6,
+                (SELECT value FROM settings WHERE key='current_session_id'))",
         params![track_id, kind, from_path, to_path, batch_id, meta],
     )?;
     Ok(conn.last_insert_rowid())
@@ -225,40 +226,55 @@ pub fn undo_last(conn: &Connection) -> Result<Option<String>, RevertError> {
     }
 }
 
-/// One entry of the consultable journal: a live batch, summarized by its latest action.
+/// One entry of the consultable journal: a live batch, summarized by its FIRST action.
+/// `track_count` = number of distinct tracks in the batch (used by the front to gate
+/// "last batch" confirmation on > 10 tracks). `session_id` = NULL for pre-migration rows.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct JournalEntry {
     pub batch_id: String,
     pub track_id: Option<i64>,
-    /// The batch's latest action type (convert|move|trash|reject) — what the user sees.
+    /// The batch's FIRST action type (convert|move|trash|reject) — determines the display
+    /// category. MIN instead of MAX so a convert+trash filing shows as "convert", not "trash".
     pub kind: String,
+    pub from_path: Option<String>,
     pub to_path: Option<String>,
     pub ts: String,
+    pub session_id: Option<String>,
+    pub track_count: i64,
 }
 
 /// Recent live (not-yet-undone) batches, newest first, one entry per batch (summarized by
-/// the batch's latest row). `limit` caps the number of batches returned.
-pub fn list_journal(conn: &Connection, limit: i64) -> Vec<JournalEntry> {
-    // For each live batch, take the row with the greatest id (its latest step).
+/// the batch's FIRST action row — MIN id — so a convert+trash filing shows kind="convert").
+/// `session_id_filter` = Some(sid) to restrict to one session; None = all sessions.
+/// `tag_edit` batches are excluded (they have no category in the Journal view).
+pub fn list_journal(conn: &Connection, limit: i64, session_id_filter: Option<&str>) -> Vec<JournalEntry> {
     let mut stmt = match conn.prepare(
-        "SELECT a.batch_id, a.track_id, a.type, a.to_path, a.ts
+        "SELECT a.batch_id, a.track_id, a.type, a.from_path, a.to_path, a.ts,
+                a.session_id, g.cnt
          FROM actions a
-         JOIN (SELECT batch_id, MAX(id) AS mid FROM actions
-               WHERE undone=0 AND batch_id IS NOT NULL GROUP BY batch_id) g
-           ON a.id = g.mid
+         JOIN (
+             SELECT batch_id, MIN(id) AS mid, count(DISTINCT track_id) AS cnt
+             FROM actions
+             WHERE undone=0 AND batch_id IS NOT NULL AND type NOT IN ('tag_edit')
+             GROUP BY batch_id
+         ) g ON a.id = g.mid
+         WHERE (?2 IS NULL OR a.session_id = ?2)
          ORDER BY a.id DESC
          LIMIT ?1",
     ) {
         Ok(s) => s,
         Err(_) => return Vec::new(),
     };
-    let rows = stmt.query_map(params![limit], |r| {
+    let rows = stmt.query_map(params![limit, session_id_filter], |r| {
         Ok(JournalEntry {
             batch_id: r.get(0)?,
             track_id: r.get(1)?,
             kind: r.get(2)?,
-            to_path: r.get(3)?,
-            ts: r.get(4)?,
+            from_path: r.get(3)?,
+            to_path: r.get(4)?,
+            ts: r.get(5)?,
+            session_id: r.get(6)?,
+            track_count: r.get(7)?,
         })
     });
     match rows {
@@ -627,10 +643,10 @@ mod tests {
         seed_filed(&conn, &dir.path().join("one"), "b1");
         seed_filed(&conn, &dir.path().join("two"), "b2");
 
-        let entries = list_journal(&conn, 10);
+        let entries = list_journal(&conn, 10, None);
         let ids: Vec<&str> = entries.iter().map(|e| e.batch_id.as_str()).collect();
         assert_eq!(ids, vec!["b2", "b1"]); // newest first, one per batch
-        assert_eq!(entries[0].kind, "move"); // representative (latest) action of the batch
+        assert_eq!(entries[0].kind, "convert"); // representative (first) action of the batch
     }
 
     /// Seed a non-conformant `.aif` filing in `dir`, SAME folder: `Track.aif` was converted into

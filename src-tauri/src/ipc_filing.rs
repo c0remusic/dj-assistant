@@ -486,13 +486,26 @@ pub fn revert_batch(
 }
 
 /// Recent live (not-yet-undone) batches, newest first, for the journal UI.
+/// `session_id` = Some(sid) restricts to one session; None = all sessions.
+/// The front sends `{ sessionId: "..." }` which Tauri maps to `session_id` here.
 #[tauri::command]
 pub fn list_journal(
     conn: State<'_, Mutex<Connection>>,
     limit: i64,
+    session_id: Option<String>,
 ) -> Result<Vec<JournalEntry>, String> {
     let conn = conn.lock().map_err(|e| e.to_string())?;
-    Ok(actions::list_journal(&conn, limit))
+    Ok(actions::list_journal(&conn, limit, session_id.as_deref()))
+}
+
+/// The current app session ID (generated at launch, persisted in settings). Used by the
+/// Journal tab front to filter list_journal to the current session only.
+#[tauri::command]
+pub fn get_session_id(conn: State<'_, Mutex<Connection>>) -> Result<String, String> {
+    let conn = conn.lock().map_err(|e| e.to_string())?;
+    settings::get(&conn, settings::CURRENT_SESSION_ID)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "no session_id in settings".to_string())
 }
 
 /// Best duplicate match for a track (by name; sound-confirmed once the acoustic layer lands).

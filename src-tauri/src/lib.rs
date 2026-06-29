@@ -51,6 +51,16 @@ pub fn run() {
             let dir = app.path().app_data_dir().expect("no app data dir");
             std::fs::create_dir_all(&dir).ok();
             let conn = db::open(&dir.join("sift.db")).expect("db open failed");
+            let session_id = format!(
+                "{}-{}",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis(),
+                std::process::id()
+            );
+            settings::set(&conn, settings::CURRENT_SESSION_ID, &session_id)
+                .expect("session_id write failed");
             app.manage(Mutex::new(conn));
             app.manage(ipc_filing::FilingCancel::default());
             watcher::init_state(app.handle());
@@ -90,6 +100,7 @@ pub fn run() {
             ipc_filing::undo_last,
             ipc_filing::revert_batch,
             ipc_filing::list_journal,
+            ipc_filing::get_session_id,
             ipc_filing::get_setting,
             ipc_filing::set_setting,
             ipc_filing::list_ecartes,
