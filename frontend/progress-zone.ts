@@ -200,11 +200,3 @@ export function setTask(kind: TaskKind, p: TaskProgress): void {
 export function clearTask(kind: TaskKind): void {
   if (tasks.delete(kind)) render();
 }
-
-/** Debug-only: inject a couple of fake runs to eyeball the rendering. Never called in committed
- * code — invoke from the devtools console (`import(...).then(m => m.__seedDebugTasks())`) to verify
- * layout, then `clearTask` to dismiss. Kept as an explicit, inert debug hook. */
-export function __seedDebugTasks(): void {
-  setTask("analyze", { done: 12, total: 40, state: "running" });
-  setTask("identify", { done: 3, total: 3, state: "done" });
-}
