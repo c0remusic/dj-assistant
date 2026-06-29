@@ -144,10 +144,27 @@ function headerHtml(activeMode: "session" | "all"): string {
 // so without this each renderJournal() call would stack another "click" listener on it.
 let _delegateAbort: AbortController | null = null;
 
-function revertError(err: unknown): void {
-  const msg = err instanceof Error ? err.message : String(err);
-  console.error("[journal] revert_batch failed:", msg);
-  alert(`Erreur revert : ${msg}`);
+function humanError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  console.error("[journal] revert_batch failed:", raw);
+  if (raw.includes("destination occupied"))
+    return "Fichier déjà à l'emplacement d'origine — doublon probable (sync cloud ?).";
+  if (raw.includes("source gone"))
+    return "Fichier introuvable à destination — déplacé ou supprimé manuellement ?";
+  if (raw.includes("newer action"))
+    return "Action plus récente à annuler d'abord.";
+  return `Revert échoué : ${raw}`;
+}
+
+/** Inject a persistent status banner at the top of .jrnl-wrap (no animation — stays until next render). */
+function injectBanner(root: HTMLElement, text: string, kind: "ok" | "warn"): void {
+  const wrap = root.querySelector<HTMLElement>(".jrnl-wrap");
+  if (!wrap) return;
+  wrap.querySelector(".jrnl-banner")?.remove();
+  const el = document.createElement("div");
+  el.className = `jrnl-banner jrnl-banner--${kind}`;
+  el.textContent = text;
+  wrap.prepend(el);
 }
 
 function installDelegate(root: HTMLElement, allEntries: JournalEntry[]): void {
@@ -169,10 +186,34 @@ function installDelegate(root: HTMLElement, allEntries: JournalEntry[]): void {
       if (!window.confirm(`${label} les ${totalTracks} morceaux affichés ?`)) return;
       btn.disabled = true;
       // Sequential — rusqlite Mutex is non-reentrant; concurrent IPC calls would deadlock.
+      // Per-entry DOM update so the user sees progress as each track is processed.
       void (async () => {
-        for (const e of catEntries) await revertBatch(e.batch_id);
-        void renderJournal(`↩ ${totalTracks} morceau${totalTracks > 1 ? "x" : ""} remis en file`);
-      })().catch(err => { btn.disabled = false; revertError(err); });
+        let failCount = 0;
+        for (const e of catEntries) {
+          const rowEl = root.querySelector<HTMLElement>(`.jrnl-row[data-batch-id="${e.batch_id}"]`);
+          const rowBtn = rowEl?.querySelector<HTMLButtonElement>("[data-jact='revert']");
+          if (rowBtn) { rowBtn.textContent = "⏳"; rowBtn.disabled = true; }
+          rowEl?.classList.add("jrnl-row--loading");
+          try {
+            await revertBatch(e.batch_id);
+            if (rowBtn) rowBtn.textContent = "✓";
+            rowEl?.classList.replace("jrnl-row--loading", "jrnl-row--reverted");
+          } catch (err) {
+            console.error("[journal] revert_batch failed:", err);
+            failCount++;
+            if (rowBtn) { rowBtn.textContent = "↩"; rowBtn.disabled = false; }
+            rowEl?.classList.remove("jrnl-row--loading");
+          }
+        }
+        const ok = catEntries.length - failCount;
+        if (ok > 0 && failCount === 0) {
+          injectBanner(root, `↩ ${ok} action${ok > 1 ? "s" : ""} annulée${ok > 1 ? "s" : ""}`, "ok");
+        } else if (ok > 0) {
+          injectBanner(root, `↩ ${ok} ok — ${failCount} introuvable${failCount > 1 ? "s" : ""}`, "warn");
+        } else {
+          injectBanner(root, `${failCount} morceau${failCount > 1 ? "x" : ""} introuvable${failCount > 1 ? "s" : ""} — déjà revertés ?`, "warn");
+        }
+      })();
     });
   });
 
@@ -182,12 +223,23 @@ function installDelegate(root: HTMLElement, allEntries: JournalEntry[]): void {
   root.querySelectorAll<HTMLButtonElement>("[data-jact='revert']").forEach(btn => {
     btn.addEventListener("click", () => {
       const bid = btn.dataset.batchId;
-      if (!bid) { revertError(new Error("missing data-batch-id on revert button")); return; }
+      if (!bid) { console.error("[journal] missing data-batch-id on revert button"); return; }
+      const row = btn.closest<HTMLElement>(".jrnl-row");
       btn.textContent = "⏳";
       btn.disabled = true;
+      row?.classList.add("jrnl-row--loading");
       revertBatch(bid)
-        .then(() => void renderJournal("↩ Remis en file"))
-        .catch(err => { btn.textContent = "↩"; btn.disabled = false; revertError(err); });
+        .then(() => {
+          btn.textContent = "✓";
+          row?.classList.replace("jrnl-row--loading", "jrnl-row--reverted");
+          injectBanner(root, "↩ Remis en file", "ok");
+        })
+        .catch(err => {
+          btn.textContent = "↩";
+          btn.disabled = false;
+          row?.classList.remove("jrnl-row--loading");
+          injectBanner(root, humanError(err), "warn");
+        });
     });
   });
 
@@ -201,13 +253,17 @@ function installDelegate(root: HTMLElement, allEntries: JournalEntry[]): void {
     const lbBtn = t.closest<HTMLButtonElement>("[data-jact='last-batch']");
     if (lbBtn) {
       const bid = lbBtn.dataset.batchId;
-      if (!bid) { revertError(new Error("missing data-batch-id on last-batch")); return; }
+      if (!bid) { console.error("[journal] missing data-batch-id on last-batch"); return; }
       const n = Number(lbBtn.dataset.trackCount ?? 0);
       if (n > 10 && !window.confirm(`Annuler le batch de ${n} morceaux ?`)) return;
       lbBtn.disabled = true;
       revertBatch(bid)
-        .then(() => void renderJournal(`↩ Batch de ${n} morceau${n > 1 ? "x" : ""} annulé`))
-        .catch(err => { lbBtn.disabled = false; revertError(err); });
+        .then(() => {
+          root.querySelector<HTMLElement>(`.jrnl-row[data-batch-id="${bid}"]`)
+            ?.classList.add("jrnl-row--reverted");
+          injectBanner(root, `↩ Batch de ${n} morceau${n > 1 ? "x" : ""} annulé`, "ok");
+        })
+        .catch(err => { lbBtn.disabled = false; injectBanner(root, humanError(err), "warn"); });
       return;
     }
 
@@ -221,7 +277,7 @@ function installDelegate(root: HTMLElement, allEntries: JournalEntry[]): void {
 // Current-session journal
 // ---------------------------------------------------------------------------
 
-export async function renderJournal(toast?: string): Promise<void> {
+export async function renderJournal(toast?: string, warn?: string): Promise<void> {
   // Fail-fast: both calls throw on IPC error — no silent fallback.
   const sessionId = await getSessionId();
   const entries = await listJournal(50, sessionId);
@@ -238,9 +294,10 @@ export async function renderJournal(toast?: string): Promise<void> {
     ? `<button class="jrnl-voir-tout" data-jact="mode-all">Voir tout l'historique →</button>`
     : "";
   const toastHtml = toast ? `<div class="jrnl-toast" aria-live="polite">${toast}</div>` : "";
+  const warnHtml = warn ? `<div class="jrnl-toast jrnl-toast--warn" aria-live="assertive">${warn}</div>` : "";
 
   content.innerHTML = `<div class="jrnl-wrap">\
-${toastHtml}\
+${toastHtml}${warnHtml}\
 ${headerHtml("session")}\
 ${emptyHtml}\
 ${sectionsHtml}\

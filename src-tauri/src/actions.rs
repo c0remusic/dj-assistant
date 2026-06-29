@@ -82,10 +82,18 @@ fn revert_one_fs(
         "move" | "trash" => {
             let from = from_path.ok_or_else(|| RevertError::Blocked("missing from_path".into()))?;
             let to = to_path.ok_or_else(|| RevertError::Blocked("missing to_path".into()))?;
-            if !Path::new(to).exists() {
+            let to_exists = Path::new(to).exists();
+            let from_exists = Path::new(from).exists();
+            if !to_exists && from_exists {
+                // File is already at origin (e.g. sync service restored it) — revert is
+                // effectively done; let the caller mark it undone without touching the FS.
+                return Ok(());
+            }
+            if !to_exists {
                 return Err(RevertError::Blocked(format!("source gone: {to}")));
             }
-            if Path::new(from).exists() {
+            if from_exists {
+                // Both from and to exist — genuine conflict, refuse to overwrite.
                 return Err(RevertError::Blocked(format!("destination occupied: {from}")));
             }
             if let Some(parent) = Path::new(from).parent() {

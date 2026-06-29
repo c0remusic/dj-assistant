@@ -216,6 +216,14 @@ details[open]>.jrnl-cat-hd .jrnl-cat-chev{transform:rotate(90deg)}
 .jrnl-last-batch:hover{color:var(--color-text-secondary)}
 /* Confirmation toast — fades out automatically via CSS, no JS timer */
 .jrnl-toast{font-size:var(--text-sm);color:var(--color-text-success);background:color-mix(in srgb,var(--color-text-success) 12%,transparent);border:1px solid color-mix(in srgb,var(--color-text-success) 30%,transparent);border-radius:var(--border-radius-md);padding:var(--space-6) var(--space-12);margin-bottom:var(--space-8);animation:jrnl-toast-fade 2.8s ease forwards}
+.jrnl-toast--warn{color:var(--color-text-warning);background:color-mix(in srgb,var(--color-text-warning) 12%,transparent);border-color:color-mix(in srgb,var(--color-text-warning) 30%,transparent)}
+.jrnl-banner{font-size:var(--text-sm);border-radius:var(--border-radius-md);padding:var(--space-6) var(--space-12);margin-bottom:var(--space-8);border:1px solid}
+.jrnl-banner--ok{color:var(--color-text-success);background:color-mix(in srgb,var(--color-text-success) 12%,transparent);border-color:color-mix(in srgb,var(--color-text-success) 30%,transparent)}
+.jrnl-banner--warn{color:var(--color-text-warning);background:color-mix(in srgb,var(--color-text-warning) 12%,transparent);border-color:color-mix(in srgb,var(--color-text-warning) 30%,transparent)}
+.jrnl-row--loading{opacity:.6;transition:opacity .15s}
+.jrnl-row--reverted{opacity:.4;transition:opacity .15s}
+.jrnl-row--reverted .jrnl-name{text-decoration:line-through}
+.jrnl-row--reverted .jrnl-revert{color:var(--color-text-success)}
 @keyframes jrnl-toast-fade{0%,60%{opacity:1}100%{opacity:0;height:0;padding:0;margin:0;border-width:0;overflow:hidden}}
 /* Empty state */
 .jrnl-empty{font-size:var(--text-sm);color:var(--color-text-tertiary);padding:var(--space-16) 0}
