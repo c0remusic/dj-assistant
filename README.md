@@ -69,17 +69,29 @@ npm run dev              # Vite sur http://localhost:5173
 ```
 sift/
 ├── index.html                  # entrée Vite (markup + shell nav de l'app)
-├── frontend/                   # UI : main.ts (boot) · app.js (maquette navigateur)
-│   ├── sift-live.ts            #   wiring live (Tauri only) : remplace la maquette par du réel
-│   ├── filing.ts · report-view.ts   # écran Revue (rail de classement · détail son-d'abord)
-│   ├── library-detail.ts · identify-shared.ts · selftest.ts
+├── frontend/                   # UI
+│   ├── main.ts · app.js        #   boot + maquette navigateur
+│   ├── sift-live.ts            #   point d'entrée wiring live (Tauri only)
+│   ├── chrome.ts               #   shell global (nav rail, routing)
+│   ├── home-sources.ts         #   écran Accueil
+│   ├── ecartes-view.ts         #   écran Écartés
+│   ├── report-view.ts          #   écran Revue (son-d'abord, waveform)
+│   ├── filing.ts               #   rail de classement
+│   ├── batch-tracklist.ts      #   tracklist batch
+│   ├── journal.ts              #   journal d'actions post-batch
+│   ├── progress-zone.ts        #   progression encodage
+│   ├── library-detail.ts · identify-shared.ts · selftest.ts · dom.ts
 │   ├── ipc.ts · styles.css
 ├── shared/contracts.ts         # types IPC partagés (miroir manuel des structs Rust)
 ├── scripts/fetch-ffmpeg.mjs    # télécharge le binaire FFmpeg par OS
 ├── src-tauri/src/              # backend Rust (lib = sift_lib)
 │   ├── analysis/               #   décodage Symphonia + DSP (verdict, peaks, spectre, phase…)
 │   ├── metadata/               #   Discogs + cover + apply_identity
-│   ├── filing/queue/dedup/encode/worker/scanner/watcher + ipc_*.rs
+│   ├── scanner.rs · watcher.rs · sources.rs · worker.rs · queue.rs
+│   ├── filing.rs · actions.rs · encode.rs · naming.rs · tagging.rs
+│   ├── dedup.rs · fingerprint.rs · ecartes.rs · library.rs · genres.rs · ffmpeg.rs
+│   ├── db.rs · settings.rs · lib.rs · main.rs
+│   ├── ipc.rs · ipc_filing.rs · ipc_identify.rs · ipc_library.rs
 │   ├── binaries/               #   ffmpeg-<triple> (gitignored, fetché)
 │   └── tauri.conf.json
 ├── docs/                       # plan d'implémentation + plans/specs/reviews par jalon

@@ -45,6 +45,43 @@ DSL de masks pour le rangement inspiré de MediaMonkey.
 Détective (théorie → preuve → correctif), **fail fast**, **pas de fallback** silencieux,
 changements chirurgicaux. Vérifier avant d'agir.
 
+**Skills : routage systématique, pas vérification exhaustive.** Avant de planifier une
+tâche, identifier son domaine et charger la skill correspondante si elle existe — pas
+relire toute la liste à chaque micro-tâche. Si aucune skill ne correspond, continuer
+sans (ne pas en inventer). Registre complet (skills projet + globales + plugins +
+agents, avec domaine d'usage) : **`docs/skills-registre.md`** — toujours le consulter
+en cas de doute plutôt que de supposer qu'un outil existe ou non.
+
+## Structure frontend/ (état réel)
+- `main.ts` — boot
+- `app.js` — maquette navigateur (source de vérité UI initiale)
+- `sift-live.ts` — point d'entrée wiring live (Tauri only) ; délègue aux modules ci-dessous
+- `chrome.ts` — shell global (nav rail, routing écrans)
+- `home-sources.ts` — écran Accueil (sources, watcher)
+- `ecartes-view.ts` — écran Écartés
+- `report-view.ts` — écran Revue (son-d'abord, waveform, verdict)
+- `filing.ts` — rail de classement (destination, format, actions filer/écarter)
+- `batch-tracklist.ts` — tracklist batch (multi-sélection, barre de progression)
+- `journal.ts` — journal d'actions post-batch (toasts, revert)
+- `progress-zone.ts` — zone de progression encodage
+- `library-detail.ts` — écran Bibliothèque (M6b)
+- `identify-shared.ts` — UI partagée identification Discogs
+- `dom.ts` — helpers DOM partagés
+- `ipc.ts` — wrappers IPC Tauri typés
+- `selftest.ts` — smoke tests IPC au démarrage
+- `styles.css` — tokens CSS + composants
+
+## Structure src-tauri/src/ (état réel)
+Fichiers plats (pas de sous-dossiers sauf `analysis/` et `metadata/`) :
+- **`analysis/`** — `decode.rs` (Symphonia) · `mod.rs` · `dynamics.rs` · `peaks.rs` · `phase.rs` · `spectrum.rs` · `structure.rs` · `tags.rs` · `verdict.rs`
+- **`metadata/`** — `mod.rs` · `discogs.rs` · `cover.rs`
+- `lib.rs` · `main.rs` · `db.rs` · `settings.rs`
+- `scanner.rs` · `watcher.rs` · `sources.rs` · `worker.rs` · `queue.rs`
+- `filing.rs` · `actions.rs` · `encode.rs` · `naming.rs` · `tagging.rs`
+- `dedup.rs` · `fingerprint.rs` · `ecartes.rs` · `library.rs` · `genres.rs`
+- `ffmpeg.rs`
+- `ipc.rs` · `ipc_filing.rs` · `ipc_identify.rs` · `ipc_library.rs`
+
 ## Front — événements répétés
 - Renderer déclenché par un événement en rafale (progress, watcher, scroll, resize) :
   **créer les nœuds une fois, muter ensuite**. Jamais d'`innerHTML =` dans un handler
