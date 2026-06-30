@@ -78,8 +78,8 @@ fn revert_one_fs(
 ) -> Result<(), RevertError> {
     use std::path::Path;
     match kind {
-        // file was moved from `from` to `to` — put it back
-        "move" | "trash" => {
+        // file was moved from `from` to `to` — rename back (intra-disk, fast)
+        "move" => {
             let from = from_path.ok_or_else(|| RevertError::Blocked("missing from_path".into()))?;
             let to = to_path.ok_or_else(|| RevertError::Blocked("missing to_path".into()))?;
             let to_exists = Path::new(to).exists();
@@ -101,6 +101,47 @@ fn revert_one_fs(
                     .map_err(|e| RevertError::Blocked(format!("mkdir {}: {e}", parent.display())))?;
             }
             std::fs::rename(to, from).map_err(|e| RevertError::Blocked(format!("move back: {e}")))
+        }
+        // file was trashed via copy→verify→delete (cross-disk safe); restore the same way
+        "trash" => {
+            let from = from_path.ok_or_else(|| RevertError::Blocked("missing from_path".into()))?;
+            let to = to_path.ok_or_else(|| RevertError::Blocked("missing to_path".into()))?;
+            let to_exists = Path::new(to).exists();
+            let from_exists = Path::new(from).exists();
+            if !to_exists && from_exists {
+                // already at origin (e.g. manual restore) — nothing to do
+                return Ok(());
+            }
+            if !to_exists {
+                return Err(RevertError::Blocked(format!("trash file gone: {to}")));
+            }
+            if from_exists {
+                return Err(RevertError::Blocked(format!("destination occupied: {from}")));
+            }
+            if let Some(parent) = Path::new(from).parent() {
+                std::fs::create_dir_all(parent)
+                    .map_err(|e| RevertError::Blocked(format!("mkdir {}: {e}", parent.display())))?;
+            }
+            let src_len = std::fs::metadata(to)
+                .map_err(|e| RevertError::Blocked(format!("stat trash file: {e}")))?
+                .len();
+            std::fs::copy(to, from)
+                .map_err(|e| RevertError::Blocked(format!("copy from trash: {e}")))?;
+            let dst_len = match std::fs::metadata(from) {
+                Ok(m) => m.len(),
+                Err(e) => {
+                    let _ = std::fs::remove_file(from);
+                    return Err(RevertError::Blocked(format!("stat restored copy: {e}")));
+                }
+            };
+            if dst_len != src_len {
+                let _ = std::fs::remove_file(from);
+                return Err(RevertError::Blocked(format!(
+                    "trash restore size mismatch (src {src_len} != dst {dst_len})"
+                )));
+            }
+            std::fs::remove_file(to)
+                .map_err(|e| RevertError::Blocked(format!("remove from trash after restore: {e}")))
         }
         // a converted file was produced at `to` — remove it (idempotent if already gone)
         "convert" => {

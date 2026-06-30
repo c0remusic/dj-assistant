@@ -124,13 +124,47 @@ pub fn reconcile_track(conn: &Connection, track_id: i64) -> Result<Canonical, Fi
     Ok(naming::reconcile(&artist, &title, &stem))
 }
 
-/// FS-only: move `source` into `<root>/.sift-trash/<track_id>__<name>` (collision-free).
+/// Centralised trash directory: `{Documents}/Sift/Trash` on all platforms.
+/// Falls back to `{home}/Documents/Sift/Trash` if `dirs::document_dir()` returns None.
+fn sift_trash_dir() -> Result<PathBuf, FilingError> {
+    let base = dirs::document_dir()
+        .or_else(|| dirs::home_dir().map(|h| h.join("Documents")))
+        .ok_or_else(|| FilingError::Io("cannot locate Documents folder".into()))?;
+    Ok(base.join("Sift").join("Trash"))
+}
+
+/// FS-only: copy `source` into `<Documents>/Sift/Trash/<track_id>__<name>` (collision-free),
+/// verify the copy size, then delete the source. Cross-disk safe (no rename).
 /// Returns the trash path. No DB — journaling is the caller's job.
-fn trash_file_fs(root: &Path, track_id: i64, source: &str) -> Result<String, FilingError> {
-    let trash_dir = root.join(".sift-trash");
+fn trash_file_fs(_root: &Path, track_id: i64, source: &str) -> Result<String, FilingError> {
+    let trash_dir = sift_trash_dir()?;
     std::fs::create_dir_all(&trash_dir).map_err(|e| FilingError::Io(e.to_string()))?;
     let dest = library::ensure_unique(&trash_dir.join(format!("{track_id}__{}", file_name_of(source))), None);
-    std::fs::rename(source, &dest).map_err(|e| FilingError::Io(e.to_string()))?;
+
+    let src_len = std::fs::metadata(source)
+        .map_err(|e| FilingError::Io(format!("stat source: {e}")))?
+        .len();
+
+    std::fs::copy(source, &dest).map_err(|e| FilingError::Io(format!("copy to trash: {e}")))?;
+
+    let dst_len = match std::fs::metadata(&dest) {
+        Ok(m) => m.len(),
+        Err(e) => {
+            let _ = std::fs::remove_file(&dest);
+            return Err(FilingError::Io(format!("stat trash copy: {e}")));
+        }
+    };
+
+    if dst_len != src_len {
+        let _ = std::fs::remove_file(&dest);
+        return Err(FilingError::Io(format!(
+            "trash copy size mismatch (src {src_len} != dst {dst_len})"
+        )));
+    }
+
+    std::fs::remove_file(source)
+        .map_err(|e| FilingError::Io(format!("remove source after trash: {e}")))?;
+
     Ok(dest.to_string_lossy().to_string())
 }
 

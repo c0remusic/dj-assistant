@@ -1237,13 +1237,29 @@ export function installLiveWiring() {
 
   // Analysis pings can arrive several times per second — debounce the queue redraw.
   let t: ReturnType<typeof setTimeout> | undefined;
+  // Throttle the progress-zone IPC+render: coalesce bursts to one RAF per frame (~16 ms).
+  // Events are never dropped — only renders are coalesced. A trailing 350 ms timeout
+  // guarantees a final render once pings stop (catches the done==total transition).
+  let pendingAnalyzeRender = false;
+  let analyzeTrailTimer: ReturnType<typeof setTimeout> | undefined;
+  function scheduleAnalyzeRender() {
+    // Reset the trailing timer on every event so it fires only after silence.
+    clearTimeout(analyzeTrailTimer);
+    analyzeTrailTimer = setTimeout(() => void pushAnalyzeProgress(), 350);
+    if (pendingAnalyzeRender) return;
+    pendingAnalyzeRender = true;
+    requestAnimationFrame(() => {
+      pendingAnalyzeRender = false;
+      void pushAnalyzeProgress();
+    });
+  }
   void onAnalysisChanged(() => {
     // A report may have changed (re-analysed / replaced file) → drop the in-session cache so
     // the next open re-fetches from the DB (the source of truth) instead of serving it stale.
     void import("./report-view").then((m) => m.clearReportCache());
-    // Update the global progress zone immediately (cheap count poll), decoupled from the queue
-    // redraw debounce so the bar advances live during a continuous analysis burst.
-    void pushAnalyzeProgress();
+    // Throttle progress-zone update: IPC + DOM render at most once per RAF frame (~16 ms),
+    // not once per event (can be dozens per second during a 4000-track analysis burst).
+    scheduleAnalyzeRender();
     clearTimeout(t);
     // touchDetail=false: redraw the queue list only; never re-open the open track (that aborts
     // the player's audio load).
