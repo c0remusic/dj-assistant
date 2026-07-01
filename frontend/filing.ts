@@ -801,13 +801,19 @@ let destPopoverAutoCloseWired = false;
 export function ensureDestPopoverAutoClose(): void {
   if (destPopoverAutoCloseWired) return;
   destPopoverAutoCloseWired = true;
-  document.addEventListener("click", (e) => {
-    const pop = document.getElementById("fldz");
-    if (!pop || pop.hidden) return;
-    const target = e.target as Node;
-    if (pop.contains(target) || (target as HTMLElement).closest?.('[data-fil="destbtn"]')) return;
-    pop.hidden = true;
-  });
+  // Capture phase: the #pa delegated handler (queue rows, etc.) calls stopPropagation() on most
+  // clicks, which would otherwise stop this listener ever seeing them in the bubble phase.
+  document.addEventListener(
+    "click",
+    (e) => {
+      const pop = document.getElementById("fldz");
+      if (!pop || pop.hidden) return;
+      const target = e.target as Node;
+      if (pop.contains(target) || (target as HTMLElement).closest?.('[data-fil="destbtn"]')) return;
+      pop.hidden = true;
+    },
+    { capture: true },
+  );
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") toggleDestPopover(false);
   });

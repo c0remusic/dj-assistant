@@ -16,6 +16,12 @@ color-scheme:light;
 --color-text-info:#3A352F;--color-text-danger:#8f6318;--color-text-success:#3f6d4c;--color-text-warning:#8f6318;
 --color-border-tertiary:rgba(40,34,28,0.08);--color-border-secondary:rgba(40,34,28,0.14);
 --color-border-info:rgba(58,53,47,.35);--color-border-danger:rgba(176,122,40,.45);
+/* Neutral overlay tints (hover/selection/left-bar/badge on neutral surfaces) — dark-tinted here
+   since the surface is light; flipped to light-tinted in the dark variant below. Anything that
+   used to hardcode rgba(255,255,255,...) for "selected row" must use these instead, or it goes
+   invisible the moment dark mode is active (see fix 2026-07-01: .nv/.qi selection). */
+--overlay-hover:rgba(40,34,28,.035);--overlay-selected:rgba(40,34,28,.06);
+--overlay-bar:rgba(40,34,28,.55);--overlay-badge:rgba(40,34,28,.06);
 --border-radius-md:6px;--border-radius-lg:10px;
 /* Typo (self-hosted via @fontsource, see main.ts) — Outfit UI, JetBrains Mono for numbers. */
 --font-ui:"Outfit",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
@@ -27,6 +33,35 @@ color-scheme:light;
 /* Spacing + height scale (system.md): the ONLY allowed values. */
 --space-4:4px;--space-8:8px;--space-12:12px;--space-16:16px;--space-24:24px;--space-32:32px;
 --h-32:32px;--h-36:36px;--h-40:40px;--h-44:44px;
+}
+/* Dark variant — same warm-neutral family + vert/ambre uniquement (aucun bleu ni rouge, même
+   simplification sémantique que le clair : danger fusionne dans warning). Auto = suit
+   prefers-color-scheme sauf override explicite ([data-theme]) posé par le toggle Réglages
+   (voir sift-live.ts renderReglagesLive + main.ts applyTheme). data-theme="light" bloque la
+   règle média même si l'OS est sombre ; data-theme="dark" force le sombre même si l'OS est clair. */
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --color-background-primary:#2c2c2a;--color-background-secondary:#313130;--color-background-tertiary:#242422;
+    --color-background-info:rgba(240,237,230,.08);--color-background-danger:rgba(221,166,63,.14);--color-background-success:rgba(91,192,140,.14);--color-background-warning:rgba(221,166,63,.14);
+    --color-text-primary:#f3f3f1;--color-text-secondary:#c9c8c1;--color-text-tertiary:#aeada5;
+    --color-text-info:#F0EDE6;--color-text-danger:#dda63f;--color-text-success:#5bc08c;--color-text-warning:#dda63f;
+    --color-border-tertiary:rgba(255,255,255,0.06);--color-border-secondary:rgba(255,255,255,0.10);
+    --color-border-info:rgba(240,237,230,.30);--color-border-danger:rgba(221,166,63,.45);
+    --overlay-hover:rgba(255,255,255,.03);--overlay-selected:rgba(255,255,255,.06);
+    --overlay-bar:rgba(255,255,255,.32);--overlay-badge:rgba(255,255,255,.06);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --color-background-primary:#2c2c2a;--color-background-secondary:#313130;--color-background-tertiary:#242422;
+  --color-background-info:rgba(240,237,230,.08);--color-background-danger:rgba(221,166,63,.14);--color-background-success:rgba(91,192,140,.14);--color-background-warning:rgba(221,166,63,.14);
+  --color-text-primary:#f3f3f1;--color-text-secondary:#c9c8c1;--color-text-tertiary:#aeada5;
+  --color-text-info:#F0EDE6;--color-text-danger:#dda63f;--color-text-success:#5bc08c;--color-text-warning:#dda63f;
+  --color-border-tertiary:rgba(255,255,255,0.06);--color-border-secondary:rgba(255,255,255,0.10);
+  --color-border-info:rgba(240,237,230,.30);--color-border-danger:rgba(221,166,63,.45);
+  --overlay-hover:rgba(255,255,255,.03);--overlay-selected:rgba(255,255,255,.06);
+  --overlay-bar:rgba(255,255,255,.32);--overlay-badge:rgba(255,255,255,.06);
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;overflow:hidden;background:var(--color-background-tertiary);color:var(--color-text-primary);font-family:var(--font-ui)}
@@ -61,9 +96,9 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--color-background
 .nv{min-height:34px;border-radius:var(--border-radius-md);display:flex;flex-direction:row;align-items:center;gap:10px;padding:6px 8px;color:var(--color-text-tertiary);cursor:pointer}
 .nv span{font-size:12.5px;letter-spacing:.01em;text-align:left;line-height:1.1;flex:1;min-width:0}
 .nv i{font-size:17px;flex:none}
-.nv:hover{background:rgba(40,34,28,.035)}
-.nv.on{background:rgba(40,34,28,.06);color:var(--color-text-primary);font-weight:500;box-shadow:inset 2px 0 0 rgba(40,34,28,.55)}
-.nav-badge{font-size:10px;font-weight:600;color:var(--color-text-tertiary);background:rgba(40,34,28,.06);border-radius:999px;padding:1px 7px;flex:none}
+.nv:hover{background:var(--overlay-hover)}
+.nv.on{background:var(--overlay-selected);color:var(--color-text-primary);font-weight:500;box-shadow:inset 2px 0 0 var(--overlay-bar)}
+.nav-badge{font-size:10px;font-weight:600;color:var(--color-text-tertiary);background:var(--overlay-badge);border-radius:999px;padding:1px 7px;flex:none}
 .nav-badge:empty{display:none}
 /* Bottom group of the rail: holds the margin-top:auto (so Settings stays pinned to the very bottom)
    and stacks the progress zone ABOVE Settings. The zone grows UPWARD into the free space, so neither
@@ -93,7 +128,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--color-background
 .qi span{overflow:hidden;text-overflow:ellipsis}.qi.done{color:var(--color-text-tertiary)}
 /* Selection is neutral (white @.045 + a non-blue left bar), per interaction-model.md: blue is
    reserved for focus/accent, never for "this row is selected". */
-.qi.cur{background:rgba(40,34,28,.05);color:var(--color-text-primary);font-weight:500;box-shadow:inset 2px 0 0 rgba(40,34,28,.55)}.qi i{font-size:13px;flex:none}
+.qi.cur{background:var(--overlay-hover);color:var(--color-text-primary);font-weight:500;box-shadow:inset 2px 0 0 var(--overlay-bar)}.qi i{font-size:13px;flex:none}
 .pbar{height:4px;background:var(--color-border-tertiary);border-radius:3px;margin:3px 0 7px;overflow:hidden}.pfill{height:100%;background:var(--color-text-info);border-radius:3px}
 /* Inspector column (col 3): .mid (scrollable son-first detail) stacked above the anchored-bottom
    action rail (#filfoot). Siblings, not parent/child — openFilingInto rewrites .mid's innerHTML on

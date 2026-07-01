@@ -47,6 +47,8 @@ import {
 import { renderEcartes } from "./ecartes-view";
 import { renderHomeSources, pickAndAddFolder } from "./home-sources";
 import { installDragDrop, injectLeanStyle, injectTitlebar, installScrollAutohide } from "./chrome";
+import { initTheme, setTheme } from "./theme";
+import type { ThemeChoice } from "./theme";
 import type { QueueItem, BatchResult, FileProgress, Target } from "../shared/contracts";
 import { FILE_IN_PLACE } from "../shared/contracts";
 import { requireEl } from "./dom";
@@ -107,10 +109,12 @@ const bibState: { filter: LibraryFilter; facet: "folder" | "genre"; tracks: Libr
   tracks: [],
 };
 
+// Verdict = meaning only, vert/ambre uniquement (voir brief refonte 2026-07) — jamais un hex en
+// dur ici (l'ancien `#e2685e` rouge cassait cette règle) : lire les tokens CSS, pas une 3e teinte.
 const VERDICT_DOT: Record<string, [string, string]> = {
-  ok: ["#5bc08c", "authentic"],
-  fake: ["#e2685e", "fake / over-encoded"],
-  grey: ["#dda63f", "grey zone"],
+  ok: ["var(--color-text-success)", "authentic"],
+  fake: ["var(--color-text-warning)", "fake / over-encoded"],
+  grey: ["var(--color-text-warning)", "grey zone"],
 };
 function verdictDot(v: string | null): string {
   if (v && VERDICT_DOT[v]) {
@@ -864,6 +868,13 @@ async function renderReglagesLive() {
   } catch (e) {
     console.error("getSetting(discogs_token) failed", e);
   }
+  let theme: ThemeChoice = "auto";
+  try {
+    const v = await getSetting("ui_theme");
+    if (v === "light" || v === "dark") theme = v;
+  } catch (e) {
+    console.error("getSetting(ui_theme) failed", e);
+  }
 
   const inputCss =
     "font-size:var(--text-md);padding:4px 7px;background:var(--color-background-secondary);" +
@@ -885,7 +896,29 @@ async function renderReglagesLive() {
     '<div id="sift-discogs-status" style="font-size:var(--text-sm);color:var(--color-text-tertiary);min-height:14px"></div>' +
     "</div>";
 
+  const themeBlock = document.createElement("div");
+  themeBlock.style.cssText = "margin-top:14px";
+  const themeBtn = (v: ThemeChoice, label: string) =>
+    `<span class="chip${theme === v ? " on" : ""}" data-theme-choice="${v}">${label}</span>`;
+  themeBlock.innerHTML =
+    '<div class="col-h">Apparence</div>' +
+    '<div class="srow" style="padding-bottom:10px">' +
+    '<div style="display:flex;gap:5px">' +
+    themeBtn("auto", "Auto") +
+    themeBtn("light", "Clair") +
+    themeBtn("dark", "Sombre") +
+    "</div></div>";
+  themeBlock.querySelectorAll<HTMLElement>("[data-theme-choice]").forEach((el) =>
+    el.addEventListener("click", () => {
+      const choice = el.dataset.themeChoice as ThemeChoice;
+      void setTheme(choice);
+      themeBlock.querySelectorAll("[data-theme-choice]").forEach((c) => c.classList.remove("on"));
+      el.classList.add("on");
+    }),
+  );
+
   content.appendChild(block);
+  content.appendChild(themeBlock);
 
   const inp = block.querySelector<HTMLInputElement>("#sift-discogs-token");
   const status = block.querySelector<HTMLElement>("#sift-discogs-status");
@@ -1040,6 +1073,7 @@ export function installLiveWiring() {
   window.__siftJournal = () => void renderJournal();
   injectLeanStyle();
   injectTitlebar();
+  void initTheme();
   installUndoShortcut();
   installFilingKeys();
   installScrollAutohide();
