@@ -161,6 +161,12 @@ html,body{margin:0;padding:0;height:100%}
    Hidden by default ([hidden] attribute, toggled in filing.ts); #fldz keeps its id so renderBins'
    existing document.getElementById("fldz") callers need no change. */
 .sift-dest-popover{position:fixed;width:288px;max-height:340px;display:flex;flex-direction:column;padding:10px;background:var(--color-background-secondary);border:1px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);overflow-y:auto;z-index:20}
+/* An author `display:flex` rule beats the browser's own `[hidden]{display:none}` in the cascade
+   (author origin always wins over user-agent origin, regardless of specificity) — so setting
+   `.hidden = true` on this element via JS never actually hid it, it just kept getting
+   repositioned to wherever the Destination button currently was. This is the actual fix; a
+   higher-specificity selector for the hidden state, not another positioning tweak. */
+.sift-dest-popover[hidden]{display:none}
 #filfoot{flex:none}
 /* Batch per-track list: cap it so a long run can't push the récap + action button out of the rail.
    36vh ≈ a third of the viewport: enough rows to be useful while the récap above and the action
@@ -197,6 +203,7 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-text-info)}
 .home-right{width:200px;flex:none;overflow-y:auto}
 /* M6a — Discogs candidate picker */
 .sift-cands{margin-top:8px;display:flex;flex-direction:column;gap:4px}
+.sift-cands[hidden]{display:none}
 .sift-cands-msg{font-size:12px;color:var(--color-text-tertiary);padding:4px 2px}
 /* [m10] error state: warning colour + icon (set in JS as .sift-cands-error) */
 .sift-cands-error{color:var(--color-text-warning)}
