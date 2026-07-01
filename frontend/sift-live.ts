@@ -147,22 +147,41 @@ async function renderQueue(touchDetail = true) {
   // Background-analysis progress moved to the global progress zone (bottom of #nav, persistent
   // across views) — see pushAnalyzeProgress, fed by the analysis:changed event below.
 
+  const verdictWord = (v: string | null): [string, string] =>
+    v === "fake"
+      ? ["fake", "var(--color-text-warning)"]
+      : v === "grey"
+        ? ["à vérifier", "var(--color-text-warning)"]
+        : v === "ok"
+          ? ["lossless", "var(--color-text-success)"]
+          : ["analyse…", "var(--color-text-tertiary)"];
+
   ql.innerHTML =
     (items
-      .map(
-        (it) =>
-          `<div class="qi" data-id="${it.id}" data-path="${esc(it.path)}" title="Listen and file" style="display:flex;align-items:center;gap:8px;cursor:pointer">${verdictDot(
-            it.verdict,
-          )}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(
-            it.filename || it.path,
-          )}</span>${
-            it.dup
-              ? '<i class="ti ti-copy" title="Possible duplicate (same name)" style="flex:none;font-size:var(--text-md);color:var(--color-text-secondary)"></i>'
-              : ""
-          }<i class="ti ti-chevron-right" style="flex:none;color:var(--color-text-tertiary);font-size:var(--text-lg)"></i></div>`,
-      )
+      .map((it) => {
+        const [word, wordColor] = verdictWord(it.verdict);
+        const title = esc(it.filename || it.path);
+        const artist = it.artist ? esc(it.artist) : "";
+        return (
+          `<div class="qi" data-id="${it.id}" data-path="${esc(it.path)}" title="Listen and file" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:5px 7px">` +
+          `<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">` +
+          `<div style="display:flex;align-items:center;gap:6px;min-width:0">` +
+          verdictDot(it.verdict) +
+          `<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;font-weight:500">${title}</span>` +
+          (it.dup
+            ? '<span title="Possible duplicate (same name)" style="flex:none;font-size:var(--text-sm);color:var(--color-text-secondary)">⧉</span>'
+            : "") +
+          `</div>` +
+          (artist
+            ? `<div style="padding-left:15px;font-size:var(--text-xs);color:var(--color-text-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${artist}</div>`
+            : "") +
+          `</div>` +
+          `<span style="flex:none;font-size:var(--text-xs);color:${wordColor}">${word}</span>` +
+          `</div>`
+        );
+      })
       .join("") ||
-      '<div style="font-size:var(--text-md);color:var(--color-text-tertiary);padding:6px 4px">Queue empty.</div>');
+      '<div style="font-size:var(--text-md);color:var(--color-text-tertiary);padding:6px 4px">File vide.</div>');
 
   // Live destination bins + neutral detail prompt (replace the mockup's hardcoded ones).
   const fldz = requireEl("#fldz", "renderQueue");
