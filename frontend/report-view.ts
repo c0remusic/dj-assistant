@@ -171,7 +171,7 @@ function keyboardHintsHtml(): string {
   const k = (key: string, what: string) => `<span><b>${key}</b> ${what}</span>`;
   return (
     `<div class="sift-kbd-hints">` +
-    k("SPACE", "écouter") + k("ENTER", "ranger") + k("BKSP", "jeter") + k("↑↓", "naviguer") +
+    k("SPACE", "écouter") + k("ENTER", "ranger") + k("BKSP", "jeter") + k("HAUT/BAS", "naviguer") +
     `</div>`
   );
 }
@@ -205,7 +205,7 @@ export function vchipHtml(label: string, tone: "success" | "neutral" | "danger" 
         ? "background:var(--color-background-danger);color:var(--color-text-danger)"
         : tone === "warning"
           ? "background:var(--color-background-warning);color:var(--color-text-warning)"
-          : "background:rgba(255,255,255,.06);color:var(--color-text-secondary)";
+          : "background:var(--overlay-selected);color:var(--color-text-secondary)";
   return `<span class="sift-vchip" style="${css}">${esc(label)}</span>`;
 }
 

@@ -287,7 +287,7 @@ function ensureReviewSeg() {
     return `<button data-sift="reviewmode" data-m="${m}" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:5px 0;border:none;border-radius:6px;font-size:var(--text-sm);font-weight:${
       on ? 600 : 400
     };cursor:pointer;background:${
-      on ? "rgba(255,255,255,.07)" : "transparent"
+      on ? "var(--color-background-primary)" : "transparent"
     };color:var(--color-text-${on ? "primary" : "tertiary"})"><i class="ti ${icon}" style="font-size:var(--text-base)"></i>${label}</button>`;
   };
   seg.innerHTML = tab("detail", "Detail", "ti-layout-list") + tab("batch", "Batch", "ti-table");
@@ -337,7 +337,7 @@ function renderBatch() {
     const on = batchSel.has(it.id);
     return (
       `<div class="bx-row" data-sift="batchpick" data-id="${it.id}" style="display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:var(--border-radius-md);cursor:pointer;${
-        on ? "background:rgba(255,255,255,.045)" : ""
+        on ? "background:var(--overlay-hover)" : ""
       }">` +
       `<span class="bx-ck" style="flex:none;width:15px;height:15px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid ${
         on ? "var(--color-text-success)" : "var(--color-border-secondary)"
@@ -358,7 +358,7 @@ function renderBatch() {
         ? ["FAKE", "var(--color-background-danger)", "var(--color-text-danger)"]
         : it.verdict === "grey"
           ? ["CHECK", "var(--color-background-warning)", "var(--color-text-warning)"]
-          : ["UNANALYZED", "rgba(255,255,255,.06)", "var(--color-text-tertiary)"];
+          : ["UNANALYZED", "var(--overlay-selected)", "var(--color-text-tertiary)"];
     return (
       `<div style="display:flex;align-items:center;gap:9px;padding:7px 9px">` +
       verdictDot(it.verdict) +
@@ -378,7 +378,7 @@ function renderBatch() {
     const on = batchFakeSel.has(it.id);
     return (
       `<div class="bx-row" data-sift="batchpickfake" data-id="${it.id}" style="display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:var(--border-radius-md);cursor:pointer;${
-        on ? "background:rgba(255,255,255,.045)" : ""
+        on ? "background:var(--overlay-hover)" : ""
       }">` +
       `<span class="bx-ck" style="flex:none;width:15px;height:15px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid ${
         on ? "var(--color-text-danger)" : "var(--color-border-secondary)"

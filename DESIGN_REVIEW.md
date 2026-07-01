@@ -25,6 +25,23 @@ seul (sans Tauri) affiche l'ancien mockup `app.js`, pas le rendu réel — non p
 audit. Capturé directement la fenêtre native via `computer-use` (accès demandé et accordé sur
 `sift.exe`), qui reflète le vrai comportement live.
 
+## Suivi (2026-07-01, passe 2)
+
+- Must Fix #1 (point rouge) : **corrigé**.
+- Must Fix #2 (icônes Tabler) : **non confirmé** à la re-vérification — le CDN jsdelivr répond
+  200 depuis cette machine ; sans accès direct au rendu au moment de la relecture, ce qui avait
+  été lu comme un glyphe cassé était probablement un artefact de compression du screenshot zoomé
+  (triangle play minuscule). Rétrogradé, à re-confirmer visuellement si le souci réapparaît.
+- Should Fix #3 (hint "↑↓" → "++") : **corrigé** — remplacé par le texte "HAUT/BAS" (contourne
+  le problème de police plutôt que d'en chercher la cause).
+- Should Fix #4 (popover ne se ferme pas au clic queue) : **corrigé** (listener en phase capture).
+- Should Fix #5 (case à cocher absente en Batch groupé) : **infirmé** — les cases existent bien
+  en code (`.bx-ck` dans `readyRow`/`fakeRow`, sift-live.ts). Le vrai problème trouvé en creusant :
+  5 fonds de sélection codés en dur en blanc (`rgba(255,255,255,...)`) dans `sift-live.ts` et
+  `report-view.ts` (toggle Detail/Batch, lignes sélectionnées Ready/Fake, pill UNANALYZED, chip
+  neutre) — quasi invisibles sur fond clair, ce qui explique l'impression de sélection peu
+  lisible. Migrés vers `--overlay-hover`/`--overlay-selected`/`--color-background-primary`.
+
 ## Résumé
 
 Le reskin tient globalement bien la route : palette cohérente sur tous les écrans testés,
