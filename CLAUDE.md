@@ -1,7 +1,5 @@
 # Sift — CLAUDE.md
 
-@DESIGN.local.md
-
 > Worktree **`dj-assistant-m6a`** (branche `m6a-discogs`, **dev actif**). L'autre
 > worktree `../dj-assistant` = branche `main` (base stable). Même repo Git.
 > Contexte projet complet : la skill **`sift`** le charge.
@@ -67,9 +65,7 @@ Lib = `sift_lib`. MSRV Rust 1.77.2.
   sift-live.ts, ~942 lignes) : couvrir le god file de tests avant de le découper.
 
 ## Décisions techniques
-Voir **`docs/ressources-externes.md`** : Symphonia hybride (decode analyse) + FFmpeg
-(conversion), `rusty-chromaprint` conservé, Qdrant écarté, détection de key hors scope,
-DSL de masks pour le rangement inspiré de MediaMonkey.
+@docs/ressources-externes.md
 
 ## Méthode
 Détective (théorie → preuve → correctif), **fail fast**, **pas de fallback** silencieux,

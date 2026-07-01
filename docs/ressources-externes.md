@@ -247,6 +247,13 @@ couvre qu'UNE) :
 
 ---
 
+## Infra / Release — décisions en attente
+
+- **tauri-plugin-updater** (2026-06-30) : pas encore intégré. Nécessite des décisions d'infra d'abord (clé de signature, hébergement du manifeste : GitHub Releases vs CrabNebula, config `tauri.conf.json`, signature au build). Reporté à la phase release — infra avant code.
+- **tauri-specta** (IPC type-safe, 2026-06-30) : évalué et reporté post-RC. Mieux sur le papier, mais conversion invasive (~45 commandes), dépendance RC dans une couche critique, perte de la doc métier des wrappers manuels actuels. Le double-miroir `ipc.ts` + `shared/contracts.ts` reste la solution tant que le risque de migration dépasse le gain.
+
+---
+
 ## Écarté
 
 - **[vykee.co](https://vykee.co)** — écarté le 2026-06-24. SDK SaaS d'**onboarding
