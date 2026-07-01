@@ -15,26 +15,27 @@ name = "sift_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "2.6.2", features = [] }
+tauri-build = { version = "2.6.3", features = [] }
 
 [dependencies]
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
-tauri = { version = "2.11.2", features = ["protocol-asset"] }
+tauri = { version = "2.11.3", features = ["protocol-asset"] }
 tauri-plugin-log = "2"
-rusqlite = { version = "0.32", features = ["bundled"] }
+rusqlite = { version = "0.40", features = ["bundled"] }
 ffmpeg-sidecar = "2.5.0"
 walkdir = "2.5.0"
 tauri-plugin-dialog = "2.7.1"
 tauri-plugin-single-instance = "2"
-notify-debouncer-full = "0.6.0"
+tauri-plugin-window-state = "2"
+notify-debouncer-full = "0.7.0"
 rustfft = "6.4.1"
-lofty = "0.22.2"
+lofty = "0.24"
 open = "5"
-rusty-chromaprint = "0.2"
-symphonia = { version = "0.5", features = ["mp3", "flac", "wav", "aiff", "isomp4", "aac", "alac"] }
-ureq = { version = "2.10", features = ["json", "tls"] }
+rusty-chromaprint = "0.3"
+symphonia = { version = "0.6", features = ["mp3", "flac", "wav", "aiff", "isomp4", "aac", "alac"] }
+ureq = { version = "3", features = ["json"] }
 dirs = "5"
 
 [dev-dependencies]

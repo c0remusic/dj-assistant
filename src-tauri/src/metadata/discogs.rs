@@ -20,12 +20,9 @@ const TRACKLIST_PROBE: usize = 6;
 /// (with Retry-After), a non-2xx status, and a transport failure are classified consistently.
 fn map_ureq_err(e: ureq::Error) -> ProviderError {
     match e {
-        ureq::Error::Status(429, r) => {
-            let retry = r.header("Retry-After").and_then(|s| s.parse::<u64>().ok()).unwrap_or(60);
-            ProviderError::RateLimited { retry_after_s: retry }
-        }
-        ureq::Error::Status(code, _) => ProviderError::Network(format!("HTTP {code}")),
-        ureq::Error::Transport(t) => ProviderError::Network(t.to_string()),
+        ureq::Error::StatusCode(429) => ProviderError::RateLimited { retry_after_s: 60 },
+        ureq::Error::StatusCode(code) => ProviderError::Network(format!("HTTP {code}")),
+        other => ProviderError::Network(other.to_string()),
     }
 }
 
@@ -247,30 +244,32 @@ impl Discogs {
     /// One Discogs full-text release search for `q_str`, mapped to ranked Candidates. The
     /// HTTP call is factored out so `search` can issue a primary query and a title-only retry.
     fn search_query(&self, q_str: &str) -> Result<Vec<Candidate>, ProviderError> {
-        let v: Value = ureq::get("https://api.discogs.com/database/search")
-            .timeout(HTTP_TIMEOUT)
-            .set("User-Agent", USER_AGENT)
-            .set("Authorization", &format!("Discogs token={}", self.token))
+        let mut resp = ureq::get("https://api.discogs.com/database/search")
+            .config()
+            .timeout_global(Some(HTTP_TIMEOUT))
+            .build()
+            .header("User-Agent", USER_AGENT)
+            .header("Authorization", &format!("Discogs token={}", self.token))
             .query("type", "release")
             .query("q", q_str)
             .query("per_page", "8")
             .call()
-            .map_err(map_ureq_err)?
-            .into_json()
-            .map_err(|e| ProviderError::Parse(e.to_string()))?;
+            .map_err(map_ureq_err)?;
+        let v: Value = resp.body_mut().read_json().map_err(|e| ProviderError::Parse(e.to_string()))?;
         Ok(parse_search(&v))
     }
 
     fn fetch_tracklist(&self, release_id: &str) -> Result<Vec<String>, ProviderError> {
         let url = format!("https://api.discogs.com/releases/{release_id}");
-        let v: Value = ureq::get(&url)
-            .timeout(HTTP_TIMEOUT)
-            .set("User-Agent", USER_AGENT)
-            .set("Authorization", &format!("Discogs token={}", self.token))
+        let mut resp = ureq::get(&url)
+            .config()
+            .timeout_global(Some(HTTP_TIMEOUT))
+            .build()
+            .header("User-Agent", USER_AGENT)
+            .header("Authorization", &format!("Discogs token={}", self.token))
             .call()
-            .map_err(map_ureq_err)?
-            .into_json()
-            .map_err(|e| ProviderError::Parse(e.to_string()))?;
+            .map_err(map_ureq_err)?;
+        let v: Value = resp.body_mut().read_json().map_err(|e| ProviderError::Parse(e.to_string()))?;
         let titles = v
             .get("tracklist")
             .and_then(|x| x.as_array())

@@ -46,8 +46,8 @@ pub fn read(path: &str) -> TagInfo {
                 None
             };
             let tags_cdj_ok = tagged.tags().iter().any(|t| {
-                t.get_string(&ItemKey::TrackArtist).is_some()
-                    && t.get_string(&ItemKey::TrackTitle).is_some()
+                t.get_string(ItemKey::TrackArtist).is_some()
+                    && t.get_string(ItemKey::TrackTitle).is_some()
             });
             TagInfo {
                 declared_rail: rail,

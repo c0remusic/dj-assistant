@@ -788,7 +788,21 @@ mod tests {
         assert!(!src.exists());
         let status: String = conn.query_row("SELECT status FROM tracks WHERE id=?1", params![id], |r| r.get(0)).unwrap();
         assert_eq!(status, "trash");
-        assert!(root.join(".sift-trash").read_dir().unwrap().count() >= 1);
+        // Trash is centralized to <Documents>/Sift/Trash/ (cross-disk safe), not under `root`.
+        // The moved file is named `<track_id>__<original_name>` there (ensure_unique may suffix it
+        // if a prior run left one behind, so match on the `<id>__` prefix, not an exact name).
+        let trash_dir = sift_trash_dir().unwrap();
+        let prefix = format!("{id}__");
+        let entries: Vec<std::path::PathBuf> = trash_dir
+            .read_dir()
+            .unwrap()
+            .filter_map(|e| e.ok().map(|e| e.path()))
+            .filter(|p| p.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.starts_with(&prefix)))
+            .collect();
+        assert!(!entries.is_empty(), "trashed file should land in the central Sift trash dir");
+        for p in entries {
+            std::fs::remove_file(&p).ok();
+        }
     }
 
     #[test]
@@ -829,7 +843,7 @@ mod tests {
         use lofty::tag::ItemKey;
         let tagged = Probe::open(&res.path).unwrap().read().unwrap();
         let tag = tagged.primary_tag().unwrap();
-        let genre = tag.get_string(&ItemKey::Genre).unwrap_or("");
+        let genre = tag.get_string(ItemKey::Genre).unwrap_or("");
         assert!(genre.contains("Deep House"), "filed file has applied genre; got {genre:?}");
     }
 }

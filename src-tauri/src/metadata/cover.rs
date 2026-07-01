@@ -23,16 +23,18 @@ pub fn download_cover(dir: &Path, release_id: &str, url: &str) -> Result<PathBuf
         return Ok(out);
     }
     std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-    let resp = ureq::get(url)
-        .timeout(Duration::from_secs(20))
-        .set("User-Agent", concat!("Sift/", env!("CARGO_PKG_VERSION")))
+    let mut resp = ureq::get(url)
+        .config()
+        .timeout_global(Some(Duration::from_secs(20)))
+        .build()
+        .header("User-Agent", concat!("Sift/", env!("CARGO_PKG_VERSION")))
         .call()
         .map_err(|e| e.to_string())?;
-    let mut bytes = Vec::new();
-    use std::io::Read;
-    resp.into_reader()
-        .take(10 * 1024 * 1024) // cap at 10 MB
-        .read_to_end(&mut bytes)
+    let bytes = resp
+        .body_mut()
+        .with_config()
+        .limit(10 * 1024 * 1024) // cap at 10 MB
+        .read_to_vec()
         .map_err(|e| e.to_string())?;
     std::fs::write(&out, &bytes).map_err(|e| e.to_string())?;
     Ok(out)

@@ -7,6 +7,7 @@ use lofty::file::TaggedFileExt;
 use lofty::picture::{MimeType, Picture, PictureType};
 use lofty::prelude::{Accessor, TagExt};
 use lofty::probe::Probe;
+use lofty::tag::items::Timestamp;
 use lofty::tag::{ItemKey, Tag};
 use serde::{Deserialize, Serialize};
 
@@ -42,7 +43,7 @@ pub fn write_tags_full(
     }
     if let Some(y) = year {
         if y > 0 {
-            tag.set_year(y as u32);
+            tag.set_date(Timestamp { year: y as u16, ..Default::default() });
         }
     }
     // Genres are joined into one field ("Deep House; House"): multiple same-key items don't
@@ -64,7 +65,7 @@ pub fn write_tags_full(
             } else {
                 MimeType::Jpeg
             };
-            let pic = Picture::new_unchecked(PictureType::CoverFront, Some(mime), None, bytes);
+            let pic = Picture::unchecked(bytes).pic_type(PictureType::CoverFront).mime_type(mime).build();
             // Replace, don't accumulate: re-identifying a track must not leave the old cover
             // embedded alongside the new one.
             tag.remove_picture_type(PictureType::CoverFront);
@@ -138,8 +139,8 @@ pub fn read_tags_full(path: &str) -> Result<TagsSnapshot, String> {
     Ok(TagsSnapshot {
         artist: tag.artist().map(|s| s.to_string()),
         title: tag.title().map(|s| s.to_string()),
-        label: tag.get_string(&ItemKey::Label).map(|s| s.to_string()),
-        year: tag.year().map(|y| y as i64),
+        label: tag.get_string(ItemKey::Label).map(|s| s.to_string()),
+        year: tag.date().map(|d| d.year as i64),
         genre_joined: tag.genre().map(|s| s.to_string()),
         cover,
     })
@@ -174,11 +175,11 @@ pub fn restore_tags(path: &str, snap: &TagsSnapshot) -> Result<(), String> {
         Some(l) => {
             tag.insert_text(ItemKey::Label, l.clone());
         }
-        None => tag.remove_key(&ItemKey::Label),
+        None => tag.remove_key(ItemKey::Label),
     }
     match snap.year {
-        Some(y) if y > 0 => tag.set_year(y as u32),
-        _ => tag.remove_year(),
+        Some(y) if y > 0 => tag.set_date(Timestamp { year: y as u16, ..Default::default() }),
+        _ => tag.remove_date(),
     }
     match &snap.genre_joined {
         Some(g) => tag.set_genre(g.clone()),
@@ -192,7 +193,9 @@ pub fn restore_tags(path: &str, snap: &TagsSnapshot) -> Result<(), String> {
             "image/jpeg" => MimeType::Jpeg,
             other => MimeType::Unknown(other.to_string()),
         });
-        let pic = Picture::new_unchecked(PictureType::CoverFront, mime, None, cov.bytes.clone());
+        let mut builder = Picture::unchecked(cov.bytes.clone()).pic_type(PictureType::CoverFront);
+        if let Some(m) = mime { builder = builder.mime_type(m); }
+        let pic = builder.build();
         tag.push_picture(pic);
     }
 
@@ -232,8 +235,8 @@ mod tests {
 
         let tagged = Probe::open(dst).unwrap().read().unwrap();
         let tag = tagged.primary_tag().expect("has tag");
-        assert_eq!(tag.get_string(&ItemKey::TrackArtist), Some("Larry Heard"));
-        assert_eq!(tag.get_string(&ItemKey::TrackTitle), Some("Mystery of Love"));
+        assert_eq!(tag.get_string(ItemKey::TrackArtist), Some("Larry Heard"));
+        assert_eq!(tag.get_string(ItemKey::TrackTitle), Some("Mystery of Love"));
     }
 
     #[test]
@@ -319,8 +322,8 @@ mod tests {
         use lofty::tag::ItemKey;
         let tagged = Probe::open(dst).unwrap().read().unwrap();
         let tag = tagged.primary_tag().expect("has tag");
-        assert_eq!(tag.get_string(&ItemKey::TrackArtist), Some("Larry Heard"));
-        let genre = tag.get_string(&ItemKey::Genre).unwrap_or("");
+        assert_eq!(tag.get_string(ItemKey::TrackArtist), Some("Larry Heard"));
+        let genre = tag.get_string(ItemKey::Genre).unwrap_or("");
         assert!(genre.contains("Deep House") && genre.contains("House"), "genre = {genre:?}");
         assert!(!tag.pictures().is_empty(), "cover embedded");
     }
