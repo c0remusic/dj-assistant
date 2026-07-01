@@ -126,7 +126,7 @@ function peaksCoverage(r: AnalysisReport): string {
   return `${r.peaks.length} pts ≈ ${covered.toFixed(1)}s / ${r.duration_sec.toFixed(1)}s (${pct.toFixed(0)}%)`;
 }
 
-function row(label: string, value: string): string {
+export function row(label: string, value: string): string {
   return `<div class="sift-row"><span class="sift-row-label">${label}</span><span class="sift-row-value">${value}</span></div>`;
 }
 
@@ -158,8 +158,9 @@ function heroHtml(name: string, path: string): string {
   );
 }
 
-/** Keyboard-hint footer under the detail, matching the board's `kbd` line. */
-function keyboardHintsHtml(): string {
+/** Keyboard-hint row for the bottom action rail (filing.ts), matching the board's `kbd` line —
+ *  the maquette anchors these to the rail, not the scrollable detail content. */
+export function keyboardHintsHtml(): string {
   const k = (key: string, what: string) => `<span><b>${key}</b> ${what}</span>`;
   return (
     `<div class="sift-kbd-hints">` +
@@ -218,7 +219,7 @@ export function vchipHtml(label: string, tone: "success" | "neutral" | "danger" 
  *  action headline ("Ready to file" etc.) over a chip row. The first chip (LOSSLESS / real
  *  quality) comes from the analysis; the `.sift-vchips` row is left open so filing.ts can append
  *  the MATCH% (identify) and UNIQUE/DUPLICATE (dedup) chips it owns the data for. */
-function verdictCardHtml(r: AnalysisReport): string {
+export function verdictCardHtml(r: AnalysisReport): string {
   const map = {
     ok: ["ti-circle-check", "Prêt à ranger", "var(--color-text-success)", "rgba(91,192,140,.2)"],
     fake: ["ti-alert-triangle", "Sur-encodé — à re-sourcer", "var(--color-text-danger)", "rgba(226,104,94,.16)"],
@@ -232,8 +233,14 @@ function verdictCardHtml(r: AnalysisReport): string {
       : vchipHtml(rq.label, r.verdict === "fake" ? "danger" : r.verdict === "grey" ? "warning" : "neutral");
   return (
     `<div class="sift-verdict-card" style="background:${panelBg}">` +
+    `<div class="sift-verdict-main">` +
     `<div class="sift-verdict-head"><i class="ti ${icon}" style="color:${fg}"></i><span class="sift-verdict-label" style="color:${fg}">${label}</span></div>` +
     `<div class="sift-vchips sift-vchips-row">${qualityChip}</div>` +
+    `</div>` +
+    `<div class="sift-verdict-finalname-col">` +
+    `<div class="sift-verdict-finalname-label">Nom final</div>` +
+    `<div class="sift-verdict-finalname" style="color:${fg}"></div>` +
+    `</div>` +
     `</div>`
   );
 }
@@ -265,26 +272,23 @@ function spectroAndTagsHtml(r: AnalysisReport): string {
     row("Fréquence d'échantillonnage", r.sample_rate + " Hz") +
     row("Pics (couverture)", peaksCoverage(r)) +
     `</div></div></div>` +
-    // Source-file tag diagnostics (read-only): an autonomous, ALWAYS-VISIBLE block at the end of the
-    // report — outside the collapsible Proof box. Metadata diagnostics (cover, ID3) are a different
-    // family from the spectrum/encoding info and must not be hidden behind the Proof toggle.
-    `<div class="sift-tags-box">` +
-    `<div class="sift-tags-title">Tags</div>` +
-    `<div class="sift-spectro-rows">` +
-    row("Tags CDJ OK", yn(r.tags_cdj_ok)) +
-    row("Pochette", yn(r.has_cover)) +
-    row("Version ID3", r.id3_version || "—") +
-    `</div></div>` +
+    // Tags CDJ OK / Version ID3 moved to the Identification card (filing.ts, alongside Label/
+    // Année/Genre) — Pochette dropped entirely (redondant avec la pochette déjà visible dans le
+    // hero). Nothing meaningful was left in the old "Tags" box, so it's gone too; codec_error is
+    // its own standalone diagnostic, not tied to those three fields.
     (r.codec_error ? `<div class="sift-codec-error">erreur codec : ${esc(r.codec_error)}</div>` : "")
   );
 }
 
-/** Full report HTML (name + verdict chain + player row + spectrogram + tags). */
+/** Report HTML minus the verdict conclusion (name + player row + spectrogram/tags). The verdict
+ *  is rendered separately, after Identification, by the caller (see `verdictContainer` on
+ *  `openReportInto`/`renderReportInto`) — it's the CONCLUSION and must come last, right above
+ *  the action rail, matching the maquette. `openReportModal` (no Identification card) appends
+ *  `verdictCardHtml` itself, right after this. */
 function reportHtml(r: AnalysisReport, closeBtn: boolean): string {
   const name = r.path.split(/[\\/]/).pop() || r.path;
   return (
     nameHeaderHtml(name, r.path, closeBtn) +
-    verdictCardHtml(r) +
     playerRowHtml() +
     spectroAndTagsHtml(r)
   );
@@ -579,9 +583,15 @@ function wireReport(root: HTMLElement, r: AnalysisReport) {
   wireSpectrogram(root, r);
 }
 
-/** Renders the report INLINE into `container` (e.g. the Revue #mid pane). */
-export function renderReportInto(container: HTMLElement, r: AnalysisReport) {
+/** Renders the report INLINE into `container` (e.g. the Revue #mid pane). `verdictContainer`,
+ *  when given, gets the verdict conclusion card instead of `container` — see `openReportInto`. */
+export function renderReportInto(
+  container: HTMLElement,
+  r: AnalysisReport,
+  verdictContainer?: HTMLElement,
+) {
   container.innerHTML = `<div class="sift-report-scroll">${reportHtml(r, false)}</div>`;
+  if (verdictContainer) verdictContainer.innerHTML = verdictCardHtml(r);
   wireReport(container, r);
 }
 
@@ -609,15 +619,19 @@ let openSeq = 0;
  * before mounting, and a background event bumping openSeq during that await caused the
  * seq-guard to abort the whole render (player included). Now the seq-guard only aborts
  * the analysis fill-in — the player is already running and stays untouched. */
-export async function openReportInto(container: HTMLElement, path: string) {
+export async function openReportInto(
+  container: HTMLElement,
+  path: string,
+  verdictContainer?: HTMLElement,
+): Promise<AnalysisReport | null> {
   destroyPlayer();
   ensureStyles();
   const seq = ++openSeq;
 
   const cached = reportCache.get(path);
   if (cached) {
-    renderReportInto(container, cached);
-    return;
+    renderReportInto(container, cached, verdictContainer);
+    return cached;
   }
 
   const name = path.split(/[\\/]/).pop() || path;
@@ -625,19 +639,18 @@ export async function openReportInto(container: HTMLElement, path: string) {
   // Fire analysis IPC immediately. For already-analyzed tracks the DB round-trip takes ~20ms.
   const analysisPromise = analyzePath(path, false);
 
-  // Render the player shell. Son-first order: hero → audition band → verdict → proof. The
-  // verdict-stub and analysis-body class hooks are filled in later (seq-guarded); their order
-  // below the audition is what makes the detail "listen first, judge second". The stub starts
-  // EMPTY (not the "Analyse en cours…" text) — for an already-analyzed track the DB hit below
-  // wins the race in ~20ms and the stub never gets a chance to paint, so the loader text is
-  // only injected in the timeout branch, once we know the wait is real.
+  // Render the player shell. Son-first order: hero → audition band → proof (Preuves). The verdict
+  // conclusion goes LAST, above the action rail — in `verdictContainer` when the caller supplies
+  // one (filing.ts/library-detail.ts, both of which insert Identification between here and their
+  // own verdict slot), else in a `.sift-verdict-stub` kept inside this same scroll (openReportModal,
+  // which has no Identification card of its own). Filled in later (seq-guarded).
+  const verdictHost = () => verdictContainer ?? container.querySelector<HTMLElement>(".sift-verdict-stub");
   container.innerHTML =
     `<div class="sift-report-scroll">` +
     heroHtml(name, path) +
     playerRowHtml() +
-    `<div class="sift-verdict-stub"></div>` +
     `<div class="sift-analysis-body" hidden></div>` +
-    keyboardHintsHtml() +
+    (verdictContainer ? "" : `<div class="sift-verdict-stub"></div>`) +
     `</div>`;
 
   // Race the analysis against a short timeout. For already-analyzed tracks (DB cache hit)
@@ -653,51 +666,53 @@ export async function openReportInto(container: HTMLElement, path: string) {
     new Promise<null>((res) => setTimeout(() => res(null), 300)),
   ]) as AnalysisReport | null;
 
-  if (seq !== openSeq) return;
+  if (seq !== openSeq) return null;
 
   if (earlyResult) {
     reportCache.set(path, earlyResult);
     // Pass peaks to the constructor — the only path that renders the waveform immediately.
     void mountPlayer(container, path, earlyResult.peaks, earlyResult.duration_sec || undefined);
-    const verdictEl = container.querySelector<HTMLElement>(".sift-verdict-stub");
+    const verdictEl = verdictHost();
     const bodyEl = container.querySelector<HTMLElement>(".sift-analysis-body");
-    if (verdictEl) verdictEl.outerHTML = verdictCardHtml(earlyResult);
+    if (verdictEl) verdictEl.innerHTML = verdictCardHtml(earlyResult);
     if (bodyEl) {
       bodyEl.innerHTML = spectroAndTagsHtml(earlyResult);
       bodyEl.hidden = false;
       wireSpectrogram(container, earlyResult);
     }
-    return;
+    return earlyResult;
   }
 
   // Timeout fired — this is a genuinely fresh track (no DB cache to hit), so the wait is
   // real. Only now does the loader text get shown.
-  const verdictEl = container.querySelector<HTMLElement>(".sift-verdict-stub");
-  if (verdictEl) {
-    verdictEl.innerHTML = `<i class="ti ti-loader-2 sift-spin"></i>Analyse en cours…`;
+  const pendingEl = verdictHost();
+  if (pendingEl) {
+    pendingEl.innerHTML = `<i class="ti ti-loader-2 sift-spin"></i>Analyse en cours…`;
   }
   void mountPlayer(container, path);
 
   try {
     const r = await analysisPromise;
     reportCache.set(path, r);
-    if (seq !== openSeq) return;
-    const verdictEl = container.querySelector<HTMLElement>(".sift-verdict-stub");
+    if (seq !== openSeq) return null;
+    const verdictEl = verdictHost();
     const bodyEl = container.querySelector<HTMLElement>(".sift-analysis-body");
-    if (verdictEl) verdictEl.outerHTML = verdictCardHtml(r);
+    if (verdictEl) verdictEl.innerHTML = verdictCardHtml(r);
     if (bodyEl) {
       bodyEl.innerHTML = spectroAndTagsHtml(r);
       bodyEl.hidden = false;
       wireSpectrogram(container, r);
     }
+    return r;
   } catch (e) {
     console.error("analyze_path failed", e);
-    if (seq !== openSeq) return;
-    const verdictEl = container.querySelector<HTMLElement>(".sift-verdict-stub");
+    if (seq !== openSeq) return null;
+    const verdictEl = verdictHost();
     if (verdictEl) {
-      verdictEl.outerHTML =
+      verdictEl.innerHTML =
         `<div class="sift-analysis-fail">Échec de l'analyse : ${esc(String(e))}</div>`;
     }
+    return null;
   }
 }
 
@@ -724,7 +739,7 @@ export async function openReportModal(path: string) {
     const r = await analyzePath(path, false);
     const card = document.createElement("div");
     card.className = "sift-report-overlay-card sift-report-overlay-modal";
-    card.innerHTML = reportHtml(r, true);
+    card.innerHTML = reportHtml(r, true) + verdictCardHtml(r);
     ov.innerHTML = "";
     ov.appendChild(card);
     card.querySelector(".sift-close")?.addEventListener("click", () => {

@@ -27,11 +27,12 @@ import type { Candidate, AppliedIdentity } from "./ipc";
 import type { DupMatch, TrackRelease, FileTags } from "../shared/contracts";
 import { open } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { openReportInto, togglePlay, vchipHtml } from "./report-view";
+import { openReportInto, togglePlay, vchipHtml, row, keyboardHintsHtml } from "./report-view";
 import { renderCandidates } from "./identify-shared";
-import type { Bin, Canonical, Target, QueueItem } from "../shared/contracts";
+import type { Bin, Canonical, Target, QueueItem, AnalysisReport } from "../shared/contracts";
 import { FILE_IN_PLACE } from "../shared/contracts";
 import { requireEl } from "./dom";
+import { emptyStateHtml } from "./empty-state";
 
 /** Banner label when a track was filed in place (its own source folder, not a tree bin). */
 const IN_PLACE_BIN_LABEL = "source folder";
@@ -420,8 +421,11 @@ function refreshFootButton(): void {
  *  (#filfoot) right below the format chips, so a format change or a field edit must refresh this
  *  node (the extension follows state.target). Probe non-throw: the rail may be gone. */
 function refreshPreview(): void {
+  const name = previewName();
   const prev = document.querySelector<HTMLElement>(".sift-fil-prev");
-  if (prev) prev.textContent = `→ ${previewName()}`;
+  if (prev) prev.textContent = `→ ${name}`;
+  const verdictName = document.querySelector<HTMLElement>(".sift-verdict-finalname");
+  if (verdictName) verdictName.textContent = `→ ${name}`;
 }
 
 // Per-track Discogs release facts (label/year), captured when an identity is applied so they
@@ -757,12 +761,13 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
   // keeps it; the popover's own hidden state lives on #fldz itself, untouched by this rewrite.
   foot.innerHTML =
     `<button data-fil="destbtn" class="sift-dest-btn"><span class="sift-dest-btn-label">Destination</span><span class="sift-fil-bin">${esc(binLabel())}</span><i class="ti ti-chevron-down sift-dest-btn-caret"></i></button>` +
-    `<div class="col-h sift-col-h-tight">Format</div>` +
-    `<div class="sift-fmt-chips">${chips}</div>` +
-    `<div class="col-h sift-col-h-tight">Nom final</div>` +
-    `<div class="sift-fil-prev">→ ${esc(previewName())}</div>` +
-    `<button data-fil="ranger" class="sift-ranger-btn"><i class="ti ti-corner-down-left sift-icon-inline-md"></i> Ranger → <span class="sift-fil-bin">${esc(binLabel())}</span> <span class="kbd">⏎</span></button>` +
-    secondary;
+    `<div class="sift-rail-fmt-group"><span class="col-h">Format</span><div class="sift-fmt-chips">${chips}</div></div>` +
+    `<div class="sift-rail-spacer"></div>` +
+    // Keyboard hints anchored to the bottom rail (maquette's keyHints), not the scrollable
+    // detail content — moved here from report-view.ts, which used to inject them under the hero.
+    keyboardHintsHtml() +
+    secondary +
+    `<button data-fil="ranger" class="sift-ranger-btn"><i class="ti ti-corner-down-left sift-icon-inline-md"></i> Ranger → <span class="sift-fil-bin">${esc(binLabel())}</span> <span class="kbd">⏎</span></button>`;
   if (filedBanner) foot.append(filedBanner); // restore the banner below the freshly-rendered controls
 
   foot.querySelector('[data-fil="destbtn"]')?.addEventListener("click", (e) => {
@@ -848,13 +853,14 @@ export function ensureDestPopoverAutoClose(): void {
  *  this pane ends with genres. One-shot innerHTML — called once per track open, not on a
  *  burst event, so create-once/update-in-place is not required here. `rail` is accepted for symmetry
  *  with renderFoot; the editor itself is format-agnostic (the extension comes from state.target). */
-function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string): void {
+function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string, report: AnalysisReport | null): void {
   void rail;
   const c = state.canonical;
   if (!c) {
     host.innerHTML = "";
     return;
   }
+  const yn = (b: boolean) => (b ? "oui" : "non");
 
   // [I6] Add tooltip to confidence badge so the colour is self-explanatory.
   const badge =
@@ -885,6 +891,15 @@ function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string): void {
     `<div class="sift-release"></div>` +
     `<div class="col-h sift-col-h-tight">Genres</div>` +
     `<div class="sift-genres sift-genres-box"></div>` +
+    // Compatibilité CDJ / Version ID3: moved here from the spectral-proof box (report-view.ts) —
+    // the maquette groups them with Label/Année/Genre in Identification, not with the spectrum
+    // evidence. `report` is null only if analysis failed to load; nothing renders in that case.
+    (report
+      ? `<div class="sift-spectro-rows">` +
+        row("Compatibilité CDJ", yn(report.tags_cdj_ok)) +
+        row("Version ID3", report.id3_version || "—") +
+        `</div>`
+      : "") +
     // Apply ID3 tags: write these fields onto the file in place (no move, no encode, no 'filed'
     // change), revertable. Distinct from File (rail) — a neutral secondary button in the editor.
     `<button data-fil="applytags" class="sift-applytags-btn" title="Écrire ces tags dans le fichier en place — pas de déplacement, pas d'encodage, réversible"><i class="ti ti-tag sift-icon-inline-md"></i> Appliquer les tags ID3</button>` +
@@ -1082,7 +1097,7 @@ async function doRanger(mid: HTMLElement): Promise<void> {
       console.error("listQueue failed after filing", err);
     }
     if (items.length) await openFilingInto(mid, items[0]);
-    else clearPane(mid); // no pending left → neutral center; the banner still shows in the rail
+    else clearPane(mid, true); // no pending left → the formal empty state; the banner still shows in the rail
     // Filed confirmation as a banner at the BOTTOM of the right rail, under the new track's controls
     // (renderFoot, run by openFilingInto above, already wrote them; the banner is appended below them).
     showFiledConfirm(batchId, bin, filedPath);
@@ -1181,8 +1196,11 @@ async function doSecondary(mid: HTMLElement, kind: "resource" | "trash"): Promis
   }
 }
 
-/** Empty the detail pane back to a neutral prompt (after an action). */
-function clearPane(mid: HTMLElement): void {
+/** Empty the detail pane back to a neutral prompt (after an action), or — when `emptyQueue` is
+ *  true — to the formal empty state (DESIGN.md "État vide"): the caller already knows the queue
+ *  has nothing left, a real dead-end rather than a mid-session deselect. Revue is the entry point
+ *  so it never gets a "back to X" link; the rail is already cleared below in both cases. */
+function clearPane(mid: HTMLElement, emptyQueue = false): void {
   state.track = null;
   state.canonical = null;
   state.target = null;
@@ -1191,8 +1209,12 @@ function clearPane(mid: HTMLElement): void {
   state.genres = [];
   state.fileTags = null;
   state.filedConfirm = null;
-  mid.innerHTML =
-    '<div class="sift-clear-pane">Sélectionne un morceau dans la file pour l\'écouter et le ranger.</div>';
+  mid.innerHTML = emptyQueue
+    ? emptyStateHtml({
+        title: "Rien à revoir",
+        note: "Les morceaux à traiter apparaissent ici une fois ajoutés depuis Accueil ou déposés dans la file.",
+      })
+    : '<div class="sift-clear-pane">Sélectionne un morceau dans la file pour l\'écouter et le ranger.</div>';
   // The validation footer lives in the rail (#filfoot); clear it too so no stale controls linger
   // (non-throw: clearPane runs from async revert/undo/secondary callbacks that may fire off Review).
   const ff = document.getElementById("filfoot");
@@ -1259,9 +1281,13 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
     '<div class="sift-fil-scroll">' +
     '<div class="sift-fil-report"></div>' +
     '<div class="sift-fil-editor sift-fil-editor-margin"></div>' +
+    '<div class="sift-fil-verdict sift-fil-editor-margin"></div>' +
     '</div>' +
     "</div>";
   const reportEl = requireEl<HTMLElement>(".sift-fil-report", "openFilingInto", mid);
+  // Verdict is the CONCLUSION — rendered last, after Identification, matching the maquette
+  // (see docs/refonte-ui-plan.md, décision du 2026-07-02). Passed to openReportInto below.
+  const verdictEl = requireEl<HTMLElement>(".sift-fil-verdict", "openFilingInto", mid);
   // The validation footer now lives in the right rail (#filfoot in the .dest column), below the
   // destination tree — so #mid is a pure son-first detail and the rail holds the filing stack.
   const footEl = requireEl("#filfoot", "openFilingInto");
@@ -1282,8 +1308,8 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
   // Analysis report, metadata reconcile, the persisted release facts, and the file's REAL tags are
   // independent reads — run them in parallel so the footer renders as soon as they complete. The
   // file-tags read is the ONE disk read for the discrepancy marker (cached after; never per-keystroke).
-  const [, canonical, release, fileTags] = await Promise.all([
-    openReportInto(reportEl, item.path),
+  const [report, canonical, release, fileTags] = await Promise.all([
+    openReportInto(reportEl, item.path, verdictEl),
     reconcile(item.id).catch((e): Canonical => {
       console.error("reconcile failed", e);
       return { artist: "", title: "", version: null, confidence: "yellow" };
@@ -1341,7 +1367,7 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
 
   renderFoot(footEl, mid, rail);
   const editorEl = requireEl<HTMLElement>(".sift-fil-editor", "openFilingInto", mid);
-  renderEditor(editorEl, mid, rail);
+  renderEditor(editorEl, mid, rail, report);
   // Already-identified track → show the "Identified" line (cover + release) in place of the bare
   // Fetch button, rebuilt from metadata (no network). Runs inside the openSeq-guarded section above,
   // so a superseded open never paints this onto the wrong track.
@@ -1487,6 +1513,6 @@ export function syncDetail(mid: HTMLElement, items: QueueItem[]): number | null 
     void openFilingInto(mid, items[0]);
     return items[0].id;
   }
-  clearPane(mid);
+  clearPane(mid, true); // truly nothing to review — the formal empty state
   return null;
 }
