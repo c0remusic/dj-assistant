@@ -2,9 +2,11 @@
 // the real watched sources + a Completed-vs-Incomplete warning, and the folder picker. Extracted
 // from sift-live.ts (audit P-3). Row actions (toggle watch / remove) and the refresh after an add
 // stay owned by sift-live; the picker takes `onChange` so this module never imports sift-live.
-import { listSources, addSource } from "./ipc";
+import { listSources, addSource, getSetting } from "./ipc";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { Source } from "../shared/contracts";
+
+const LIBRARY_ROOT = "library_root"; // same setting key filing.ts gates the destination tree on
 
 const esc = (s: string) =>
   s.replace(/[&<>"']/g, (c) =>
@@ -26,8 +28,24 @@ export async function renderHomeSources() {
     console.error("listSources failed", e);
     return;
   }
+  let root: string | null = null;
+  try {
+    root = await getSetting(LIBRARY_ROOT);
+  } catch (e) {
+    console.error("getSetting(library_root) failed", e);
+  }
 
   document.getElementById("sift-sources")?.remove();
+
+  // Proactive gate (vs. the reactive NoLibraryRoot error only surfaced when a batch launch
+  // fails): warn on Accueil itself, before filing is even attempted, since sources stay
+  // watched/scanned regardless — only filing is blocked without a root.
+  const rootGateHtml = root
+    ? ""
+    : '<div style="display:flex;gap:8px;align-items:flex-start;background:var(--color-background-warning);border-radius:var(--border-radius-md);padding:8px 11px;margin:0 0 8px;font-size:var(--text-sm);color:var(--color-text-warning)">' +
+      '<i class="ti ti-alert-triangle" style="font-size:var(--text-lg);flex:none"></i>' +
+      "<span><strong>Racine de bibliothèque non définie</strong> — les dossiers surveillés restent scannés, mais le rangement sera bloqué tant qu'aucune racine n'est choisie. " +
+      '<button data-sift="gotoreglages" style="color:var(--color-text-warning);text-decoration:underline;padding:0;font:inherit">Ouvrir Réglages →</button></span></div>';
 
   const rows = sources
     .map((s) => {
@@ -52,10 +70,17 @@ export async function renderHomeSources() {
   const panel = document.createElement("div");
   panel.id = "sift-sources";
   panel.innerHTML =
+    rootGateHtml +
     '<div class="col-h" style="margin-top:12px">Watched folders</div>' +
     '<div style="display:flex;gap:8px;align-items:flex-start;background:var(--color-background-warning);border-radius:var(--border-radius-md);padding:8px 11px;margin:0 0 8px;font-size:var(--text-sm);color:var(--color-text-warning)"><i class="ti ti-info-circle" style="font-size:var(--text-lg);flex:none"></i><span>Point Sift at your <strong>Completed</strong> folder (not <em>Incomplete</em>) — files still downloading shouldn\'t enter the queue.</span></div>' +
     (rows || '<div style="font-size:var(--text-md);color:var(--color-text-tertiary)">No watched folder.</div>') +
     '<div style="margin:8px 0 0"><button data-sift="addsrc"><i class="ti ti-plus" style="font-size:var(--text-base);vertical-align:-2px"></i> add a folder</button></div>';
+
+  panel.querySelector('[data-sift="gotoreglages"]')?.addEventListener("click", () => {
+    document
+      .querySelector('[data-view="reglages"]')
+      ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
 
   // Hide the WHOLE mockup "Dossiers surveillés" block (its hardcoded counts never change):
   // the .col-h header + every following sibling up to the next .col-h. Insert the real

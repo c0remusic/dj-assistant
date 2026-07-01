@@ -36,15 +36,7 @@ function ensureStyles() {
   st.textContent =
     ".sift-time:hover{color:var(--color-text-primary)!important}" +
     "@keyframes sift-spin{to{transform:rotate(360deg)}}" +
-    ".sift-spin{display:inline-block;animation:sift-spin 1s linear infinite}" +
-    // Custom tempo thumb: grey at neutral, blue once nudged either way (accent-color only
-    // tints the fill on one side of 0, so we colour the thumb explicitly via a class).
-    ".sift-tempo{-webkit-appearance:none;appearance:none;background:transparent;cursor:pointer}" +
-    ".sift-tempo::-webkit-slider-runnable-track{width:4px;border-radius:3px;background:var(--color-border-secondary)}" +
-    // Turntable-style pitch-fader cap: wide flat handle with a centre marker line, recentred
-    // on the thin track (margin-left = (track − thumb) / 2).
-    ".sift-tempo::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:20px;height:9px;margin-left:-8px;border-radius:2px;border:0.5px solid var(--color-border-secondary);background:linear-gradient(var(--color-text-tertiary) 0 44%,rgba(0,0,0,.5) 44% 56%,var(--color-text-tertiary) 56% 100%)}" +
-    ".sift-tempo.sift-active::-webkit-slider-thumb{background:linear-gradient(var(--color-text-info) 0 44%,rgba(0,0,0,.5) 44% 56%,var(--color-text-info) 56% 100%)}";
+    ".sift-spin{display:inline-block;animation:sift-spin 1s linear infinite}";
   document.head.appendChild(st);
 }
 
@@ -179,18 +171,31 @@ function keyboardHintsHtml(): string {
 function playerRowHtml(): string {
   return (
     `<div class="sift-player-row">` +
-    `<div class="sift-player-transport">` +
+    `<div class="sift-player-audition">` +
     `<button class="sift-play sift-play-btn" title="Lecture / pause (espace)"><i class="ti ti-player-play"></i></button>` +
     `<span class="sift-time sift-time-disp" title="Clic : écoulé ⇄ restant"><span class="sift-time-val">0:00 / 0:00</span></span>` +
-    `</div>` +
     `<div class="sift-wave sift-player-wave"></div>` +
-    `<div class="sift-player-tempo">` +
-    `<span class="sift-tempo-label">tempo</span>` +
-    `<div class="sift-tempo-row">` +
-    `<input class="sift-tempo sift-tempo-slider" type="range" min="-8" max="8" step="1" value="0" title="Tempo — double-clic = réinitialiser" aria-label="Tempo">` +
-    `<span class="sift-tempo-out">0%</span>` +
     `</div>` +
-    `<button class="sift-key sift-key-btn" title="Key-lock : le tempo ne change pas la tonalité (off = varispeed)">key</button>` +
+    `<div class="sift-player-controls">` +
+    `<div class="sift-slider-block">` +
+    `<span class="sift-slider-label">Volume</span>` +
+    `<div class="sift-slider-track sift-volume-track">` +
+    `<div class="sift-slider-rail"></div>` +
+    `<div class="sift-slider-fill sift-volume-fill"></div>` +
+    `<div class="sift-slider-thumb sift-volume-thumb"></div>` +
+    `</div></div>` +
+    `<div class="sift-player-spacer"></div>` +
+    `<div class="sift-key-block" title="Key-lock : le tempo ne change pas la tonalité (off = varispeed)">` +
+    `<span class="sift-slider-label">Key-lock</span>` +
+    `<button class="sift-key sift-key-btn">ON</button>` +
+    `</div>` +
+    `<div class="sift-slider-block">` +
+    `<span class="sift-slider-label">Tempo<span class="sift-tempo-out">0%</span></span>` +
+    `<div class="sift-slider-track sift-tempo-track" title="Tempo — double-clic = réinitialiser">` +
+    `<div class="sift-slider-rail"></div>` +
+    `<div class="sift-slider-fill sift-tempo-fill"></div>` +
+    `<div class="sift-slider-thumb sift-tempo-thumb"></div>` +
+    `</div></div>` +
     `</div></div>`
   );
 }
@@ -328,9 +333,39 @@ export function audioBufferToWav(buf: AudioBuffer): Blob {
   return new Blob([ab], { type: "audio/wav" });
 }
 
+// Session cache of already-decoded audio (path → WAV blob), so switching back to a track
+// already opened this session skips the fetch + full decodeAudioData entirely — that decode
+// (not analysis) is the real cost of a queue switch. Capped small: an 8-min stereo 16-bit
+// WAV is ~80MB, so this is a short "recently played" window, not a full-library cache.
+const MAX_DECODED_CACHE = 4;
+const decodedCache = new Map<string, Blob>();
+
+function cacheDecoded(path: string, blob: Blob): void {
+  decodedCache.delete(path);
+  decodedCache.set(path, blob);
+  if (decodedCache.size > MAX_DECODED_CACHE) {
+    const oldest = decodedCache.keys().next().value;
+    if (oldest !== undefined) decodedCache.delete(oldest);
+  }
+}
+
+/** Drops cached decoded audio (call alongside clearReportCache when a file's content
+ *  may have changed, e.g. re-analysed/replaced) so a stale decode is never replayed. */
+export function clearDecodedCache(path?: string): void {
+  if (path) decodedCache.delete(path);
+  else decodedCache.clear();
+}
+
 /** Load a file the browser can't play natively (AIFF) by decoding it with Web Audio and
  * feeding the player a WAV blob. Falls back to the backend transcode if Web Audio refuses. */
 async function loadDecoded(ws: WaveSurfer, path: string): Promise<void> {
+  const cached = decodedCache.get(path);
+  if (cached) {
+    cacheDecoded(path, cached); // bump recency
+    if (ws !== currentWs) return;
+    await ws.loadBlob(cached);
+    return;
+  }
   // Each await yields the event loop; the user may switch tracks meanwhile, which
   // destroys this ws and creates a new currentWs. Bail if we're no longer current,
   // so we never call loadBlob/load on a destroyed instance.
@@ -341,7 +376,9 @@ async function loadDecoded(ws: WaveSurfer, path: string): Promise<void> {
     if (!decodeCtx) decodeCtx = new AudioContext();
     const audioBuf = await decodeCtx.decodeAudioData(arr);
     if (ws !== currentWs) return;
-    await ws.loadBlob(audioBufferToWav(audioBuf));
+    const wav = audioBufferToWav(audioBuf);
+    cacheDecoded(path, wav);
+    await ws.loadBlob(wav);
   } catch (e) {
     if (ws !== currentWs) return;
     console.error("web-audio decode failed, falling back to transcode", e);
@@ -365,8 +402,13 @@ async function mountPlayer(root: HTMLElement, path: string, peaks?: number[], du
   const container = requireEl<HTMLElement>(".sift-wave", "mountPlayer", root);
   const playBtn = root.querySelector<HTMLButtonElement>(".sift-play");
   const timeEl = root.querySelector<HTMLElement>(".sift-time");
-  const tempo = root.querySelector<HTMLInputElement>(".sift-tempo");
   const tempoOut = root.querySelector<HTMLElement>(".sift-tempo-out");
+  const volumeTrack = root.querySelector<HTMLElement>(".sift-volume-track");
+  const volumeFill = root.querySelector<HTMLElement>(".sift-volume-fill");
+  const volumeThumb = root.querySelector<HTMLElement>(".sift-volume-thumb");
+  const tempoTrack = root.querySelector<HTMLElement>(".sift-tempo-track");
+  const tempoFill = root.querySelector<HTMLElement>(".sift-tempo-fill");
+  const tempoThumb = root.querySelector<HTMLElement>(".sift-tempo-thumb");
 
   ensureStyles();
   destroyPlayer();
@@ -389,9 +431,11 @@ async function mountPlayer(root: HTMLElement, path: string, peaks?: number[], du
   };
   const keyEl = root.querySelector<HTMLButtonElement>(".sift-key");
   let keyLock = true; // DJ default: tempo doesn't move the pitch (browser time-stretch)
-  const applyRate = () => ws.setPlaybackRate(1 + Number(tempo?.value || 0) / 100, keyLock);
+  let tempoValue = 0; // -8..8, drives both playback rate and the custom slider visuals
+  const applyRate = () => ws.setPlaybackRate(1 + tempoValue / 100, keyLock);
   const refreshKey = () => {
     if (!keyEl) return;
+    keyEl.textContent = keyLock ? "ON" : "OFF";
     keyEl.style.background = keyLock ? "var(--color-background-info)" : "transparent";
     keyEl.style.color = keyLock ? "var(--color-text-info)" : "var(--color-text-tertiary)";
     keyEl.style.borderColor = keyLock ? "var(--color-border-info)" : "var(--color-border-tertiary)";
@@ -402,6 +446,61 @@ async function mountPlayer(root: HTMLElement, path: string, peaks?: number[], du
     applyRate();
   });
   refreshKey();
+
+  // Custom sliders (never native <input type=range> — see DESIGN.md): drag anywhere on the
+  // track, thumb/fill follow the mouse until release. Volume fills from the left; tempo fills
+  // from the centre (0 = neutral), matching the pitch-fader convention.
+  const dragSlider = (track: HTMLElement, onMove: (pct: number) => void) => {
+    const update = (clientX: number) => {
+      const rect = track.getBoundingClientRect();
+      onMove(Math.max(0, Math.min(1, (clientX - rect.left) / Math.max(1, rect.width))));
+    };
+    track.addEventListener("mousedown", (e) => {
+      update(e.clientX);
+      const onMouseMove = (ev: MouseEvent) => update(ev.clientX);
+      const onMouseUp = () => {
+        window.removeEventListener("mousemove", onMouseMove);
+        window.removeEventListener("mouseup", onMouseUp);
+      };
+      window.addEventListener("mousemove", onMouseMove);
+      window.addEventListener("mouseup", onMouseUp);
+    });
+  };
+
+  const renderVolume = (pct: number) => {
+    if (volumeFill) volumeFill.style.width = `${pct * 100}%`;
+    if (volumeThumb) volumeThumb.style.left = `${pct * 100}%`;
+  };
+  renderVolume(1); // WaveSurfer's own default (full volume)
+  if (volumeTrack) {
+    dragSlider(volumeTrack, (pct) => {
+      ws.setVolume(pct);
+      renderVolume(pct);
+    });
+  }
+
+  const renderTempo = () => {
+    const pct = ((tempoValue + 8) / 16) * 100;
+    if (tempoFill) {
+      const left = Math.min(pct, 50);
+      tempoFill.style.left = `${left}%`;
+      tempoFill.style.width = `${Math.abs(pct - 50)}%`;
+    }
+    if (tempoThumb) tempoThumb.style.left = `${pct}%`;
+    if (tempoOut) tempoOut.textContent = `${tempoValue > 0 ? "+" : ""}${tempoValue}%`;
+    applyRate();
+  };
+  renderTempo();
+  if (tempoTrack) {
+    dragSlider(tempoTrack, (pct) => {
+      tempoValue = Math.max(-8, Math.min(8, Math.round(-8 + pct * 16)));
+      renderTempo();
+    });
+    tempoTrack.addEventListener("dblclick", () => {
+      tempoValue = 0;
+      renderTempo();
+    });
+  }
   const timeVal = root.querySelector<HTMLElement>(".sift-time-val");
   let showRemaining = false;
   const updateTime = () => {
@@ -430,20 +529,6 @@ async function mountPlayer(root: HTMLElement, path: string, peaks?: number[], du
     // so there's nothing further to retry here — just surface the error.
   });
   playBtn?.addEventListener("click", () => void ws.playPause());
-  const refreshTempo = () => {
-    const v = Number(tempo!.value);
-    if (tempoOut) tempoOut.textContent = `${v > 0 ? "+" : ""}${v}%`;
-    // grey at neutral (0), coloured once nudged
-    tempo!.classList.toggle("sift-active", v !== 0);
-    applyRate();
-  };
-  tempo?.addEventListener("input", refreshTempo);
-  refreshTempo();
-  // double-click the fader → reset tempo/pitch to 0
-  tempo?.addEventListener("dblclick", () => {
-    tempo.value = "0";
-    refreshTempo();
-  });
 }
 
 /** Wires the spectrogram toggle inside `root` (extracted so it can be called
@@ -510,6 +595,7 @@ const reportCache = new Map<string, AnalysisReport>();
 export function clearReportCache(path?: string) {
   if (path) reportCache.delete(path);
   else reportCache.clear();
+  clearDecodedCache(path);
 }
 
 // Monotonic token: the latest openReportInto call wins. A slow analyse that resolves after the
@@ -541,24 +627,30 @@ export async function openReportInto(container: HTMLElement, path: string) {
 
   // Render the player shell. Son-first order: hero → audition band → verdict → proof. The
   // verdict-stub and analysis-body class hooks are filled in later (seq-guarded); their order
-  // below the audition is what makes the detail "listen first, judge second".
+  // below the audition is what makes the detail "listen first, judge second". The stub starts
+  // EMPTY (not the "Analyse en cours…" text) — for an already-analyzed track the DB hit below
+  // wins the race in ~20ms and the stub never gets a chance to paint, so the loader text is
+  // only injected in the timeout branch, once we know the wait is real.
   container.innerHTML =
     `<div class="sift-report-scroll">` +
     heroHtml(name, path) +
     playerRowHtml() +
-    `<div class="sift-verdict-stub">` +
-    `<i class="ti ti-loader-2 sift-spin"></i>Analyse en cours…</div>` +
+    `<div class="sift-verdict-stub"></div>` +
     `<div class="sift-analysis-body" hidden></div>` +
     keyboardHintsHtml() +
     `</div>`;
 
-  // Race the analysis against a short timeout. For already-analyzed tracks (~20ms DB hit)
+  // Race the analysis against a short timeout. For already-analyzed tracks (DB cache hit)
   // we win the race and can pass peaks to WaveSurfer.create() — which renders the waveform
   // instantly from the pre-computed data. For fresh tracks the timeout fires first and we
   // mount without peaks so audio starts loading while analysis runs in the background.
+  // 300ms (not 20-80ms): the DB hit itself is fast, but the full invoke round-trip (IPC
+  // dispatch + JSON (de)serialization of the report incl. the peaks array) regularly exceeds
+  // 80ms in a `tauri dev` debug build, which was tripping the timeout — and showing the
+  // "Analyse en cours…" stub — for tracks that were in fact already analyzed.
   const earlyResult = await Promise.race([
     analysisPromise.catch((): null => null),
-    new Promise<null>((res) => setTimeout(() => res(null), 80)),
+    new Promise<null>((res) => setTimeout(() => res(null), 300)),
   ]) as AnalysisReport | null;
 
   if (seq !== openSeq) return;
@@ -578,7 +670,12 @@ export async function openReportInto(container: HTMLElement, path: string) {
     return;
   }
 
-  // Timeout fired — mount player now so audio starts loading while analysis finishes.
+  // Timeout fired — this is a genuinely fresh track (no DB cache to hit), so the wait is
+  // real. Only now does the loader text get shown.
+  const verdictEl = container.querySelector<HTMLElement>(".sift-verdict-stub");
+  if (verdictEl) {
+    verdictEl.innerHTML = `<i class="ti ti-loader-2 sift-spin"></i>Analyse en cours…`;
+  }
   void mountPlayer(container, path);
 
   try {

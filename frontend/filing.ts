@@ -548,16 +548,19 @@ function onIdentityApplied(
   if (state.track) releaseCache.set(state.track.id, { label: applied.label, year: applied.year });
   refreshReleaseLine();
 
-  // Verdict-panel MATCH chip — qualitative (the backend has no % score): green confidence reads
-  // as a confident MATCH, yellow as CHECK MATCH. Replaces any prior MATCH chip on re-identify.
+  // Verdict-panel MATCH chip — qualitative (the backend has no % score). Only shown when there's
+  // real doubt (CHECK MATCH, amber): a confident green match shows nothing, per the maquette rule
+  // that the chip exists only to flag something worth checking, not to confirm the obvious.
   const vchips = mid.querySelector<HTMLElement>(".sift-vchips");
   if (vchips) {
     vchips.querySelector('[data-chip="match"]')?.remove();
     const green = applied.canonical.confidence === "green";
-    vchips.insertAdjacentHTML(
-      "beforeend",
-      vchipHtml(green ? "MATCH" : "CHECK MATCH", green ? "success" : "warning").replace("<span ", '<span data-chip="match" '),
-    );
+    if (!green) {
+      vchips.insertAdjacentHTML(
+        "beforeend",
+        vchipHtml("CHECK MATCH", "warning").replace("<span ", '<span data-chip="match" '),
+      );
+    }
   }
 
   // Show the cover if we have a local path. Probe non-throw — the report pane may be gone after the
@@ -787,20 +790,41 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
     ?.addEventListener("click", () => void doSecondary(mid, "trash"));
 }
 
+/** Anchors the popover to the Destination button's real on-screen position (position:fixed,
+ *  recalculated here) instead of a hardcoded left/bottom — keeps it aligned if the rail's height
+ *  changes (e.g. a longer secondary-button label wrapping). */
+function positionDestPopover(pop: HTMLElement): void {
+  const btn = document.querySelector<HTMLElement>('[data-fil="destbtn"]');
+  if (!btn) return;
+  const r = btn.getBoundingClientRect();
+  pop.style.left = `${r.left}px`;
+  pop.style.bottom = `${window.innerHeight - r.top + 8}px`;
+}
+
 /** Open/close the destination popover (#fldz). Its own hidden state persists across renderFoot's
- *  innerHTML rewrites since #fldz is a sibling of #filfoot, never touched by them. */
-function toggleDestPopover(force?: boolean): void {
+ *  innerHTML rewrites since #fldz is a sibling of #filfoot, never touched by them. Exported: Batch
+ *  mode has its own Destination button (sift-live.ts) and must go through this same function —
+ *  the popover is position:fixed with no CSS fallback, so any toggle that bypasses this and
+ *  flips `fldz.hidden` directly leaves it unpositioned (rendered wherever it falls in the layout). */
+export function toggleDestPopover(force?: boolean): void {
   const pop = document.getElementById("fldz");
   if (!pop) return;
-  pop.hidden = force !== undefined ? !force : !pop.hidden;
+  const opening = force !== undefined ? force : pop.hidden;
+  pop.hidden = !opening;
+  if (opening) positionDestPopover(pop);
 }
 
 // One-time (guarded) document listener: closes the destination popover on an outside click or
-// Escape, like every other popover in the app (candidate lists, palettes).
+// Escape, like every other popover in the app (candidate lists, palettes). Also repositions it
+// on resize while open, since position:fixed coordinates are frozen at open time.
 let destPopoverAutoCloseWired = false;
 export function ensureDestPopoverAutoClose(): void {
   if (destPopoverAutoCloseWired) return;
   destPopoverAutoCloseWired = true;
+  window.addEventListener("resize", () => {
+    const pop = document.getElementById("fldz");
+    if (pop && !pop.hidden) positionDestPopover(pop);
+  });
   // Capture phase: the #pa delegated handler (queue rows, etc.) calls stopPropagation() on most
   // clicks, which would otherwise stop this listener ever seeing them in the bubble phase.
   document.addEventListener(
@@ -1328,15 +1352,17 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
   refreshDiscrepancy(); // flag the marker if the file's tags differ from the displayed identity
   updateHeaderName(mid); // show the clean proposed name in the report header
 
-  // Verdict-panel chip (board: LOSSLESS · MATCH · UNIQUE): append UNIQUE by default, DUPLICATE
-  // when dedup found a match. The MATCH chip is added later by onIdentityApplied.
+  // Verdict-panel chip (board: LOSSLESS · DUPLICATE): only appended when dedup found a real match —
+  // no "UNIQUE" chip for the common case, per the maquette rule that a chip exists to flag
+  // something worth checking, not to confirm the absence of a problem. The MATCH/CHECK MATCH chip
+  // is added later by onIdentityApplied.
   void dupP.then((m) => {
     if (myseq !== openSeq) return;
     const chips = mid.querySelector<HTMLElement>(".sift-vchips");
-    if (!chips || chips.querySelector('[data-chip="dup"]')) return;
+    if (!chips || chips.querySelector('[data-chip="dup"]') || !m) return;
     chips.insertAdjacentHTML(
       "beforeend",
-      vchipHtml(m ? "DUPLICATE" : "UNIQUE", m ? "warning" : "neutral").replace("<span ", '<span data-chip="dup" '),
+      vchipHtml("DUPLICATE", "warning").replace("<span ", '<span data-chip="dup" '),
     );
   });
 }

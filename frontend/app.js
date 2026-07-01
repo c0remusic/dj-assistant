@@ -73,23 +73,29 @@ function openLink(u){window.open(u,'_blank','noopener');}
     content.style.display="flex";content.style.padding="0";content.style.flexDirection="";content.style.overflowY="";
     var pendingCount=cnt("pending"),doneCount=T.length-pendingCount;
     content.innerHTML='<div class="queue" id="qcol" style="width:272px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px"><span class="col-h" style="margin:0">Queue</span><span style="display:flex;gap:3px"><span data-act="revmode" data-m="detail" title="Vue détail" style="cursor:pointer;color:var(--color-text-info)"><i class="ti ti-layout-list" style="font-size:14px"></i></span><span data-act="revmode" data-m="batch" title="Mode batch" style="cursor:pointer;color:var(--color-text-tertiary)"><i class="ti ti-table" style="font-size:14px"></i></span></span></div><div class="pbar"><div class="pfill" id="pf" style="width:0%"></div></div><div id="ql"></div>'+(doneCount?'<div style="padding:5px 4px 0"><span data-act="togglequeue" style="font-size:10px;color:var(--color-text-tertiary);cursor:pointer;text-decoration:underline">'+(queueShowAll?'Masquer les traités':'+ '+doneCount+' traités')+'</span></div>':'')+'</div><div class="sift-inspector"><div class="mid" id="mid"></div><div class="sift-action-rail" id="filfoot"></div><div class="sift-dest-popover" id="fldz" hidden></div></div>';
-    var done2=T.length-pendingCount;document.getElementById('pf').style.width=Math.round(done2/T.length*100)+"%";
-    var h="";T.forEach(function(x,i){
-      var isPending=x.status==="pending";
-      if(!isPending&&!queueShowAll&&i!==cur)return;
-      var ic="ti-circle",col="",cls="qi";
-      if(i===cur)cls+=" cur",ic="ti-player-play";else if(x.status==="filed")cls+=" done",ic="ti-check";
-      else if(x.status==="resource")cls+=" done",ic="ti-x",col="color:var(--color-text-danger)";
-      else if(x.status==="trash")cls+=" done",ic="ti-trash",col="color:var(--color-text-tertiary)";
-      else if(x.fake)ic="ti-alert-triangle",col="color:var(--color-text-danger)";
-      var slskBtn=(x.status==="resource"||x.fake)?'<button data-act="qslsk" data-i="'+i+'" data-txt="'+encodeURIComponent(x.a+' '+x.t)+'" title="Copier nom Soulseek" style="flex:none;width:18px;height:18px;padding:0;border:none;display:inline-flex;align-items:center;justify-content:center;color:var(--color-text-tertiary);background:transparent" onclick="event.stopPropagation()"><i class="ti ti-copy" style="font-size:11px"></i></button>':'';
-      var dupBadge=x.duplicate?'<i class="ti ti-copy" style="font-size:11px;flex:none;color:var(--color-text-secondary)" title="Doublon — déjà en biblio"></i>':'';
-      h+='<div class="'+cls+'" data-act="sel" data-i="'+i+'"><i class="ti '+ic+'" style="'+col+'"></i><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">'+x.a+' — '+x.t+'</span>'+dupBadge+slskBtn+'</div>';});
-    document.getElementById('ql').innerHTML=h;
-    var fh="";FOLDERS.forEach(function(f,i){fh+='<div class="fld'+(i===selFolder?' on':'')+'" data-act="file" data-i="'+i+'"><span class="kbd">'+(i+1)+'</span> '+f+'</div>';});
-    fh+= creating ? '<input id="newin" placeholder="nom du dossier…" style="width:100%;font-size:12px;padding:5px 7px;margin-top:2px">' : '<div class="fld" data-act="newfld" style="color:var(--color-text-tertiary)"><i class="ti ti-plus" style="font-size:14px"></i> nouveau</div>';
-    document.getElementById('fldz').innerHTML=fh;renderMid();
-    if(creating){var ni=document.getElementById('newin');if(ni)ni.focus();}
+    // Live (Tauri): window.__siftQueue() below overwrites #ql/#fldz/#mid with the real data —
+    // this whole block would just be a wasted mock render (fake queue rows, fake destination
+    // folders, and renderMid()'s canvas spectrogram draw, ~18k pixels) immediately clobbered.
+    // Same inTauri test as the keyboard handler below. Hors Tauri (démo web Vercel) reste actif.
+    if(!('__TAURI_INTERNALS__' in window)){
+      var done2=T.length-pendingCount;document.getElementById('pf').style.width=Math.round(done2/T.length*100)+"%";
+      var h="";T.forEach(function(x,i){
+        var isPending=x.status==="pending";
+        if(!isPending&&!queueShowAll&&i!==cur)return;
+        var ic="ti-circle",col="",cls="qi";
+        if(i===cur)cls+=" cur",ic="ti-player-play";else if(x.status==="filed")cls+=" done",ic="ti-check";
+        else if(x.status==="resource")cls+=" done",ic="ti-x",col="color:var(--color-text-danger)";
+        else if(x.status==="trash")cls+=" done",ic="ti-trash",col="color:var(--color-text-tertiary)";
+        else if(x.fake)ic="ti-alert-triangle",col="color:var(--color-text-danger)";
+        var slskBtn=(x.status==="resource"||x.fake)?'<button data-act="qslsk" data-i="'+i+'" data-txt="'+encodeURIComponent(x.a+' '+x.t)+'" title="Copier nom Soulseek" style="flex:none;width:18px;height:18px;padding:0;border:none;display:inline-flex;align-items:center;justify-content:center;color:var(--color-text-tertiary);background:transparent" onclick="event.stopPropagation()"><i class="ti ti-copy" style="font-size:11px"></i></button>':'';
+        var dupBadge=x.duplicate?'<i class="ti ti-copy" style="font-size:11px;flex:none;color:var(--color-text-secondary)" title="Doublon — déjà en biblio"></i>':'';
+        h+='<div class="'+cls+'" data-act="sel" data-i="'+i+'"><i class="ti '+ic+'" style="'+col+'"></i><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">'+x.a+' — '+x.t+'</span>'+dupBadge+slskBtn+'</div>';});
+      document.getElementById('ql').innerHTML=h;
+      var fh="";FOLDERS.forEach(function(f,i){fh+='<div class="fld'+(i===selFolder?' on':'')+'" data-act="file" data-i="'+i+'"><span class="kbd">'+(i+1)+'</span> '+f+'</div>';});
+      fh+= creating ? '<input id="newin" placeholder="nom du dossier…" style="width:100%;font-size:12px;padding:5px 7px;margin-top:2px">' : '<div class="fld" data-act="newfld" style="color:var(--color-text-tertiary)"><i class="ti ti-plus" style="font-size:14px"></i> nouveau</div>';
+      document.getElementById('fldz').innerHTML=fh;renderMid();
+      if(creating){var ni=document.getElementById('newin');if(ni)ni.focus();}
+    }
     if(window.__siftQueue)window.__siftQueue();
   }
 

@@ -42,6 +42,7 @@ import {
   defaultTarget,
   targetExt,
   TARGET_LABEL,
+  toggleDestPopover,
 } from "./filing";
 // Views/chrome extracted from this god-module (audit P-3) — kept stateless, wired here.
 import { renderEcartes } from "./ecartes-view";
@@ -53,6 +54,7 @@ import type { QueueItem, BatchResult, FileProgress, Target } from "../shared/con
 import { FILE_IN_PLACE } from "../shared/contracts";
 import { requireEl } from "./dom";
 import { renderJournal } from "./journal";
+import { open as openFolderDialog } from "@tauri-apps/plugin-dialog";
 
 /** Human label for the batch destination (resolves the in-place sentinel to its prose). */
 const IN_PLACE_LABEL = "Dossier source de chaque morceau";
@@ -607,7 +609,7 @@ function actionButtonHtml(running: boolean): string {
  * Replaces the filing footer + hides the folder tree while batching. */
 function renderBatchRail(reviewN: number) {
   const foot = requireEl("#filfoot", "renderBatchRail");
-  const fldz = requireEl("#fldz", "renderBatchRail");
+  requireEl("#fldz", "renderBatchRail"); // fail-fast: asserts the popover host exists
   ensureBatchDestUI();
   const head = (label: string) => `<div class="col-h" style="margin:0 0 4px">${label}</div>`;
   // Preserve the LIVE run's progress list across this wholesale rebuild (renderBatch rebuilds the rail
@@ -648,7 +650,7 @@ function renderBatchRail(reviewN: number) {
   else refreshBatchTracksPreview(); // idle → keep the per-track list empty (it is a run-only artifact)
   foot.querySelector('[data-fil="destbtn"]')?.addEventListener("click", (e) => {
     e.stopPropagation();
-    fldz.hidden = !fldz.hidden;
+    toggleDestPopover();
   });
   ensureDestPopoverAutoClose();
   // Move the single progress zone into the rail (batch). setTask/clearTask keep driving the same node,
@@ -839,28 +841,38 @@ async function runBatchDiscard() {
 async function refresh() {
   await renderHomeSources();
   await renderQueue();
-  await updateRevueBadge();
+  updateRevueBadge(currentItems.length);
 }
 
 /** Fill the Review nav badge with the pending count (board's "Revue [18]"). Runs from refresh()
  * — i.e. on every queue change, on any screen — so it's correct even off the Revue view. Empty
- * text collapses the pill via the `.nav-badge:empty` CSS rule. */
-async function updateRevueBadge() {
+ * text collapses the pill via the `.nav-badge:empty` CSS rule. `count` is the queue length
+ * `renderQueue` just fetched — no redundant `listQueue()` re-fetch here. */
+function updateRevueBadge(count: number) {
   const badge = requireEl<HTMLElement>('.nav-badge[data-badge="revue"]', "updateRevueBadge");
-  try {
-    const n = (await listQueue()).length;
-    badge.textContent = n ? String(n) : "";
-  } catch {
-    /* leave the badge as-is on a transient failure */
-  }
+  badge.textContent = count ? String(count) : "";
 }
 
-/** Live Réglages view: injects the real Discogs token field below the mockup rows. */
+/** Live Réglages view: a single scrolling page of real cards (Discogs, Bibliothèque, Apparence),
+ * replacing the mockup's static placeholder rows (Dossiers source, Format lossless…), which have
+ * no backing data and led nowhere — same "lean Tauri UI" pattern as home-sources.ts (hide the mock
+ * content, keep only the title, inject the real thing). One page, not tabs: every card is always
+ * visible and reachable by scrolling, per the maquette's "PAS des onglets exclusifs" rule. */
 async function renderReglagesLive() {
   const content = requireEl("#content", "renderReglagesLive");
 
   // Remove any previous live-settings block so we don't duplicate on re-render.
   document.getElementById("sift-reglages-live")?.remove();
+
+  // Hide the mockup's static rows (no real data behind them); keep only the page title.
+  let title: Element | null = null;
+  for (const child of Array.from(content.children)) {
+    if (!title && child.classList.contains("h1")) {
+      title = child;
+      continue;
+    }
+    (child as HTMLElement).style.display = "none";
+  }
 
   let token: string | null = null;
   try {
@@ -874,6 +886,12 @@ async function renderReglagesLive() {
     if (v === "light" || v === "dark") theme = v;
   } catch (e) {
     console.error("getSetting(ui_theme) failed", e);
+  }
+  let root: string | null = null;
+  try {
+    root = await getSetting("library_root");
+  } catch (e) {
+    console.error("getSetting(library_root) failed", e);
   }
 
   const inputCss =
@@ -895,6 +913,44 @@ async function renderReglagesLive() {
     `<input id="sift-discogs-token" type="text" placeholder="Discogs token…" value="${esc(token ?? "")}" style="${inputCss}">` +
     '<div id="sift-discogs-status" style="font-size:var(--text-sm);color:var(--color-text-tertiary);min-height:14px"></div>' +
     "</div>";
+
+  const libBlock = document.createElement("div");
+  libBlock.style.cssText = "margin-top:14px";
+  libBlock.innerHTML =
+    '<div class="col-h">Bibliothèque</div>' +
+    '<div class="srow" style="flex-direction:column;align-items:flex-start;gap:6px;padding-bottom:10px">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;width:100%;gap:12px">' +
+    `<span style="font-size:var(--text-md);font-family:var(--font-mono);color:${
+      root ? "var(--color-text-primary)" : "var(--color-text-tertiary)"
+    };overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(root || "Aucun dossier sélectionné")}</span>` +
+    '<button id="sift-lib-root-change" style="flex:none;font-size:var(--text-sm);padding:2px 10px">Changer…</button>' +
+    "</div>" +
+    (root
+      ? '<div id="sift-lib-root-forget" style="font-size:var(--text-sm);color:var(--color-text-tertiary);cursor:pointer;text-decoration:underline">Oublier le dossier racine</div>'
+      : "") +
+    "</div>";
+  libBlock.querySelector("#sift-lib-root-change")?.addEventListener("click", () => {
+    void (async () => {
+      const dir = await openFolderDialog({ directory: true, multiple: false });
+      if (typeof dir !== "string") return;
+      try {
+        await setSetting("library_root", dir);
+        void renderReglagesLive();
+      } catch (e) {
+        console.error("setSetting(library_root) failed", e);
+      }
+    })();
+  });
+  libBlock.querySelector("#sift-lib-root-forget")?.addEventListener("click", () => {
+    void (async () => {
+      try {
+        await setSetting("library_root", "");
+        void renderReglagesLive();
+      } catch (e) {
+        console.error("setSetting(library_root) failed", e);
+      }
+    })();
+  });
 
   const themeBlock = document.createElement("div");
   themeBlock.style.cssText = "margin-top:14px";
@@ -918,6 +974,7 @@ async function renderReglagesLive() {
   );
 
   content.appendChild(block);
+  content.appendChild(libBlock);
   content.appendChild(themeBlock);
 
   const inp = block.querySelector<HTMLInputElement>("#sift-discogs-token");
@@ -1079,6 +1136,12 @@ export function installLiveWiring() {
   installScrollAutohide();
   void installDragDrop();
 
+  // Debounces the heavy report/audio-decode load triggered by a queue-row selection (click or
+  // ↑/↓, which dispatches a real .click() — see installFilingKeys). Flicking through several
+  // rows fast would otherwise fire a full fetch+decodeAudioData per row, most immediately
+  // discarded. Row highlighting itself stays instant — only this load is deferred.
+  let queueSelectTimer: ReturnType<typeof setTimeout> | undefined;
+
   requireEl("#pa", "installLiveWiring").addEventListener("click", (e) => {
     // queue item → open the live filing pane (report + editor + actions) in #mid
     const qi = (e.target as HTMLElement).closest<HTMLElement>(".qi[data-id]");
@@ -1092,9 +1155,12 @@ export function installLiveWiring() {
       // highlight the active row
       document.querySelectorAll(".qi.cur").forEach((n) => n.classList.remove("cur"));
       qi.classList.add("cur");
-      if (item && mid) void openFilingInto(mid, item);
-      else if (qi.dataset.path)
-        void import("./report-view").then((m) => m.openReportModal(qi.dataset.path!));
+      clearTimeout(queueSelectTimer);
+      queueSelectTimer = setTimeout(() => {
+        if (item && mid) void openFilingInto(mid, item);
+        else if (qi.dataset.path)
+          void import("./report-view").then((m) => m.openReportModal(qi.dataset.path!));
+      }, 150);
       return;
     }
     // Écartés actions (Soulseek copy / send-to-bin / restore / empty bin)
@@ -1263,7 +1329,13 @@ export function installLiveWiring() {
     }
   });
 
-  void onQueueChanged(refresh);
+  // queue:changed fires once per burst source (watcher debounce window, each scanned source's
+  // own background thread) — debounce the redraw the same way onAnalysisChanged does below.
+  let queueChangeTimer: ReturnType<typeof setTimeout> | undefined;
+  void onQueueChanged(() => {
+    clearTimeout(queueChangeTimer);
+    queueChangeTimer = setTimeout(() => void refresh(), 150);
+  });
   void onFileDone(onFileBatchDone);
   void onFileProgress(pushFileProgress);
   // Stop button on the global zone's "file" row → stop-net cancel of the running filing batch.

@@ -11,10 +11,14 @@
 :root{
 color-scheme:light;
 --color-background-primary:#E7E2DB;--color-background-secondary:#F1EDE7;--color-background-tertiary:#EDE9E2;
+/* Extra warm-grey surfaces from DESIGN.md (Sift.dc.html theme map): the queue column, elevated
+   surface (raised buttons/popovers), the recessed segmented "track"/well, and the SOLID
+   hover/selection fills for nav items and rows (the mockup uses solids, not translucent overlays). */
+--color-background-queue:#EAE5DE;--color-surface-raised:#FBF9F4;--color-track:#E0DAD1;--color-row-active:#F3EFE9;--color-nav-active:#E1DBD2;
 --color-background-info:rgba(58,53,47,.08);--color-background-danger:rgba(176,122,40,.14);--color-background-success:rgba(76,123,87,.14);--color-background-warning:rgba(176,122,40,.14);
---color-text-primary:#34302B;--color-text-secondary:#5C554E;--color-text-tertiary:#8A857D;
---color-text-info:#3A352F;--color-text-danger:#8f6318;--color-text-success:#3f6d4c;--color-text-warning:#8f6318;
---color-border-tertiary:rgba(40,34,28,0.08);--color-border-secondary:rgba(40,34,28,0.14);
+--color-text-primary:#34302B;--color-text-secondary:#5C554E;--color-text-tertiary:#8A857D;--color-text-quaternary:#B3AEA5;
+--color-text-info:#3A352F;--color-cta-text:#F7F4EF;--color-text-danger:#8f6318;--color-text-success:#3f6d4c;--color-text-warning:#8f6318;
+--color-border-tertiary:rgba(40,34,28,0.09);--color-border-secondary:rgba(40,34,28,0.16);
 --color-border-info:rgba(58,53,47,.35);--color-border-danger:rgba(176,122,40,.45);
 /* Neutral overlay tints (hover/selection/left-bar/badge on neutral surfaces) — dark-tinted here
    since the surface is light; flipped to light-tinted in the dark variant below. Anything that
@@ -42,11 +46,11 @@ color-scheme:light;
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
     color-scheme:dark;
-    --color-background-primary:#2c2c2a;--color-background-secondary:#313130;--color-background-tertiary:#242422;
-    --color-background-info:rgba(240,237,230,.08);--color-background-danger:rgba(221,166,63,.14);--color-background-success:rgba(91,192,140,.14);--color-background-warning:rgba(221,166,63,.14);
-    --color-text-primary:#f3f3f1;--color-text-secondary:#c9c8c1;--color-text-tertiary:#aeada5;
-    --color-text-info:#F0EDE6;--color-text-danger:#dda63f;--color-text-success:#5bc08c;--color-text-warning:#dda63f;
-    --color-border-tertiary:rgba(255,255,255,0.06);--color-border-secondary:rgba(255,255,255,0.10);
+    --color-background-primary:#282825;--color-background-secondary:#3B3A35;--color-background-tertiary:#323230;--color-background-queue:#2E2E2B;--color-surface-raised:#46453F;--color-track:#46453F;--color-row-active:#413F38;--color-nav-active:#3D3B35;
+    --color-background-info:rgba(240,237,230,.08);--color-background-danger:rgba(176,122,40,.14);--color-background-success:rgba(76,123,87,.14);--color-background-warning:rgba(176,122,40,.14);
+    --color-text-primary:#F5F1E9;--color-text-secondary:#C9C2B7;--color-text-tertiary:#9C968D;--color-text-quaternary:#847E75;
+    --color-text-info:#F5F1E9;--color-cta-text:#26251F;--color-text-danger:#f2c274;--color-text-success:#9fe0af;--color-text-warning:#f2c274;
+    --color-border-tertiary:rgba(255,255,255,0.12);--color-border-secondary:rgba(255,255,255,0.22);
     --color-border-info:rgba(240,237,230,.30);--color-border-danger:rgba(221,166,63,.45);
     --overlay-hover:rgba(255,255,255,.03);--overlay-selected:rgba(255,255,255,.06);
     --overlay-bar:rgba(255,255,255,.32);--overlay-badge:rgba(255,255,255,.06);
@@ -54,11 +58,11 @@ color-scheme:light;
 }
 :root[data-theme="dark"]{
   color-scheme:dark;
-  --color-background-primary:#2c2c2a;--color-background-secondary:#313130;--color-background-tertiary:#242422;
-  --color-background-info:rgba(240,237,230,.08);--color-background-danger:rgba(221,166,63,.14);--color-background-success:rgba(91,192,140,.14);--color-background-warning:rgba(221,166,63,.14);
-  --color-text-primary:#f3f3f1;--color-text-secondary:#c9c8c1;--color-text-tertiary:#aeada5;
-  --color-text-info:#F0EDE6;--color-text-danger:#dda63f;--color-text-success:#5bc08c;--color-text-warning:#dda63f;
-  --color-border-tertiary:rgba(255,255,255,0.06);--color-border-secondary:rgba(255,255,255,0.10);
+  --color-background-primary:#282825;--color-background-secondary:#3B3A35;--color-background-tertiary:#323230;--color-background-queue:#2E2E2B;--color-surface-raised:#46453F;--color-track:#46453F;--color-row-active:#413F38;--color-nav-active:#3D3B35;
+  --color-background-info:rgba(240,237,230,.08);--color-background-danger:rgba(176,122,40,.14);--color-background-success:rgba(76,123,87,.14);--color-background-warning:rgba(176,122,40,.14);
+  --color-text-primary:#F5F1E9;--color-text-secondary:#C9C2B7;--color-text-tertiary:#9C968D;--color-text-quaternary:#847E75;
+  --color-text-info:#F5F1E9;--color-cta-text:#26251F;--color-text-danger:#f2c274;--color-text-success:#9fe0af;--color-text-warning:#f2c274;
+  --color-border-tertiary:rgba(255,255,255,0.12);--color-border-secondary:rgba(255,255,255,0.22);
   --color-border-info:rgba(240,237,230,.30);--color-border-danger:rgba(221,166,63,.45);
   --overlay-hover:rgba(255,255,255,.03);--overlay-selected:rgba(255,255,255,.06);
   --overlay-bar:rgba(255,255,255,.32);--overlay-badge:rgba(255,255,255,.06);
@@ -96,8 +100,8 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--color-background
 .nv{min-height:34px;border-radius:var(--border-radius-md);display:flex;flex-direction:row;align-items:center;gap:10px;padding:6px 8px;color:var(--color-text-tertiary);cursor:pointer}
 .nv span{font-size:12.5px;letter-spacing:.01em;text-align:left;line-height:1.1;flex:1;min-width:0}
 .nv i{font-size:17px;flex:none}
-.nv:hover{background:var(--overlay-hover)}
-.nv.on{background:var(--overlay-selected);color:var(--color-text-primary);font-weight:500;box-shadow:inset 2px 0 0 var(--overlay-bar)}
+.nv:hover{background:var(--color-nav-active)}
+.nv.on{background:var(--color-nav-active);color:var(--color-text-primary);font-weight:500}
 .nav-badge{font-size:10px;font-weight:600;color:var(--color-text-tertiary);background:var(--overlay-badge);border-radius:999px;padding:1px 7px;flex:none}
 .nav-badge:empty{display:none}
 /* Bottom group of the rail: holds the margin-top:auto (so Settings stays pinned to the very bottom)
@@ -119,7 +123,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--color-background
 .sift-pz-track{height:3px;border-radius:3px;background:var(--color-border-tertiary);overflow:hidden}
 .sift-pz-fill{height:100%;border-radius:3px;background:var(--color-text-info);transition:width .3s}
 .sift-pz-row.error .sift-pz-fill{background:var(--color-text-danger)}
-.queue{flex:none;display:flex;flex-direction:column;padding:11px 8px;overflow:hidden}
+.queue{flex:none;display:flex;flex-direction:column;padding:11px 8px;overflow:hidden;background:var(--color-background-queue)}
 #ql{flex:1;min-height:0;overflow-y:auto}
 .qdrag{width:7px;flex:none;cursor:col-resize;background:transparent;border-left:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;justify-content:center}
 .qdrag::after{content:"";width:2px;height:26px;border-radius:2px;background:var(--color-border-secondary)}
@@ -128,7 +132,8 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--color-background
 .qi span{overflow:hidden;text-overflow:ellipsis}.qi.done{color:var(--color-text-tertiary)}
 /* Selection is neutral (white @.045 + a non-blue left bar), per interaction-model.md: blue is
    reserved for focus/accent, never for "this row is selected". */
-.qi.cur{background:var(--overlay-hover);color:var(--color-text-primary);font-weight:500;box-shadow:inset 2px 0 0 var(--overlay-bar)}.qi i{font-size:13px;flex:none}
+.qi:hover{background:var(--color-row-active)}
+.qi.cur{background:var(--color-row-active);color:var(--color-text-primary);font-weight:500;box-shadow:inset 2px 0 0 var(--overlay-bar)}.qi i{font-size:13px;flex:none}
 .pbar{height:4px;background:var(--color-border-tertiary);border-radius:3px;margin:3px 0 7px;overflow:hidden}.pfill{height:100%;background:var(--color-text-info);border-radius:3px}
 /* Inspector column (col 3): .mid (scrollable son-first detail) stacked above the anchored-bottom
    action rail (#filfoot). Siblings, not parent/child — openFilingInto rewrites .mid's innerHTML on
@@ -146,7 +151,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--color-background
 /* Destination popover: replaces the persistent tree column, anchored above its trigger button.
    Hidden by default ([hidden] attribute, toggled in filing.ts); #fldz keeps its id so renderBins'
    existing document.getElementById("fldz") callers need no change. */
-.sift-dest-popover{position:absolute;left:15px;bottom:60px;width:288px;max-height:340px;display:flex;flex-direction:column;padding:10px;background:var(--color-background-secondary);border:1px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);overflow-y:auto;z-index:20}
+.sift-dest-popover{position:fixed;width:288px;max-height:340px;display:flex;flex-direction:column;padding:10px;background:var(--color-background-secondary);border:1px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);overflow-y:auto;z-index:20}
 #filfoot{flex:none}
 /* Batch per-track list: cap it so a long run can't push the récap + action button out of the rail.
    36vh ≈ a third of the viewport: enough rows to be useful while the récap above and the action
@@ -302,18 +307,23 @@ details[open]>.jrnl-cat-hd .jrnl-cat-chev{transform:rotate(90deg)}
 .sift-hero-path{font-size:var(--text-xs);color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;margin-top:5px}
 .sift-kbd-hints{margin-top:18px;font-size:var(--text-xs);letter-spacing:.03em;color:var(--color-text-tertiary);display:flex;gap:16px;flex-wrap:wrap}
 .sift-kbd-hints b{font-weight:600;color:var(--color-text-secondary)}
-.sift-player-row{display:flex;align-items:center;gap:12px;margin-bottom:11px;padding:8px 11px;min-height:80px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)}
-.sift-player-transport{flex:none;align-self:stretch;width:62px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.sift-play-btn{flex:none;width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;padding:0}
+.sift-player-row{display:flex;flex-direction:column;gap:14px;margin-bottom:11px;padding:12px 14px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)}
+.sift-player-audition{display:flex;align-items:center;gap:12px}
+.sift-play-btn{flex:none;width:36px;height:36px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;padding:0;border:0.5px solid var(--color-border-tertiary)}
 .sift-play-btn i{font-size:var(--text-base)}
-.sift-time-disp{position:absolute;bottom:0;left:50%;transform:translateX(-50%);white-space:nowrap;font-family:var(--font-mono);font-size:var(--text-2xs);color:var(--color-text-secondary);cursor:pointer;transition:color .15s;display:inline-flex;align-items:center;justify-content:center;gap:3px}
-.sift-player-wave{flex:1;min-width:0;align-self:center;cursor:pointer}
-.sift-player-tempo{flex:none;align-self:stretch;width:64px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:6px;padding:3px 0}
-.sift-tempo-label{font-size:var(--text-3xs);letter-spacing:.05em;text-transform:uppercase;color:var(--color-text-tertiary)}
-.sift-tempo-row{flex:1;min-height:0;display:flex;align-items:center;gap:4px}
-.sift-tempo-slider{writing-mode:vertical-lr;direction:rtl;width:22px;height:100%;max-height:42px}
-.sift-tempo-out{font-family:var(--font-mono);font-size:var(--text-3xs);color:var(--color-text-secondary);width:22px}
-.sift-key-btn{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:2px 8px;font-size:var(--text-3xs);letter-spacing:.05em;text-transform:uppercase}
+.sift-time-disp{white-space:nowrap;font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-text-tertiary);cursor:pointer;transition:color .15s;flex:none}
+.sift-player-wave{flex:1;min-width:0;cursor:pointer}
+.sift-player-controls{display:flex;align-items:center;gap:14px}
+.sift-slider-block{flex:none;width:130px;display:flex;flex-direction:column;gap:6px}
+.sift-slider-label{font-size:var(--text-3xs);letter-spacing:.1em;text-transform:uppercase;color:var(--color-text-tertiary);display:flex;align-items:center;justify-content:space-between}
+.sift-tempo-out{font-family:var(--font-mono);color:var(--color-text-secondary);text-transform:none;letter-spacing:0}
+.sift-slider-track{position:relative;height:16px;display:flex;align-items:center;cursor:pointer}
+.sift-slider-rail{position:absolute;left:0;right:0;height:3px;border-radius:2px;background:var(--color-border-secondary)}
+.sift-slider-fill{position:absolute;height:3px;border-radius:2px;background:var(--color-text-info);pointer-events:none}
+.sift-slider-thumb{position:absolute;top:50%;transform:translate(-50%,-50%);width:13px;height:13px;border-radius:50%;background:var(--color-background-primary);border:1.5px solid var(--color-text-info);pointer-events:none}
+.sift-player-spacer{flex:1}
+.sift-key-block{flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer}
+.sift-key-btn{font-family:var(--font-mono);font-size:var(--text-xs);padding:4px 10px;border-radius:var(--border-radius-md);border:1px solid var(--color-border-tertiary);background:transparent;font-weight:600}
 .sift-vchip{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:var(--text-xs);font-weight:600;letter-spacing:.03em}
 .sift-verdict-card{border-radius:var(--border-radius-lg);padding:12px 14px;margin-bottom:12px}
 .sift-verdict-head{display:flex;align-items:center;gap:7px;margin-bottom:9px}
