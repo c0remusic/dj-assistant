@@ -1,16 +1,21 @@
-/* Sift palette — DARK ONLY (Sift is a dark UI; source of truth: .interface-design/system.md).
-   Applied at :root unconditionally (not behind prefers-color-scheme) so the app renders dark
-   regardless of the OS theme. Surfaces (elevation by clarity + 1px low-opacity borders, no drop
-   shadows): inset #242422 < bg #2c2c2a < surf-1 #313130 < surf-2 #3b3b39.
-   One accent only (blue #3b7df0, action). Semantic colour = verdict/status only. */
+/* Sift palette — LIGHT WARM GREY (refonte 2026-07, direction "outil pro" — remplace le dark
+   "table du digger". Source de vérité : maquette hi-fi Claude Design Sift.dc.html).
+   Applied at :root unconditionally so the app renders in this palette regardless of the OS theme.
+   Surfaces (elevation by clarity + 1px low-opacity dark-tinted borders, no drop shadows): canvas
+   #E7E2DB < nav #EDE9E2 < cards/controls #F1EDE7.
+   Color = meaning only: green (ok/lossless), amber (doute/pending/erreur) — PAS de 3e teinte, PAS
+   d'accent décoratif. --color-text-info est réutilisé comme le seul neutre foncé "interactif"
+   (focus/sélection/liens) — ce n'est plus un bleu, c'est le même neutre que le CTA primaire.
+   --color-text-danger/--color-text-warning pointent tous deux vers l'ambre (la maquette n'a que
+   2 couleurs sémantiques — l'ancien "danger" rouge fusionne avec "doute"). */
 :root{
-color-scheme:dark;
---color-background-primary:#2c2c2a;--color-background-secondary:#313130;--color-background-tertiary:#242422;
---color-background-info:rgba(59,125,240,.14);--color-background-danger:rgba(226,104,94,.14);--color-background-success:rgba(91,192,140,.14);--color-background-warning:rgba(221,166,63,.14);
---color-text-primary:#f3f3f1;--color-text-secondary:#c9c8c1;--color-text-tertiary:#aeada5;
---color-text-info:#3b7df0;--color-text-danger:#e2685e;--color-text-success:#5bc08c;--color-text-warning:#dda63f;
---color-border-tertiary:rgba(255,255,255,0.06);--color-border-secondary:rgba(255,255,255,0.10);
---color-border-info:rgba(59,125,240,.40);--color-border-danger:rgba(226,104,94,.45);
+color-scheme:light;
+--color-background-primary:#E7E2DB;--color-background-secondary:#F1EDE7;--color-background-tertiary:#EDE9E2;
+--color-background-info:rgba(58,53,47,.08);--color-background-danger:rgba(176,122,40,.14);--color-background-success:rgba(76,123,87,.14);--color-background-warning:rgba(176,122,40,.14);
+--color-text-primary:#34302B;--color-text-secondary:#5C554E;--color-text-tertiary:#8A857D;
+--color-text-info:#3A352F;--color-text-danger:#8f6318;--color-text-success:#3f6d4c;--color-text-warning:#8f6318;
+--color-border-tertiary:rgba(40,34,28,0.08);--color-border-secondary:rgba(40,34,28,0.14);
+--color-border-info:rgba(58,53,47,.35);--color-border-danger:rgba(176,122,40,.45);
 --border-radius-md:6px;--border-radius-lg:10px;
 /* Typo (self-hosted via @fontsource, see main.ts) — Outfit UI, JetBrains Mono for numbers. */
 --font-ui:"Outfit",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
@@ -49,16 +54,16 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--color-background
 .fcard span{display:block;font-size:10px;line-height:1.4;color:var(--color-text-secondary)}
 /* Wide, labelled, grouped nav rail — faithful to the Penpot shell (brand + PROCESS/ORGANIZE/
    EXPORT groups + neutral selection). See .interface-design/penpot-detail-spec.md. */
-.sb{width:200px;flex:none;display:flex;flex-direction:column;gap:1px;padding:14px 10px;background:var(--color-background-secondary);border-right:0.5px solid var(--color-border-tertiary);align-items:stretch}
-.nav-brand{display:flex;align-items:center;gap:8px;padding:2px 8px 12px;font-size:18px;font-weight:600;color:#f0ede6;letter-spacing:.01em}
+.sb{width:152px;flex:none;display:flex;flex-direction:column;gap:1px;padding:14px 10px;background:var(--color-background-tertiary);border-right:0.5px solid var(--color-border-tertiary);align-items:stretch}
+.nav-brand{display:flex;align-items:center;gap:8px;padding:2px 8px 12px;font-size:18px;font-weight:600;color:var(--color-text-primary);letter-spacing:.01em}
 .nav-brand i{font-size:16px;color:var(--color-text-info)}
 .nv-grp{font-size:9px;font-weight:400;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-tertiary);padding:13px 8px 5px}
 .nv{min-height:34px;border-radius:var(--border-radius-md);display:flex;flex-direction:row;align-items:center;gap:10px;padding:6px 8px;color:var(--color-text-tertiary);cursor:pointer}
 .nv span{font-size:12.5px;letter-spacing:.01em;text-align:left;line-height:1.1;flex:1;min-width:0}
 .nv i{font-size:17px;flex:none}
-.nv:hover{background:rgba(255,255,255,.03)}
-.nv.on{background:rgba(255,255,255,.06);color:var(--color-text-secondary);font-weight:500;box-shadow:inset 2px 0 0 rgba(255,255,255,.32)}
-.nav-badge{font-size:10px;font-weight:600;color:var(--color-text-tertiary);background:rgba(255,255,255,.06);border-radius:999px;padding:1px 7px;flex:none}
+.nv:hover{background:rgba(40,34,28,.035)}
+.nv.on{background:rgba(40,34,28,.06);color:var(--color-text-primary);font-weight:500;box-shadow:inset 2px 0 0 rgba(40,34,28,.55)}
+.nav-badge{font-size:10px;font-weight:600;color:var(--color-text-tertiary);background:rgba(40,34,28,.06);border-radius:999px;padding:1px 7px;flex:none}
 .nav-badge:empty{display:none}
 /* Bottom group of the rail: holds the margin-top:auto (so Settings stays pinned to the very bottom)
    and stacks the progress zone ABOVE Settings. The zone grows UPWARD into the free space, so neither
@@ -88,17 +93,29 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--color-background
 .qi span{overflow:hidden;text-overflow:ellipsis}.qi.done{color:var(--color-text-tertiary)}
 /* Selection is neutral (white @.045 + a non-blue left bar), per interaction-model.md: blue is
    reserved for focus/accent, never for "this row is selected". */
-.qi.cur{background:rgba(255,255,255,.045);color:var(--color-text-primary);font-weight:500;box-shadow:inset 2px 0 0 rgba(255,255,255,.32)}.qi i{font-size:13px;flex:none}
+.qi.cur{background:rgba(40,34,28,.05);color:var(--color-text-primary);font-weight:500;box-shadow:inset 2px 0 0 rgba(40,34,28,.55)}.qi i{font-size:13px;flex:none}
 .pbar{height:4px;background:var(--color-border-tertiary);border-radius:3px;margin:3px 0 7px;overflow:hidden}.pfill{height:100%;background:var(--color-text-info);border-radius:3px}
+/* Inspector column (col 3): .mid (scrollable son-first detail) stacked above the anchored-bottom
+   action rail (#filfoot). Siblings, not parent/child — openFilingInto rewrites .mid's innerHTML on
+   every track open, so #filfoot/#fldz living OUTSIDE .mid is what lets them survive that rewrite. */
+.sift-inspector{flex:1;min-width:0;display:flex;flex-direction:column;position:relative}
 .mid{flex:1;min-width:0;display:flex;flex-direction:column;padding:13px 15px 10px;overflow:hidden}
 .mid-scroll{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column}
-.dest{width:260px;flex:none;display:flex;flex-direction:column;padding:13px 12px;background:var(--color-background-secondary);border-left:0.5px solid var(--color-border-tertiary);overflow:hidden}
-#fldz{flex:1;min-height:0;overflow-y:auto}
+/* Action rail (was the persistent .dest column — now a slim bar anchored to the bottom of the
+   inspector, matching the maquette: Destination popover trigger + format + File/Discard). */
+.sift-action-rail{flex:none;display:flex;flex-direction:column;padding:11px 15px;background:var(--color-background-tertiary);border-top:0.5px solid var(--color-border-tertiary);overflow:visible}
+.sift-dest-btn{display:flex;align-items:center;gap:8px;width:100%;margin-bottom:10px;padding:8px 10px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);color:var(--color-text-primary);font-size:var(--text-sm);cursor:pointer}
+.sift-dest-btn-label{color:var(--color-text-tertiary);flex:none}
+.sift-dest-btn .sift-fil-bin{flex:1;min-width:0;text-align:left;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+.sift-dest-btn-caret{flex:none;font-size:var(--text-sm);color:var(--color-text-tertiary)}
+/* Destination popover: replaces the persistent tree column, anchored above its trigger button.
+   Hidden by default ([hidden] attribute, toggled in filing.ts); #fldz keeps its id so renderBins'
+   existing document.getElementById("fldz") callers need no change. */
+.sift-dest-popover{position:absolute;left:15px;bottom:60px;width:288px;max-height:340px;display:flex;flex-direction:column;padding:10px;background:var(--color-background-secondary);border:1px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);overflow-y:auto;z-index:20}
 #filfoot{flex:none}
 /* Batch per-track list: cap it so a long run can't push the récap + action button out of the rail.
-   .dest is a flex column with overflow:hidden and #filfoot is flex:none → an unbounded list overflows
-   and gets clipped (button cut off). 36vh ≈ a third of the viewport: enough rows to be useful while the
-   récap above and the action button below stay on-screen; the list scrolls past that. */
+   36vh ≈ a third of the viewport: enough rows to be useful while the récap above and the action
+   button below stay on-screen; the list scrolls past that. */
 #sift-batch-tracks{max-height:36vh;overflow-y:auto}
 .col-h{font-size:10px;letter-spacing:.05em;color:var(--color-text-tertiary);text-transform:uppercase;margin-bottom:6px}
 .pill{display:inline-flex;align-items:center;gap:4px;background:var(--color-background-secondary);color:var(--color-text-secondary);padding:2px 7px;border-radius:var(--border-radius-md);font-size:11px}
@@ -174,7 +191,7 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-text-info)}
 .sift-baction{width:100%;font-size:var(--text-sm);font-weight:600;padding:9px 14px;border-radius:var(--border-radius-md);border:none;cursor:pointer}
 .sift-baction-slot{margin-top:8px}
 .sift-genres{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;margin-bottom:4px}
-.sift-genre-chip{font-size:11px;padding:2px 8px;border-radius:999px;background:rgba(59,125,240,.12);color:var(--color-text-info);cursor:default}
+.sift-genre-chip{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--color-background-info);color:var(--color-text-info);cursor:default}
 /* "Tags not written to the file" banner, shown just below Apply. Look only — visibility is driven
    solely by inline display (none ↔ flex) in refreshDiscrepancy, never the `hidden` attribute. Amber
    (warning) tokens — the SAME "attention / to handle" language as the duplicate marker. */
@@ -282,9 +299,9 @@ details[open]>.jrnl-cat-hd .jrnl-cat-chev{transform:rotate(90deg)}
 .sift-row-value{font-family:var(--font-mono);text-align:right;color:var(--color-text-secondary)}
 .sift-tags-box{margin-bottom:4px}
 .sift-tags-title{font-size:var(--text-2xs);letter-spacing:.05em;text-transform:uppercase;color:var(--color-text-tertiary);margin-bottom:5px}
-.sift-codec-error{margin-top:12px;font-size:var(--text-sm);color:#ff6b6b}
+.sift-codec-error{margin-top:12px;font-size:var(--text-sm);color:var(--color-text-warning)}
 .sift-verdict-stub{display:flex;align-items:center;gap:6px;margin:2px 0 12px;font-size:var(--text-sm);color:var(--color-text-tertiary)}
-.sift-analysis-fail{margin-bottom:12px;font-size:var(--text-sm);color:#ff6b6b}
+.sift-analysis-fail{margin-bottom:12px;font-size:var(--text-sm);color:var(--color-text-warning)}
 .sift-report-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:24px}
 .sift-report-overlay-card{background:var(--color-background-primary);color:var(--color-text-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-lg,12px);box-shadow:0 12px 48px rgba(0,0,0,.5)}
 .sift-report-overlay-loading{padding:22px 26px;font-size:var(--text-base);display:flex;align-items:center;gap:8px}

@@ -19,12 +19,13 @@ function ensureDropStyle() {
 }
 
 // Existing boxes that double as drop targets, with the hint each shows while dragging.
-// ".dest" is the WHOLE "Où on va" column (header + #fldz) so a folder dropped anywhere in
-// that column registers as a destination — not just on the inner bin list.
+// "#filfoot" is the action rail carrying the Destination button (the tree itself is a popover,
+// hidden by default, so it can't be a reliable drop target) — a folder dropped on the rail
+// registers as the new destination.
 const DROP_ZONES: [string, string][] = [
-  [".dest", "Drop a folder here — new destination"],
-  ["#ql", "Drop audio files here"],
-  ["#sift-sources", "Drop a folder to watch"],
+  ["#filfoot", "Dépose un dossier ici — nouvelle destination"],
+  ["#ql", "Dépose des fichiers audio ici"],
+  ["#sift-sources", "Dépose un dossier à surveiller"],
 ];
 
 /** Toggle the drag hint/outline on the relevant existing boxes. Falls back to #content
@@ -39,7 +40,7 @@ function setDropActive(on: boolean) {
   const present = DROP_ZONES.filter(([sel]) => document.querySelector(sel));
   const targets: [string, string][] = present.length
     ? present
-    : [["#content", "Drop files (→ queue) or folders (→ watched)"]];
+    : [["#content", "Dépose des fichiers (→ file d'attente) ou des dossiers (→ surveillés)"]];
   for (const [sel, label] of targets) {
     const el = document.querySelector<HTMLElement>(sel);
     if (el) {
@@ -54,7 +55,7 @@ function setDropActive(on: boolean) {
  * no devicePixelRatio correction (dividing here double-corrected on HiDPI/scaled displays). */
 function dropModeAt(pos: { x: number; y: number }): "source" | "dest" {
   const el = document.elementFromPoint(pos.x, pos.y);
-  return el && el.closest(".dest") ? "dest" : "source";
+  return el && el.closest("#filfoot") ? "dest" : "source";
 }
 
 /** OS drag-drop: audio files → queue; folders → watched source, or a destination bin when
@@ -119,9 +120,9 @@ export function injectTitlebar() {
   bar.innerHTML =
     '<span id="sift-tb-title" data-tauri-drag-region>Sift</span>' +
     '<div id="sift-tb-controls">' +
-    '<button class="sift-win" data-win="min" title="Minimize"><i class="ti ti-minus"></i></button>' +
-    '<button class="sift-win" data-win="max" title="Maximize"><i class="ti ti-square"></i></button>' +
-    '<button class="sift-win sift-win-close" data-win="close" title="Close"><i class="ti ti-x"></i></button>' +
+    '<button class="sift-win" data-win="min" title="Réduire"><i class="ti ti-minus"></i></button>' +
+    '<button class="sift-win" data-win="max" title="Agrandir"><i class="ti ti-square"></i></button>' +
+    '<button class="sift-win sift-win-close" data-win="close" title="Fermer"><i class="ti ti-x"></i></button>' +
     "</div>";
   document.body.insertBefore(bar, document.body.firstChild);
 

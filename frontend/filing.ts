@@ -240,8 +240,8 @@ function flatBinHtml(b: Bin): string {
 export function renderBins(fldz: HTMLElement): void {
   if (!state.rootSet) {
     fldz.innerHTML =
-      '<div class="sift-fldz-hint">Choose your library root to start filing.</div>' +
-      '<button data-fil="pickroot"><i class="ti ti-folder sift-icon-inline-base"></i> Choose root…</button>';
+      '<div class="sift-fldz-hint">Choisis ta racine de bibliothèque pour commencer à ranger.</div>' +
+      '<button data-fil="pickroot"><i class="ti ti-folder sift-icon-inline-base"></i> Choisir…</button>';
     fldz
       .querySelector('[data-fil="pickroot"]')
       ?.addEventListener("click", () => void pickRoot(fldz));
@@ -252,7 +252,7 @@ export function renderBins(fldz: HTMLElement): void {
 
   // Folder filter (only worth showing once there are sub-folders to sift through).
   const filterRow = state.bins.length
-    ? `<input data-fil="binfilter" placeholder="Filter folders…" value="${esc(
+    ? `<input data-fil="binfilter" placeholder="Filtrer les dossiers…" value="${esc(
         state.binFilter,
       )}" class="sift-binfilter">`
     : "";
@@ -266,25 +266,25 @@ export function renderBins(fldz: HTMLElement): void {
     );
     body = matches.length
       ? matches.map(flatBinHtml).join("")
-      : '<div class="sift-fldz-no-match">No matching folder.</div>';
+      : '<div class="sift-fldz-no-match">Aucun dossier correspondant.</div>';
   } else {
     const tree = binNodeHtml({ rel: "", name: rootName(), depth: 0 });
     const emptyNote =
       state.bins.length === 0 && expanded.has("")
-        ? '<div class="sift-fldz-empty-note">empty — create a folder</div>'
+        ? '<div class="sift-fldz-empty-note">vide — crée un dossier</div>'
         : "";
     body = tree + emptyNote;
   }
 
   // "+ nouveau" creates under the selected folder (nested). Hidden while filtering.
-  const nestLabel = state.binRel ? ` in ${binLabel()}` : "";
+  const nestLabel = state.binRel ? ` dans ${binLabel()}` : "";
   const newRow = filtering
     ? ""
     : state.creating
       ? `<input data-fil="newin" placeholder="${esc(
-          state.binRel ? `folder in ${binLabel()}…` : "folder name…",
+          state.binRel ? `dossier dans ${binLabel()}…` : "nom du dossier…",
         )}" class="sift-newin">`
-      : `<div class="fld sift-newbin-row" data-fil="newbin"><i class="ti ti-plus sift-icon-inline-lg"></i> new${esc(
+      : `<div class="fld sift-newbin-row" data-fil="newbin"><i class="ti ti-plus sift-icon-inline-lg"></i> nouveau${esc(
           nestLabel,
         )}</div>`;
 
@@ -331,6 +331,7 @@ export function renderBins(fldz: HTMLElement): void {
         state.binRel = rel;
         renderBins(fldz);
         refreshFootButton();
+        fldz.hidden = true; // picking a destination closes the popover (like the mockup's pickBin)
       }
     }),
   );
@@ -407,10 +408,12 @@ function updateHeaderName(mid: HTMLElement): void {
   }
 }
 
-/** Re-render just the Ranger button label (bin can change while a track is open). */
+/** Re-render the bin label wherever it's shown in the rail — the File button AND the Destination
+ *  popover trigger both carry it (bin can change while a track is open). */
 function refreshFootButton(): void {
-  const btn = document.querySelector<HTMLElement>('[data-fil="ranger"] .sift-fil-bin');
-  if (btn) btn.textContent = binLabel();
+  document
+    .querySelectorAll<HTMLElement>('[data-fil="ranger"] .sift-fil-bin, [data-fil="destbtn"] .sift-fil-bin')
+    .forEach((el) => (el.textContent = binLabel()));
 }
 
 /** Re-sync the filename preview from the current canonical + target. The preview lives in the rail
@@ -452,7 +455,7 @@ function renderGenres(): void {
   const el = document.querySelector<HTMLElement>(".sift-genres");
   if (!el) return; // editor not mounted
   el.innerHTML = state.genres
-    .map((s) => `<span class="sift-genre-chip" title="Discogs sub-genres">${esc(s)}</span>`)
+    .map((s) => `<span class="sift-genre-chip" title="Sous-genres Discogs">${esc(s)}</span>`)
     .join("");
 }
 
@@ -586,7 +589,7 @@ function onIdentityApplied(
   });
 
   // [C1] Relabel Identifier → Ré-identifier once an identity has been applied.
-  idBtn.innerHTML = '<i class="ti ti-refresh sift-icon-inline-sm"></i> Re-identify';
+  idBtn.innerHTML = '<i class="ti ti-refresh sift-icon-inline-sm"></i> Ré-identifier';
 
   // The displayed identity just changed while the FILE keeps its old tags → surface the gap, and
   // reset the Apply button (a prior "Appliqué ✓" no longer reflects this new identity).
@@ -605,9 +608,9 @@ function identifiedLineHtml(artist: string, title: string, coverPath: string | n
     `<div class="sift-identified-line">` +
     coverThumb +
     `<span class="sift-identified-text">` +
-    `<span class="sift-identified-label">Identified:</span> ${esc(artist)} — ${esc(title)}` +
+    `<span class="sift-identified-label">Identifié :</span> ${esc(artist)} — ${esc(title)}` +
     `</span>` +
-    `<button class="sift-cand-jump sift-cand-change-btn" data-fil="cand-changer">change</button>` +
+    `<button class="sift-cand-jump sift-cand-change-btn" data-fil="cand-changer">modifier</button>` +
     `</div>`
   );
 }
@@ -630,7 +633,7 @@ function restoreIdentifiedLine(
   host.hidden = false;
   host.innerHTML = identifiedLineHtml(artist, title, coverPath);
   // [C1] Match the post-fetch state: the primary button reads "Re-identify".
-  idBtn.innerHTML = '<i class="ti ti-refresh sift-icon-inline-sm"></i> Re-identify';
+  idBtn.innerHTML = '<i class="ti ti-refresh sift-icon-inline-sm"></i> Ré-identifier';
   // Cold-start "change": the original candidates aren't in memory → re-run a Discogs fetch.
   host.querySelector<HTMLElement>('[data-fil="cand-changer"]')?.addEventListener("click", () => {
     void doIdentify(idBtn, host, editor, mid);
@@ -678,9 +681,9 @@ async function doIdentify(
   const trackId = state.track.id;
   const origLabel = btn.innerHTML;
   btn.disabled = true;
-  btn.innerHTML = '<i class="ti ti-loader-2 sift-spin sift-searching-icon"></i> Searching…';
+  btn.innerHTML = '<i class="ti ti-loader-2 sift-spin sift-searching-icon"></i> Recherche…';
   host.hidden = false;
-  host.innerHTML = '<div class="sift-cands-msg">Searching…</div>';
+  host.innerHTML = '<div class="sift-cands-msg">Recherche…</div>';
 
   let candidates: Candidate[] = [];
   try {
@@ -692,8 +695,8 @@ async function doIdentify(
     if (msg.includes("NO_TOKEN")) {
       // [C2/m5] explain WHY + give a direct action to open Réglages
       host.innerHTML =
-        `<div class="sift-cands-msg">Discogs throttles anonymous searches — add your (free) token in Settings.</div>` +
-        `<button class="sift-cand-jump sift-goto-reglages" data-fil="goto-reglages">Open Settings →</button>`;
+        `<div class="sift-cands-msg">Discogs limite les recherches anonymes — ajoute ton jeton (gratuit) dans Réglages.</div>` +
+        `<button class="sift-cand-jump sift-goto-reglages" data-fil="goto-reglages">Ouvrir Réglages →</button>`;
       const gotoBtn = host.querySelector<HTMLElement>('[data-fil="goto-reglages"]');
       gotoBtn?.addEventListener("click", () => {
         // Navigate to the Réglages view via the existing nav click handler in app.js
@@ -704,10 +707,10 @@ async function doIdentify(
     } else {
       const rl = msg.match(/RATE_LIMITED:(\d+)/);
       if (rl) {
-        host.innerHTML = `<div class="sift-cands-msg">Discogs is rate-limiting — retry in ${rl[1]}s.</div>`;
+        host.innerHTML = `<div class="sift-cands-msg">Discogs limite le débit — réessaie dans ${rl[1]}s.</div>`;
       } else {
         // [m10] network/server errors get a warning icon to distinguish from "no results"
-        host.innerHTML = `<div class="sift-cands-msg sift-cands-error"><i class="ti ti-alert-triangle sift-cand-error-icon"></i>Discogs unreachable.</div>`;
+        host.innerHTML = `<div class="sift-cands-msg sift-cands-error"><i class="ti ti-alert-triangle sift-cand-error-icon"></i>Discogs injoignable.</div>`;
       }
     }
   } finally {
@@ -734,7 +737,7 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
       // a lossy source can't be upscaled to lossless — disable AIFF/WAV (the backend refuses
       // it anyway; greying it out prevents the dead-end click).
       if (lossy && t !== "mp3_320")
-        return `<span class="chip sift-chip-disabled" title="No upscale from a lossy file">${TARGET_LABEL[t]}</span>`;
+        return `<span class="chip sift-chip-disabled" title="Pas de surqualité depuis un fichier lossy">${TARGET_LABEL[t]}</span>`;
       const on = (state.target ?? defaultTarget(rail)) === t ? " on" : "";
       return `<span class="chip${on}" data-fil="fmt" data-t="${t}">${TARGET_LABEL[t]}</span>`;
     })
@@ -742,20 +745,28 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
 
   const fake = state.track?.verdict === "fake";
   const secondary = fake
-    ? '<button data-fil="resource" class="sift-secondary-resource" title="Fake file — goes to Discarded (⌫)"><span class="kbd">⌫</span> <i class="ti ti-alert-triangle sift-icon-inline-md"></i> Re-source</button>'
-    : '<button data-fil="trash" class="sift-secondary-trash" title="Send to trash (⌫)"><span class="kbd">⌫</span> <i class="ti ti-trash sift-icon-inline-md"></i> Discard</button>';
+    ? '<button data-fil="resource" class="sift-secondary-resource" title="Fichier faux — va dans Écartés (⌫)"><span class="kbd">⌫</span> <i class="ti ti-alert-triangle sift-icon-inline-md"></i> Re-source</button>'
+    : '<button data-fil="trash" class="sift-secondary-trash" title="Envoyer à la corbeille (⌫)"><span class="kbd">⌫</span> <i class="ti ti-trash sift-icon-inline-md"></i> Jeter</button>';
 
-  // The rail keeps the system.md stack tail: FORMAT → Final name → CTA (File) → secondary. The
-  // filename preview sits right above File so you see the name about to be produced next to the
-  // action that produces it. Rebuilt inside this innerHTML so a format-chip re-render keeps it.
+  // Destination button opens the tree as a popover (#fldz, a sibling of #filfoot — see styles.css)
+  // instead of the old persistent .dest column. The rail keeps the system.md stack tail: FORMAT →
+  // Final name → CTA (File) → secondary. Rebuilt inside this innerHTML so a format-chip re-render
+  // keeps it; the popover's own hidden state lives on #fldz itself, untouched by this rewrite.
   foot.innerHTML =
+    `<button data-fil="destbtn" class="sift-dest-btn"><span class="sift-dest-btn-label">Destination</span><span class="sift-fil-bin">${esc(binLabel())}</span><i class="ti ti-chevron-down sift-dest-btn-caret"></i></button>` +
     `<div class="col-h sift-col-h-tight">Format</div>` +
     `<div class="sift-fmt-chips">${chips}</div>` +
-    `<div class="col-h sift-col-h-tight">Final name</div>` +
+    `<div class="col-h sift-col-h-tight">Nom final</div>` +
     `<div class="sift-fil-prev">→ ${esc(previewName())}</div>` +
-    `<button data-fil="ranger" class="sift-ranger-btn"><i class="ti ti-corner-down-left sift-icon-inline-md"></i> File → <span class="sift-fil-bin">${esc(binLabel())}</span> <span class="kbd">⏎</span></button>` +
+    `<button data-fil="ranger" class="sift-ranger-btn"><i class="ti ti-corner-down-left sift-icon-inline-md"></i> Ranger → <span class="sift-fil-bin">${esc(binLabel())}</span> <span class="kbd">⏎</span></button>` +
     secondary;
   if (filedBanner) foot.append(filedBanner); // restore the banner below the freshly-rendered controls
+
+  foot.querySelector('[data-fil="destbtn"]')?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleDestPopover();
+  });
+  ensureDestPopoverAutoClose();
 
   foot.querySelectorAll<HTMLElement>('[data-fil="fmt"]').forEach((el) =>
     el.addEventListener("click", () => {
@@ -776,6 +787,32 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
     ?.addEventListener("click", () => void doSecondary(mid, "trash"));
 }
 
+/** Open/close the destination popover (#fldz). Its own hidden state persists across renderFoot's
+ *  innerHTML rewrites since #fldz is a sibling of #filfoot, never touched by them. */
+function toggleDestPopover(force?: boolean): void {
+  const pop = document.getElementById("fldz");
+  if (!pop) return;
+  pop.hidden = force !== undefined ? !force : !pop.hidden;
+}
+
+// One-time (guarded) document listener: closes the destination popover on an outside click or
+// Escape, like every other popover in the app (candidate lists, palettes).
+let destPopoverAutoCloseWired = false;
+export function ensureDestPopoverAutoClose(): void {
+  if (destPopoverAutoCloseWired) return;
+  destPopoverAutoCloseWired = true;
+  document.addEventListener("click", (e) => {
+    const pop = document.getElementById("fldz");
+    if (!pop || pop.hidden) return;
+    const target = e.target as Node;
+    if (pop.contains(target) || (target as HTMLElement).closest?.('[data-fil="destbtn"]')) return;
+    pop.hidden = true;
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") toggleDestPopover(false);
+  });
+}
+
 /** Render the center metadata editor (Identify + editable fields + genres) into `host`, below the
  *  analysis report. The final-name preview lives in the rail (`renderFoot`) next to the File button;
  *  this pane ends with genres. One-shot innerHTML — called once per track open, not on a
@@ -792,8 +829,8 @@ function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string): void {
   // [I6] Add tooltip to confidence badge so the colour is self-explanatory.
   const badge =
     c.confidence === "green"
-      ? '<span title="Title and artist extracted confidently" class="sift-badge-ok"><i class="ti ti-circle-check"></i> metadata trusted</span>'
-      : '<span title="Title or artist couldn\'t be extracted with certainty — check the fields" class="sift-badge-warn"><i class="ti ti-alert-circle"></i> check fields</span>';
+      ? '<span title="Titre et artiste extraits avec confiance" class="sift-badge-ok"><i class="ti ti-circle-check"></i> métadonnées fiables</span>'
+      : '<span title="Titre ou artiste incertain — vérifie les champs" class="sift-badge-warn"><i class="ti ti-alert-circle"></i> à vérifier</span>';
 
   const inputCss = "sift-editor-input";
 
@@ -806,7 +843,7 @@ function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string): void {
   host.innerHTML =
     `<div class="col-h sift-editor-title">Métadonnées</div>` +
     `<div class="sift-editor-badge-row">${badge}</div>` +
-    `<button data-fil="identifier" class="sift-id-btn sift-id-btn-full" title="Search metadata on Discogs (cover, label, year, genres)"><i class="ti ti-search sift-icon-inline-sm"></i> Fetch metadata from Discogs <span class="kbd sift-kbd-hint-id">I</span></button>` +
+    `<button data-fil="identifier" class="sift-id-btn sift-id-btn-full" title="Rechercher les métadonnées sur Discogs (pochette, label, année, genres)"><i class="ti ti-search sift-icon-inline-sm"></i> Récupérer les métadonnées Discogs <span class="kbd sift-kbd-hint-id">I</span></button>` +
     `<div class="sift-cands sift-cands-host" hidden></div>` +
     `<div class="sift-editor-fields">` +
     `<input data-fil="artist" placeholder="Artist" value="${esc(c.artist)}" class="${inputCss}">` +
@@ -820,11 +857,11 @@ function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string): void {
     `<div class="sift-genres sift-genres-box"></div>` +
     // Apply ID3 tags: write these fields onto the file in place (no move, no encode, no 'filed'
     // change), revertable. Distinct from File (rail) — a neutral secondary button in the editor.
-    `<button data-fil="applytags" class="sift-applytags-btn" title="Write these tags into the file in place — no move, no encode, fully revertable"><i class="ti ti-tag sift-icon-inline-md"></i> Apply ID3 tags</button>` +
+    `<button data-fil="applytags" class="sift-applytags-btn" title="Écrire ces tags dans le fichier en place — pas de déplacement, pas d'encodage, réversible"><i class="ti ti-tag sift-icon-inline-md"></i> Appliquer les tags ID3</button>` +
     // Discrepancy banner — sits JUST BELOW Apply. Hidden by default via inline display:none; the LONE
     // visibility mechanism is refreshDiscrepancy toggling style.display (no `hidden`+display conflict).
     // Look lives in .sift-tag-warn (styles.css). Shown only when the display diverges from the file.
-    `<div class="sift-tag-warn" style="display:none"><i class="ti ti-alert-triangle sift-icon-inline-md sift-icon-flex-none"></i><span>Tags non écrits dans le fichier — <strong>File</strong> ou <strong>Apply</strong> pour les graver</span></div>`;
+    `<div class="sift-tag-warn" style="display:none"><i class="ti ti-alert-triangle sift-icon-inline-md sift-icon-flex-none"></i><span>Tags non écrits dans le fichier — <strong>Ranger</strong> ou <strong>Appliquer</strong> pour les graver</span></div>`;
 
   const upd = () => {
     const a = host.querySelector<HTMLInputElement>('[data-fil="artist"]');
@@ -858,7 +895,7 @@ function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string): void {
 // "Appliqué ✓ — Annuler" (reverts the batch just written). `onclick` is reassigned (not
 // addEventListener) so a toggle never stacks handlers.
 const APPLY_IDLE_HTML =
-  '<i class="ti ti-tag sift-icon-inline-md"></i> Apply ID3 tags';
+  '<i class="ti ti-tag sift-icon-inline-md"></i> Appliquer les tags ID3';
 
 /** Put the Apply button in its idle "write" state. */
 function setApplyIdle(btn: HTMLButtonElement): void {
@@ -929,7 +966,7 @@ async function doUndoApply(btn: HTMLButtonElement, batchId: string): Promise<voi
     setApplyIdle(btn);
   } catch (e) {
     console.error("revert tag_edit failed", e);
-    toast("Revert impossible", false);
+    toast("Annulation impossible", false);
     if (myseq === openSeq) setApplyApplied(btn, batchId); // stay applied so the user can retry
   }
 }
@@ -945,7 +982,7 @@ function toast(message: string, undo: boolean, onUndo?: () => void): void {
   el.innerHTML =
     `<span>${esc(message)}</span>` +
     (undo
-      ? '<button data-fil="undo" class="sift-toast-undo">Undo</button>'
+      ? '<button data-fil="undo" class="sift-toast-undo">Annuler</button>'
       : "");
   document.body.appendChild(el);
   el.querySelector('[data-fil="undo"]')?.addEventListener("click", () => {
@@ -988,7 +1025,7 @@ async function doRanger(mid: HTMLElement): Promise<void> {
   const inPlace = fileInPlaceChecked();
   const dest = inPlace ? FILE_IN_PLACE : state.binRel;
   if (dest === null) {
-    toast("Choose a destination folder.", false);
+    toast("Choisis un dossier de destination.", false);
     return;
   }
   const ranger = document.querySelector<HTMLElement>('[data-fil="ranger"]');
@@ -997,7 +1034,7 @@ async function doRanger(mid: HTMLElement): Promise<void> {
   setActionsDisabled(true);
   if (ranger)
     ranger.innerHTML =
-      '<i class="ti ti-loader-2 sift-spin sift-icon-inline-md"></i> Filing…';
+      '<i class="ti ti-loader-2 sift-spin sift-icon-inline-md"></i> Rangement en cours…';
   try {
     const res = await fileTrack(state.track.id, dest, state.target, state.canonical);
     // Capture the "after" facts for the rail banner BEFORE we advance (state resets on the next open).
@@ -1021,9 +1058,9 @@ async function doRanger(mid: HTMLElement): Promise<void> {
     showFiledConfirm(batchId, bin, filedPath);
   } catch (e) {
     const msg = String(e);
-    if (msg.includes("NoLibraryRoot")) toast("No library root configured.", false);
-    else if (msg.toLowerCase().includes("upscale")) toast("Refused: no lossy → lossless upscale.", false);
-    else toast(`Filing failed: ${msg}`, false);
+    if (msg.includes("NoLibraryRoot")) toast("Aucune racine de bibliothèque configurée.", false);
+    else if (msg.toLowerCase().includes("upscale")) toast("Refusé : pas de surqualité lossy → lossless.", false);
+    else toast(`Échec du rangement : ${msg}`, false);
     console.error("file_track failed", e);
     setActionsDisabled(false);
     if (ranger && orig != null) ranger.innerHTML = orig;
@@ -1052,13 +1089,13 @@ function showFiledConfirm(batchId: string, bin: string, filedPath: string): void
   banner.innerHTML =
     `<div class="sift-filed-banner-head">` +
     `<i class="ti ti-check"></i>` +
-    `<span class="sift-filed-banner-label">Filed</span>` +
+    `<span class="sift-filed-banner-label">Rangé</span>` +
     `<span class="sift-filed-banner-bin">→ ${esc(bin)}</span>` +
-    `<button data-fil="filed-close" title="Dismiss" class="sift-filed-banner-close"><i class="ti ti-x"></i></button>` +
+    `<button data-fil="filed-close" title="Fermer" class="sift-filed-banner-close"><i class="ti ti-x"></i></button>` +
     `</div>` +
     `<div class="sift-filed-banner-name">${esc(filename)}</div>` +
     `<div class="sift-filed-banner-path">${esc(filedPath)}</div>` +
-    `<button data-fil="revert" class="sift-filed-banner-revert"><i class="ti ti-arrow-back-up"></i> Revert</button>`;
+    `<button data-fil="revert" class="sift-filed-banner-revert"><i class="ti ti-arrow-back-up"></i> Annuler</button>`;
   foot.append(banner); // at the BOTTOM of the rail — last child, under Format → File → Discard
   banner.querySelector('[data-fil="revert"]')?.addEventListener("click", () => void doRevert(batchId));
   banner.querySelector('[data-fil="filed-close"]')?.addEventListener("click", () => {
@@ -1079,13 +1116,13 @@ async function doRevert(batchId: string): Promise<void> {
     // #mid stays put (syncDetail's player guard keeps it), so reverting never yanks the player.
     document.getElementById("filfoot")?.querySelector(".sift-filed-banner")?.remove();
     state.filedConfirm = null;
-    toast("Reverted — back in the queue", false);
+    toast("Annulé — retour dans la file", false);
   } catch (e) {
     const msg = String(e);
     if (msg.includes("source gone")) {
-      toast("Revert unavailable: a needed file is gone — the original may have been purged from the trash.", false);
+      toast("Annulation impossible : un fichier nécessaire a disparu — l'original a peut-être été purgé de la corbeille.", false);
     } else {
-      toast(`Revert failed: ${msg}`, false);
+      toast(`Échec de l'annulation : ${msg}`, false);
     }
     console.error("revert failed", e);
   }
@@ -1099,14 +1136,14 @@ async function doSecondary(mid: HTMLElement, kind: "resource" | "trash"): Promis
   try {
     if (kind === "resource") {
       await rejectTrack(state.track.id);
-      toast("Marked to re-source", true);
+      toast("Marqué à re-sourcer", true);
     } else {
       await trashTrack(state.track.id);
-      toast("Sent to trash", true);
+      toast("Envoyé à la corbeille", true);
     }
     clearPane(mid);
   } catch (e) {
-    toast(`Failed: ${String(e)}`, false);
+    toast(`Échec : ${String(e)}`, false);
     console.error(`${kind} failed`, e);
     setActionsDisabled(false);
   } finally {
@@ -1125,7 +1162,7 @@ function clearPane(mid: HTMLElement): void {
   state.fileTags = null;
   state.filedConfirm = null;
   mid.innerHTML =
-    '<div class="sift-clear-pane">Select a track in the queue to listen and file it.</div>';
+    '<div class="sift-clear-pane">Sélectionne un morceau dans la file pour l\'écouter et le ranger.</div>';
   // The validation footer lives in the rail (#filfoot); clear it too so no stale controls linger
   // (non-throw: clearPane runs from async revert/undo/secondary callbacks that may fire off Review).
   const ff = document.getElementById("filfoot");
@@ -1137,12 +1174,12 @@ function clearPane(mid: HTMLElement): void {
 function dupBanner(m: DupMatch): string {
   const where =
     m.status === "filed"
-      ? `Already filed: ${esc((m.folder ? m.folder + "/" : "") + (m.filename || ""))}`
-      : `Duplicate of a queued file: ${esc(m.filename || "")}`;
+      ? `Déjà rangé : ${esc((m.folder ? m.folder + "/" : "") + (m.filename || ""))}`
+      : `Doublon d'un fichier en file : ${esc(m.filename || "")}`;
   const sure = m.kind === "both";
   const fg = sure ? "var(--color-text-warning)" : "var(--color-text-tertiary)";
   const bg = sure ? "var(--color-background-warning)" : "var(--color-background-secondary)";
-  const head = sure ? "Duplicate" : "Possible duplicate (same name — check)";
+  const head = sure ? "Doublon" : "Doublon possible (même nom — à vérifier)";
   return `<div class="sift-dup-banner" style="background:${bg}"><i class="ti ti-copy" style="color:${fg}"></i><div class="sift-dup-banner-body"><div class="sift-dup-banner-head" style="color:${fg}">${head}</div><div class="sift-dup-banner-where">${where}</div></div></div>`;
 }
 
@@ -1343,7 +1380,7 @@ export function installUndoShortcut(): void {
     e.preventDefault();
     void undoLast()
       .then((b) => {
-        if (b) toast("Action undone", false);
+        if (b) toast("Action annulée", false);
       })
       .catch((err) => console.error("undo failed", err));
   });

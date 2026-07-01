@@ -31,9 +31,9 @@ const ICONS: Record<TaskKind, string> = {
 
 /** Human label shown next to the icon. */
 const LABELS: Record<TaskKind, string> = {
-  analyze: "Analyzing",
-  identify: "Identifying",
-  file: "Filing",
+  analyze: "Analyse",
+  identify: "Identification",
+  file: "Rangement",
 };
 
 // Encapsulated state: at most one active run per kind. Insertion order = display order.
@@ -96,7 +96,7 @@ export function homeProgressZone(): void {
  * sig ⇒ update in place; changed sig ⇒ rebuild this row only. */
 function rowSig(kind: TaskKind, p: TaskProgress): string {
   const showStop = p.state === "running" && !p.stopping && cancelHandlers.has(kind);
-  const label = p.stopping ? "Stopping…" : LABELS[kind];
+  const label = p.stopping ? "Arrêt…" : LABELS[kind];
   return `${p.state}|${p.stopping ? 1 : 0}|${showStop ? 1 : 0}|${label}`;
 }
 
@@ -110,11 +110,11 @@ function rowClassOf(p: TaskProgress): string {
  * reads "Stopping…" and the Stop button is omitted. */
 function rowInner(kind: TaskKind, p: TaskProgress): string {
   const pct = p.total > 0 ? Math.min(100, Math.round((p.done / p.total) * 100)) : 0;
-  const label = p.stopping ? "Stopping…" : LABELS[kind];
+  const label = p.stopping ? "Arrêt…" : LABELS[kind];
   // Stop button only while actively running, not already stopping, and a cancel action exists.
   const showStop = p.state === "running" && !p.stopping && cancelHandlers.has(kind);
   const stop = showStop
-    ? `<button class="sift-pz-cancel" type="button" data-pz-cancel="${kind}" title="Stop" aria-label="Stop ${LABELS[kind]}"><i class="ti ti-x" aria-hidden="true"></i></button>`
+    ? `<button class="sift-pz-cancel" type="button" data-pz-cancel="${kind}" title="Stop" aria-label="Arrêter — ${LABELS[kind]}"><i class="ti ti-x" aria-hidden="true"></i></button>`
     : "";
   return (
     `<div class="sift-pz-head">` +

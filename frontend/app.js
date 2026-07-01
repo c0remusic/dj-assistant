@@ -72,7 +72,7 @@ function openLink(u){window.open(u,'_blank','noopener');}
   function renderRevue(){
     content.style.display="flex";content.style.padding="0";content.style.flexDirection="";content.style.overflowY="";
     var pendingCount=cnt("pending"),doneCount=T.length-pendingCount;
-    content.innerHTML='<div class="queue" id="qcol" style="width:'+qw+'px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px"><span class="col-h" style="margin:0">Queue</span><span style="display:flex;gap:3px"><span data-act="revmode" data-m="detail" title="Vue détail" style="cursor:pointer;color:var(--color-text-info)"><i class="ti ti-layout-list" style="font-size:14px"></i></span><span data-act="revmode" data-m="batch" title="Mode batch" style="cursor:pointer;color:var(--color-text-tertiary)"><i class="ti ti-table" style="font-size:14px"></i></span></span></div><div class="pbar"><div class="pfill" id="pf" style="width:0%"></div></div><div id="ql"></div>'+(doneCount?'<div style="padding:5px 4px 0"><span data-act="togglequeue" style="font-size:10px;color:var(--color-text-tertiary);cursor:pointer;text-decoration:underline">'+(queueShowAll?'Masquer les traités':'+ '+doneCount+' traités')+'</span></div>':'')+'</div><div class="qdrag" id="qdrag" title="Drag to widen the list"></div><div class="mid" id="mid"></div><div class="dest"><div class="col-h">Destination</div><div id="fldz"></div><div id="filfoot" style="margin-top:14px"></div></div>';
+    content.innerHTML='<div class="queue" id="qcol" style="width:272px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px"><span class="col-h" style="margin:0">Queue</span><span style="display:flex;gap:3px"><span data-act="revmode" data-m="detail" title="Vue détail" style="cursor:pointer;color:var(--color-text-info)"><i class="ti ti-layout-list" style="font-size:14px"></i></span><span data-act="revmode" data-m="batch" title="Mode batch" style="cursor:pointer;color:var(--color-text-tertiary)"><i class="ti ti-table" style="font-size:14px"></i></span></span></div><div class="pbar"><div class="pfill" id="pf" style="width:0%"></div></div><div id="ql"></div>'+(doneCount?'<div style="padding:5px 4px 0"><span data-act="togglequeue" style="font-size:10px;color:var(--color-text-tertiary);cursor:pointer;text-decoration:underline">'+(queueShowAll?'Masquer les traités':'+ '+doneCount+' traités')+'</span></div>':'')+'</div><div class="sift-inspector"><div class="mid" id="mid"></div><div class="sift-action-rail" id="filfoot"></div><div class="sift-dest-popover" id="fldz" hidden></div></div>';
     var done2=T.length-pendingCount;document.getElementById('pf').style.width=Math.round(done2/T.length*100)+"%";
     var h="";T.forEach(function(x,i){
       var isPending=x.status==="pending";
@@ -90,11 +90,6 @@ function openLink(u){window.open(u,'_blank','noopener');}
     fh+= creating ? '<input id="newin" placeholder="nom du dossier…" style="width:100%;font-size:12px;padding:5px 7px;margin-top:2px">' : '<div class="fld" data-act="newfld" style="color:var(--color-text-tertiary)"><i class="ti ti-plus" style="font-size:14px"></i> nouveau</div>';
     document.getElementById('fldz').innerHTML=fh;renderMid();
     if(creating){var ni=document.getElementById('newin');if(ni)ni.focus();}
-    var qd=document.getElementById('qdrag');
-    qd.addEventListener('mousedown',function(ev){ev.preventDefault();var x0=ev.clientX,w0=qw;
-      function mv(e2){qw=Math.min(380,Math.max(140,w0+(e2.clientX-x0)));document.getElementById('qcol').style.width=qw+'px';}
-      function up(){document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);}
-      document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);});
     if(window.__siftQueue)window.__siftQueue();
   }
 

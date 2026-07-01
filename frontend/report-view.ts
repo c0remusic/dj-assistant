@@ -76,21 +76,21 @@ function realQuality(r: AnalysisReport): { label: string; bg: string; fg: string
     };
   }
   if (r.verdict === "grey")
-    return { label: `MP3 ≈ ${estKbps(r.cutoff_hz)} kbps — check`, bg: "var(--color-background-warning)", fg: "var(--color-text-warning)" };
+    return { label: `MP3 ≈ ${estKbps(r.cutoff_hz)} kbps — à vérifier`, bg: "var(--color-background-warning)", fg: "var(--color-text-warning)" };
   // genuine: describe the actual quality, not a yes/no
   const real =
     r.declared_rail === "lossless"
-      ? "lossless · full-band"
+      ? "lossless · pleine bande"
       : r.declared_bitrate
-        ? `${r.declared_bitrate} kbps actual`
-        : "genuine quality";
+        ? `${r.declared_bitrate} kbps réels`
+        : "qualité authentique";
   return { label: real, bg: "var(--color-background-success)", fg: "var(--color-text-success)" };
 }
 
 function spectroCaption(v: AnalysisReport["verdict"]): string {
-  if (v === "fake") return "sharp cutoff = likely transcode";
-  if (v === "grey") return "inspect visually";
-  return "full-band energy = compliant encoding";
+  if (v === "fake") return "coupure nette = transcodage probable";
+  if (v === "grey") return "à vérifier visuellement";
+  return "énergie pleine bande = encodage conforme";
 }
 
 function drawSpectrogram(canvas: HTMLCanvasElement, r: AnalysisReport) {
@@ -146,7 +146,7 @@ function nameHeaderHtml(name: string, path: string, closeBtn: boolean): string {
     `<img class="sift-report-cover sift-report-cover-sm" hidden alt="">` +
     `<div class="sift-report-header-body"><div class="sift-report-name sift-report-name-sm">${esc(name)}</div>` +
     `<div class="sift-report-path-sm">${esc(path)}</div></div>` +
-    (closeBtn ? `<button class="sift-close sift-report-close">close</button>` : "") +
+    (closeBtn ? `<button class="sift-close sift-report-close">fermer</button>` : "") +
     `</div>`
   );
 }
@@ -171,7 +171,7 @@ function keyboardHintsHtml(): string {
   const k = (key: string, what: string) => `<span><b>${key}</b> ${what}</span>`;
   return (
     `<div class="sift-kbd-hints">` +
-    k("SPACE", "listen") + k("ENTER", "file") + k("BKSP", "discard") + k("↑↓", "navigate") +
+    k("SPACE", "écouter") + k("ENTER", "ranger") + k("BKSP", "jeter") + k("↑↓", "naviguer") +
     `</div>`
   );
 }
@@ -180,17 +180,17 @@ function playerRowHtml(): string {
   return (
     `<div class="sift-player-row">` +
     `<div class="sift-player-transport">` +
-    `<button class="sift-play sift-play-btn" title="Play / pause (space)"><i class="ti ti-player-play"></i></button>` +
-    `<span class="sift-time sift-time-disp" title="Click: elapsed ⇄ remaining"><span class="sift-time-val">0:00 / 0:00</span></span>` +
+    `<button class="sift-play sift-play-btn" title="Lecture / pause (espace)"><i class="ti ti-player-play"></i></button>` +
+    `<span class="sift-time sift-time-disp" title="Clic : écoulé ⇄ restant"><span class="sift-time-val">0:00 / 0:00</span></span>` +
     `</div>` +
     `<div class="sift-wave sift-player-wave"></div>` +
     `<div class="sift-player-tempo">` +
     `<span class="sift-tempo-label">tempo</span>` +
     `<div class="sift-tempo-row">` +
-    `<input class="sift-tempo sift-tempo-slider" type="range" min="-8" max="8" step="1" value="0" title="Tempo — double-click = reset" aria-label="Tempo">` +
+    `<input class="sift-tempo sift-tempo-slider" type="range" min="-8" max="8" step="1" value="0" title="Tempo — double-clic = réinitialiser" aria-label="Tempo">` +
     `<span class="sift-tempo-out">0%</span>` +
     `</div>` +
-    `<button class="sift-key sift-key-btn" title="Key-lock: tempo doesn't change pitch (off = varispeed)">key</button>` +
+    `<button class="sift-key sift-key-btn" title="Key-lock : le tempo ne change pas la tonalité (off = varispeed)">key</button>` +
     `</div></div>`
   );
 }
@@ -215,9 +215,9 @@ export function vchipHtml(label: string, tone: "success" | "neutral" | "danger" 
  *  the MATCH% (identify) and UNIQUE/DUPLICATE (dedup) chips it owns the data for. */
 function verdictCardHtml(r: AnalysisReport): string {
   const map = {
-    ok: ["ti-circle-check", "Ready to file", "var(--color-text-success)", "rgba(91,192,140,.2)"],
-    fake: ["ti-alert-triangle", "Over-encoded — re-source", "var(--color-text-danger)", "rgba(226,104,94,.16)"],
-    grey: ["ti-help-circle", "Inspect first", "var(--color-text-warning)", "rgba(221,166,63,.16)"],
+    ok: ["ti-circle-check", "Prêt à ranger", "var(--color-text-success)", "rgba(91,192,140,.2)"],
+    fake: ["ti-alert-triangle", "Sur-encodé — à re-sourcer", "var(--color-text-danger)", "rgba(226,104,94,.16)"],
+    grey: ["ti-help-circle", "À vérifier d'abord", "var(--color-text-warning)", "rgba(221,166,63,.16)"],
   } as const;
   const [icon, label, fg, panelBg] = map[r.verdict];
   const rq = realQuality(r);
@@ -234,31 +234,31 @@ function verdictCardHtml(r: AnalysisReport): string {
 }
 
 function spectroAndTagsHtml(r: AnalysisReport): string {
-  const yn = (b: boolean) => (b ? "yes" : "no");
+  const yn = (b: boolean) => (b ? "oui" : "non");
   return (
     `<div class="sift-spectro-box">` +
     `<button class="sift-sg-toggle sift-spectro-toggle">` +
-    `<span class="sift-spectro-toggle-label"><span class="sift-sg-caret sift-spectro-caret">▸</span> Proof (spectrum)</span>` +
-    `<span class="sift-sg-hint sift-spectro-hint">show</span>` +
+    `<span class="sift-spectro-toggle-label"><span class="sift-sg-caret sift-spectro-caret">▸</span> Preuve (spectre)</span>` +
+    `<span class="sift-sg-hint sift-spectro-hint">afficher</span>` +
     `</button>` +
     `<div class="sift-sg-body sift-spectro-body">` +
-    `<div class="sift-spectro-declared">Declared <span class="pill">${esc(r.declared_format)}</span> ${r.declared_rail}${r.declared_bitrate ? " · " + r.declared_bitrate + " kbps" : ""} · cutoff ${fmt(r.cutoff_hz, 0)} Hz — ${spectroCaption(r.verdict)}</div>` +
+    `<div class="sift-spectro-declared">Déclaré <span class="pill">${esc(r.declared_format)}</span> ${r.declared_rail}${r.declared_bitrate ? " · " + r.declared_bitrate + " kbps" : ""} · coupure ${fmt(r.cutoff_hz, 0)} Hz — ${spectroCaption(r.verdict)}</div>` +
     `<canvas class="sift-sg sift-spectro-canvas" width="720" height="180"></canvas>` +
     `<div class="sift-spectro-rows">` +
     row("Verdict", r.verdict) +
-    row("Cutoff", fmt(r.cutoff_hz, 0) + " Hz") +
-    row("Duration", fmt(r.duration_sec, 1) + " s") +
-    row("Channels", String(r.channels) + (r.dual_mono ? " (dual-mono)" : "")) +
+    row("Coupure", fmt(r.cutoff_hz, 0) + " Hz") +
+    row("Durée", fmt(r.duration_sec, 1) + " s") +
+    row("Canaux", String(r.channels) + (r.dual_mono ? " (dual-mono)" : "")) +
     row("True-peak", fmt(r.true_peak_dbtp, 2) + " dBTP") +
     row("DC offset", fmt(r.dc_offset, 5)) +
-    row("Clipping", r.clip_runs + " runs / " + fmt(r.clip_pct, 2) + "%") +
-    row("Phase correlation", fmt(r.phase_correlation, 3)) +
-    row("Silence head", r.silence_head_ms + " ms") +
-    row("Silence tail", r.silence_tail_ms + " ms") +
-    row("Truncated", yn(r.truncated)) +
-    row("Container OK", yn(r.container_ok)) +
-    row("Sample rate", r.sample_rate + " Hz") +
-    row("Peaks (coverage)", peaksCoverage(r)) +
+    row("Écrêtage", r.clip_runs + " runs / " + fmt(r.clip_pct, 2) + "%") +
+    row("Corrélation de phase", fmt(r.phase_correlation, 3)) +
+    row("Silence début", r.silence_head_ms + " ms") +
+    row("Silence fin", r.silence_tail_ms + " ms") +
+    row("Tronqué", yn(r.truncated)) +
+    row("Conteneur OK", yn(r.container_ok)) +
+    row("Fréquence d'échantillonnage", r.sample_rate + " Hz") +
+    row("Pics (couverture)", peaksCoverage(r)) +
     `</div></div></div>` +
     // Source-file tag diagnostics (read-only): an autonomous, ALWAYS-VISIBLE block at the end of the
     // report — outside the collapsible Proof box. Metadata diagnostics (cover, ID3) are a different
@@ -267,10 +267,10 @@ function spectroAndTagsHtml(r: AnalysisReport): string {
     `<div class="sift-tags-title">Tags</div>` +
     `<div class="sift-spectro-rows">` +
     row("Tags CDJ OK", yn(r.tags_cdj_ok)) +
-    row("Cover", yn(r.has_cover)) +
-    row("ID3 version", r.id3_version || "—") +
+    row("Pochette", yn(r.has_cover)) +
+    row("Version ID3", r.id3_version || "—") +
     `</div></div>` +
-    (r.codec_error ? `<div class="sift-codec-error">codec error: ${esc(r.codec_error)}</div>` : "")
+    (r.codec_error ? `<div class="sift-codec-error">erreur codec : ${esc(r.codec_error)}</div>` : "")
   );
 }
 
@@ -547,7 +547,7 @@ export async function openReportInto(container: HTMLElement, path: string) {
     heroHtml(name, path) +
     playerRowHtml() +
     `<div class="sift-verdict-stub">` +
-    `<i class="ti ti-loader-2 sift-spin"></i>Analyzing…</div>` +
+    `<i class="ti ti-loader-2 sift-spin"></i>Analyse en cours…</div>` +
     `<div class="sift-analysis-body" hidden></div>` +
     keyboardHintsHtml() +
     `</div>`;
@@ -599,7 +599,7 @@ export async function openReportInto(container: HTMLElement, path: string) {
     const verdictEl = container.querySelector<HTMLElement>(".sift-verdict-stub");
     if (verdictEl) {
       verdictEl.outerHTML =
-        `<div class="sift-analysis-fail">Analysis failed: ${esc(String(e))}</div>`;
+        `<div class="sift-analysis-fail">Échec de l'analyse : ${esc(String(e))}</div>`;
     }
   }
 }
@@ -622,7 +622,7 @@ export async function openReportModal(path: string) {
   });
   document.body.appendChild(ov);
   const name = path.split(/[\\/]/).pop() || path;
-  ov.innerHTML = `<div class="sift-report-overlay-card sift-report-overlay-loading"><i class="ti ti-loader-2 sift-spin"></i>Analyzing <strong>${esc(name)}</strong>…</div>`;
+  ov.innerHTML = `<div class="sift-report-overlay-card sift-report-overlay-loading"><i class="ti ti-loader-2 sift-spin"></i>Analyse de <strong>${esc(name)}</strong>…</div>`;
   try {
     const r = await analyzePath(path, false);
     const card = document.createElement("div");
@@ -637,6 +637,6 @@ export async function openReportModal(path: string) {
     wireReport(card, r);
   } catch (e) {
     console.error("analyze_path failed", e);
-    ov.innerHTML = `<div class="sift-report-overlay-card sift-report-overlay-error">Analysis failed: ${esc(String(e))}</div>`;
+    ov.innerHTML = `<div class="sift-report-overlay-card sift-report-overlay-error">Échec de l'analyse : ${esc(String(e))}</div>`;
   }
 }

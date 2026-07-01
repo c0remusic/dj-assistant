@@ -36,6 +36,7 @@ import {
   installFilingKeys,
   renderBinsForBatch,
   refreshBinsForBatch,
+  ensureDestPopoverAutoClose,
   clearBinPick,
   setBinPickInert,
   defaultTarget,
@@ -603,7 +604,6 @@ function actionButtonHtml(running: boolean): string {
 function renderBatchRail(reviewN: number) {
   const foot = requireEl("#filfoot", "renderBatchRail");
   const fldz = requireEl("#fldz", "renderBatchRail");
-  fldz.style.display = ""; // batch now shows the #fldz folder tree (the destination explorer)
   ensureBatchDestUI();
   const head = (label: string) => `<div class="col-h" style="margin:0 0 4px">${label}</div>`;
   // Preserve the LIVE run's progress list across this wholesale rebuild (renderBatch rebuilds the rail
@@ -613,14 +613,15 @@ function renderBatchRail(reviewN: number) {
   // The progress zone may live in THIS rail from a prior render; park it back in its nav home before the
   // innerHTML wipe (which would destroy the node + its live rowCache), then re-mount into the fresh slot.
   if (foot.querySelector("#sift-progress-zone")) homeProgressZone();
-  // Destination pill in BOTH modes: a real folder (tree mode) or the in-place RULE label
+  // Destination button in BOTH modes: a real folder (tree mode) or the in-place RULE label
   // ("Dossier source de chaque morceau") — batchDestLabel() resolves which. In-place states the rule
-  // once here instead of listing each track's folder.
-  const destBlock = `<div style="margin-bottom:14px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:9px 11px">${head(
+  // once here instead of listing each track's folder. Clickable — opens the #fldz popover (batch's
+  // own rail doesn't go through filing.ts's renderFoot, so it wires the same toggle itself).
+  const destBlock = `<button data-fil="destbtn" style="width:100%;text-align:left;margin-bottom:14px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:9px 11px;cursor:pointer;color:inherit">${head(
     "Destination",
   )}<div style="font-size:var(--text-md);color:var(--color-text-secondary)">${esc(
     batchDestLabel(),
-  )}</div></div>`;
+  )}</div></button>`;
   // "Excluded" is folded into Selection as a discreet (tertiary) suffix — no separate block.
   const jeter = batchFakeSel.size ? ` · ${batchFakeSel.size} à jeter` : "";
   const exclus = reviewN
@@ -641,6 +642,11 @@ function renderBatchRail(reviewN: number) {
   if (keepNote) foot.insertAdjacentElement("afterbegin", keepNote);
   if (keepTracks) foot.querySelector("#sift-batch-tracks")!.replaceWith(keepTracks);
   else refreshBatchTracksPreview(); // idle → keep the per-track list empty (it is a run-only artifact)
+  foot.querySelector('[data-fil="destbtn"]')?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    fldz.hidden = !fldz.hidden;
+  });
+  ensureDestPopoverAutoClose();
   // Move the single progress zone into the rail (batch). setTask/clearTask keep driving the same node,
   // so Filing X/N + Analysing render here with no duplicated logic. Detail restores it via setReviewMode.
   mountProgressZone(requireEl("#sift-batch-progress", "renderBatchRail progress slot"));
@@ -652,19 +658,13 @@ function setReviewMode(m: "detail" | "batch") {
   reviewMode = m;
   ensureReviewSeg();
   const fldz = requireEl("#fldz", "setReviewMode");
-  // Batch now SHOWS the #fldz tree (it is the destination explorer); detail keeps showing it too.
-  fldz.style.display = "";
-  // The static "Destination" header is the mockup's first direct .col-h child of .dest (app.js), above
-  // #fldz. Batch prints its OWN "Destination" pill in the récap (#filfoot) → hide the static one to kill
-  // the doublon; restore it for detail. Same hide/restore pattern as the #fil-inplace toggle.
-  const destHead = fldz.parentElement?.querySelector<HTMLElement>(":scope > .col-h") ?? null;
+  // #fldz is now the destination popover (hidden by default, toggled by the rail's Destination
+  // button in either mode — see renderFoot/renderBatchRail) — no static column visibility to manage.
   if (m === "batch") {
-    if (destHead) destHead.style.display = "none";
     renderBatch();
     // Drive the #fldz tree in batch pick mode (loads bins, clicks set batchBin via onBatchBinPick).
     void refreshBinsForBatch(fldz, batchBin, onBatchBinPick, batchInPlace);
   } else {
-    if (destHead) destHead.style.display = "";
     // Leave batch pick mode: tree reverts to detail's state.binRel, remove the in-place checkbox.
     clearBinPick();
     document.getElementById("sift-inplace")?.remove();

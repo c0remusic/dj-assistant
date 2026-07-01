@@ -1,5 +1,14 @@
 # Sift — Interface Design System
 
+> ⚠️ **PÉRIMÉ depuis 2026-07-01 sur la palette/direction visuelle** (tokens couleur dark +
+> accent bleu ci-dessous). Remplacé par la maquette hi-fi Claude Design (`Sift.dc.html`,
+> handoff `frontend/Refonte UI Sift-handoff.zip`) : gris chaud clair, vert/ambre uniquement
+> (plus de bleu ni de rouge), CTA neutre foncé. Palette déjà appliquée dans le code
+> (`frontend/styles.css`) pour l'écran Revue (2026-07-01). Espacement/radius/hauteur/typo
+> restent valides (inchangés par la refonte). Voir `docs/brief-refonte-ui-2026-07-01.md`
+> pour la nouvelle direction ; ce fichier reste une référence historique du process Penpot
+> tant qu'il n'est pas réécrit pour la nouvelle direction.
+
 > Source de vérité de l'UI Sift (Tauri v2 + front web vanilla, Windows d'abord).
 > Direction travaillée dans Penpot. Boards canoniques (page « Sift — shell ») :
 > **Détail = « Revue · plat »** `49975f37-649c-80c0-8008-39eb475e8b73` (x5500),

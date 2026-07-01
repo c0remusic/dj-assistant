@@ -107,3 +107,15 @@ destination+actions ancré · **couleur = sens uniquement**.
 2. Décliner Library / Discarded / Journal sur la MÊME grille (test de cohérence).
 3. Une fois la direction validée en grand : pont vers le code (styles.css +
    vues vanilla), en préservant la machine d'états.
+
+## État (2026-07-01)
+Étape 3 faite pour **Revue** : palette (`frontend/styles.css`), grille (nav
+152px / queue 272px fixe / inspecteur flexible), colonne Destination
+persistante remplacée par un popover ancré au rail d'action, traduction FR
+complète de l'écran (jargon technique gardé en anglais : LOSSLESS, DUPLICATE,
+MATCH, FAKE?, kbps, kHz). Source : maquette hi-fi Claude Design
+(`Sift.dc.html`, handoff `frontend/Refonte UI Sift-handoff.zip`), pas Penpot —
+`.interface-design/system.md` est marqué périmé sur la palette en conséquence.
+Étape 2 (Library/Discarded/Journal/Sources/Réglages) reste à faire — ces
+écrans héritent déjà de la nouvelle palette (tokens CSS partagés) mais pas du
+layout ni de la traduction.
