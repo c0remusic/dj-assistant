@@ -311,9 +311,14 @@ export function renderBins(fldz: HTMLElement): void {
   const inPlaceRow = `<label class="sift-inplace-toggle"><input type="checkbox" ${inPlaceAttr}${
     inPlaceChecked ? " checked" : ""
   }><span>Sur place <span class="sift-inplace-note">(dossier source)</span></span></label>`;
+  // Real disk path caption (maquette: "📁 {rootPath}\"), title= carries the full path for a
+  // narrow popover where the text itself gets ellipsis-truncated.
+  const rootCaption = state.rootPath
+    ? `<div class="sift-fldz-rootpath" title="${esc(state.rootPath)}"><i class="ti ti-folder sift-icon-inline-sm"></i> ${esc(state.rootPath)}\\</div>`
+    : "";
 
   fldz.innerHTML =
-    filterRow + inPlaceRow + `<div class="sift-fldz-tree">${body}${newRow}</div>`;
+    filterRow + inPlaceRow + rootCaption + `<div class="sift-fldz-tree">${body}${newRow}</div>`;
 
   if (!binPick) {
     fldz.querySelector<HTMLInputElement>('[data-fil="inplace"]')?.addEventListener("change", (e) => {
