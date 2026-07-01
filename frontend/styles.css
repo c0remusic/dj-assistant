@@ -154,8 +154,9 @@ html,body{margin:0;padding:0;height:100%}
 .sift-rail-fmt-group .col-h{margin:0}
 /* Pushes secondary/primary to the right edge of the rail. */
 .sift-rail-spacer{flex:1;min-width:8px}
-.sift-ranger-btn{flex:none;white-space:nowrap}
-.sift-secondary-resource,.sift-secondary-trash{flex:none;white-space:nowrap}
+.sift-ranger-btn{flex:none;white-space:nowrap;background:var(--color-background-info);color:var(--color-text-info);border:none;font-weight:500}
+.sift-secondary-resource{flex:none;white-space:nowrap;color:var(--color-text-warning)}
+.sift-secondary-trash{flex:none;white-space:nowrap;color:var(--color-text-danger)}
 /* Destination popover: replaces the persistent tree column, anchored above its trigger button.
    Hidden by default ([hidden] attribute, toggled in filing.ts); #fldz keeps its id so renderBins'
    existing document.getElementById("fldz") callers need no change. */
@@ -379,11 +380,7 @@ details[open]>.jrnl-cat-hd .jrnl-cat-chev{transform:rotate(90deg)}
 .sift-newin{width:100%;font-size:var(--text-md);padding:5px 7px;margin-top:2px;box-sizing:border-box}
 .sift-chip-disabled{opacity:.4;cursor:not-allowed}
 .sift-col-h-tight{margin-bottom:4px}
-.sift-fmt-chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px}
-.sift-fil-prev{font-size:var(--text-xs);color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;line-height:1.5;margin-bottom:12px}
-.sift-ranger-btn{width:100%;background:var(--color-background-info);color:var(--color-text-info);border:none;font-weight:500;margin-bottom:6px}
-.sift-secondary-resource{width:100%;color:var(--color-text-warning)}
-.sift-secondary-trash{width:100%;color:var(--color-text-danger)}
+.sift-fmt-chips{display:flex;flex-wrap:wrap;gap:5px}
 .sift-editor-title{margin-bottom:6px}
 .sift-editor-badge-row{margin-bottom:8px}
 .sift-ident-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}

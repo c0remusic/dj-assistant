@@ -802,13 +802,24 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
 
 /** Anchors the popover to the Destination button's real on-screen position (position:fixed,
  *  recalculated here) instead of a hardcoded left/bottom — keeps it aligned if the rail's height
- *  changes (e.g. a longer secondary-button label wrapping). */
+ *  changes (e.g. a longer secondary-button label wrapping).
+ *
+ *  Uses `top` derived from the popover's OWN measured height, not `bottom` derived from
+ *  `window.innerHeight` — the previous `bottom:${window.innerHeight - r.top + 8}px` formula
+ *  placed the popover near the top of the window instead of just above the button in the real
+ *  Tauri webview (window.innerHeight apparently diverges from the coordinate space
+ *  getBoundingClientRect reports here, a HiDPI/webview scaling quirk — confirmed by comparing a
+ *  real screenshot's button position against the popover's actual rendered position). Deriving
+ *  the position purely from two getBoundingClientRect() calls (button + popover), both in the
+ *  same coordinate space by construction, sidesteps that mismatch entirely. */
 function positionDestPopover(pop: HTMLElement): void {
   const btn = document.querySelector<HTMLElement>('[data-fil="destbtn"]');
   if (!btn) return;
   const r = btn.getBoundingClientRect();
+  const popH = pop.getBoundingClientRect().height;
   pop.style.left = `${r.left}px`;
-  pop.style.bottom = `${window.innerHeight - r.top + 8}px`;
+  pop.style.bottom = "auto";
+  pop.style.top = `${r.top - popH - 8}px`;
 }
 
 /** Open/close the destination popover (#fldz). Its own hidden state persists across renderFoot's
