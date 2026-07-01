@@ -201,10 +201,10 @@ function binNodeHtml(node: { rel: string; name: string; depth: number }): string
   const on = node.rel === selRel() ? " on" : "";
   const indent = node.depth * 13;
   const caret = kids.length
-    ? `<span data-fil="caret" data-rel="${esc(node.rel)}" title="${isOpen ? "Collapse" : "Expand"}" style="display:inline-block;width:14px;text-align:center;cursor:pointer;color:var(--color-text-tertiary);transition:transform .2s;${
+    ? `<span data-fil="caret" data-rel="${esc(node.rel)}" title="${isOpen ? "Collapse" : "Expand"}" class="sift-fld-caret" style="${
         isOpen ? "transform:rotate(90deg)" : ""
       }">▸</span>`
-    : '<span style="display:inline-block;width:14px;flex:none"></span>';
+    : '<span class="sift-fld-caret-spacer"></span>';
   const icon = node.depth === 0 ? "ti-database" : "ti-folder";
   // Explicit highlight for the selected destination (don't rely on inherited .on CSS): tinted
   // background + an info-coloured folder icon + medium weight so the active bin is unmistakable.
@@ -213,9 +213,9 @@ function binNodeHtml(node: { rel: string; name: string; depth: number }): string
     : "";
   const iconColor = on ? "var(--color-text-info)" : "var(--color-text-tertiary)";
   const weight = on ? "font-weight:500;" : "";
-  let html = `<div class="fld${on}" data-fil="bin" data-rel="${esc(node.rel)}" title="${esc(
+  let html = `<div class="fld${on} sift-fld-row" data-fil="bin" data-rel="${esc(node.rel)}" title="${esc(
     absPath(node.rel),
-  )}" style="${sel};${weight}padding-left:${6 + indent}px;display:flex;align-items:center;gap:4px">${caret}<i class="ti ${icon}" style="font-size:var(--text-base);flex:none;color:${iconColor}"></i><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(
+  )}" style="${sel};${weight}padding-left:${6 + indent}px">${caret}<i class="ti ${icon} sift-fld-icon" style="font-size:var(--text-base);color:${iconColor}"></i><span class="sift-fld-label">${esc(
     node.name,
   )}</span></div>`;
   if (kids.length && isOpen) html += kids.map(binNodeHtml).join("");
@@ -228,9 +228,9 @@ function flatBinHtml(b: Bin): string {
   const on = b.rel === selRel() ? " on" : "";
   const sel = on ? "background:var(--color-background-info);border-radius:var(--border-radius-sm,4px);" : "";
   const color = on ? "var(--color-text-info)" : "var(--color-text-tertiary)";
-  return `<div class="fld${on}" data-fil="bin" data-rel="${esc(b.rel)}" title="${esc(
+  return `<div class="fld${on} sift-fld-flat-row" data-fil="bin" data-rel="${esc(b.rel)}" title="${esc(
     absPath(b.rel),
-  )}" style="${sel}padding:3px 6px;display:flex;align-items:center;gap:5px"><i class="ti ti-folder" style="font-size:var(--text-base);flex:none;color:${color}"></i><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(
+  )}" style="${sel}"><i class="ti ti-folder sift-fld-icon" style="font-size:var(--text-base);color:${color}"></i><span class="sift-fld-label">${esc(
     b.rel,
   )}</span></div>`;
 }
@@ -240,8 +240,8 @@ function flatBinHtml(b: Bin): string {
 export function renderBins(fldz: HTMLElement): void {
   if (!state.rootSet) {
     fldz.innerHTML =
-      '<div style="font-size:var(--text-sm);color:var(--color-text-tertiary);margin-bottom:8px">Choose your library root to start filing.</div>' +
-      '<button data-fil="pickroot"><i class="ti ti-folder" style="font-size:var(--text-base);vertical-align:-2px"></i> Choose root…</button>';
+      '<div class="sift-fldz-hint">Choose your library root to start filing.</div>' +
+      '<button data-fil="pickroot"><i class="ti ti-folder sift-icon-inline-base"></i> Choose root…</button>';
     fldz
       .querySelector('[data-fil="pickroot"]')
       ?.addEventListener("click", () => void pickRoot(fldz));
@@ -254,7 +254,7 @@ export function renderBins(fldz: HTMLElement): void {
   const filterRow = state.bins.length
     ? `<input data-fil="binfilter" placeholder="Filter folders…" value="${esc(
         state.binFilter,
-      )}" style="width:100%;font-size:var(--text-sm);padding:4px 7px;margin-bottom:6px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);color:var(--color-text-primary);box-sizing:border-box">`
+      )}" class="sift-binfilter">`
     : "";
 
   let body: string;
@@ -266,12 +266,12 @@ export function renderBins(fldz: HTMLElement): void {
     );
     body = matches.length
       ? matches.map(flatBinHtml).join("")
-      : '<div style="font-size:var(--text-xs);color:var(--color-text-tertiary);padding:4px 0">No matching folder.</div>';
+      : '<div class="sift-fldz-no-match">No matching folder.</div>';
   } else {
     const tree = binNodeHtml({ rel: "", name: rootName(), depth: 0 });
     const emptyNote =
       state.bins.length === 0 && expanded.has("")
-        ? '<div style="font-size:var(--text-xs);color:var(--color-text-tertiary);padding:2px 0 2px 33px">empty — create a folder</div>'
+        ? '<div class="sift-fldz-empty-note">empty — create a folder</div>'
         : "";
     body = tree + emptyNote;
   }
@@ -283,8 +283,8 @@ export function renderBins(fldz: HTMLElement): void {
     : state.creating
       ? `<input data-fil="newin" placeholder="${esc(
           state.binRel ? `folder in ${binLabel()}…` : "folder name…",
-        )}" style="width:100%;font-size:var(--text-md);padding:5px 7px;margin-top:2px;box-sizing:border-box">`
-      : `<div class="fld" data-fil="newbin" style="color:var(--color-text-tertiary)"><i class="ti ti-plus" style="font-size:var(--text-lg)"></i> new${esc(
+        )}" class="sift-newin">`
+      : `<div class="fld sift-newbin-row" data-fil="newbin"><i class="ti ti-plus sift-icon-inline-lg"></i> new${esc(
           nestLabel,
         )}</div>`;
 
@@ -441,8 +441,8 @@ function refreshReleaseLine(): void {
   }
   const value = [label, year].filter(Boolean).map((s) => esc(s as string)).join(" · ");
   el.innerHTML =
-    `<div style="display:flex;align-items:center;gap:6px;font-size:var(--text-sm);color:var(--color-text-secondary);margin-bottom:10px">` +
-    `<i class="ti ti-tag" style="font-size:var(--text-md);color:var(--color-text-tertiary)" title="Release (Discogs)"></i>` +
+    `<div class="sift-release-line">` +
+    `<i class="ti ti-tag" title="Release (Discogs)"></i>` +
     `<span>${value}</span></div>`;
 }
 
@@ -586,7 +586,7 @@ function onIdentityApplied(
   });
 
   // [C1] Relabel Identifier → Ré-identifier once an identity has been applied.
-  idBtn.innerHTML = '<i class="ti ti-refresh" style="font-size:var(--text-sm);vertical-align:-1px"></i> Re-identify';
+  idBtn.innerHTML = '<i class="ti ti-refresh sift-icon-inline-sm"></i> Re-identify';
 
   // The displayed identity just changed while the FILE keeps its old tags → surface the gap, and
   // reset the Apply button (a prior "Appliqué ✓" no longer reflects this new identity).
@@ -599,15 +599,15 @@ function onIdentityApplied(
  *  already-identified track (restoreIdentifiedLine) so both render identically. */
 function identifiedLineHtml(artist: string, title: string, coverPath: string | null): string {
   const coverThumb = coverPath
-    ? `<img src="${esc(convertFileSrc(coverPath))}" alt="" style="width:28px;height:28px;border-radius:3px;object-fit:cover;flex:none">`
-    : `<span style="width:28px;height:28px;border-radius:3px;background:var(--color-background-secondary);display:inline-flex;align-items:center;justify-content:center;flex:none"><i class="ti ti-vinyl" style="font-size:var(--text-lg);color:var(--color-text-tertiary)"></i></span>`;
+    ? `<img src="${esc(convertFileSrc(coverPath))}" alt="" class="sift-identified-cover">`
+    : `<span class="sift-identified-noart"><i class="ti ti-vinyl"></i></span>`;
   return (
-    `<div style="display:flex;align-items:center;gap:7px;padding:4px 2px">` +
+    `<div class="sift-identified-line">` +
     coverThumb +
-    `<span style="flex:1;min-width:0;font-size:var(--text-md);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">` +
-    `<span style="color:var(--color-text-secondary)">Identified:</span> ${esc(artist)} — ${esc(title)}` +
+    `<span class="sift-identified-text">` +
+    `<span class="sift-identified-label">Identified:</span> ${esc(artist)} — ${esc(title)}` +
     `</span>` +
-    `<button class="sift-cand-jump" data-fil="cand-changer" style="font-size:var(--text-sm);padding:2px 8px;flex:none">change</button>` +
+    `<button class="sift-cand-jump sift-cand-change-btn" data-fil="cand-changer">change</button>` +
     `</div>`
   );
 }
@@ -630,7 +630,7 @@ function restoreIdentifiedLine(
   host.hidden = false;
   host.innerHTML = identifiedLineHtml(artist, title, coverPath);
   // [C1] Match the post-fetch state: the primary button reads "Re-identify".
-  idBtn.innerHTML = '<i class="ti ti-refresh" style="font-size:var(--text-sm);vertical-align:-1px"></i> Re-identify';
+  idBtn.innerHTML = '<i class="ti ti-refresh sift-icon-inline-sm"></i> Re-identify';
   // Cold-start "change": the original candidates aren't in memory → re-run a Discogs fetch.
   host.querySelector<HTMLElement>('[data-fil="cand-changer"]')?.addEventListener("click", () => {
     void doIdentify(idBtn, host, editor, mid);
@@ -661,7 +661,7 @@ function wireCandidateClicks(
           el.style.opacity = "";
           el.style.pointerEvents = "";
           // [m10] errors get a warning icon to distinguish from "no results"
-          host.innerHTML = `<div class="sift-cands-msg sift-cands-error"><i class="ti ti-alert-triangle" style="font-size:var(--text-md);vertical-align:-2px;margin-right:4px"></i>${esc(String(e))}</div>`;
+          host.innerHTML = `<div class="sift-cands-msg sift-cands-error"><i class="ti ti-alert-triangle sift-cand-error-icon"></i>${esc(String(e))}</div>`;
         });
     });
   });
@@ -678,7 +678,7 @@ async function doIdentify(
   const trackId = state.track.id;
   const origLabel = btn.innerHTML;
   btn.disabled = true;
-  btn.innerHTML = '<i class="ti ti-loader-2 sift-spin" style="font-size:var(--text-sm);vertical-align:-1px"></i> Searching…';
+  btn.innerHTML = '<i class="ti ti-loader-2 sift-spin sift-searching-icon"></i> Searching…';
   host.hidden = false;
   host.innerHTML = '<div class="sift-cands-msg">Searching…</div>';
 
@@ -693,7 +693,7 @@ async function doIdentify(
       // [C2/m5] explain WHY + give a direct action to open Réglages
       host.innerHTML =
         `<div class="sift-cands-msg">Discogs throttles anonymous searches — add your (free) token in Settings.</div>` +
-        `<button class="sift-cand-jump" data-fil="goto-reglages" style="margin-top:5px;font-size:var(--text-sm);padding:3px 9px">Open Settings →</button>`;
+        `<button class="sift-cand-jump sift-goto-reglages" data-fil="goto-reglages">Open Settings →</button>`;
       const gotoBtn = host.querySelector<HTMLElement>('[data-fil="goto-reglages"]');
       gotoBtn?.addEventListener("click", () => {
         // Navigate to the Réglages view via the existing nav click handler in app.js
@@ -707,7 +707,7 @@ async function doIdentify(
         host.innerHTML = `<div class="sift-cands-msg">Discogs is rate-limiting — retry in ${rl[1]}s.</div>`;
       } else {
         // [m10] network/server errors get a warning icon to distinguish from "no results"
-        host.innerHTML = `<div class="sift-cands-msg sift-cands-error"><i class="ti ti-alert-triangle" style="font-size:var(--text-md);vertical-align:-2px;margin-right:4px"></i>Discogs unreachable.</div>`;
+        host.innerHTML = `<div class="sift-cands-msg sift-cands-error"><i class="ti ti-alert-triangle sift-cand-error-icon"></i>Discogs unreachable.</div>`;
       }
     }
   } finally {
@@ -734,7 +734,7 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
       // a lossy source can't be upscaled to lossless — disable AIFF/WAV (the backend refuses
       // it anyway; greying it out prevents the dead-end click).
       if (lossy && t !== "mp3_320")
-        return `<span class="chip" title="No upscale from a lossy file" style="opacity:.4;cursor:not-allowed">${TARGET_LABEL[t]}</span>`;
+        return `<span class="chip sift-chip-disabled" title="No upscale from a lossy file">${TARGET_LABEL[t]}</span>`;
       const on = (state.target ?? defaultTarget(rail)) === t ? " on" : "";
       return `<span class="chip${on}" data-fil="fmt" data-t="${t}">${TARGET_LABEL[t]}</span>`;
     })
@@ -742,18 +742,18 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
 
   const fake = state.track?.verdict === "fake";
   const secondary = fake
-    ? '<button data-fil="resource" style="width:100%;color:var(--color-text-warning)" title="Fake file — goes to Discarded (⌫)"><span class="kbd">⌫</span> <i class="ti ti-alert-triangle" style="font-size:var(--text-md);vertical-align:-2px"></i> Re-source</button>'
-    : '<button data-fil="trash" style="width:100%;color:var(--color-text-danger)" title="Send to trash (⌫)"><span class="kbd">⌫</span> <i class="ti ti-trash" style="font-size:var(--text-md);vertical-align:-2px"></i> Discard</button>';
+    ? '<button data-fil="resource" class="sift-secondary-resource" title="Fake file — goes to Discarded (⌫)"><span class="kbd">⌫</span> <i class="ti ti-alert-triangle sift-icon-inline-md"></i> Re-source</button>'
+    : '<button data-fil="trash" class="sift-secondary-trash" title="Send to trash (⌫)"><span class="kbd">⌫</span> <i class="ti ti-trash sift-icon-inline-md"></i> Discard</button>';
 
   // The rail keeps the system.md stack tail: FORMAT → Final name → CTA (File) → secondary. The
   // filename preview sits right above File so you see the name about to be produced next to the
   // action that produces it. Rebuilt inside this innerHTML so a format-chip re-render keeps it.
   foot.innerHTML =
-    `<div class="col-h" style="margin-bottom:4px">Format</div>` +
-    `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px">${chips}</div>` +
-    `<div class="col-h" style="margin-bottom:4px">Final name</div>` +
-    `<div class="sift-fil-prev" style="font-size:var(--text-xs);color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;line-height:1.5;margin-bottom:12px">→ ${esc(previewName())}</div>` +
-    `<button data-fil="ranger" style="width:100%;background:var(--color-background-info);color:var(--color-text-info);border:none;font-weight:500;margin-bottom:6px"><i class="ti ti-corner-down-left" style="font-size:var(--text-md);vertical-align:-2px"></i> File → <span class="sift-fil-bin">${esc(binLabel())}</span> <span class="kbd">⏎</span></button>` +
+    `<div class="col-h sift-col-h-tight">Format</div>` +
+    `<div class="sift-fmt-chips">${chips}</div>` +
+    `<div class="col-h sift-col-h-tight">Final name</div>` +
+    `<div class="sift-fil-prev">→ ${esc(previewName())}</div>` +
+    `<button data-fil="ranger" class="sift-ranger-btn"><i class="ti ti-corner-down-left sift-icon-inline-md"></i> File → <span class="sift-fil-bin">${esc(binLabel())}</span> <span class="kbd">⏎</span></button>` +
     secondary;
   if (filedBanner) foot.append(filedBanner); // restore the banner below the freshly-rendered controls
 
@@ -792,11 +792,10 @@ function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string): void {
   // [I6] Add tooltip to confidence badge so the colour is self-explanatory.
   const badge =
     c.confidence === "green"
-      ? '<span title="Title and artist extracted confidently" style="display:inline-flex;align-items:center;gap:4px;font-size:var(--text-xs);color:var(--color-text-success)"><i class="ti ti-circle-check" style="font-size:var(--text-sm)"></i> metadata trusted</span>'
-      : '<span title="Title or artist couldn\'t be extracted with certainty — check the fields" style="display:inline-flex;align-items:center;gap:4px;font-size:var(--text-xs);color:var(--color-text-warning)"><i class="ti ti-alert-circle" style="font-size:var(--text-sm)"></i> check fields</span>';
+      ? '<span title="Title and artist extracted confidently" class="sift-badge-ok"><i class="ti ti-circle-check"></i> metadata trusted</span>'
+      : '<span title="Title or artist couldn\'t be extracted with certainty — check the fields" class="sift-badge-warn"><i class="ti ti-alert-circle"></i> check fields</span>';
 
-  const inputCss =
-    "font-size:var(--text-md);padding:4px 7px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);color:var(--color-text-primary);min-width:0";
+  const inputCss = "sift-editor-input";
 
   // [C1] "Fetch metadata from Discogs" is the primary entry point (gold filled), above the inputs.
   // [C2] title= explains what it does; the kbd hint shows the I shortcut.
@@ -805,27 +804,27 @@ function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string): void {
   // preview moved to the rail (next to File). `.sift-cands` sits above the inputs so choosing a
   // release precedes editing.
   host.innerHTML =
-    `<div class="col-h" style="margin-bottom:6px">Métadonnées</div>` +
-    `<div style="margin-bottom:8px">${badge}</div>` +
-    `<button data-fil="identifier" class="sift-id-btn" style="width:100%;margin-bottom:8px" title="Search metadata on Discogs (cover, label, year, genres)"><i class="ti ti-search" style="font-size:var(--text-md);vertical-align:-1px"></i> Fetch metadata from Discogs <span class="kbd" style="font-size:var(--text-2xs);border-color:rgba(0,0,0,.18);color:rgba(0,0,0,.5)">I</span></button>` +
-    `<div class="sift-cands" hidden style="margin-bottom:8px"></div>` +
-    `<div style="display:grid;grid-template-columns:1fr;gap:5px;margin-bottom:8px">` +
-    `<input data-fil="artist" placeholder="Artist" value="${esc(c.artist)}" style="${inputCss}">` +
-    `<input data-fil="title" placeholder="Title" value="${esc(c.title)}" style="${inputCss}">` +
-    `<input data-fil="version" placeholder="Version" value="${esc(c.version ?? "")}" style="${inputCss}">` +
+    `<div class="col-h sift-editor-title">Métadonnées</div>` +
+    `<div class="sift-editor-badge-row">${badge}</div>` +
+    `<button data-fil="identifier" class="sift-id-btn sift-id-btn-full" title="Search metadata on Discogs (cover, label, year, genres)"><i class="ti ti-search sift-icon-inline-sm"></i> Fetch metadata from Discogs <span class="kbd sift-kbd-hint-id">I</span></button>` +
+    `<div class="sift-cands sift-cands-host" hidden></div>` +
+    `<div class="sift-editor-fields">` +
+    `<input data-fil="artist" placeholder="Artist" value="${esc(c.artist)}" class="${inputCss}">` +
+    `<input data-fil="title" placeholder="Title" value="${esc(c.title)}" class="${inputCss}">` +
+    `<input data-fil="version" placeholder="Version" value="${esc(c.version ?? "")}" class="${inputCss}">` +
     `</div>` +
     // Read-only release facts (Label · Année) between the editable identity and Genres. Filled by
     // refreshReleaseLine() below from state; stays empty (no gap) when neither value is known.
     `<div class="sift-release"></div>` +
-    `<div class="col-h" style="margin-bottom:4px">Genres</div>` +
-    `<div class="sift-genres" style="margin-bottom:10px;min-height:1px"></div>` +
+    `<div class="col-h sift-col-h-tight">Genres</div>` +
+    `<div class="sift-genres sift-genres-box"></div>` +
     // Apply ID3 tags: write these fields onto the file in place (no move, no encode, no 'filed'
     // change), revertable. Distinct from File (rail) — a neutral secondary button in the editor.
-    `<button data-fil="applytags" style="width:100%;font-size:var(--text-sm);color:var(--color-text-secondary)" title="Write these tags into the file in place — no move, no encode, fully revertable"><i class="ti ti-tag" style="font-size:var(--text-md);vertical-align:-2px"></i> Apply ID3 tags</button>` +
+    `<button data-fil="applytags" class="sift-applytags-btn" title="Write these tags into the file in place — no move, no encode, fully revertable"><i class="ti ti-tag sift-icon-inline-md"></i> Apply ID3 tags</button>` +
     // Discrepancy banner — sits JUST BELOW Apply. Hidden by default via inline display:none; the LONE
     // visibility mechanism is refreshDiscrepancy toggling style.display (no `hidden`+display conflict).
     // Look lives in .sift-tag-warn (styles.css). Shown only when the display diverges from the file.
-    `<div class="sift-tag-warn" style="display:none"><i class="ti ti-alert-triangle" style="font-size:var(--text-md);flex:none"></i><span>Tags non écrits dans le fichier — <strong>File</strong> ou <strong>Apply</strong> pour les graver</span></div>`;
+    `<div class="sift-tag-warn" style="display:none"><i class="ti ti-alert-triangle sift-icon-inline-md sift-icon-flex-none"></i><span>Tags non écrits dans le fichier — <strong>File</strong> ou <strong>Apply</strong> pour les graver</span></div>`;
 
   const upd = () => {
     const a = host.querySelector<HTMLInputElement>('[data-fil="artist"]');
@@ -859,7 +858,7 @@ function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string): void {
 // "Appliqué ✓ — Annuler" (reverts the batch just written). `onclick` is reassigned (not
 // addEventListener) so a toggle never stacks handlers.
 const APPLY_IDLE_HTML =
-  '<i class="ti ti-tag" style="font-size:var(--text-md);vertical-align:-2px"></i> Apply ID3 tags';
+  '<i class="ti ti-tag sift-icon-inline-md"></i> Apply ID3 tags';
 
 /** Put the Apply button in its idle "write" state. */
 function setApplyIdle(btn: HTMLButtonElement): void {
@@ -874,7 +873,7 @@ function setApplyApplied(btn: HTMLButtonElement, batchId: string): void {
   btn.disabled = false;
   btn.style.color = "var(--color-text-success)";
   btn.innerHTML =
-    '<i class="ti ti-circle-check" style="font-size:var(--text-md);vertical-align:-2px"></i> Appliqué ✓ — <span style="text-decoration:underline">Annuler</span>';
+    '<i class="ti ti-circle-check sift-icon-inline-md"></i> Appliqué ✓ — <span class="sift-underline">Annuler</span>';
   btn.onclick = () => void doUndoApply(btn, batchId);
 }
 
@@ -895,7 +894,7 @@ async function doApplyTags(btn: HTMLButtonElement): Promise<void> {
   const myseq = openSeq;
   btn.disabled = true;
   btn.innerHTML =
-    '<i class="ti ti-loader-2 sift-spin" style="font-size:var(--text-md);vertical-align:-2px"></i> Applying…';
+    '<i class="ti ti-loader-2 sift-spin sift-icon-inline-md"></i> Applying…';
   try {
     const batchId = await applyTags(trackId, edited);
     const snap = await trackFileTags(trackId); // file changed → refresh the in-memory snapshot
@@ -917,7 +916,7 @@ async function doUndoApply(btn: HTMLButtonElement, batchId: string): Promise<voi
   const myseq = openSeq;
   btn.disabled = true;
   btn.innerHTML =
-    '<i class="ti ti-loader-2 sift-spin" style="font-size:var(--text-md);vertical-align:-2px"></i> Annulation…';
+    '<i class="ti ti-loader-2 sift-spin sift-icon-inline-md"></i> Annulation…';
   try {
     await revertBatch(batchId);
     if (trackId != null) {
@@ -942,12 +941,11 @@ function toast(message: string, undo: boolean, onUndo?: () => void): void {
   document.getElementById("sift-toast")?.remove();
   const el = document.createElement("div");
   el.id = "sift-toast";
-  el.style.cssText =
-    "position:fixed;right:18px;bottom:18px;z-index:9998;display:flex;align-items:center;gap:12px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:9px 13px;font-size:var(--text-md);color:var(--color-text-primary);box-shadow:0 8px 28px rgba(0,0,0,.4)";
+  el.className = "sift-toast";
   el.innerHTML =
     `<span>${esc(message)}</span>` +
     (undo
-      ? '<button data-fil="undo" style="font-size:var(--text-sm);padding:2px 9px">Undo</button>'
+      ? '<button data-fil="undo" class="sift-toast-undo">Undo</button>'
       : "");
   document.body.appendChild(el);
   el.querySelector('[data-fil="undo"]')?.addEventListener("click", () => {
@@ -999,7 +997,7 @@ async function doRanger(mid: HTMLElement): Promise<void> {
   setActionsDisabled(true);
   if (ranger)
     ranger.innerHTML =
-      '<i class="ti ti-loader-2 sift-spin" style="font-size:var(--text-md);vertical-align:-2px"></i> Filing…';
+      '<i class="ti ti-loader-2 sift-spin sift-icon-inline-md"></i> Filing…';
   try {
     const res = await fileTrack(state.track.id, dest, state.target, state.canonical);
     // Capture the "after" facts for the rail banner BEFORE we advance (state resets on the next open).
@@ -1051,18 +1049,16 @@ function showFiledConfirm(batchId: string, bin: string, filedPath: string): void
   // CDS single-side accent: success border-left, square corners. Success tint sets it apart from the
   // secondary-coloured rail. renderFoot preserves this node across its re-renders (format clicks).
   // margin-top (not -bottom): the banner sits at the BOTTOM of the rail, under Discard — space it above.
-  banner.style.cssText =
-    "margin-top:12px;padding:7px 10px;background:var(--color-background-success);border-left:2px solid var(--color-text-success);font-size:var(--text-sm)";
   banner.innerHTML =
-    `<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">` +
-    `<i class="ti ti-check" style="font-size:var(--text-md);color:var(--color-text-success)"></i>` +
-    `<span style="color:var(--color-text-success);font-weight:500">Filed</span>` +
-    `<span style="color:var(--color-text-tertiary);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">→ ${esc(bin)}</span>` +
-    `<button data-fil="filed-close" title="Dismiss" style="margin-left:auto;flex:none;background:none;border:none;color:var(--color-text-tertiary);cursor:pointer;padding:0;line-height:1"><i class="ti ti-x" style="font-size:var(--text-md)"></i></button>` +
+    `<div class="sift-filed-banner-head">` +
+    `<i class="ti ti-check"></i>` +
+    `<span class="sift-filed-banner-label">Filed</span>` +
+    `<span class="sift-filed-banner-bin">→ ${esc(bin)}</span>` +
+    `<button data-fil="filed-close" title="Dismiss" class="sift-filed-banner-close"><i class="ti ti-x"></i></button>` +
     `</div>` +
-    `<div style="color:var(--color-text-secondary);font-family:var(--font-mono);font-size:var(--text-xs);word-break:break-all;line-height:1.5;margin-bottom:3px">${esc(filename)}</div>` +
-    `<div style="color:var(--color-text-tertiary);font-family:var(--font-mono);font-size:var(--text-2xs);word-break:break-all;line-height:1.4;margin-bottom:7px">${esc(filedPath)}</div>` +
-    `<button data-fil="revert" style="display:inline-flex;align-items:center;gap:5px;font-size:var(--text-sm);padding:3px 10px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);color:var(--color-text-secondary);cursor:pointer"><i class="ti ti-arrow-back-up" style="font-size:var(--text-md);vertical-align:-2px"></i> Revert</button>`;
+    `<div class="sift-filed-banner-name">${esc(filename)}</div>` +
+    `<div class="sift-filed-banner-path">${esc(filedPath)}</div>` +
+    `<button data-fil="revert" class="sift-filed-banner-revert"><i class="ti ti-arrow-back-up"></i> Revert</button>`;
   foot.append(banner); // at the BOTTOM of the rail — last child, under Format → File → Discard
   banner.querySelector('[data-fil="revert"]')?.addEventListener("click", () => void doRevert(batchId));
   banner.querySelector('[data-fil="filed-close"]')?.addEventListener("click", () => {
@@ -1129,7 +1125,7 @@ function clearPane(mid: HTMLElement): void {
   state.fileTags = null;
   state.filedConfirm = null;
   mid.innerHTML =
-    '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--color-text-tertiary);font-size:var(--text-md);padding:20px;text-align:center">Select a track in the queue to listen and file it.</div>';
+    '<div class="sift-clear-pane">Select a track in the queue to listen and file it.</div>';
   // The validation footer lives in the rail (#filfoot); clear it too so no stale controls linger
   // (non-throw: clearPane runs from async revert/undo/secondary callbacks that may fire off Review).
   const ff = document.getElementById("filfoot");
@@ -1147,7 +1143,7 @@ function dupBanner(m: DupMatch): string {
   const fg = sure ? "var(--color-text-warning)" : "var(--color-text-tertiary)";
   const bg = sure ? "var(--color-background-warning)" : "var(--color-background-secondary)";
   const head = sure ? "Duplicate" : "Possible duplicate (same name — check)";
-  return `<div style="display:flex;align-items:flex-start;gap:8px;background:${bg};border-radius:var(--border-radius-md);padding:8px 11px;margin-bottom:10px;font-size:var(--text-sm)"><i class="ti ti-copy" style="font-size:var(--text-lg);flex:none;color:${fg}"></i><div style="min-width:0"><div style="font-weight:500;color:${fg}">${head}</div><div style="color:var(--color-text-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${where}</div></div></div>`;
+  return `<div class="sift-dup-banner" style="background:${bg}"><i class="ti ti-copy" style="color:${fg}"></i><div class="sift-dup-banner-body"><div class="sift-dup-banner-head" style="color:${fg}">${head}</div><div class="sift-dup-banner-where">${where}</div></div></div>`;
 }
 
 // Bumped on every open; an in-flight open bails at its await points if a newer one started
@@ -1169,11 +1165,10 @@ function ensureInPlaceToggle(): void {
   if (!foot?.parentElement) return;
   const wrap = document.createElement("label");
   wrap.id = "fil-inplace";
-  wrap.style.cssText =
-    "display:flex;align-items:center;gap:7px;margin-top:12px;font-size:var(--text-sm);color:var(--color-text-secondary);cursor:pointer";
+  wrap.className = "sift-inplace-toggle";
   wrap.innerHTML =
-    '<input type="checkbox" data-fil="inplace" style="cursor:pointer;flex:none">' +
-    '<span>Sur place <span style="color:var(--color-text-tertiary)">(dossier source)</span></span>';
+    '<input type="checkbox" data-fil="inplace">' +
+    '<span>Sur place <span class="sift-inplace-note">(dossier source)</span></span>';
   foot.parentElement.insertBefore(wrap, foot);
 }
 
@@ -1192,11 +1187,11 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
   state.filedConfirm = null; // opening a track dismisses any "Filed ↩" confirmation
 
   mid.innerHTML =
-    '<div class="sift-fil" style="display:flex;flex-direction:column;height:100%;min-height:0">' +
-    '<div class="sift-fil-dup" style="flex:none"></div>' +
-    '<div class="sift-fil-scroll" style="flex:1;min-height:0;overflow:auto">' +
+    '<div class="sift-fil sift-fil-root">' +
+    '<div class="sift-fil-dup"></div>' +
+    '<div class="sift-fil-scroll">' +
     '<div class="sift-fil-report"></div>' +
-    '<div class="sift-fil-editor" style="margin-top:8px;padding-top:8px;border-top:0.5px solid var(--color-border-tertiary)"></div>' +
+    '<div class="sift-fil-editor sift-fil-editor-margin"></div>' +
     '</div>' +
     "</div>";
   const reportEl = requireEl<HTMLElement>(".sift-fil-report", "openFilingInto", mid);

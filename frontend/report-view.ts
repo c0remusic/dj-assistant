@@ -135,18 +135,18 @@ function peaksCoverage(r: AnalysisReport): string {
 }
 
 function row(label: string, value: string): string {
-  return `<div style="display:flex;justify-content:space-between;gap:16px;padding:3px 0;border-bottom:0.5px solid var(--color-border-tertiary)"><span style="color:var(--color-text-tertiary)">${label}</span><span style="font-family:var(--font-mono);text-align:right;color:var(--color-text-secondary)">${value}</span></div>`;
+  return `<div class="sift-row"><span class="sift-row-label">${label}</span><span class="sift-row-value">${value}</span></div>`;
 }
 
 // ── HTML helpers ────────────────────────────────────────────────────────────
 
 function nameHeaderHtml(name: string, path: string, closeBtn: boolean): string {
   return (
-    `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px">` +
-    `<img class="sift-report-cover" hidden alt="" style="width:40px;height:40px;border-radius:4px;object-fit:cover;flex:none">` +
-    `<div style="min-width:0;flex:1"><div class="sift-report-name" style="font-size:var(--text-base);font-weight:600;word-break:break-all;color:var(--color-text-primary)">${esc(name)}</div>` +
-    `<div style="font-size:var(--text-xs);color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;margin-top:2px">${esc(path)}</div></div>` +
-    (closeBtn ? `<button class="sift-close" style="flex:none;font-size:var(--text-base);padding:4px 10px">close</button>` : "") +
+    `<div class="sift-report-header">` +
+    `<img class="sift-report-cover sift-report-cover-sm" hidden alt="">` +
+    `<div class="sift-report-header-body"><div class="sift-report-name sift-report-name-sm">${esc(name)}</div>` +
+    `<div class="sift-report-path-sm">${esc(path)}</div></div>` +
+    (closeBtn ? `<button class="sift-close sift-report-close">close</button>` : "") +
     `</div>`
   );
 }
@@ -156,22 +156,21 @@ function nameHeaderHtml(name: string, path: string, closeBtn: boolean): string {
  *  that filing.ts writes into (cover src on identify, clean displayName on reconcile). */
 function heroHtml(name: string, path: string): string {
   return (
-    `<div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">` +
-    `<img class="sift-report-cover" hidden alt="" style="width:64px;height:64px;border-radius:var(--border-radius-lg);object-fit:cover;flex:none;background:var(--color-background-secondary)">` +
-    `<div style="min-width:0;flex:1">` +
-    `<div class="sift-report-name" style="font-size:var(--text-hero);font-weight:600;line-height:1.15;color:var(--color-text-primary);word-break:break-word">${esc(name)}</div>` +
-    `<div class="sift-report-sub" style="font-size:var(--text-base);color:var(--color-text-secondary);margin-top:2px"></div>` +
-    `<div style="font-size:var(--text-xs);color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;margin-top:5px">${esc(path)}</div>` +
+    `<div class="sift-hero">` +
+    `<img class="sift-report-cover sift-hero-cover" hidden alt="">` +
+    `<div class="sift-hero-body">` +
+    `<div class="sift-report-name sift-hero-name">${esc(name)}</div>` +
+    `<div class="sift-report-sub sift-hero-sub"></div>` +
+    `<div class="sift-hero-path">${esc(path)}</div>` +
     `</div></div>`
   );
 }
 
 /** Keyboard-hint footer under the detail, matching the board's `kbd` line. */
 function keyboardHintsHtml(): string {
-  const k = (key: string, what: string) =>
-    `<span><b style="font-weight:600;color:var(--color-text-secondary)">${key}</b> ${what}</span>`;
+  const k = (key: string, what: string) => `<span><b>${key}</b> ${what}</span>`;
   return (
-    `<div style="margin-top:18px;font-size:var(--text-xs);letter-spacing:.03em;color:var(--color-text-tertiary);display:flex;gap:16px;flex-wrap:wrap">` +
+    `<div class="sift-kbd-hints">` +
     k("SPACE", "listen") + k("ENTER", "file") + k("BKSP", "discard") + k("↑↓", "navigate") +
     `</div>`
   );
@@ -179,19 +178,19 @@ function keyboardHintsHtml(): string {
 
 function playerRowHtml(): string {
   return (
-    `<div style="display:flex;align-items:center;gap:12px;margin-bottom:11px;padding:8px 11px;min-height:80px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)">` +
-    `<div style="flex:none;align-self:stretch;width:62px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center">` +
-    `<button class="sift-play" title="Play / pause (space)" style="flex:none;width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;padding:0"><i class="ti ti-player-play" style="font-size:var(--text-base)"></i></button>` +
-    `<span class="sift-time" title="Click: elapsed ⇄ remaining" style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);white-space:nowrap;font-family:var(--font-mono);font-size:var(--text-2xs);color:var(--color-text-secondary);cursor:pointer;transition:color .15s;display:inline-flex;align-items:center;justify-content:center;gap:3px"><span class="sift-time-val">0:00 / 0:00</span></span>` +
+    `<div class="sift-player-row">` +
+    `<div class="sift-player-transport">` +
+    `<button class="sift-play sift-play-btn" title="Play / pause (space)"><i class="ti ti-player-play"></i></button>` +
+    `<span class="sift-time sift-time-disp" title="Click: elapsed ⇄ remaining"><span class="sift-time-val">0:00 / 0:00</span></span>` +
     `</div>` +
-    `<div class="sift-wave" style="flex:1;min-width:0;align-self:center;cursor:pointer"></div>` +
-    `<div style="flex:none;align-self:stretch;width:64px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:6px;padding:3px 0">` +
-    `<span style="font-size:var(--text-3xs);letter-spacing:.05em;text-transform:uppercase;color:var(--color-text-tertiary)">tempo</span>` +
-    `<div style="flex:1;min-height:0;display:flex;align-items:center;gap:4px">` +
-    `<input class="sift-tempo" type="range" min="-8" max="8" step="1" value="0" title="Tempo — double-click = reset" aria-label="Tempo" style="writing-mode:vertical-lr;direction:rtl;width:22px;height:100%;max-height:42px">` +
-    `<span class="sift-tempo-out" style="font-family:var(--font-mono);font-size:var(--text-3xs);color:var(--color-text-secondary);width:22px">0%</span>` +
+    `<div class="sift-wave sift-player-wave"></div>` +
+    `<div class="sift-player-tempo">` +
+    `<span class="sift-tempo-label">tempo</span>` +
+    `<div class="sift-tempo-row">` +
+    `<input class="sift-tempo sift-tempo-slider" type="range" min="-8" max="8" step="1" value="0" title="Tempo — double-click = reset" aria-label="Tempo">` +
+    `<span class="sift-tempo-out">0%</span>` +
     `</div>` +
-    `<button class="sift-key" title="Key-lock: tempo doesn't change pitch (off = varispeed)" style="border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:2px 8px;font-size:var(--text-3xs);letter-spacing:.05em;text-transform:uppercase">key</button>` +
+    `<button class="sift-key sift-key-btn" title="Key-lock: tempo doesn't change pitch (off = varispeed)">key</button>` +
     `</div></div>`
   );
 }
@@ -207,7 +206,7 @@ export function vchipHtml(label: string, tone: "success" | "neutral" | "danger" 
         : tone === "warning"
           ? "background:var(--color-background-warning);color:var(--color-text-warning)"
           : "background:rgba(255,255,255,.06);color:var(--color-text-secondary)";
-  return `<span style="display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:var(--text-xs);font-weight:600;letter-spacing:.03em;${css}">${esc(label)}</span>`;
+  return `<span class="sift-vchip" style="${css}">${esc(label)}</span>`;
 }
 
 /** ACTUAL verdict panel, faithful to the Penpot board: a verdict-tinted panel (`vb`) with an
@@ -227,9 +226,9 @@ function verdictCardHtml(r: AnalysisReport): string {
       ? vchipHtml("LOSSLESS", "success")
       : vchipHtml(rq.label, r.verdict === "fake" ? "danger" : r.verdict === "grey" ? "warning" : "neutral");
   return (
-    `<div style="background:${panelBg};border-radius:var(--border-radius-lg);padding:12px 14px;margin-bottom:12px">` +
-    `<div style="display:flex;align-items:center;gap:7px;margin-bottom:9px"><i class="ti ${icon}" style="font-size:var(--text-xl);color:${fg}"></i><span style="font-size:var(--text-xl);font-weight:600;color:${fg}">${label}</span></div>` +
-    `<div class="sift-vchips" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${qualityChip}</div>` +
+    `<div class="sift-verdict-card" style="background:${panelBg}">` +
+    `<div class="sift-verdict-head"><i class="ti ${icon}" style="color:${fg}"></i><span class="sift-verdict-label" style="color:${fg}">${label}</span></div>` +
+    `<div class="sift-vchips sift-vchips-row">${qualityChip}</div>` +
     `</div>`
   );
 }
@@ -237,15 +236,15 @@ function verdictCardHtml(r: AnalysisReport): string {
 function spectroAndTagsHtml(r: AnalysisReport): string {
   const yn = (b: boolean) => (b ? "yes" : "no");
   return (
-    `<div style="margin-bottom:11px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);overflow:hidden">` +
-    `<button class="sift-sg-toggle" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 11px;background:var(--color-background-secondary);border:none;color:var(--color-text-primary);cursor:pointer;font-size:var(--text-sm);text-align:left">` +
-    `<span style="display:flex;align-items:center;gap:8px"><span class="sift-sg-caret" style="display:inline-block;transition:transform .25s;color:var(--color-text-tertiary)">▸</span> Proof (spectrum)</span>` +
-    `<span class="sift-sg-hint" style="font-size:var(--text-sm);color:var(--color-text-info);flex:none">show</span>` +
+    `<div class="sift-spectro-box">` +
+    `<button class="sift-sg-toggle sift-spectro-toggle">` +
+    `<span class="sift-spectro-toggle-label"><span class="sift-sg-caret sift-spectro-caret">▸</span> Proof (spectrum)</span>` +
+    `<span class="sift-sg-hint sift-spectro-hint">show</span>` +
     `</button>` +
-    `<div class="sift-sg-body" style="max-height:0;overflow:hidden;transition:max-height .3s ease">` +
-    `<div style="padding:8px 11px;font-size:var(--text-xs);color:var(--color-text-tertiary);border-bottom:0.5px solid var(--color-border-tertiary);line-height:1.5">Declared <span class="pill">${esc(r.declared_format)}</span> ${r.declared_rail}${r.declared_bitrate ? " · " + r.declared_bitrate + " kbps" : ""} · cutoff ${fmt(r.cutoff_hz, 0)} Hz — ${spectroCaption(r.verdict)}</div>` +
-    `<canvas class="sift-sg" width="720" height="180" style="width:100%;display:block;background:#000"></canvas>` +
-    `<div style="padding:9px 11px;display:grid;grid-template-columns:1fr 1fr;gap:0 28px;font-size:var(--text-md)">` +
+    `<div class="sift-sg-body sift-spectro-body">` +
+    `<div class="sift-spectro-declared">Declared <span class="pill">${esc(r.declared_format)}</span> ${r.declared_rail}${r.declared_bitrate ? " · " + r.declared_bitrate + " kbps" : ""} · cutoff ${fmt(r.cutoff_hz, 0)} Hz — ${spectroCaption(r.verdict)}</div>` +
+    `<canvas class="sift-sg sift-spectro-canvas" width="720" height="180"></canvas>` +
+    `<div class="sift-spectro-rows">` +
     row("Verdict", r.verdict) +
     row("Cutoff", fmt(r.cutoff_hz, 0) + " Hz") +
     row("Duration", fmt(r.duration_sec, 1) + " s") +
@@ -264,14 +263,14 @@ function spectroAndTagsHtml(r: AnalysisReport): string {
     // Source-file tag diagnostics (read-only): an autonomous, ALWAYS-VISIBLE block at the end of the
     // report — outside the collapsible Proof box. Metadata diagnostics (cover, ID3) are a different
     // family from the spectrum/encoding info and must not be hidden behind the Proof toggle.
-    `<div style="margin-bottom:4px">` +
-    `<div style="font-size:var(--text-2xs);letter-spacing:.05em;text-transform:uppercase;color:var(--color-text-tertiary);margin-bottom:5px">Tags</div>` +
-    `<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 28px;font-size:var(--text-md)">` +
+    `<div class="sift-tags-box">` +
+    `<div class="sift-tags-title">Tags</div>` +
+    `<div class="sift-spectro-rows">` +
     row("Tags CDJ OK", yn(r.tags_cdj_ok)) +
     row("Cover", yn(r.has_cover)) +
     row("ID3 version", r.id3_version || "—") +
     `</div></div>` +
-    (r.codec_error ? `<div style="margin-top:12px;font-size:var(--text-sm);color:#ff6b6b">codec error: ${esc(r.codec_error)}</div>` : "")
+    (r.codec_error ? `<div class="sift-codec-error">codec error: ${esc(r.codec_error)}</div>` : "")
   );
 }
 
@@ -497,7 +496,7 @@ function wireReport(root: HTMLElement, r: AnalysisReport) {
 
 /** Renders the report INLINE into `container` (e.g. the Revue #mid pane). */
 export function renderReportInto(container: HTMLElement, r: AnalysisReport) {
-  container.innerHTML = `<div style="flex:1;overflow:auto;padding:2px 2px 8px">${reportHtml(r, false)}</div>`;
+  container.innerHTML = `<div class="sift-report-scroll">${reportHtml(r, false)}</div>`;
   wireReport(container, r);
 }
 
@@ -544,10 +543,10 @@ export async function openReportInto(container: HTMLElement, path: string) {
   // verdict-stub and analysis-body class hooks are filled in later (seq-guarded); their order
   // below the audition is what makes the detail "listen first, judge second".
   container.innerHTML =
-    `<div style="flex:1;overflow:auto;padding:2px 2px 8px">` +
+    `<div class="sift-report-scroll">` +
     heroHtml(name, path) +
     playerRowHtml() +
-    `<div class="sift-verdict-stub" style="display:flex;align-items:center;gap:6px;margin:2px 0 12px;font-size:var(--text-sm);color:var(--color-text-tertiary)">` +
+    `<div class="sift-verdict-stub">` +
     `<i class="ti ti-loader-2 sift-spin"></i>Analyzing…</div>` +
     `<div class="sift-analysis-body" hidden></div>` +
     keyboardHintsHtml() +
@@ -600,7 +599,7 @@ export async function openReportInto(container: HTMLElement, path: string) {
     const verdictEl = container.querySelector<HTMLElement>(".sift-verdict-stub");
     if (verdictEl) {
       verdictEl.outerHTML =
-        `<div style="margin-bottom:12px;font-size:var(--text-sm);color:#ff6b6b">Analysis failed: ${esc(String(e))}</div>`;
+        `<div class="sift-analysis-fail">Analysis failed: ${esc(String(e))}</div>`;
     }
   }
 }
@@ -614,8 +613,7 @@ export async function openReportModal(path: string) {
   document.getElementById(OVERLAY_ID)?.remove();
   const ov = document.createElement("div");
   ov.id = OVERLAY_ID;
-  ov.style.cssText =
-    "position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:24px";
+  ov.className = "sift-report-overlay";
   ov.addEventListener("click", (e) => {
     if (e.target === ov) {
       destroyPlayer();
@@ -624,13 +622,11 @@ export async function openReportModal(path: string) {
   });
   document.body.appendChild(ov);
   const name = path.split(/[\\/]/).pop() || path;
-  const cardCss =
-    "background:var(--color-background-primary);color:var(--color-text-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-lg,12px);box-shadow:0 12px 48px rgba(0,0,0,.5)";
-  ov.innerHTML = `<div style="${cardCss};padding:22px 26px;font-size:var(--text-base);display:flex;align-items:center;gap:8px"><i class="ti ti-loader-2 sift-spin"></i>Analyzing <strong>${esc(name)}</strong>…</div>`;
+  ov.innerHTML = `<div class="sift-report-overlay-card sift-report-overlay-loading"><i class="ti ti-loader-2 sift-spin"></i>Analyzing <strong>${esc(name)}</strong>…</div>`;
   try {
     const r = await analyzePath(path, false);
     const card = document.createElement("div");
-    card.style.cssText = `${cardCss};max-width:760px;width:100%;max-height:90vh;overflow:auto;padding:20px`;
+    card.className = "sift-report-overlay-card sift-report-overlay-modal";
     card.innerHTML = reportHtml(r, true);
     ov.innerHTML = "";
     ov.appendChild(card);
@@ -641,6 +637,6 @@ export async function openReportModal(path: string) {
     wireReport(card, r);
   } catch (e) {
     console.error("analyze_path failed", e);
-    ov.innerHTML = `<div style="${cardCss};padding:22px 26px;font-size:var(--text-base);color:var(--color-text-danger)">Analysis failed: ${esc(String(e))}</div>`;
+    ov.innerHTML = `<div class="sift-report-overlay-card sift-report-overlay-error">Analysis failed: ${esc(String(e))}</div>`;
   }
 }
