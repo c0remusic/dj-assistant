@@ -8,7 +8,7 @@
     "allowJs": true,
     "checkJs": false,
     "skipLibCheck": true,
-    "types": []
+    "types": ["vite/client"]
   },
   "include": ["frontend", "shared"]
 }
