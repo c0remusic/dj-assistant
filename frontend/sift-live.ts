@@ -43,6 +43,7 @@ import {
   targetExt,
   TARGET_LABEL,
   toggleDestPopover,
+  repositionDestPopoverIfOpen,
 } from "./filing";
 // Views/chrome extracted from this god-module (audit P-3) — kept stateless, wired here.
 import { renderEcartes } from "./ecartes-view";
@@ -660,6 +661,7 @@ function renderBatchRail(reviewN: number) {
   // Move the single progress zone into the rail (batch). setTask/clearTask keep driving the same node,
   // so Filing X/N + Analysing render here with no duplicated logic. Detail restores it via setReviewMode.
   mountProgressZone(requireEl("#sift-batch-progress", "renderBatchRail progress slot"));
+  repositionDestPopoverIfOpen(); // the destbtn above was just rebuilt — keep an open popover glued to it
 }
 
 /** Switch between detail and batch review. On entering batch the #fldz tree becomes the destination

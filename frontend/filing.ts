@@ -358,6 +358,21 @@ export function renderBins(fldz: HTMLElement): void {
       }
     });
   }
+  repositionDestPopoverIfOpen();
+}
+
+/** Re-anchor the destination popover to the Destination button's CURRENT position, but only if
+ *  it's actually open. `positionDestPopover` was previously called once, at open time — but
+ *  `#fldz`'s content (this file's `renderBins`) is rebuilt on background events (queue/analysis
+ *  changes trigger `refreshBins`) independent of any user click, and the rail itself
+ *  (`renderFoot`/`renderBatchRail`) can reflow too (e.g. a filename wrapping differently) — either
+ *  can silently move the Destination button while the popover, once positioned, never re-anchored.
+ *  That produced the "position aléatoire" bug: correct if you'd JUST clicked Destination, stale
+ *  and drifted otherwise. Calling this from every content/layout path that could move the button
+ *  keeps the popover glued to it regardless of what triggered the change. */
+export function repositionDestPopoverIfOpen(): void {
+  const pop = document.getElementById("fldz");
+  if (pop && !pop.hidden) positionDestPopover(pop);
 }
 
 /** Default target from the analysed rail (lossless → AIFF, else MP3 320). */
@@ -798,6 +813,7 @@ function renderFoot(foot: HTMLElement, mid: HTMLElement, rail: string): void {
   foot
     .querySelector('[data-fil="trash"]')
     ?.addEventListener("click", () => void doSecondary(mid, "trash"));
+  repositionDestPopoverIfOpen(); // the destbtn above was just rebuilt — keep an open popover glued to it
 }
 
 /** Anchors the popover to the Destination button's real on-screen position (position:fixed,
