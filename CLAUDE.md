@@ -1,5 +1,7 @@
 # Sift — CLAUDE.md
 
+@DESIGN.local.md
+
 > Worktree **`dj-assistant-m6a`** (branche `m6a-discogs`, **dev actif**). L'autre
 > worktree `../dj-assistant` = branche `main` (base stable). Même repo Git.
 > Contexte projet complet : la skill **`sift`** le charge.
@@ -22,12 +24,21 @@ Lib = `sift_lib`. MSRV Rust 1.77.2.
 - Type-check front : `npx tsc --noEmit`
 
 ## Outillage (skills/agent/plugin — déjà câblés, personnalisés Sift)
+> `ecc` scopé OFF sur Sift depuis 2026-07-01 (`.claude/settings.local.json`, coût
+> tokens ~250 skills pour un usage jamais confirmé ici) — toute référence `ecc:*`
+> ci-dessous est indisponible ; utiliser le fallback indiqué.
+
 - **rust-best-practices** (skill) → tout code Rust écrit/revu.
 - **error-handling-patterns** (skill) → erreurs Rust/Tauri (`Result` + serde IPC, fail-fast ; retry réservé à Discogs/AcoustID).
 - **release-skills** (skill) → release : bumper les **3** fichiers de version en synchro
   (`package.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`), depuis `main`.
-- **rust-engineer** (agent) → Rust pointu (async/perf/unsafe).
+- **rust-engineer** (agent) → Rust pointu (async/perf/unsafe) ET fallback review/build
+  Rust en général tant qu'`ecc` est off (pas de `ecc:rust-reviewer`/`ecc:rust-build-resolver` ici).
 - **rust-analyzer-lsp** (plugin) → connecteur LSP `.rs` (rustup component, pas une skill).
+- Revue de code générale (hors Rust) : `code-review` natif (`/code-review`) au lieu de
+  `ecc:code-reviewer`, indisponible sur Sift.
+- a11y/WCAG : `ui-ux-pro-max` (Quick Reference) au lieu de `ecc:a11y-architect`,
+  indisponible sur Sift.
 
 ### Outillage global additionnel (installé niveau utilisateur, dispo partout)
 
@@ -46,11 +57,11 @@ Lib = `sift_lib`. MSRV Rust 1.77.2.
 - **design-taste-frontend** → NE JAMAIS invoquer sur Sift (landing pages/marketing).
 - **stitch-generate-design** / **enhance-prompt** / **stitch-loop** → exploration de
   directions visuelles via Google Stitch (génère HTML). Porter en vanilla TS manuellement.
+  MCP `stitch` supprimé (down/inutilisable, 2026-07-01) — utiliser la skill web directement.
   `stitch::react-components` / `shadcn-ui` / `remotion` = hors scope Sift.
 
 #### Backend / méthode
 - **architect** (agent) → design d'archi avant gros refactor / nouvelle feature.
-- **ecc** (plugin Everything-Claude-Code) → agents/skills/workflows génériques.
 - **tech-debt-audit** (skill, `/tech-debt-audit`) → audit de dette sur tout le repo (Rust + TS).
 - **working-with-legacy-code** / **refactoring-patterns** → pour D3 (split de
   sift-live.ts, ~942 lignes) : couvrir le god file de tests avant de le découper.
@@ -64,20 +75,18 @@ DSL de masks pour le rangement inspiré de MediaMonkey.
 Détective (théorie → preuve → correctif), **fail fast**, **pas de fallback** silencieux,
 changements chirurgicaux. Vérifier avant d'agir.
 
-**RÈGLE IMPÉRATIVE — routage skills (pas une suggestion, un arrêt obligatoire avant
-toute tâche non-triviale, tous domaines confondus : Rust, frontend, UI/design, audit,
-refactor, release, méthode).**
-1. NE PAS commencer à agir directement sur une tâche substantielle.
-2. Identifier le domaine de la tâche (Rust/backend, frontend/UI, audit de dette,
-   refactor/legacy, méthode de planification, release, etc.).
-3. Consulter `docs/skills-registre.md` pour ce domaine — c'est là que vivent les
-   verdicts déjà vérifiés (quelles skills sont adaptées à Sift vs hors-scope/fausses
-   pistes), plutôt que de deviner depuis le nom d'une skill ou de l'auto-déclenchement
+**RÈGLE IMPÉRATIVE — routage skills (arrêt obligatoire avant toute tâche non-triviale,
+tous domaines : Rust, frontend, UI/design, audit, refactor, release, méthode).**
+1. NE PAS agir directement sur une tâche substantielle.
+2. Identifier le domaine de la tâche.
+3. Consulter `docs/skills-registre.md` pour ce domaine — verdicts déjà vérifiés
+   (skill adaptée vs hors-scope) plutôt que deviner depuis le nom ou l'auto-déclenchement
    heuristique seul.
-4. Invoquer EXPLICITEMENT la ou les skills pertinentes trouvées — les nommer dans le
-   raisonnement avant d'agir, ne pas se contenter qu'elles se déclenchent en silence.
+4. Invoquer EXPLICITEMENT la/les skills trouvées — les nommer dans le raisonnement
+   avant d'agir, pas se contenter qu'elles se déclenchent en silence.
 5. Si aucune skill ne correspond après consultation, continuer sans en inventer une.
-Exemples de domaines et leur routage (liste non exhaustive, voir le registre complet) :
+
+Exemples de routage (non exhaustif, voir le registre complet) :
 - Rust/backend → `rust-best-practices`, `error-handling-patterns`, `rust-engineer`.
 - UI/design retouche/polish → `impeccable` (priorité 1) ou `interface-design` (priorité 2).
 - UI/design nouveau chantier → `design-flow` (orchestre tout) ou steps individuels :
@@ -93,8 +102,9 @@ Exemples de domaines et leur routage (liste non exhaustive, voir le registre com
 - Planification d'une tâche non-triviale → `superpowers` (writing-plans, etc.) ou
   `feature-dev` (manuel `/feature-dev`) pour une feature précise avec questions
   de clarification.
-Cette règle prime sur toute impulsion à agir directement sans passer par la skill
-correspondante — même pour un changement qui semble petit.
+
+Prime sur toute impulsion à agir directement sans passer par la skill correspondante
+— même pour un changement qui semble petit.
 
 ## Structure frontend/ (état réel)
 - `main.ts` — boot
@@ -128,66 +138,56 @@ Fichiers plats (pas de sous-dossiers sauf `analysis/` et `metadata/`) :
 
 ## Audit des dépendances (versions à jour)
 
-Vérifie que toutes les dépendances du projet sont à jour, sans rien
-casser et sans update aveugle.
+Vérifie que toutes les dépendances du projet sont à jour, sans rien casser et
+sans update aveugle.
 
 Méthode :
-1. Lance `cargo outdated` pour lister précisément les crates en retard
-   (compare versions actuelles du Cargo.toml vs dernières stables).
-   Si l'outil n'est pas installé : `cargo install cargo-outdated`.
-2. Pour CHAQUE crate en retard, classe l'écart :
-   - patch/minor sans breaking → update sûr
-   - bump majeur (ex: ureq 2.x→3.x, symphonia 0.5→0.6) → STOP,
-     ne touche pas tout de suite, signale-le.
-3. Pour tout bump majeur, récupère le changelog à jour via Context7
-   ou le repo, et résume les breaking changes qui touchent réellement
-     nos call sites — pas une liste générique.
-4. Ne propose un `cargo update` que crate par crate, chirurgicalement.
-   Jamais un update global d'un coup.
+1. `cargo outdated` pour lister les crates en retard (installe-le si absent :
+   `cargo install cargo-outdated`).
+2. Classe chaque écart : patch/minor sans breaking → update sûr ; bump majeur
+   (ex: ureq 2.x→3.x, symphonia 0.5→0.6) → STOP, signale sans toucher.
+3. Pour tout bump majeur, changelog à jour via Context7 ou le repo, résume les
+   breaking changes qui touchent réellement nos call sites — pas une liste générique.
+4. `cargo update` crate par crate, chirurgicalement — jamais un update global.
 
 Versions en usage (migration majeure faite le 2026-07-01, build + 173 tests verts) :
 tauri 2.11.3 · rusqlite 0.40.1 · symphonia 0.6.0 · rustfft 6.4.1 ·
 lofty 0.24.0 · rusty-chromaprint 0.3.0 · notify-debouncer-full 0.7.0 · ureq 3.3.0
-Ces versions sont désormais celles du `Cargo.toml` (plus des cibles à atteindre) —
-elles servent de référence pour le prochain audit `cargo outdated`.
+(cibles atteintes, référence pour le prochain audit `cargo outdated`).
 
 Versions JS en usage (migration TypeScript 6 + Vite 5→8 faite le 2026-07-01,
-4 commits, tsc + build + tauri dev verts) :
-typescript 6.0.3 · vite 8.1.2
-Méthode : un palier majeur = un `npm i -D <pkg>@<major>` + Context7 (breaking
-changes filtrés à notre config réelle) + validation build/dev + commit dédié.
+4 commits, tsc + build + tauri dev verts) : typescript 6.0.3 · vite 8.1.2
+Méthode : un palier majeur = `npm i -D <pkg>@<major>` + Context7 (breaking changes
+filtrés à notre config réelle) + validation build/dev + commit dédié.
 
 Règles :
-- fail-fast : si une crate ne build plus après update, ne mets pas de
-  fallback ni de pin de contournement — remonte l'erreur exacte (fichier:ligne).
+- fail-fast : si une crate ne build plus après update, pas de fallback ni de pin
+  de contournement — remonte l'erreur exacte (fichier:ligne).
 - surgical : un seul changement de version par étape, build + test entre chaque.
-- ne mets jamais à jour une dep "parce qu'elle est en retard" sans que
-  je valide le risque de migration d'abord.
+- ne jamais update une dep "parce qu'elle est en retard" sans validation préalable
+  du risque de migration.
 
 ## Documentation lookups (Context7)
 
-Avant d'écrire ou de modifier du code touchant une librairie externe,
-récupère sa doc à jour via Context7 — ne te fie jamais à la mémoire
-d'entraînement pour une API, une signature, un nom de feature ou une
-config de version.
+Avant d'écrire ou de modifier du code touchant une librairie externe, récupère sa
+doc à jour via Context7 — ne jamais se fier à la mémoire d'entraînement pour une
+API, une signature, un nom de feature ou une config de version.
 
 Déclenche un lookup Context7 automatiquement, sans qu'on le demande, dès que :
-- j'introduis ou je configure une librairie (Tauri v2, rusqlite, Symphonia,
+- introduction/configuration d'une librairie (Tauri v2, rusqlite, Symphonia,
   rustfft, lofty, rusty-chromaprint, ureq, Vite, ou toute crate/package Ableton/Max)
-- je demande un setup, une config ou un exemple d'usage
-- j'utilise une API dont la signature exacte ou le comportement de version compte
-- une erreur de build vient d'un mauvais usage d'API plausiblement périmé
+- demande de setup, config ou exemple d'usage
+- API dont la signature exacte ou le comportement de version compte
+- erreur de build venant d'un mauvais usage d'API plausiblement périmé
 
 Méthode :
-1. Si je n'ai pas donné l'ID, résous-le avec resolve-library-id à partir
-   de ma question.
-2. Quand je suis dans une tâche longue et que le contexte est déjà chargé,
-   spawn l'agent docs-researcher au lieu d'appeler l'outil inline — il tourne
-   en contexte séparé et renvoie juste la réponse, pour ne pas saturer.
-3. Si le lookup échoue ou que la librairie n'est pas indexée, dis-le
-   explicitement (fail-fast) — ne devine pas une API à partir de la mémoire.
+1. Si l'ID n'est pas donné, le résoudre avec resolve-library-id.
+2. En tâche longue avec contexte déjà chargé, spawn l'agent docs-researcher au lieu
+   d'appeler l'outil inline — contexte séparé, ne sature pas.
+3. Si le lookup échoue ou que la librairie n'est pas indexée, le dire explicitement
+   (fail-fast) — ne pas deviner une API depuis la mémoire.
 
-IDs connus pour cette stack (à confirmer à la résolution, ne pas inventer) :
+IDs connus (à confirmer à la résolution, ne pas inventer) :
 /tauri-apps/tauri · /rusqlite/rusqlite · /algesten/ureq
 
 ## Front — événements répétés
