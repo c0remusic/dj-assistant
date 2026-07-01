@@ -549,36 +549,24 @@ function onBatchBinPick(rel: string): void {
   if (fldz) renderBinsForBatch(fldz, batchBin, onBatchBinPick, batchInPlace);
   renderBatchRail(currentItems.filter((it) => it.verdict !== "ok").length);
 }
-/** Ensure the batch destination UI around #fldz: the tree is in batch pick mode, and a "file in
- *  place" checkbox sits right under it (a sibling, so renderBins' innerHTML rebuild can't wipe it). */
+/** Ensure the batch destination UI around #fldz: the tree is in batch pick mode. The "file in
+ *  place" checkbox itself now renders as part of renderBins's own output (filing.ts) — same
+ *  markup/attribute for both modes — so there's nothing left to create here, only the inert
+ *  (greyed) state to keep in sync on every rail rebuild. */
 function ensureBatchDestUI(): void {
   const fldz = document.getElementById("fldz");
   if (!fldz) return;
   // In-place GREYS the tree (visible but inert) — never hides it; the tree only picks a real folder.
   // ensureBatchDestUI runs on EVERY renderBatchRail (incl. run start and the post-run refresh), so
   // syncing binPick.inert here makes it the single source of truth: a later renderBins (queue refresh
-  // during/after a run) re-asserts the SAME state, never an opacity that drifted from batchInPlace.
+  // during/after a run) re-asserts the SAME state via its own .sift-fldz-tree opacity logic.
   setBinPickInert(batchInPlace);
   fldz.style.display = ""; // belt-and-suspenders: a greyed tree must stay laid out, not collapse
-  fldz.style.opacity = batchInPlace ? ".4" : "1";
-  fldz.style.pointerEvents = batchInPlace ? "none" : "auto";
-  let box = document.getElementById("sift-inplace");
-  if (!box) {
-    box = document.createElement("label");
-    box.id = "sift-inplace";
-    box.style.cssText =
-      "display:flex;align-items:center;gap:7px;margin-top:8px;font-size:var(--text-sm);color:var(--color-text-secondary);cursor:pointer";
-    fldz.parentElement?.insertBefore(box, fldz.nextSibling);
+  const treeWrap = fldz.querySelector<HTMLElement>(".sift-fldz-tree");
+  if (treeWrap) {
+    treeWrap.style.opacity = batchInPlace ? ".4" : "1";
+    treeWrap.style.pointerEvents = batchInPlace ? "none" : "auto";
   }
-  box.innerHTML = `<input type="checkbox" data-sift="inplace"${
-    batchInPlace ? " checked" : ""
-  } style="accent-color:var(--color-text-info)"> ${esc(IN_PLACE_LABEL)}`;
-  // The DETAIL in-place toggle (#fil-inplace, ensureInPlaceToggle) is a sibling of #filfoot that
-  // survives the batch rail rebuild — it would show "Sur place (dossier source)" beside our batch
-  // checkbox (the doublon). Hide it in batch (its checked state is preserved); setReviewMode("detail")
-  // restores it. Batch's only in-place control is #sift-inplace.
-  const detToggle = document.getElementById("fil-inplace");
-  if (detToggle) detToggle.style.display = "none";
 }
 
 /** The single rail action button. Adaptive before a run (Filer / Discarder / both / disabled),
@@ -677,14 +665,10 @@ function setReviewMode(m: "detail" | "batch") {
     // Drive the #fldz tree in batch pick mode (loads bins, clicks set batchBin via onBatchBinPick).
     void refreshBinsForBatch(fldz, batchBin, onBatchBinPick, batchInPlace);
   } else {
-    // Leave batch pick mode: tree reverts to detail's state.binRel, remove the in-place checkbox.
+    // Leave batch pick mode: tree reverts to detail's state.binRel. No manual opacity/checkbox
+    // cleanup needed — renderBins (filing.ts) always re-derives .sift-fldz-tree's opacity from
+    // the current binPick (null in detail) and renders the one shared in-place checkbox itself.
     clearBinPick();
-    document.getElementById("sift-inplace")?.remove();
-    // Restore the detail in-place toggle hidden by ensureBatchDestUI (so detail shows its own case).
-    const detToggle = document.getElementById("fil-inplace");
-    if (detToggle) detToggle.style.display = "";
-    fldz.style.opacity = "";
-    fldz.style.pointerEvents = "";
     // Return the progress zone to its left-sidebar home (it was relocated into the batch rail).
     homeProgressZone();
     void renderQueue(true);

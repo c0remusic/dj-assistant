@@ -104,6 +104,12 @@ const state: RevueState = {
 // track never inherits the previous track's edit-mode.
 let identEditing = false;
 
+// Detail mode's "file in place" state — mirrors sift-live.ts's batchInPlace for batch mode. A
+// module variable (not read straight off the checkbox's DOM .checked) because the checkbox now
+// renders as part of renderBins's fldz.innerHTML, rebuilt wholesale on every filter keystroke/
+// folder click/background refresh — a DOM-only checked flag would reset on each of those.
+let detailInPlace = false;
+
 /** Refresh root + bin list from the backend. Call before rendering bins. */
 async function loadBins(): Promise<void> {
   try {
@@ -294,16 +300,37 @@ export function renderBins(fldz: HTMLElement): void {
           nestLabel,
         )}</div>`;
 
-  fldz.innerHTML = filterRow + body + newRow;
+  // "Sur place" lives INSIDE the popover now (maquette: filter → in-place row → tree), instead of
+  // a separate persistent element outside #fldz — same attribute per mode so the existing wiring
+  // (detail: change listener below; batch: sift-live.ts's delegated #pa "change" listener, which
+  // catches it regardless of where inside #pa it renders) needs no other changes. The tree itself
+  // (not the checkbox) is wrapped so batch's "in place greys the tree" behavior can target just that
+  // wrapper — checking the box must never make itself un-clickable.
+  const inPlaceChecked = binPick ? binPick.inert : detailInPlace;
+  const inPlaceAttr = binPick ? 'data-sift="inplace"' : 'data-fil="inplace"';
+  const inPlaceRow = `<label class="sift-inplace-toggle"><input type="checkbox" ${inPlaceAttr}${
+    inPlaceChecked ? " checked" : ""
+  }><span>Sur place <span class="sift-inplace-note">(dossier source)</span></span></label>`;
 
-  // Batch in-place greys the tree (inert). Re-assert it on EVERY render, because renderBins is also
-  // reached from the filter input / caret / folder-click paths that bypass ensureBatchDestUI — without
-  // this the opacity set once by ensureBatchDestUI goes stale (it only refreshed on a rail rebuild,
-  // e.g. the "Aucun (clear)" button, which is why clear appeared to toggle the bug). Detail mode keeps
-  // binPick === null and is never greyed.
-  if (binPick) {
-    fldz.style.opacity = binPick.inert ? ".4" : "1";
-    fldz.style.pointerEvents = binPick.inert ? "none" : "auto";
+  fldz.innerHTML =
+    filterRow + inPlaceRow + `<div class="sift-fldz-tree">${body}${newRow}</div>`;
+
+  if (!binPick) {
+    fldz.querySelector<HTMLInputElement>('[data-fil="inplace"]')?.addEventListener("change", (e) => {
+      detailInPlace = (e.target as HTMLInputElement).checked;
+    });
+  }
+
+  // Batch in-place greys the TREE ONLY (never the checkbox that controls it). Re-assert on every
+  // render, unconditionally (not just when binPick.inert is true) — this makes renderBins
+  // self-consistent across mode switches with no external reset needed (previously an explicit
+  // cleanup in setReviewMode's "leave batch" branch was required because this only ever SET
+  // opacity, never cleared it, when binPick was null).
+  const treeWrap = fldz.querySelector<HTMLElement>(".sift-fldz-tree");
+  if (treeWrap) {
+    const inert = !!binPick?.inert;
+    treeWrap.style.opacity = inert ? ".4" : "1";
+    treeWrap.style.pointerEvents = inert ? "none" : "auto";
   }
 
   // Re-render on every keystroke loses focus — restore it (caret at end) while filtering.
@@ -1291,23 +1318,7 @@ let openSeq = 0;
 /** True when the detail-mode "file in place" checkbox is ticked: File targets the track's own
  *  source folder (FILE_IN_PLACE) instead of the bin selected in the #fldz tree. */
 function fileInPlaceChecked(): boolean {
-  return !!document.querySelector<HTMLInputElement>('[data-fil="inplace"]')?.checked;
-}
-
-/** Insert the "file in place" checkbox ONCE, as a sibling between the bin tree (#fldz) and the
- *  action stack (#filfoot) — the least intrusive spot in the .dest column. Its checked state
- *  persists across track opens (so a run of in-place filings needs one tick). */
-function ensureInPlaceToggle(): void {
-  if (document.getElementById("fil-inplace")) return;
-  const foot = document.getElementById("filfoot");
-  if (!foot?.parentElement) return;
-  const wrap = document.createElement("label");
-  wrap.id = "fil-inplace";
-  wrap.className = "sift-inplace-toggle";
-  wrap.innerHTML =
-    '<input type="checkbox" data-fil="inplace">' +
-    '<span>Sur place <span class="sift-inplace-note">(dossier source)</span></span>';
-  foot.parentElement.insertBefore(wrap, foot);
+  return detailInPlace;
 }
 
 /** Render the analysis report + filing footer for `item` into the #mid pane. */
@@ -1341,7 +1352,6 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
   // The validation footer now lives in the right rail (#filfoot in the .dest column), below the
   // destination tree — so #mid is a pure son-first detail and the rail holds the filing stack.
   const footEl = requireEl("#filfoot", "openFilingInto");
-  ensureInPlaceToggle(); // "Sur place" checkbox between the tree and the action stack (once)
 
   // Duplicate check (by name, sound-confirmed when available) — drives both the banner slot and
   // the verdict-panel UNIQUE/DUPLICATE chip (appended once the panel exists, see end of fn).
