@@ -80,17 +80,11 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--color-background
 :hover::-webkit-scrollbar-thumb,.sift-scrolling::-webkit-scrollbar-thumb{background:var(--color-border-secondary)}
 .sift-scrolling:hover::-webkit-scrollbar-thumb{background:var(--color-text-tertiary)}
 ::-webkit-scrollbar-corner{background:transparent}
-.wrap{max-width:1180px;margin:0 auto;padding:10px 18px 10px;height:100vh;display:flex;flex-direction:column;gap:6px}
-.title{font-size:20px;font-weight:600;letter-spacing:-.01em;margin:0;flex:none}
-.pitch{font-size:12px;line-height:1.45;color:var(--color-text-secondary);margin:0;flex:none}
-.pitch strong{color:var(--color-text-primary);font-weight:600}
-.sub{font-size:11px;color:var(--color-text-tertiary);margin:0;flex:none}
-.pa{flex:1;min-height:280px;display:flex;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);overflow:hidden;font-size:12px}
-.frow{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:7px;flex:none}
-.fcard{display:flex;gap:9px;align-items:flex-start;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:8px 10px}
-.fcard>i{font-size:16px;color:var(--color-text-info);flex:none;margin-top:1px}
-.fcard b{display:block;font-size:11px;font-weight:600;margin-bottom:2px}
-.fcard span{display:block;font-size:10px;line-height:1.4;color:var(--color-text-secondary)}
+/* No .wrap/.title/.pitch/.sub/.frow/.fcard: the old web-demo marketing shell (pitch, disclaimer,
+   feature-card row) is gone from index.html — the app IS the window now, per the maquette's root
+   (height:100%;width:100%;display:flex, no centered wrapper). */
+html,body{margin:0;padding:0;height:100%}
+.pa{height:100%;width:100%;display:flex;background:var(--color-background-primary);overflow:hidden;font-size:12px}
 /* Wide, labelled, grouped nav rail — faithful to the Penpot shell (brand + PROCESS/ORGANIZE/
    EXPORT groups + neutral selection). See .interface-design/penpot-detail-spec.md. */
 .sb{width:152px;flex:none;display:flex;flex-direction:column;gap:1px;padding:14px 10px;background:var(--color-background-tertiary);border-right:0.5px solid var(--color-border-tertiary);align-items:stretch}
@@ -102,6 +96,11 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--color-background
 .nv i{font-size:17px;flex:none}
 .nv:hover{background:var(--color-nav-active)}
 .nv.on{background:var(--color-nav-active);color:var(--color-text-primary);font-weight:500}
+/* Export (Rekordbox / Clé USB): visually secondary — not built yet, so it must read as "less
+   important" rather than a full nav tab (maquette's exportItems: dimmed, dot instead of icon). */
+.nv-export{opacity:.55}
+.nv-export:hover{opacity:.85}
+.nv-export-dot{width:5px;height:5px;border-radius:999px;background:var(--color-text-warning);flex:none}
 .nav-badge{font-size:10px;font-weight:600;color:var(--color-text-tertiary);background:var(--overlay-badge);border-radius:999px;padding:1px 7px;flex:none}
 .nav-badge:empty{display:none}
 /* Bottom group of the rail: holds the margin-top:auto (so Settings stays pinned to the very bottom)
@@ -141,13 +140,22 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--color-background
 .sift-inspector{flex:1;min-width:0;display:flex;flex-direction:column;position:relative}
 .mid{flex:1;min-width:0;display:flex;flex-direction:column;padding:13px 15px 10px;overflow:hidden}
 .mid-scroll{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column}
-/* Action rail (was the persistent .dest column — now a slim bar anchored to the bottom of the
-   inspector, matching the maquette: Destination popover trigger + format + File/Discard). */
-.sift-action-rail{flex:none;display:flex;flex-direction:column;padding:11px 15px;background:var(--color-background-tertiary);border-top:0.5px solid var(--color-border-tertiary);overflow:visible}
-.sift-dest-btn{display:flex;align-items:center;gap:8px;width:100%;margin-bottom:10px;padding:8px 10px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);color:var(--color-text-primary);font-size:var(--text-sm);cursor:pointer}
+/* Action rail (was the persistent .dest column — now a slim horizontal bar anchored to
+   the bottom of the inspector, matching the maquette's single-row ACTION RAIL: Destination
+   popover trigger, format chips, a flex spacer, key hints, secondary, primary — all in one
+   line, wrapping only if the window gets too narrow. */
+.sift-action-rail{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-12);padding:11px 15px;background:var(--color-background-tertiary);border-top:0.5px solid var(--color-border-tertiary);overflow:visible}
+.sift-dest-btn{display:flex;align-items:center;gap:8px;flex:none;width:auto;max-width:220px;padding:8px 10px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);color:var(--color-text-primary);font-size:var(--text-sm);cursor:pointer}
 .sift-dest-btn-label{color:var(--color-text-tertiary);flex:none}
-.sift-dest-btn .sift-fil-bin{flex:1;min-width:0;text-align:left;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+.sift-dest-btn .sift-fil-bin{flex:1;min-width:0;text-align:left;overflow:hidden;text-overflow:ellipsis;font-weight:500;max-width:120px}
 .sift-dest-btn-caret{flex:none;font-size:var(--text-sm);color:var(--color-text-tertiary)}
+/* Format group: label + chips inline together, no longer a stacked "col-h" block. */
+.sift-rail-fmt-group{display:flex;align-items:center;gap:6px;flex:none}
+.sift-rail-fmt-group .col-h{margin:0}
+/* Pushes secondary/primary to the right edge of the rail. */
+.sift-rail-spacer{flex:1;min-width:8px}
+.sift-ranger-btn{flex:none;white-space:nowrap}
+.sift-secondary-resource,.sift-secondary-trash{flex:none;white-space:nowrap}
 /* Destination popover: replaces the persistent tree column, anchored above its trigger button.
    Hidden by default ([hidden] attribute, toggled in filing.ts); #fldz keeps its id so renderBins'
    existing document.getElementById("fldz") callers need no change. */
@@ -430,3 +438,57 @@ details[open]>.jrnl-cat-hd .jrnl-cat-chev{transform:rotate(90deg)}
 .sift-cand-change-btn{font-size:var(--text-sm);padding:2px 8px;flex:none}
 .sift-underline{text-decoration:underline}
 .sift-icon-flex-none{flex:none}
+
+/* ── Journal — grammaire 3 colonnes (Sift.dc.html) : liste en col Queue + détail en Inspecteur ── */
+/* Queue column (reuses .queue for bg/width/padding). */
+.jrnl-queue{padding:0}
+.jrnl-qhead{display:flex;align-items:center;justify-content:space-between;padding:16px 16px 11px}
+.jrnl-qtitle{font-size:var(--text-base);font-weight:600;letter-spacing:.01em;color:var(--color-text-primary)}
+.jrnl-qcount{font-family:var(--font-mono);font-weight:400;font-size:var(--text-sm);color:var(--color-text-tertiary);margin-left:2px}
+.jrnl-qmode{display:flex;gap:2px;background:var(--color-track);border:0.5px solid var(--color-border-secondary);border-radius:7px;padding:2px}
+.jrnl-qmode-btn{font-size:var(--text-sm);padding:3px 9px;border-radius:5px;cursor:pointer;color:var(--color-text-tertiary);font-weight:500}
+.jrnl-qmode-btn:hover{background:var(--color-row-active)}
+.jrnl-qmode-btn.on{background:var(--color-background-secondary);color:var(--color-text-primary)}
+.jrnl-qlist{flex:1;min-height:0;overflow-y:auto;padding:0 8px 14px}
+.jrnl-qgrp{display:flex;align-items:center;gap:6px;font-size:var(--text-2xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-quaternary);padding:12px 8px 5px}
+.jrnl-qgrp-n{font-family:var(--font-mono);font-weight:400;color:var(--color-text-tertiary)}
+.jrnl-qrow{position:relative;display:flex;gap:8px;padding:8px 10px 8px 12px;margin-bottom:1px;border-radius:7px;cursor:pointer}
+.jrnl-qrow:hover{background:var(--color-row-active)}
+.jrnl-qrow.on{background:var(--color-row-active)}
+.jrnl-qrow-bar{position:absolute;left:2px;top:9px;bottom:9px;width:2px;border-radius:2px;background:var(--color-text-secondary);opacity:0}
+.jrnl-qrow.on .jrnl-qrow-bar{opacity:1}
+.jrnl-qrow-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.jrnl-qrow-head{display:flex;align-items:center;gap:8px}
+.jrnl-qrow-dot{width:6px;height:6px;border-radius:999px;flex:none}
+.jrnl-qrow-action{font-size:var(--text-base);font-weight:500;color:var(--color-text-primary);flex:1;min-width:0}
+.jrnl-qrow-time{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-text-quaternary);flex:none}
+.jrnl-qrow-detail{font-size:var(--text-sm);color:var(--color-text-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:14px}
+.jrnl-qempty{font-size:var(--text-sm);color:var(--color-text-tertiary);padding:16px}
+/* Inspector column (reuses .sift-inspector for flex column). */
+.jrnl-insp-scroll{flex:1;min-height:0;overflow-y:auto;padding:20px 30px}
+.jrnl-insp-crumb{font-size:var(--text-md);color:var(--color-text-tertiary);margin-bottom:20px}
+.jrnl-insp-sep{color:var(--color-text-quaternary);margin:0 3px}
+.jrnl-insp-crumb-cur{color:var(--color-text-primary)}
+.jrnl-insp-head{display:flex;align-items:center;gap:12px;margin-bottom:24px}
+.jrnl-insp-dot{width:11px;height:11px;border-radius:999px;flex:none}
+.jrnl-insp-action{font-size:22px;font-weight:600;color:var(--color-text-primary)}
+.jrnl-insp-time{font-family:var(--font-mono);font-size:var(--text-md);color:var(--color-text-quaternary)}
+.jrnl-insp-card{background:var(--color-background-secondary);border:1px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);padding:18px 20px;max-width:560px;display:flex;flex-wrap:wrap;gap:6px 30px}
+.jrnl-insp-field{margin-bottom:6px}
+.jrnl-insp-flabel{font-size:var(--text-xs);letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-quaternary);margin-bottom:4px}
+.jrnl-insp-fvalue{font-size:var(--text-lg);color:var(--color-text-primary)}
+.jrnl-insp-fvalue.mono{font-family:var(--font-mono);font-size:var(--text-base);color:var(--color-text-secondary);word-break:break-all}
+.jrnl-insp-rail{flex:none;display:flex;align-items:center;gap:14px;border-top:1px solid var(--color-border-secondary);background:var(--color-background-tertiary);padding:13px 30px}
+.jrnl-insp-hints{display:flex;align-items:center;gap:16px}
+.jrnl-insp-hint{display:flex;align-items:center;gap:6px;font-size:var(--text-sm);color:var(--color-text-tertiary)}
+.jrnl-insp-rail-sp{flex:1}
+.jrnl-insp-revert{height:40px;display:flex;align-items:center;gap:8px;padding:0 18px;border-radius:8px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);cursor:pointer;font-size:var(--text-base);font-weight:500;color:var(--color-text-primary)}
+.jrnl-insp-revert:hover{filter:brightness(0.96)}
+.jrnl-insp-revert:disabled{opacity:.5;cursor:default}
+/* Shared empty state (DESIGN.md "État vide") — top-aligned, never centred. Used by Revue (queue),
+   Écartés, and Bibliothèque when the screen is a real dead-end. */
+.sift-empty-state{padding:28px 30px;display:flex;flex-direction:column;align-items:flex-start;gap:var(--space-8);max-width:360px}
+.sift-empty-title{font-size:var(--text-xl);font-weight:600;color:var(--color-text-primary)}
+.sift-empty-note{font-size:var(--text-md);color:var(--color-text-tertiary);line-height:1.5}
+.sift-empty-link{margin-top:var(--space-4);font-size:var(--text-sm);color:var(--color-text-info);background:none;border:none;padding:0;cursor:pointer;font-family:inherit}
+.sift-empty-link:hover{text-decoration:underline}
