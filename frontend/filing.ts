@@ -99,6 +99,11 @@ const state: RevueState = {
   filedConfirm: null,
 };
 
+// Identification card display mode: false = read-only grid (maquette default), true = the
+// existing editable artist/title/version inputs. Reset on every track open (Step 3) so a new
+// track never inherits the previous track's edit-mode.
+let identEditing = false;
+
 /** Refresh root + bin list from the backend. Call before rendering bins. */
 async function loadBins(): Promise<void> {
   try {
@@ -876,16 +881,24 @@ function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string, report:
   // fields it populates (artist/title/version → Genres directly under Version). The Final name
   // preview moved to the rail (next to File). `.sift-cands` sits above the inputs so choosing a
   // release precedes editing.
+  const displayName =
+    c.artist && c.title ? `${c.artist} — ${c.title}${c.version ? ` (${c.version})` : ""}` : "Non identifié";
   host.innerHTML =
-    `<div class="col-h sift-editor-title">Métadonnées</div>` +
-    `<div class="sift-editor-badge-row">${badge}</div>` +
-    `<button data-fil="identifier" class="sift-id-btn sift-id-btn-full" title="Rechercher les métadonnées sur Discogs (pochette, label, année, genres)"><i class="ti ti-search sift-icon-inline-sm"></i> Récupérer les métadonnées Discogs <span class="kbd sift-kbd-hint-id">I</span></button>` +
-    `<div class="sift-cands sift-cands-host" hidden></div>` +
-    `<div class="sift-editor-fields">` +
-    `<input data-fil="artist" placeholder="Artist" value="${esc(c.artist)}" class="${inputCss}">` +
-    `<input data-fil="title" placeholder="Title" value="${esc(c.title)}" class="${inputCss}">` +
-    `<input data-fil="version" placeholder="Version" value="${esc(c.version ?? "")}" class="${inputCss}">` +
+    `<div class="sift-ident-head">` +
+    `<span class="col-h sift-editor-title">Identification · Discogs</span>` +
+    `<button data-fil="ident-edit" class="sift-ident-edit-btn" title="Modifier manuellement"><i class="ti ti-pencil"></i></button>` +
     `</div>` +
+    (identEditing
+      ? `<div class="sift-editor-badge-row">${badge}</div>` +
+        `<button data-fil="identifier" class="sift-id-btn sift-id-btn-full" title="Rechercher les métadonnées sur Discogs (pochette, label, année, genres)"><i class="ti ti-search sift-icon-inline-sm"></i> Récupérer les métadonnées Discogs <span class="kbd sift-kbd-hint-id">I</span></button>` +
+        `<div class="sift-cands sift-cands-host" hidden></div>` +
+        `<div class="sift-editor-fields">` +
+        `<input data-fil="artist" placeholder="Artist" value="${esc(c.artist)}" class="${inputCss}">` +
+        `<input data-fil="title" placeholder="Title" value="${esc(c.title)}" class="${inputCss}">` +
+        `<input data-fil="version" placeholder="Version" value="${esc(c.version ?? "")}" class="${inputCss}">` +
+        `</div>` +
+        `<button data-fil="ident-done" class="sift-ident-done-btn">Terminé</button>`
+      : `<div class="sift-ident-display">${esc(displayName)}</div>`) +
     // Read-only release facts (Label · Année) between the editable identity and Genres. Filled by
     // refreshReleaseLine() below from state; stays empty (no gap) when neither value is known.
     `<div class="sift-release"></div>` +
@@ -932,6 +945,15 @@ function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string, report:
 
   const applyBtn = host.querySelector<HTMLButtonElement>('[data-fil="applytags"]');
   if (applyBtn) setApplyIdle(applyBtn); // idle on every fresh render; doApplyTags flips it to "applied"
+
+  host.querySelector<HTMLButtonElement>('[data-fil="ident-edit"]')?.addEventListener("click", () => {
+    identEditing = true;
+    renderEditor(host, mid, rail, report);
+  });
+  host.querySelector<HTMLButtonElement>('[data-fil="ident-done"]')?.addEventListener("click", () => {
+    identEditing = false;
+    renderEditor(host, mid, rail, report);
+  });
 
   refreshReleaseLine(); // read-only Label · Année from state (restored from cache on open); empty when none
 }
@@ -1274,6 +1296,7 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
   state.label = cachedRelease?.label ?? null;
   state.year = cachedRelease?.year ?? null;
   state.filedConfirm = null; // opening a track dismisses any "Filed ↩" confirmation
+  identEditing = false; // Identification card always opens in read-only display mode
 
   mid.innerHTML =
     '<div class="sift-fil sift-fil-root">' +
