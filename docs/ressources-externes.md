@@ -213,6 +213,40 @@ voisin de Sift. Ce qu'il fait et comment :
 
 ---
 
+## Titlebar custom (chantier UI prévu, pas démarré)
+
+> Décision 2026-06-30 (option « noter sans coder ») : remplacer la titlebar
+> native par une barre custom est **prévu** mais **pas en chantier**. Aucune
+> dépendance ajoutée pour l'instant (éviter le bloat d'une dep qui dort).
+> À attaquer comme un vrai chantier UI — routage CLAUDE.md : `design-flow`
+> (nouveau screen) ou `impeccable`.
+
+Trois briques distinctes le jour où on s'y met (et `tauri-plugin-os` n'en
+couvre qu'UNE) :
+
+1. **Détecter l'OS** → `tauri-plugin-os` (officiel, suit la version majeure
+   Tauri). Sert à placer les contrôles au bon endroit : feux tricolores à
+   gauche sur macOS, minimize/maximize/close à droite sur Windows. C'est le
+   SEUL rôle du plugin ici. _Statut : à ajouter au moment du chantier, pas avant._
+2. **Fenêtre sans décoration** → `decorations: false` dans `tauri.conf.json`
+   + recréer la barre en HTML/CSS. Pas de plugin, config + DOM.
+3. **Actions fenêtre** → `@tauri-apps/api/window` (`getCurrentWindow().minimize()`
+   / `.toggleMaximize()` / `.close()`) + attribut `data-tauri-drag-region`
+   sur la zone de déplacement. Pas de plugin.
+
+- **[agmmnn/tauri-controls](https://github.com/agmmnn/tauri-controls)** —
+  contrôles de fenêtre d'apparence native pour Tauri 2 (boutons dessinés selon
+  les prototypes de design officiels de chaque OS, PAS des contrôles natifs).
+  ⚠️ Livré en React/Solid/Vue/Svelte+Tailwind — **pas de variante vanilla TS**.
+  _Statut : **référence-only**._ Usage prévu : copier leur rendu CSS/SVG
+  par-OS pour le pixel-perfect, réimplémenter en vanilla TS. Jamais en dépendance.
+- **[agmmnn/tauri-ui](https://github.com/agmmnn/tauri-ui)** — **écarté**
+  2026-06-30. Scaffolder shadcn/ui (React), sert à démarrer un projet de zéro,
+  pas à enrichir l'existant ; hors scope vanilla TS ; maintenance douteuse
+  (issue #21 upgrade Tauri 2 sans réponse). Rien à en tirer pour Sift.
+
+---
+
 ## Écarté
 
 - **[vykee.co](https://vykee.co)** — écarté le 2026-06-24. SDK SaaS d'**onboarding

@@ -39,6 +39,18 @@ RÈGLES ABSOLUES (lis-les avant tout)
    backup implicite, séparation des responsabilités, changements
    chirurgicaux. Une violation de ces principes EST un problème à lister.
 
+8. ROUTAGE SKILLS/AGENTS (arrêt obligatoire avant CHAQUE pass). Comme le
+   veut la RÈGLE IMPÉRATIVE du CLAUDE.md, ne commence pas une pass à l'aveugle :
+   a) identifie le domaine de la pass (archi, Rust, perf, UI, maintenabilité…) ;
+   b) consulte `docs/skills-registre.md` pour ce domaine — c'est là que vivent
+      les verdicts déjà vérifiés (skill adaptée à Sift vs hors-scope) ;
+   c) invoque EXPLICITEMENT la/les skills pertinentes, nomme-les dans le
+      rapport de la pass (section « Outillage invoqué ») avant d'analyser —
+      ne te repose pas sur l'auto-déclenchement silencieux ;
+   d) si rien ne correspond après consultation, continue sans inventer.
+   Le mapping par pass ci-dessous est un point de départ, pas une liste
+   close : le registre fait foi.
+
 ═══════════════════════════════════════════════════════════
 ÉTAPE 0 — CARTE DU PROJET (obligatoire, avant toute pass)
 ═══════════════════════════════════════════════════════════
@@ -62,6 +74,16 @@ GESTION DU CONTEXTE
 finie. Ne garde pas tout en mémoire ; le rapport final relit ces fichiers.
 Cela évite que les dernières passes soient bâclées par saturation.
 
+DOC À JOUR (Context7). Quand une pass exige de vérifier le comportement
+exact, une signature d'API ou une feature de version d'une dépendance
+(Tauri v2, rusqlite, Symphonia, rustfft, lofty, rusty-chromaprint, ureq,
+Vite), récupère la doc à jour via Context7 — ne te fie pas à la mémoire
+d'entraînement pour juger un usage correct/périmé. Pour ne pas saturer le
+contexte d'une pass longue, spawn l'agent `docs-researcher` (contexte
+séparé, renvoie juste la réponse) plutôt que d'appeler l'outil inline.
+Si Context7 n'indexe pas une lib ou échoue : écris-le (fail-fast), ne
+devine pas l'API.
+
 ═══════════════════════════════════════════════════════════
 FORMAT D'UN PROBLÈME
 ═══════════════════════════════════════════════════════════
@@ -82,6 +104,8 @@ LES PASSES
 ═══════════════════════════════════════════════════════════
 
 → PASS 1 — Architecture
+  Outillage (cf. registre) : agent `architect` (design d'archi),
+  `software-design-philosophy` (deep module), `clean-code`.
   Globale, organisation, séparation des responsabilités, modularité,
   couplage, dette, extensibilité, cohérence.
   Questions ciblées Sift :
@@ -97,6 +121,8 @@ LES PASSES
   Écris `audit/PASS-1-architecture.md`.
 
 → PASS 2 — Qualité du code
+  Outillage (cf. registre) : `rust-best-practices`, `error-handling-patterns`
+  (Result + serde IPC, fail-fast), `clean-code`, `pragmatic-programmer`.
   Lisibilité, nommage, duplication, fonctions trop longues, complexité,
   cohérence de style, robustesse, gestion d'erreurs, code mort/inutile.
   Questions ciblées Sift :
@@ -113,6 +139,8 @@ LES PASSES
   Écris `audit/PASS-2-qualite.md`.
 
 → PASS 3 — Bugs potentiels
+  Outillage (cf. registre) : `error-handling-patterns`,
+  `superpowers/systematic-debugging`, agent `rust-engineer` (async/races).
   null/undefined, états incohérents, race conditions, erreurs silencieuses,
   edge cases, variables jamais mises à jour, asynchronisme, régressions.
   Zéro supposition (sinon → hypothèses non vérifiées).
@@ -131,6 +159,9 @@ LES PASSES
   Écris `audit/PASS-3-bugs.md`.
 
 → PASS 4 — Performances (axe produit prioritaire)
+  Outillage (cf. registre) : agent `rust-engineer` (async/perf/unsafe) pour
+  les chemins Rust (décode/FFT/conversion) ; pour la fluidité UI, voir la
+  note « Front — événements répétés » du CLAUDE.md (créer une fois, muter ensuite).
   Méthode détective stricte : ne déclare pas un chemin « lent » sans preuve
   dans le code. Localise le coût (boucle, allocation, copie, appel bloquant,
   re-render) ET propose comment le mesurer. Distingue « coût prouvé par le
@@ -158,6 +189,11 @@ LES PASSES
   Écris `audit/PASS-4-perfs.md`.
 
 → PASS 5 — UI / UX
+  Outillage (cf. registre, scope desktop-dense uniquement) : `interface-design`
+  (source de vérité tokens `.interface-design/system.md`), `ux-heuristics`
+  (Nielsen), `design-everyday-things` (affordances), `refactoring-ui`
+  (hiérarchie/espacement). NE JAMAIS invoquer `design-taste-frontend` /
+  `redesign-existing-projects` (scope marketing/landing).
   Cohérence visuelle, hiérarchie, espacement, alignements, densité,
   lisibilité, navigation, ergonomie, feedback, états des contrôles,
   accessibilité si pertinent. Signale les écrans confus/surchargés.
@@ -173,6 +209,9 @@ LES PASSES
   Écris `audit/PASS-5-ui-ux.md`.
 
 → PASS 6 — Logique produit
+  Outillage (cf. registre) : `steve-jobs-design-review` (« the no list »,
+  trancher le scope), `37signals-way` (build less — la philosophie, pas le
+  rituel d'équipe).
   Fonctionnalités peu claires/redondantes, options inutiles, complexité
   excessive, friction, workflow, cohérence des interactions.
   Question systématique : « Cette fonctionnalité apporte-t-elle vraiment de
@@ -188,6 +227,9 @@ LES PASSES
   Écris `audit/PASS-6-produit.md`.
 
 → PASS 7 — Maintenabilité
+  Outillage (cf. registre) : `working-with-legacy-code` + `refactoring-patterns`
+  (zones fragiles, ex. split de `sift-live.ts` ~942 lignes), Context7 pour le
+  volet versions/changelog ci-dessous.
   Évolution, risques futurs, architecture long terme, zones fragiles,
   dépendances, découpage, testabilité.
   Questions ciblées Sift :
@@ -195,6 +237,19 @@ LES PASSES
     Prouve par le couplage observé.
   - Dépendances : versions figées FFmpeg/Symphonia/lofty, risque de rupture
     à la mise à jour ? Surface d'API large ou réduite ?
+  - VERSIONS À JOUR (preuve, pas de mémoire) : compare les versions du
+    `Cargo.toml` / `package.json` aux dernières stables (via `cargo
+    outdated` / `npm outdated`, ou registres crates.io / npm). Cible
+    crates.io vérifiée le 2026-06-30 : tauri 2.11.3, rusqlite 0.40.1,
+    symphonia 0.6.0, rustfft 6.4.1, lofty 0.24.0, rusty-chromaprint 0.3.0,
+    ureq 3.3.0. Pour CHAQUE dep en retard, classe l'écart :
+      • patch/minor sans breaking → update sûr ;
+      • bump majeur (ex. ureq 2.x→3.x, symphonia 0.5→0.6) → signale-le et
+        résume, via Context7 ou le changelog, les breaking changes qui
+        touchent RÉELLEMENT nos call sites (fichier:ligne), pas une liste
+        générique. Ne propose jamais un `cargo update` global : update
+        chirurgical, dep par dep. (Audit seulement : tu décris, tu
+        n'appliques pas.)
   - Logique critique (verdict, conversion, filing) testable en isolation, ou
     trop couplée I/O + UI ?
   - Migrations SQLite versionnées et sûres ?
