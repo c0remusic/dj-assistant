@@ -270,3 +270,20 @@ couvre qu'UNE) :
   requis → casse l'esprit offline/léger. Si un jour « trouve-moi des morceaux qui
   *sonnent* pareil » (embeddings audio), préférer `sqlite-vec` (in-process) à
   Qdrant.
+- **Graphify (graphe de connaissance du codebase)** — écarté le 2026-07-01,
+  après éval réelle (extraction + clustering sur tout le repo,
+  `graphify-out/GRAPH_REPORT.md` : 1174 nodes, 2695 edges, 50 communautés).
+  Les communautés (noms générés) recoupaient correctement la structure connue
+  (Filing Rail UI, Discogs Track Matching…) mais la section « Surprising
+  Connections » — censée apporter la valeur *nouvelle* — contenait des faux
+  liens cross-langage (ex. `add_source()` en Rust lié à tort à `state` en TS)
+  par collision de nom d'identifiant lors du linking, pas par un artefact de
+  construction du graphe (`graphify diagnose multigraph --directed` : 0 edge
+  collapsé). Le mode gratuit (cluster-only) ne fait que du matching structurel ;
+  le mode sémantique (`--backend claude-cli`, gratuit via la souscription Claude
+  Code) n'a pas pu être testé jusqu'au bout — bloqué par le classifieur auto-mode
+  (action jugée trop risquée : lecture + envoi de tout le corpus vers un
+  sous-process externe sans autorisation explicite assez précise). Overhead
+  d'entretien (`.graphifyignore`, hooks git, rebuild à chaque changement de
+  structure) pas justifié pour un repo de la taille de Sift tant que
+  l'attribution sémantique n'est pas fiable.
