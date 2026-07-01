@@ -6,6 +6,13 @@
  * the normal `binRel` channel — no separate flag — and the backend resolves it in `plan_file`. */
 export const FILE_IN_PLACE = "__SOURCE__";
 
+/** Prefix marking `binRel` as a trusted absolute path OUTSIDE the library root ("Parcourir un
+ * autre dossier…"). Mirror of Rust `filing::EXTERNAL_DEST_PREFIX`; the two literals MUST stay
+ * identical. Trust boundary: build this value ONLY from a path returned by the Tauri directory
+ * picker dialog (an existing directory the user navigated to and selected) — never from
+ * free-typed text. The backend still re-validates the path exists before use. */
+export const EXTERNAL_DEST_PREFIX = "__EXTERNAL__::";
+
 export interface AppInfo {
   name: string;
   version: string;

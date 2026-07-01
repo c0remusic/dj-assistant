@@ -30,7 +30,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { openReportInto, togglePlay, vchipHtml, row, keyboardHintsHtml } from "./report-view";
 import { renderCandidates } from "./identify-shared";
 import type { Bin, Canonical, Target, QueueItem, AnalysisReport } from "../shared/contracts";
-import { FILE_IN_PLACE } from "../shared/contracts";
+import { FILE_IN_PLACE, EXTERNAL_DEST_PREFIX } from "../shared/contracts";
 import { requireEl } from "./dom";
 import { emptyStateHtml } from "./empty-state";
 
@@ -118,8 +118,15 @@ async function loadBins(): Promise<void> {
     state.rootSet = !!(root && root.trim());
     state.bins = state.rootSet ? await listBins() : [];
     if (state.rootSet) expanded.add(""); // root open by default
-    // Drop a stale selection (a real bin that vanished); "" (root) is always valid.
-    if (state.binRel && state.binRel !== "" && !state.bins.some((b) => b.rel === state.binRel)) {
+    // Drop a stale selection (a real bin that vanished); "" (root) is always valid, and an
+    // external destination (outside root, never listed in `state.bins`) is its own kind of
+    // valid — only a REAL bin path that no longer matches any loaded bin counts as stale here.
+    if (
+      state.binRel &&
+      state.binRel !== "" &&
+      !state.binRel.startsWith(EXTERNAL_DEST_PREFIX) &&
+      !state.bins.some((b) => b.rel === state.binRel)
+    ) {
       state.binRel = null;
     }
     // Default to filing at the root until the user picks a sub-folder.
@@ -141,6 +148,26 @@ async function pickRoot(fldz: HTMLElement): Promise<void> {
     renderBins(fldz);
   } catch (e) {
     console.error("setSetting(library_root) failed", e);
+  }
+}
+
+/** "Parcourir un autre dossier…" — native OS directory picker, result becomes an
+ *  EXTERNAL_DEST_PREFIX-prefixed destination (see plan_file's handling in filing.rs). Same
+ *  post-pick behavior as clicking a tree bin: batch routes through binPick.onPick, detail sets
+ *  state.binRel directly and closes the popover. The dialog only ever returns a real, existing
+ *  directory the user navigated to — never free-typed text — which is the trust boundary
+ *  EXTERNAL_DEST_PREFIX's doc comment (filing.rs) relies on. */
+async function browseExternalDest(fldz: HTMLElement): Promise<void> {
+  const dir = await open({ directory: true, multiple: false });
+  if (typeof dir !== "string") return;
+  const prefixed = `${EXTERNAL_DEST_PREFIX}${dir}`;
+  if (binPick) {
+    binPick.onPick(prefixed);
+  } else {
+    state.binRel = prefixed;
+    renderBins(fldz);
+    refreshFootButton();
+    fldz.hidden = true;
   }
 }
 
@@ -185,6 +212,10 @@ function absPath(rel: string): string {
 function binLabel(): string {
   if (state.binRel === null) return "—";
   if (state.binRel === "") return rootName();
+  if (state.binRel.startsWith(EXTERNAL_DEST_PREFIX)) {
+    const abs = state.binRel.slice(EXTERNAL_DEST_PREFIX.length);
+    return abs.split(/[\\/]/).filter(Boolean).pop() || abs;
+  }
   return state.binRel;
 }
 
@@ -288,9 +319,15 @@ export function renderBins(fldz: HTMLElement): void {
     body = tree + emptyNote;
   }
 
-  // "+ nouveau" creates under the selected folder (nested). Hidden while filtering.
-  const nestLabel = state.binRel ? ` dans ${binLabel()}` : "";
-  const newRow = filtering
+  // "+ nouveau" creates under the selected folder (nested) via the library-root-relative bin
+  // IPC (create_bin -> safe_join) — meaningless (and unsafe to sanitize) for an external
+  // destination, which lives entirely outside that model. Hidden while filtering OR while an
+  // external folder is selected (selRel() is mode-aware: batch pick context or detail's own
+  // state.binRel — the external check must match whichever one is actually current, not always
+  // detail's).
+  const inExternalDest = !!selRel()?.startsWith(EXTERNAL_DEST_PREFIX);
+  const nestLabel = state.binRel && !inExternalDest ? ` dans ${binLabel()}` : "";
+  const newRow = filtering || inExternalDest
     ? ""
     : state.creating
       ? `<input data-fil="newin" placeholder="${esc(
@@ -316,9 +353,21 @@ export function renderBins(fldz: HTMLElement): void {
   const rootCaption = state.rootPath
     ? `<div class="sift-fldz-rootpath" title="${esc(state.rootPath)}"><i class="ti ti-folder sift-icon-inline-sm"></i> ${esc(state.rootPath)}\\</div>`
     : "";
+  // "Parcourir un autre dossier…" — opens the native OS directory picker and sets the result as
+  // an EXTERNAL_DEST_PREFIX-prefixed destination (see plan_file's handling in filing.rs). Kept
+  // OUTSIDE .sift-fldz-tree, same as the in-place checkbox: always clickable even while the tree
+  // is greyed (batch in-place checked) — picking a folder here behaves exactly like picking one
+  // from the tree (wired below), it just came from the OS dialog instead of the loaded bin list.
+  const browseRow = state.rootSet
+    ? `<div class="fld sift-fldz-browse" data-fil="browsecustom"><i class="ti ti-folder-open sift-icon-inline-lg"></i> Parcourir un autre dossier…</div>`
+    : "";
 
   fldz.innerHTML =
-    filterRow + inPlaceRow + rootCaption + `<div class="sift-fldz-tree">${body}${newRow}</div>`;
+    filterRow +
+    inPlaceRow +
+    rootCaption +
+    `<div class="sift-fldz-tree">${body}${newRow}</div>` +
+    browseRow;
 
   if (!binPick) {
     fldz.querySelector<HTMLInputElement>('[data-fil="inplace"]')?.addEventListener("change", (e) => {
@@ -377,6 +426,7 @@ export function renderBins(fldz: HTMLElement): void {
     state.creating = true;
     renderBins(fldz);
   });
+  fldz.querySelector('[data-fil="browsecustom"]')?.addEventListener("click", () => void browseExternalDest(fldz));
   const input = fldz.querySelector<HTMLInputElement>('[data-fil="newin"]');
   if (input) {
     input.focus();

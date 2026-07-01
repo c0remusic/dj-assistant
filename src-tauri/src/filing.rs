@@ -18,6 +18,17 @@ use std::path::{Path, PathBuf};
 /// in sync. Must never reach `library::safe_join` (it would create a literal `__SOURCE__` dir).
 pub const FILE_IN_PLACE: &str = "__SOURCE__";
 
+/// Prefix marking `bin_rel` as a trusted absolute path OUTSIDE the library root, chosen via a
+/// native OS directory picker ("Parcourir un autre dossier…") — the ONE deliberate hole in
+/// `safe_join`'s anti-traversal boundary (`library::safe_join` rejects every other absolute or
+/// `..`-containing path by design, see its tests). Trust boundary: the frontend must build this
+/// value ONLY from a path the Tauri dialog plugin returned (an existing directory the user
+/// navigated to and selected), never from free-typed or otherwise user-suppliable text — see
+/// `shared/contracts.ts`'s mirror of this exact literal. `plan_file` still re-validates the path
+/// actually exists and is a directory before use (defense in depth: the folder could have been
+/// deleted or unmounted between the moment it was picked and the moment a file lands there).
+pub const EXTERNAL_DEST_PREFIX: &str = "__EXTERNAL__::";
+
 /// Why filing could not complete (nothing is left half-filed on these — see ordering).
 #[derive(Debug, Clone, PartialEq)]
 pub enum FilingError {
@@ -295,6 +306,17 @@ pub fn plan_file(
             .parent()
             .ok_or_else(|| FilingError::Io("source file has no parent directory".into()))?
             .to_path_buf()
+    } else if let Some(abs) = bin_rel.strip_prefix(EXTERNAL_DEST_PREFIX) {
+        // Trusted external folder (see EXTERNAL_DEST_PREFIX doc) — still re-checked here, not
+        // taken on faith: fail loudly if it's gone rather than silently recreating it elsewhere
+        // (create_dir_all below would otherwise happily conjure a new, wrong directory).
+        let p = PathBuf::from(abs);
+        if !p.is_dir() {
+            return Err(FilingError::Io(format!(
+                "external destination no longer exists: {abs}"
+            )));
+        }
+        p
     } else {
         library::safe_join(root, bin_rel).map_err(FilingError::Io)?
     };
@@ -737,6 +759,51 @@ mod tests {
             artist: "X".into(), title: "Y".into(), version: None, confidence: crate::naming::Confidence::Green,
         }));
         assert_eq!(err, Err(FilingError::Upscale));
+    }
+
+    #[test]
+    fn plan_file_external_dest_resolves_outside_root_when_directory_exists() {
+        let conn = db();
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("lib");
+        std::fs::create_dir_all(&root).unwrap();
+        let external = dir.path().join("elsewhere");
+        std::fs::create_dir_all(&external).unwrap();
+        let Some((id, _)) = seed_track(&conn, dir.path(), "real_320.mp3", "src.mp3") else {
+            eprintln!("skip: no fixture");
+            return;
+        };
+        let bin_rel = format!("{EXTERNAL_DEST_PREFIX}{}", external.to_str().unwrap());
+        let plan = plan_file(&conn, &root, "{artist} - {title}", id, &bin_rel, None, Some(Canonical {
+            artist: "X".into(), title: "Y".into(), version: None, confidence: crate::naming::Confidence::Green,
+        })).unwrap();
+        let dest = Path::new(&plan.dest);
+        assert!(dest.starts_with(&external), "dest {dest:?} should land under the external dir, not the library root");
+        assert!(!dest.starts_with(&root), "dest {dest:?} must NOT be under the library root");
+    }
+
+    #[test]
+    fn plan_file_external_dest_fails_loudly_when_directory_is_gone() {
+        let conn = db();
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("lib");
+        std::fs::create_dir_all(&root).unwrap();
+        let Some((id, _)) = seed_track(&conn, dir.path(), "real_320.mp3", "src.mp3") else {
+            eprintln!("skip: no fixture");
+            return;
+        };
+        let missing = dir.path().join("never-created");
+        let bin_rel = format!("{EXTERNAL_DEST_PREFIX}{}", missing.to_str().unwrap());
+        let err = plan_file(&conn, &root, "{artist} - {title}", id, &bin_rel, None, Some(Canonical {
+            artist: "X".into(), title: "Y".into(), version: None, confidence: crate::naming::Confidence::Green,
+        }));
+        assert_eq!(
+            err.err(),
+            Some(FilingError::Io(format!(
+                "external destination no longer exists: {}",
+                missing.to_str().unwrap()
+            )))
+        );
     }
 
     #[test]

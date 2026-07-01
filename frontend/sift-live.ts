@@ -52,7 +52,7 @@ import { installDragDrop, injectLeanStyle, injectTitlebar, installScrollAutohide
 import { initTheme, setTheme } from "./theme";
 import type { ThemeChoice } from "./theme";
 import type { QueueItem, BatchResult, FileProgress, Target } from "../shared/contracts";
-import { FILE_IN_PLACE } from "../shared/contracts";
+import { FILE_IN_PLACE, EXTERNAL_DEST_PREFIX } from "../shared/contracts";
 import { requireEl } from "./dom";
 import { renderJournal } from "./journal";
 import { open as openFolderDialog } from "@tauri-apps/plugin-dialog";
@@ -539,7 +539,12 @@ function batchDest(): string {
 }
 /** Human label for the batch destination — shown in the rail récap + name preview. */
 function batchDestLabel(): string {
-  return batchInPlace ? IN_PLACE_LABEL : batchBin || "Racine de bibliothèque";
+  if (batchInPlace) return IN_PLACE_LABEL;
+  if (batchBin.startsWith(EXTERNAL_DEST_PREFIX)) {
+    const abs = batchBin.slice(EXTERNAL_DEST_PREFIX.length);
+    return abs.split(/[\\/]/).filter(Boolean).pop() || abs;
+  }
+  return batchBin || "Racine de bibliothèque";
 }
 /** A folder click in the #fldz tree (batch pick mode) -> set batchBin, drop in-place, re-render. */
 function onBatchBinPick(rel: string): void {
