@@ -151,6 +151,12 @@ lofty 0.24.0 · rusty-chromaprint 0.3.0 · notify-debouncer-full 0.7.0 · ureq 3
 Ces versions sont désormais celles du `Cargo.toml` (plus des cibles à atteindre) —
 elles servent de référence pour le prochain audit `cargo outdated`.
 
+Versions JS en usage (migration TypeScript 6 + Vite 5→8 faite le 2026-07-01,
+4 commits, tsc + build + tauri dev verts) :
+typescript 6.0.3 · vite 8.1.2
+Méthode : un palier majeur = un `npm i -D <pkg>@<major>` + Context7 (breaking
+changes filtrés à notre config réelle) + validation build/dev + commit dédié.
+
 Règles :
 - fail-fast : si une crate ne build plus après update, ne mets pas de
   fallback ni de pin de contournement — remonte l'erreur exacte (fichier:ligne).
