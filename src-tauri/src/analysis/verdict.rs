@@ -100,6 +100,22 @@ mod tests {
         assert_eq!(verdict(15000.0, Rail::Lossy, Some(256)), Verdict::Fake);
     }
 
+    // FIX-18: 192/160 kbps were the only two of the six min_cutoff_hz_for_bitrate tiers never
+    // exercised by a direct test (only 320/256/128 were covered above).
+    #[test]
+    fn honest_192_and_160_mp3_is_ok() {
+        assert_eq!(verdict(17000.0, Rail::Lossy, Some(192)), Verdict::Ok);
+        assert_eq!(verdict(16000.0, Rail::Lossy, Some(160)), Verdict::Ok);
+    }
+
+    #[test]
+    fn over_encoded_192_and_160_mp3_is_fake() {
+        // declared 192 but cuts at 15k (below the 16500Hz floor for 192) → fraud
+        assert_eq!(verdict(15000.0, Rail::Lossy, Some(192)), Verdict::Fake);
+        // declared 160 but cuts at 14k (below the 15500Hz floor for 160) → fraud
+        assert_eq!(verdict(14000.0, Rail::Lossy, Some(160)), Verdict::Fake);
+    }
+
     #[test]
     fn lossy_without_known_bitrate_is_ok() {
         // can't judge over-encoding without a declared bitrate → don't false-flag
