@@ -1,20 +1,74 @@
+/* Sift palette — LIGHT WARM GREY (refonte 2026-07, direction "outil pro" — remplace le dark
+   "table du digger". Source de vérité : maquette hi-fi Claude Design Sift.dc.html).
+   Applied at :root unconditionally so the app renders in this palette regardless of the OS theme.
+   Surfaces (elevation by clarity + 1px low-opacity dark-tinted borders, no drop shadows): canvas
+   #E7E2DB < nav #EDE9E2 < cards/controls #F1EDE7.
+   Color = meaning only: green (ok/lossless), amber (doute/pending/erreur) — PAS de 3e teinte, PAS
+   d'accent décoratif. --color-text-info est réutilisé comme le seul neutre foncé "interactif"
+   (focus/sélection/liens) — ce n'est plus un bleu, c'est le même neutre que le CTA primaire.
+   --color-text-danger/--color-text-warning pointent tous deux vers l'ambre (la maquette n'a que
+   2 couleurs sémantiques — l'ancien "danger" rouge fusionne avec "doute"). */
 :root{
---color-background-primary:#ffffff;--color-background-secondary:#f4f3ee;--color-background-tertiary:#faf9f6;
---color-background-info:#e6f1fb;--color-background-danger:#fcebeb;--color-background-success:#e3f3e9;--color-background-warning:#faeeda;
---color-text-primary:#1d1c1a;--color-text-secondary:#5f5e5a;--color-text-tertiary:#90908a;
---color-text-info:#185fa5;--color-text-danger:#a32d2d;--color-text-success:#1f7a52;--color-text-warning:#854f0b;
---color-border-tertiary:rgba(20,20,15,0.12);--color-border-secondary:rgba(20,20,15,0.24);--color-border-info:#378add;--color-border-danger:#e24b4a;
---border-radius-md:8px;--border-radius-lg:12px;--font-mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+color-scheme:light;
+--color-background-primary:#E7E2DB;--color-background-secondary:#F1EDE7;--color-background-tertiary:#EDE9E2;
+/* Extra warm-grey surfaces from DESIGN.md (Sift.dc.html theme map): the queue column, elevated
+   surface (raised buttons/popovers), the recessed segmented "track"/well, and the SOLID
+   hover/selection fills for nav items and rows (the mockup uses solids, not translucent overlays). */
+--color-background-queue:#EAE5DE;--color-surface-raised:#FBF9F4;--color-track:#E0DAD1;--color-row-active:#F3EFE9;--color-nav-active:#E1DBD2;
+--color-background-info:rgba(58,53,47,.08);--color-background-danger:rgba(176,122,40,.14);--color-background-success:rgba(76,123,87,.14);--color-background-warning:rgba(176,122,40,.14);
+--color-text-primary:#34302B;--color-text-secondary:#5C554E;--color-text-tertiary:#8A857D;--color-text-quaternary:#B3AEA5;
+--color-text-info:#3A352F;--color-cta-text:#F7F4EF;--color-text-danger:#8f6318;--color-text-success:#3f6d4c;--color-text-warning:#8f6318;
+--color-border-tertiary:rgba(40,34,28,0.09);--color-border-secondary:rgba(40,34,28,0.16);
+--color-border-info:rgba(58,53,47,.35);--color-border-danger:rgba(176,122,40,.45);
+/* Neutral overlay tints (hover/selection/left-bar/badge on neutral surfaces) — dark-tinted here
+   since the surface is light; flipped to light-tinted in the dark variant below. Anything that
+   used to hardcode rgba(255,255,255,...) for "selected row" must use these instead, or it goes
+   invisible the moment dark mode is active (see fix 2026-07-01: .nv/.qi selection). */
+--overlay-hover:rgba(40,34,28,.035);--overlay-selected:rgba(40,34,28,.06);
+--overlay-bar:rgba(40,34,28,.55);--overlay-badge:rgba(40,34,28,.06);
+--border-radius-md:6px;--border-radius-lg:10px;
+/* Typo (self-hosted via @fontsource, see main.ts) — Outfit UI, JetBrains Mono for numbers. */
+--font-ui:"Outfit",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+--font-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+/* Type scale (audit P-1): the allowed font sizes. Values match what the UI already used so
+   migrating inline font-size:Npx → var(--text-*) is a visual no-op. Use these, not literals. */
+--text-3xs:8px;--text-2xs:9px;--text-xs:10px;--text-sm:11px;--text-md:12px;--text-base:13px;
+--text-lg:14px;--text-xl:16px;--text-hero:26px;
+/* Spacing + height scale (system.md): the ONLY allowed values. */
+--space-4:4px;--space-8:8px;--space-12:12px;--space-16:16px;--space-24:24px;--space-32:32px;
+--h-32:32px;--h-36:36px;--h-40:40px;--h-44:44px;
 }
-@media (prefers-color-scheme:dark){:root{
---color-background-primary:#1c1b19;--color-background-secondary:#26241f;--color-background-tertiary:#161513;
---color-background-info:#10243a;--color-background-danger:#3a1717;--color-background-success:#13301f;--color-background-warning:#352711;
---color-text-primary:#f3f1ea;--color-text-secondary:#b4b2a9;--color-text-tertiary:#7e7d77;
---color-text-info:#85b7eb;--color-text-danger:#f09595;--color-text-success:#5dcaa5;--color-text-warning:#fac775;
---color-border-tertiary:rgba(255,255,255,0.14);--color-border-secondary:rgba(255,255,255,0.26);
-}}
+/* Dark variant — same warm-neutral family + vert/ambre uniquement (aucun bleu ni rouge, même
+   simplification sémantique que le clair : danger fusionne dans warning). Auto = suit
+   prefers-color-scheme sauf override explicite ([data-theme]) posé par le toggle Réglages
+   (voir sift-live.ts renderReglagesLive + main.ts applyTheme). data-theme="light" bloque la
+   règle média même si l'OS est sombre ; data-theme="dark" force le sombre même si l'OS est clair. */
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --color-background-primary:#282825;--color-background-secondary:#3B3A35;--color-background-tertiary:#323230;--color-background-queue:#2E2E2B;--color-surface-raised:#46453F;--color-track:#46453F;--color-row-active:#413F38;--color-nav-active:#3D3B35;
+    --color-background-info:rgba(240,237,230,.08);--color-background-danger:rgba(176,122,40,.14);--color-background-success:rgba(76,123,87,.14);--color-background-warning:rgba(176,122,40,.14);
+    --color-text-primary:#F5F1E9;--color-text-secondary:#C9C2B7;--color-text-tertiary:#9C968D;--color-text-quaternary:#847E75;
+    --color-text-info:#F5F1E9;--color-cta-text:#26251F;--color-text-danger:#f2c274;--color-text-success:#9fe0af;--color-text-warning:#f2c274;
+    --color-border-tertiary:rgba(255,255,255,0.12);--color-border-secondary:rgba(255,255,255,0.22);
+    --color-border-info:rgba(240,237,230,.30);--color-border-danger:rgba(221,166,63,.45);
+    --overlay-hover:rgba(255,255,255,.03);--overlay-selected:rgba(255,255,255,.06);
+    --overlay-bar:rgba(255,255,255,.32);--overlay-badge:rgba(255,255,255,.06);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --color-background-primary:#282825;--color-background-secondary:#3B3A35;--color-background-tertiary:#323230;--color-background-queue:#2E2E2B;--color-surface-raised:#46453F;--color-track:#46453F;--color-row-active:#413F38;--color-nav-active:#3D3B35;
+  --color-background-info:rgba(240,237,230,.08);--color-background-danger:rgba(176,122,40,.14);--color-background-success:rgba(76,123,87,.14);--color-background-warning:rgba(176,122,40,.14);
+  --color-text-primary:#F5F1E9;--color-text-secondary:#C9C2B7;--color-text-tertiary:#9C968D;--color-text-quaternary:#847E75;
+  --color-text-info:#F5F1E9;--color-cta-text:#26251F;--color-text-danger:#f2c274;--color-text-success:#9fe0af;--color-text-warning:#f2c274;
+  --color-border-tertiary:rgba(255,255,255,0.12);--color-border-secondary:rgba(255,255,255,0.22);
+  --color-border-info:rgba(240,237,230,.30);--color-border-danger:rgba(221,166,63,.45);
+  --overlay-hover:rgba(255,255,255,.03);--overlay-selected:rgba(255,255,255,.06);
+  --overlay-bar:rgba(255,255,255,.32);--overlay-badge:rgba(255,255,255,.06);
+}
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;overflow:hidden;background:var(--color-background-tertiary);color:var(--color-text-primary);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--color-background-tertiary);color:var(--color-text-primary);font-family:var(--font-ui)}
 /* Seamless themed scrollbars: thin, transparent track, subtle inset thumb (transparent
    border + padding-box clip makes it float off the edge), brighter on hover. */
 *{scrollbar-width:thin;scrollbar-color:transparent transparent}
@@ -26,33 +80,98 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--color-background
 :hover::-webkit-scrollbar-thumb,.sift-scrolling::-webkit-scrollbar-thumb{background:var(--color-border-secondary)}
 .sift-scrolling:hover::-webkit-scrollbar-thumb{background:var(--color-text-tertiary)}
 ::-webkit-scrollbar-corner{background:transparent}
-.wrap{max-width:1180px;margin:0 auto;padding:10px 18px 10px;height:100vh;display:flex;flex-direction:column;gap:6px}
-.title{font-size:20px;font-weight:600;letter-spacing:-.01em;margin:0;flex:none}
-.pitch{font-size:12px;line-height:1.45;color:var(--color-text-secondary);margin:0;flex:none}
-.pitch strong{color:var(--color-text-primary);font-weight:600}
-.sub{font-size:11px;color:var(--color-text-tertiary);margin:0;flex:none}
-.pa{flex:1;min-height:280px;display:flex;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);overflow:hidden;font-size:12px}
-.frow{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:7px;flex:none}
-.fcard{display:flex;gap:9px;align-items:flex-start;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:8px 10px}
-.fcard>i{font-size:16px;color:var(--color-text-info);flex:none;margin-top:1px}
-.fcard b{display:block;font-size:11px;font-weight:600;margin-bottom:2px}
-.fcard span{display:block;font-size:10px;line-height:1.4;color:var(--color-text-secondary)}
-.sb{width:62px;flex:none;display:flex;flex-direction:column;gap:3px;padding:10px 5px;background:var(--color-background-secondary);border-right:0.5px solid var(--color-border-tertiary);align-items:stretch}
-.nv{min-height:42px;border-radius:var(--border-radius-md);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:5px 2px;color:var(--color-text-secondary);cursor:pointer}
-.nv span{font-size:9px;letter-spacing:.01em;text-align:center;line-height:1.05}
-.nv.on{background:var(--color-background-info);color:var(--color-text-info)}.nv i{font-size:16px}
-.queue{flex:none;display:flex;flex-direction:column;padding:11px 8px;overflow:hidden}
+/* No .wrap/.title/.pitch/.sub/.frow/.fcard: the old web-demo marketing shell (pitch, disclaimer,
+   feature-card row) is gone from index.html — the app IS the window now, per the maquette's root
+   (height:100%;width:100%;display:flex, no centered wrapper). */
+html,body{margin:0;padding:0;height:100%}
+.pa{height:100%;width:100%;display:flex;background:var(--color-background-primary);overflow:hidden;font-size:12px}
+/* Wide, labelled, grouped nav rail — faithful to the Penpot shell (brand + PROCESS/ORGANIZE/
+   EXPORT groups + neutral selection). See .interface-design/penpot-detail-spec.md. */
+.sb{width:152px;flex:none;display:flex;flex-direction:column;gap:1px;padding:14px 10px;background:var(--color-background-tertiary);border-right:0.5px solid var(--color-border-tertiary);align-items:stretch}
+.nav-brand{display:flex;align-items:center;gap:8px;padding:2px 8px 12px;font-size:18px;font-weight:600;color:var(--color-text-primary);letter-spacing:.01em}
+.nav-brand i{font-size:16px;color:var(--color-text-info)}
+.nv-grp{font-size:9px;font-weight:400;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-tertiary);padding:13px 8px 5px}
+.nv{min-height:34px;border-radius:var(--border-radius-md);display:flex;flex-direction:row;align-items:center;gap:10px;padding:6px 8px;color:var(--color-text-tertiary);cursor:pointer}
+.nv span{font-size:12.5px;letter-spacing:.01em;text-align:left;line-height:1.1;flex:1;min-width:0}
+.nv i{font-size:17px;flex:none}
+.nv:hover{background:var(--color-nav-active)}
+.nv.on{background:var(--color-nav-active);color:var(--color-text-primary);font-weight:500}
+/* Export (Rekordbox / Clé USB): visually secondary — not built yet, so it must read as "less
+   important" rather than a full nav tab (maquette's exportItems: dimmed, dot instead of icon). */
+.nv-export{opacity:.55}
+.nv-export:hover{opacity:.85}
+.nv-export-dot{width:5px;height:5px;border-radius:999px;background:var(--color-text-warning);flex:none}
+.nav-badge{font-size:10px;font-weight:600;color:var(--color-text-tertiary);background:var(--overlay-badge);border-radius:999px;padding:1px 7px;flex:none}
+.nav-badge:empty{display:none}
+/* Bottom group of the rail: holds the margin-top:auto (so Settings stays pinned to the very bottom)
+   and stacks the progress zone ABOVE Settings. The zone grows UPWARD into the free space, so neither
+   Settings nor the nav items above it shift when a background task starts. */
+.nav-foot{margin-top:auto;display:flex;flex-direction:column;gap:1px}
+/* Global background-task progress (bottom of #nav, persistent across views). One row per active
+   task: icon + name + tabular done/total + a thin accent bar. Hidden when idle (via JS display). */
+.sift-progress-zone{display:flex;flex-direction:column;gap:var(--space-8);margin-top:var(--space-8);padding-top:var(--space-8);border-top:0.5px solid var(--color-border-tertiary)}
+.sift-pz-row{display:flex;flex-direction:column;gap:var(--space-4)}
+.sift-pz-head{display:flex;align-items:center;justify-content:space-between;gap:var(--space-8)}
+.sift-pz-name{display:inline-flex;align-items:center;gap:var(--space-4);min-width:0;font-size:var(--text-xs);color:var(--color-text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sift-pz-name i{font-size:var(--text-sm);color:var(--color-text-tertiary);flex:none}
+.sift-pz-count{flex:none;font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-size:var(--text-2xs);color:var(--color-text-tertiary)}
+.sift-pz-end{display:inline-flex;align-items:center;gap:var(--space-4);flex:none}
+.sift-pz-cancel{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;padding:0;border:none;border-radius:3px;background:transparent;color:var(--color-text-tertiary);cursor:pointer}
+.sift-pz-cancel:hover{color:var(--color-text-danger);background:var(--color-background-danger)}
+.sift-pz-cancel i{font-size:var(--text-xs)}
+.sift-pz-track{height:3px;border-radius:3px;background:var(--color-border-tertiary);overflow:hidden}
+.sift-pz-fill{height:100%;border-radius:3px;background:var(--color-text-info);transition:width .3s}
+.sift-pz-row.error .sift-pz-fill{background:var(--color-text-danger)}
+.queue{flex:none;display:flex;flex-direction:column;padding:11px 8px;overflow:hidden;background:var(--color-background-queue)}
 #ql{flex:1;min-height:0;overflow-y:auto}
 .qdrag{width:7px;flex:none;cursor:col-resize;background:transparent;border-left:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;justify-content:center}
 .qdrag::after{content:"";width:2px;height:26px;border-radius:2px;background:var(--color-border-secondary)}
 .qdrag:hover::after{background:var(--color-text-info)}
 .qi{display:flex;align-items:center;gap:6px;padding:5px 7px;border-radius:var(--border-radius-md);font-size:12px;color:var(--color-text-secondary);white-space:nowrap;overflow:hidden;cursor:pointer}
 .qi span{overflow:hidden;text-overflow:ellipsis}.qi.done{color:var(--color-text-tertiary)}
-.qi.cur{background:var(--color-background-info);color:var(--color-text-info);font-weight:500}.qi i{font-size:13px;flex:none}
+/* Selection is neutral (white @.045 + a non-blue left bar), per interaction-model.md: blue is
+   reserved for focus/accent, never for "this row is selected". */
+.qi:hover{background:var(--color-row-active)}
+.qi.cur{background:var(--color-row-active);color:var(--color-text-primary);font-weight:500;box-shadow:inset 2px 0 0 var(--overlay-bar)}.qi i{font-size:13px;flex:none}
 .pbar{height:4px;background:var(--color-border-tertiary);border-radius:3px;margin:3px 0 7px;overflow:hidden}.pfill{height:100%;background:var(--color-text-info);border-radius:3px}
+/* Inspector column (col 3): .mid (scrollable son-first detail) stacked above the anchored-bottom
+   action rail (#filfoot). Siblings, not parent/child — openFilingInto rewrites .mid's innerHTML on
+   every track open, so #filfoot/#fldz living OUTSIDE .mid is what lets them survive that rewrite. */
+.sift-inspector{flex:1;min-width:0;display:flex;flex-direction:column;position:relative}
 .mid{flex:1;min-width:0;display:flex;flex-direction:column;padding:13px 15px 10px;overflow:hidden}
 .mid-scroll{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column}
-.dest{width:148px;flex:none;display:flex;flex-direction:column;padding:13px 10px;background:var(--color-background-secondary);border-left:0.5px solid var(--color-border-tertiary);overflow-y:auto}
+/* Action rail (was the persistent .dest column — now a slim horizontal bar anchored to
+   the bottom of the inspector, matching the maquette's single-row ACTION RAIL: Destination
+   popover trigger, format chips, a flex spacer, key hints, secondary, primary — all in one
+   line, wrapping only if the window gets too narrow. */
+.sift-action-rail{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-12);padding:11px 15px;background:var(--color-background-tertiary);border-top:0.5px solid var(--color-border-tertiary);overflow:visible}
+.sift-dest-btn{display:flex;align-items:center;gap:8px;flex:none;width:auto;max-width:220px;padding:8px 10px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);color:var(--color-text-primary);font-size:var(--text-sm);cursor:pointer}
+.sift-dest-btn-label{color:var(--color-text-tertiary);flex:none}
+.sift-dest-btn .sift-fil-bin{flex:1;min-width:0;text-align:left;overflow:hidden;text-overflow:ellipsis;font-weight:500;max-width:120px}
+.sift-dest-btn-caret{flex:none;font-size:var(--text-sm);color:var(--color-text-tertiary)}
+/* Format group: label + chips inline together, no longer a stacked "col-h" block. */
+.sift-rail-fmt-group{display:flex;align-items:center;gap:6px;flex:none}
+.sift-rail-fmt-group .col-h{margin:0}
+/* Pushes secondary/primary to the right edge of the rail. */
+.sift-rail-spacer{flex:1;min-width:8px}
+.sift-ranger-btn{flex:none;white-space:nowrap;background:var(--color-background-info);color:var(--color-text-info);border:none;font-weight:500}
+.sift-secondary-resource{flex:none;white-space:nowrap;color:var(--color-text-warning)}
+.sift-secondary-trash{flex:none;white-space:nowrap;color:var(--color-text-danger)}
+/* Destination popover: replaces the persistent tree column, anchored above its trigger button.
+   Hidden by default ([hidden] attribute, toggled in filing.ts); #fldz keeps its id so renderBins'
+   existing document.getElementById("fldz") callers need no change. */
+.sift-dest-popover{position:fixed;width:288px;max-height:340px;display:flex;flex-direction:column;padding:10px;background:var(--color-background-secondary);border:1px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);overflow-y:auto;z-index:20}
+/* An author `display:flex` rule beats the browser's own `[hidden]{display:none}` in the cascade
+   (author origin always wins over user-agent origin, regardless of specificity) — so setting
+   `.hidden = true` on this element via JS never actually hid it, it just kept getting
+   repositioned to wherever the Destination button currently was. This is the actual fix; a
+   higher-specificity selector for the hidden state, not another positioning tweak. */
+.sift-dest-popover[hidden]{display:none}
+#filfoot{flex:none}
+/* Batch per-track list: cap it so a long run can't push the récap + action button out of the rail.
+   36vh ≈ a third of the viewport: enough rows to be useful while the récap above and the action
+   button below stay on-screen; the list scrolls past that. */
+#sift-batch-tracks{max-height:36vh;overflow-y:auto}
 .col-h{font-size:10px;letter-spacing:.05em;color:var(--color-text-tertiary);text-transform:uppercase;margin-bottom:6px}
 .pill{display:inline-flex;align-items:center;gap:4px;background:var(--color-background-secondary);color:var(--color-text-secondary);padding:2px 7px;border-radius:var(--border-radius-md);font-size:11px}
 .fld{display:flex;align-items:center;gap:6px;padding:6px 7px;border-radius:var(--border-radius-md);color:var(--color-text-secondary);cursor:pointer;font-size:12px}
@@ -74,8 +193,340 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--color-background
 .mf{margin-bottom:6px}.mf .lab{font-size:10px;color:var(--color-text-tertiary);margin-bottom:2px}.mf .inp{border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:5px 8px;font-size:12px}
 .cov{width:40px;height:40px;flex:none;border-radius:6px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;justify-content:center;color:var(--color-text-tertiary)}.cov i{font-size:20px}
 button{font-family:inherit;background:transparent;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:5px 10px;color:var(--color-text-primary);cursor:pointer;font-size:13px}
+/* Keyboard-first: a visible focus ring on interactive elements, accent-coloured. :focus-visible
+   keeps it keyboard-only (no ring on mouse click). See interaction-model.md §7. */
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--color-text-info);outline-offset:1px}
 button:hover{background:var(--color-background-secondary)}button:disabled{opacity:.4;cursor:default}
 input{font-family:inherit}input[type=range]{accent-color:var(--color-text-info)}
 .home-body{display:flex;gap:14px;flex:1;min-height:0;overflow:hidden}
 .home-left{flex:1;min-width:0;overflow-y:auto;padding-right:4px}
 .home-right{width:200px;flex:none;overflow-y:auto}
+/* M6a — Discogs candidate picker */
+.sift-cands{margin-top:8px;display:flex;flex-direction:column;gap:4px}
+.sift-cands[hidden]{display:none}
+.sift-cands-msg{font-size:12px;color:var(--color-text-tertiary);padding:4px 2px}
+/* [m10] error state: warning colour + icon (set in JS as .sift-cands-error) */
+.sift-cands-error{color:var(--color-text-warning)}
+/* [m7] use theme variable for subtle borders — not hardcoded rgba that's invisible on light bg */
+.sift-cand{display:flex;gap:8px;align-items:center;text-align:left;background:none;border:1px solid var(--color-border-tertiary);border-radius:6px;padding:4px 6px;cursor:pointer;color:inherit;width:100%}
+.sift-cand:hover{border-color:var(--color-border-secondary)}
+.sift-cand img,.sift-cand-noart{width:36px;height:36px;border-radius:4px;object-fit:cover;display:grid;place-items:center;background:var(--color-background-secondary);flex:none}
+.sift-cand-meta{display:flex;flex-direction:column;min-width:0}
+.sift-cand-meta small{color:var(--color-text-tertiary)}
+/* [I4] "autres" summary: looks like a clickable link, not a footnote */
+.sift-cand-more{margin-top:2px}
+.sift-cand-more-summary{font-size:12px;color:var(--color-text-info);cursor:pointer;padding:2px;list-style:none;display:inline-flex;align-items:center;gap:3px}
+.sift-cand-more-summary::-webkit-details-marker{display:none}
+.sift-cand-more[open] .sift-cand-more-summary{color:var(--color-text-secondary)}
+/* [C1] Identifier primary button: gold fill, stands out as the first action */
+.sift-id-btn{background:#FFdc82;border-color:rgba(0,0,0,.12);color:#1d1c1a;font-weight:500;font-size:12px;padding:5px 12px}
+.sift-id-btn:hover{background:#f0cc6a}
+/* [C3] "changer" / "Ouvrir Réglages" inline jump link */
+.sift-cand-jump{font-size:11px;padding:2px 8px;color:var(--color-text-info);border-color:var(--color-border-info)}
+@keyframes sift-spin{to{transform:rotate(360deg)}}
+.sift-spin{animation:sift-spin .7s linear infinite;display:inline-block}
+/* Per-track batch progress list (batch-tracklist.ts): one row per file, state pill wait/run/done/fail. */
+.sift-bt-head{font-size:var(--text-2xs);text-transform:uppercase;letter-spacing:.04em;color:var(--color-text-tertiary);margin:var(--space-8) 0 var(--space-4)}
+.sift-bt-list{display:flex;flex-direction:column;gap:2px}
+.sift-bt-row{display:flex;align-items:center;gap:7px;font-size:var(--text-sm);color:var(--color-text-secondary)}
+.sift-bt-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sift-bt-src{flex:none;padding-left:8px;font-family:var(--font-mono);font-size:var(--text-2xs);color:var(--color-text-tertiary);white-space:nowrap}
+.sift-bt-pill{width:16px;height:16px;flex:none;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;font-size:11px}
+.sift-bt-wait{color:var(--color-text-tertiary)}
+.sift-bt-run{color:var(--color-text-info)}
+.sift-bt-done{color:var(--color-text-success)}
+.sift-bt-fail{color:var(--color-text-warning)}
+.sift-bt-spin{width:10px;height:10px;border:2px solid var(--color-border-secondary);border-top-color:var(--color-text-info);border-radius:50%;animation:sift-bt-rot .7s linear infinite}
+@keyframes sift-bt-rot{to{transform:rotate(360deg)}}
+/* Batch group-header tri-state checkbox (Ready-to-file format groups + Fakes). */
+.sift-bgrp-head{display:flex;align-items:center;gap:8px;padding:3px 9px}
+.sift-bgrp-box{flex:none;width:15px;height:15px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid var(--color-border-secondary);background:transparent;color:var(--color-text-tertiary);font-size:var(--text-xs)}
+.sift-bgrp-box.on{border-color:var(--color-text-success);background:var(--color-text-success);color:var(--color-background-primary)}
+.sift-bgrp-box.partial{border-color:var(--color-text-info);color:var(--color-text-info)}
+/* The single rail action button (adaptive Filer/Discarder / Stop). */
+.sift-baction{width:100%;font-size:var(--text-sm);font-weight:600;padding:9px 14px;border-radius:var(--border-radius-md);border:none;cursor:pointer}
+.sift-baction-slot{margin-top:8px}
+.sift-genres{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;margin-bottom:4px}
+.sift-genre-chip{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--color-background-info);color:var(--color-text-info);cursor:default}
+/* "Tags not written to the file" banner, shown just below Apply. Look only — visibility is driven
+   solely by inline display (none ↔ flex) in refreshDiscrepancy, never the `hidden` attribute. Amber
+   (warning) tokens — the SAME "attention / to handle" language as the duplicate marker. */
+.sift-tag-warn{align-items:center;gap:7px;margin-top:6px;padding:6px 9px;border-radius:var(--border-radius-md);background:var(--color-background-warning);border:1px solid var(--color-text-warning);color:var(--color-text-warning);font-size:var(--text-sm)}
+/* Field whose displayed value is NOT yet written to the file (see refreshDiscrepancy): desaturated +
+   italic + a SOLID amber border (no dashes), using warning tokens. !important overrides the inputs'
+   inline border. */
+.sift-tag-stale{font-style:italic;filter:saturate(.55);border:1px solid var(--color-text-warning)!important;background:var(--color-background-warning)!important;border-radius:var(--border-radius-md)!important;padding:3px 5px}
+/* ── Journal d'actions ──────────────────────────────────────────────── */
+.jrnl-wrap{display:flex;flex-direction:column;gap:var(--space-8);padding-bottom:var(--space-16)}
+/* Header */
+.jrnl-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4)}
+.jrnl-hd>span{font-size:var(--text-lg);font-weight:600;color:var(--color-text-primary)}
+.jrnl-mode{display:flex;gap:2px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:2px}
+.jrnl-mode-btn{background:transparent;border:none;padding:3px 10px;border-radius:var(--border-radius-md);font-size:var(--text-xs);color:var(--color-text-secondary);cursor:pointer;white-space:nowrap}
+.jrnl-mode-btn.on{background:var(--color-background-primary);color:var(--color-text-primary);font-weight:500}
+/* Collapsible category */
+.jrnl-cat{border:1px solid var(--color-border-secondary);border-radius:12px;overflow:hidden;display:block;margin-bottom:var(--space-8)}
+.jrnl-cat-hd{display:flex;align-items:center;gap:var(--space-8);padding:var(--space-8) var(--space-12);cursor:pointer;list-style:none;user-select:none;background:var(--color-background-secondary)}
+.jrnl-cat-hd::-webkit-details-marker{display:none}
+.jrnl-cat-chev{flex:none;font-size:12px;color:var(--color-text-tertiary);transition:transform .15s;display:inline-block}
+details[open]>.jrnl-cat-hd .jrnl-cat-chev{transform:rotate(90deg)}
+.jrnl-cat-label{flex:none;font-size:var(--text-2xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-secondary)}
+.jrnl-cat-badge{flex:none;font-size:var(--text-xs);color:var(--color-text-tertiary);background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:999px;padding:0 6px;line-height:1.6}
+.jrnl-mass{margin-left:auto;flex:none;background:transparent;border:none;font-size:var(--text-xs);cursor:pointer;padding:2px 6px}
+.jrnl-mass:hover{opacity:.8}
+/* Rows */
+.jrnl-rows{display:flex;flex-direction:column;background:var(--color-background-primary)}
+.jrnl-row{display:flex;align-items:center;gap:var(--space-8);padding:var(--space-6) var(--space-12);border-bottom:0.5px solid var(--color-border-tertiary)}
+.jrnl-row:last-child{border-bottom:none}
+.jrnl-row-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.jrnl-name{font-size:var(--text-sm);color:var(--color-text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jrnl-dest{font-size:var(--text-2xs);font-family:var(--font-mono);color:var(--color-text-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jrnl-revert{flex:none;background:transparent;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);color:var(--color-text-secondary);font-size:var(--text-xs);padding:2px 7px;cursor:pointer;line-height:1.4}
+.jrnl-revert:hover{color:var(--color-text-primary);border-color:var(--color-border-primary)}
+/* Filés category footer */
+.jrnl-cat-foot{padding:var(--space-6) var(--space-12);border-top:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary)}
+.jrnl-last-batch{background:transparent;border:none;font-size:var(--text-xs);color:var(--color-text-tertiary);cursor:pointer;padding:0}
+.jrnl-last-batch:hover{color:var(--color-text-secondary)}
+/* Confirmation toast — fades out automatically via CSS, no JS timer */
+.jrnl-toast{font-size:var(--text-sm);color:var(--color-text-success);background:color-mix(in srgb,var(--color-text-success) 12%,transparent);border:1px solid color-mix(in srgb,var(--color-text-success) 30%,transparent);border-radius:var(--border-radius-md);padding:var(--space-6) var(--space-12);margin-bottom:var(--space-8);animation:jrnl-toast-fade 2.8s ease forwards}
+.jrnl-toast--warn{color:var(--color-text-warning);background:color-mix(in srgb,var(--color-text-warning) 12%,transparent);border-color:color-mix(in srgb,var(--color-text-warning) 30%,transparent)}
+.jrnl-banner{font-size:var(--text-sm);border-radius:var(--border-radius-md);padding:var(--space-6) var(--space-12);margin-bottom:var(--space-8);border:1px solid}
+.jrnl-banner--ok{color:var(--color-text-success);background:color-mix(in srgb,var(--color-text-success) 12%,transparent);border-color:color-mix(in srgb,var(--color-text-success) 30%,transparent)}
+.jrnl-banner--warn{color:var(--color-text-warning);background:color-mix(in srgb,var(--color-text-warning) 12%,transparent);border-color:color-mix(in srgb,var(--color-text-warning) 30%,transparent)}
+.jrnl-row--loading{opacity:.6;transition:opacity .15s}
+.jrnl-row--reverted{opacity:.4;transition:opacity .15s}
+.jrnl-row--reverted .jrnl-name{text-decoration:line-through}
+.jrnl-row--reverted .jrnl-revert{color:var(--color-text-success)}
+@keyframes jrnl-toast-fade{0%,60%{opacity:1}100%{opacity:0;height:0;padding:0;margin:0;border-width:0;overflow:hidden}}
+/* Empty state */
+.jrnl-empty{font-size:var(--text-sm);color:var(--color-text-tertiary);padding:var(--space-16) 0}
+/* "Voir tout" footer */
+.jrnl-voir-tout{background:transparent;border:none;color:var(--color-text-tertiary);font-size:var(--text-sm);cursor:pointer;padding:var(--space-4) 0;text-align:left;margin-top:var(--space-4)}
+.jrnl-voir-tout:hover{color:var(--color-text-secondary)}
+/* Session groups (extended view) */
+.jrnl-session-group{margin-bottom:var(--space-12)}
+.jrnl-session-hd{font-size:var(--text-2xs);text-transform:uppercase;letter-spacing:.05em;color:var(--color-text-tertiary);padding:var(--space-4) 0 var(--space-8);border-top:0.5px solid var(--color-border-tertiary);margin-bottom:var(--space-4)}
+
+/* ── Revue detail (report-view.ts) — extracted inline styles, byte-identical values ───── */
+.sift-report-scroll{flex:1;overflow:auto;padding:2px 2px 8px}
+.sift-report-close{flex:none;font-size:var(--text-base);padding:4px 10px}
+.sift-kbd-hints{margin-top:18px;font-size:var(--text-xs);letter-spacing:.03em;color:var(--color-text-tertiary);display:flex;gap:16px;flex-wrap:wrap}
+.sift-kbd-hints b{font-weight:600;color:var(--color-text-secondary)}
+.sift-player-row{display:flex;flex-direction:column;gap:14px;margin-bottom:11px;padding:12px 14px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)}
+.sift-player-audition{display:flex;align-items:center;gap:12px}
+.sift-play-btn{flex:none;width:36px;height:36px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;padding:0;border:none;background:var(--color-text-primary)}
+.sift-play-btn i{font-size:var(--text-base);color:var(--color-background-primary)}
+.sift-play-btn:hover{filter:brightness(0.9)}
+.sift-player-header{display:flex;align-items:center;gap:12px;margin-bottom:11px}
+/* Cover frame: real art fills it once identified (.sift-player-cover unhides, sits above the
+   ::before at z-index 1 and covers it completely). Until then the ::before pseudo-element draws
+   a minimalist vinyl disc (grooves + label + spindle hole) inset from the square sleeve edge —
+   no external asset, so a track always shows *something* here instead of empty/broken. */
+.sift-cover-frame{width:48px;height:48px;border-radius:6px;flex:none;position:relative;overflow:hidden;background:var(--color-background-tertiary)}
+.sift-cover-frame::before{content:"";position:absolute;inset:3px;border-radius:50%;background:radial-gradient(circle at 50% 50%,#111 0 9%,transparent 9.5%),repeating-radial-gradient(circle at 50% 50%,rgba(255,255,255,.12) 0 1px,transparent 1px 5px),#2c2822}
+.sift-player-cover{position:relative;z-index:1;width:100%;height:100%;object-fit:cover;display:block}
+.sift-player-header-body{min-width:0;flex:1}
+.sift-player-name{font-size:var(--text-lg);font-weight:600;color:var(--color-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sift-player-sub{font-size:var(--text-sm);color:var(--color-text-secondary);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sift-player-path{font-size:var(--text-xs);color:var(--color-text-tertiary);font-family:var(--font-mono);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sift-wave-wrap{position:relative;flex:1;min-width:0}
+.sift-player-wave{cursor:pointer;transition:opacity .15s ease}
+.sift-wave-wrap.is-paused .sift-player-wave{opacity:.55}
+.sift-wave-wrap.is-paused:hover .sift-player-wave{opacity:1}
+/* Alpha-masked to a snapshot of the wave canvas (see mountPlayer's updateWaveMask) so only the
+   bar pixels tint, not the transparent gaps between them — no rectangle/line ever shows. */
+.sift-wave-hover{position:absolute;top:0;left:0;bottom:0;width:0;background:rgba(255,255,255,.6);pointer-events:none}
+.sift-time-elapsed,.sift-time-total{position:absolute;bottom:3px;font-family:var(--font-mono);font-size:var(--text-xs);font-weight:500;line-height:1.2;padding:2px 6px;border-radius:4px;background:rgba(0,0,0,.55);pointer-events:none}
+.sift-time-elapsed{left:6px;color:#ff5500}
+.sift-time-total{right:6px;color:rgba(255,255,255,.7)}
+.sift-player-controls{display:flex;align-items:center;gap:14px}
+.sift-slider-block{flex:none;width:130px;display:flex;flex-direction:column;gap:6px}
+.sift-slider-label{font-size:var(--text-3xs);letter-spacing:.1em;text-transform:uppercase;color:var(--color-text-tertiary);display:flex;align-items:center;justify-content:space-between}
+.sift-tempo-out{font-family:var(--font-mono);color:var(--color-text-secondary);text-transform:none;letter-spacing:0}
+.sift-slider-track{position:relative;height:16px;display:flex;align-items:center;cursor:pointer}
+.sift-slider-rail{position:absolute;left:0;right:0;height:3px;border-radius:2px;background:var(--color-border-secondary)}
+.sift-slider-fill{position:absolute;height:3px;border-radius:2px;background:var(--color-text-info);pointer-events:none}
+.sift-slider-thumb{position:absolute;top:50%;transform:translate(-50%,-50%);width:13px;height:13px;border-radius:50%;background:var(--color-background-primary);border:1.5px solid var(--color-text-info);pointer-events:none}
+.sift-player-spacer{flex:1}
+.sift-key-block{flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer}
+.sift-key-btn{font-family:var(--font-mono);font-size:var(--text-xs);padding:4px 10px;border-radius:var(--border-radius-md);border:1px solid var(--color-border-tertiary);background:transparent;font-weight:600}
+.sift-vchip{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:var(--text-xs);font-weight:600;letter-spacing:.03em}
+.sift-verdict-card{display:flex;align-items:center;flex-wrap:wrap;border-radius:var(--border-radius-lg);padding:12px 14px;margin-bottom:12px}
+.sift-verdict-main{flex:1;min-width:0}
+.sift-verdict-head{display:flex;align-items:center;gap:7px;margin-bottom:9px}
+.sift-verdict-head i{font-size:var(--text-xl)}
+.sift-verdict-label{font-size:var(--text-xl);font-weight:600}
+.sift-vchips-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.sift-verdict-finalname-col{flex:none;max-width:46%;text-align:right;margin-left:auto}
+.sift-verdict-finalname-label{font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-tertiary);margin-bottom:3px}
+.sift-verdict-finalname{font-family:var(--font-mono);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Preuves — split out of the verdict conclusion bandeau (Sift.dc.html:221-232), rendered
+   right after the player, before Identification. audit-fidelite-2026-07-02.md décision #1. */
+.sift-evidence{margin-bottom:11px}
+.sift-evidence-label{font-size:var(--text-xs);letter-spacing:.11em;text-transform:uppercase;color:var(--color-text-tertiary);margin-bottom:8px}
+.sift-spectro-box{margin-bottom:11px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);overflow:hidden}
+.sift-spectro-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 11px;background:var(--color-background-secondary);border:none;color:var(--color-text-primary);cursor:pointer;font-size:var(--text-sm);text-align:left}
+.sift-spectro-toggle-label{display:flex;align-items:center;gap:8px}
+.sift-spectro-caret{display:inline-block;transition:transform .25s;color:var(--color-text-tertiary)}
+.sift-spectro-hint{font-size:var(--text-sm);color:var(--color-text-info);flex:none}
+.sift-spectro-body{max-height:0;overflow:hidden;transition:max-height .3s ease}
+.sift-spectro-declared{padding:8px 11px;font-size:var(--text-xs);color:var(--color-text-tertiary);border-bottom:0.5px solid var(--color-border-tertiary);line-height:1.5}
+.sift-spectro-canvas{width:100%;display:block;background:#000}
+.sift-spectro-rows{padding:9px 11px;display:grid;grid-template-columns:1fr 1fr;gap:0 28px;font-size:var(--text-md)}
+.sift-row{display:flex;justify-content:space-between;gap:16px;padding:3px 0;border-bottom:0.5px solid var(--color-border-tertiary)}
+.sift-row-label{color:var(--color-text-tertiary)}
+.sift-row-value{font-family:var(--font-mono);text-align:right;color:var(--color-text-secondary)}
+.sift-tags-box{margin-bottom:4px}
+.sift-tags-title{font-size:var(--text-2xs);letter-spacing:.05em;text-transform:uppercase;color:var(--color-text-tertiary);margin-bottom:5px}
+.sift-codec-error{margin-top:12px;font-size:var(--text-sm);color:var(--color-text-warning)}
+.sift-verdict-stub{display:flex;align-items:center;gap:6px;margin:2px 0 12px;font-size:var(--text-sm);color:var(--color-text-tertiary)}
+.sift-analysis-fail{margin-bottom:12px;font-size:var(--text-sm);color:var(--color-text-warning)}
+.sift-report-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:24px}
+.sift-report-overlay-card{background:var(--color-background-primary);color:var(--color-text-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-lg,12px);box-shadow:0 12px 48px rgba(0,0,0,.5)}
+.sift-report-overlay-loading{padding:22px 26px;font-size:var(--text-base);display:flex;align-items:center;gap:8px}
+.sift-report-overlay-error{padding:22px 26px;font-size:var(--text-base);color:var(--color-text-danger)}
+.sift-report-overlay-modal{max-width:760px;width:100%;max-height:90vh;overflow:auto;padding:20px}
+
+/* ── Revue filing rail (filing.ts) — extracted inline styles, byte-identical values ───── */
+.sift-fld-caret{display:inline-block;width:14px;text-align:center;cursor:pointer;color:var(--color-text-tertiary);transition:transform .2s}
+.sift-fld-caret-spacer{display:inline-block;width:14px;flex:none}
+.sift-fld-row{display:flex;align-items:center;gap:4px}
+.sift-fld-flat-row{padding:3px 6px;display:flex;align-items:center;gap:5px}
+.sift-fld-icon{flex:none}
+.sift-fld-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.sift-binfilter{width:100%;font-size:var(--text-sm);padding:4px 7px;margin-bottom:6px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);color:var(--color-text-primary);box-sizing:border-box}
+.sift-fldz-hint{font-size:var(--text-sm);color:var(--color-text-tertiary);margin-bottom:8px}
+.sift-fldz-empty-note{font-size:var(--text-xs);color:var(--color-text-tertiary);padding:2px 0 2px 33px}
+.sift-fldz-no-match{font-size:var(--text-xs);color:var(--color-text-tertiary);padding:4px 0}
+.sift-fldz-rootpath{display:flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-text-tertiary);white-space:nowrap;overflow:hidden;padding:6px 0;margin-bottom:4px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.sift-fldz-rootpath i{flex:none}
+.sift-fldz-rootpath span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.sift-fldz-browse{margin-top:4px;padding-top:9px;border-top:0.5px solid var(--color-border-tertiary)}
+.sift-newin{width:100%;font-size:var(--text-md);padding:5px 7px;margin-top:2px;box-sizing:border-box}
+.sift-chip-disabled{opacity:.4;cursor:not-allowed}
+.sift-col-h-tight{margin-bottom:4px}
+.sift-fmt-chips{display:flex;flex-wrap:wrap;gap:5px}
+.sift-editor-title{margin-bottom:6px}
+.sift-editor-badge-row{margin-bottom:8px}
+.sift-ident-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.sift-ident-edit-btn{flex:none;display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-secondary);color:var(--color-text-secondary);cursor:pointer}
+.sift-ident-edit-btn:hover{color:var(--color-text-primary)}
+.sift-ident-display{font-size:var(--text-lg);font-weight:500;margin-bottom:10px}
+.sift-ident-done-btn{align-self:flex-start;margin-bottom:10px;padding:5px 12px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-secondary);color:var(--color-text-primary);font-size:var(--text-sm);cursor:pointer}
+.sift-badge-ok{display:inline-flex;align-items:center;gap:4px;font-size:var(--text-xs);color:var(--color-text-success)}
+.sift-badge-ok i{font-size:var(--text-sm)}
+.sift-badge-warn{display:inline-flex;align-items:center;gap:4px;font-size:var(--text-xs);color:var(--color-text-warning)}
+.sift-badge-warn i{font-size:var(--text-sm)}
+.sift-id-btn-full{width:100%;margin-bottom:8px}
+.sift-cands-host{margin-bottom:8px}
+.sift-editor-fields{display:grid;grid-template-columns:1fr;gap:5px;margin-bottom:8px}
+.sift-editor-input{font-size:var(--text-md);padding:4px 7px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);color:var(--color-text-primary);min-width:0}
+.sift-genres-box{margin-bottom:10px;min-height:1px}
+.sift-applytags-btn{width:100%;font-size:var(--text-sm);color:var(--color-text-secondary)}
+.sift-kbd-hint-id{font-size:var(--text-2xs);border-color:rgba(0,0,0,.18);color:rgba(0,0,0,.5)}
+.sift-release-line{display:flex;align-items:center;gap:6px;font-size:var(--text-sm);color:var(--color-text-secondary);margin-bottom:10px}
+.sift-release-line i{font-size:var(--text-md);color:var(--color-text-tertiary)}
+.sift-identified-line{display:flex;align-items:center;gap:7px;padding:4px 2px}
+.sift-identified-cover{width:28px;height:28px;border-radius:3px;object-fit:cover;flex:none}
+.sift-identified-noart{width:28px;height:28px;border-radius:3px;background:var(--color-background-secondary);display:inline-flex;align-items:center;justify-content:center;flex:none}
+.sift-identified-noart i{font-size:var(--text-lg);color:var(--color-text-tertiary)}
+.sift-identified-text{flex:1;min-width:0;font-size:var(--text-md);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sift-identified-label{color:var(--color-text-secondary)}
+.sift-cand-error-icon{font-size:var(--text-md);vertical-align:-2px;margin-right:4px}
+.sift-searching-icon{font-size:var(--text-sm);vertical-align:-1px}
+.sift-goto-reglages{margin-top:5px;font-size:var(--text-sm);padding:3px 9px}
+.sift-toast{position:fixed;right:18px;bottom:18px;z-index:9998;display:flex;align-items:center;gap:12px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:9px 13px;font-size:var(--text-md);color:var(--color-text-primary);box-shadow:0 8px 28px rgba(0,0,0,.4)}
+.sift-toast-undo{font-size:var(--text-sm);padding:2px 9px}
+.sift-filed-banner{margin-top:12px;padding:7px 10px;background:var(--color-background-success);border-left:2px solid var(--color-text-success);font-size:var(--text-sm)}
+.sift-filed-banner-head{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.sift-filed-banner-head i{font-size:var(--text-md);color:var(--color-text-success)}
+.sift-filed-banner-label{color:var(--color-text-success);font-weight:500}
+.sift-filed-banner-bin{color:var(--color-text-tertiary);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sift-filed-banner-close{margin-left:auto;flex:none;background:none;border:none;color:var(--color-text-tertiary);cursor:pointer;padding:0;line-height:1}
+.sift-filed-banner-close i{font-size:var(--text-md)}
+.sift-filed-banner-name{color:var(--color-text-secondary);font-family:var(--font-mono);font-size:var(--text-xs);word-break:break-all;line-height:1.5;margin-bottom:3px}
+.sift-filed-banner-path{color:var(--color-text-tertiary);font-family:var(--font-mono);font-size:var(--text-2xs);word-break:break-all;line-height:1.4;margin-bottom:7px}
+.sift-filed-banner-revert{display:inline-flex;align-items:center;gap:5px;font-size:var(--text-sm);padding:3px 10px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);color:var(--color-text-secondary);cursor:pointer}
+.sift-filed-banner-revert i{font-size:var(--text-md);vertical-align:-2px}
+.sift-dup-banner{display:flex;align-items:flex-start;gap:8px;border-radius:var(--border-radius-md);padding:8px 11px;margin-bottom:10px;font-size:var(--text-sm)}
+.sift-dup-banner i{font-size:var(--text-lg);flex:none}
+.sift-dup-banner-body{min-width:0}
+.sift-dup-banner-head{font-weight:500}
+.sift-dup-banner-where{color:var(--color-text-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sift-clear-pane{flex:1;display:flex;align-items:center;justify-content:center;color:var(--color-text-tertiary);font-size:var(--text-md);padding:20px;text-align:center}
+.sift-inplace-toggle{display:flex;align-items:center;gap:7px;margin-top:12px;font-size:var(--text-sm);color:var(--color-text-secondary);cursor:pointer}
+.sift-inplace-toggle input{cursor:pointer;flex:none}
+.sift-batch-ck{cursor:pointer;flex:none}
+.sift-inplace-note{color:var(--color-text-tertiary)}
+.sift-fil-scroll{flex:1;min-height:0;overflow:auto}
+.sift-fil-editor-margin{margin-top:8px;padding-top:8px;border-top:0.5px solid var(--color-border-tertiary)}
+/* Identification card border (Sift.dc.html:309: background:var(--card);border:1px solid
+   var(--border);border-radius:11px) — was plain (no card), confirmed gap in
+   audit-fidelite-2026-07-02.md décision #2. Compound selector wins over the plain
+   .sift-fil-editor-margin border-top above (equal specificity would tie by source order —
+   this makes the override explicit rather than accidental). */
+.sift-fil-editor.sift-fil-editor-margin{background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:14px 16px;border-top:0.5px solid var(--color-border-tertiary)}
+.sift-fil-root{display:flex;flex-direction:column;height:100%;min-height:0}
+.sift-fil-dup{flex:none}
+.sift-icon-inline-base{font-size:var(--text-base);vertical-align:-2px}
+.sift-icon-inline-lg{font-size:var(--text-lg)}
+.sift-icon-inline-sm{font-size:var(--text-sm);vertical-align:-1px}
+.sift-icon-inline-md{font-size:var(--text-md);vertical-align:-2px}
+.sift-newbin-row{color:var(--color-text-tertiary)}
+.sift-cand-change-btn{font-size:var(--text-sm);padding:2px 8px;flex:none}
+.sift-underline{text-decoration:underline}
+.sift-icon-flex-none{flex:none}
+
+/* ── Journal — grammaire 3 colonnes (Sift.dc.html) : liste en col Queue + détail en Inspecteur ── */
+/* Queue column (reuses .queue for bg/width/padding). */
+.jrnl-queue{padding:0}
+.jrnl-qhead{display:flex;align-items:center;justify-content:space-between;padding:16px 16px 11px}
+.jrnl-qtitle{font-size:var(--text-base);font-weight:600;letter-spacing:.01em;color:var(--color-text-primary)}
+.jrnl-qcount{font-family:var(--font-mono);font-weight:400;font-size:var(--text-sm);color:var(--color-text-tertiary);margin-left:2px}
+.jrnl-qmode{display:flex;gap:2px;background:var(--color-track);border:0.5px solid var(--color-border-secondary);border-radius:7px;padding:2px}
+.jrnl-qmode-btn{font-size:var(--text-sm);padding:3px 9px;border-radius:5px;cursor:pointer;color:var(--color-text-tertiary);font-weight:500}
+.jrnl-qmode-btn:hover{background:var(--color-row-active)}
+.jrnl-qmode-btn.on{background:var(--color-background-secondary);color:var(--color-text-primary)}
+.jrnl-qlist{flex:1;min-height:0;overflow-y:auto;padding:0 8px 14px}
+.jrnl-qgrp{display:flex;align-items:center;gap:6px;font-size:var(--text-2xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-quaternary);padding:12px 8px 5px}
+.jrnl-qgrp-n{font-family:var(--font-mono);font-weight:400;color:var(--color-text-tertiary)}
+.jrnl-qrow{position:relative;display:flex;gap:8px;padding:8px 10px 8px 12px;margin-bottom:1px;border-radius:7px;cursor:pointer}
+.jrnl-qrow:hover{background:var(--color-row-active)}
+.jrnl-qrow.on{background:var(--color-row-active)}
+.jrnl-qrow-bar{position:absolute;left:2px;top:9px;bottom:9px;width:2px;border-radius:2px;background:var(--color-text-secondary);opacity:0}
+.jrnl-qrow.on .jrnl-qrow-bar{opacity:1}
+.jrnl-qrow-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.jrnl-qrow-head{display:flex;align-items:center;gap:8px}
+.jrnl-qrow-dot{width:6px;height:6px;border-radius:999px;flex:none}
+.jrnl-qrow-action{font-size:var(--text-base);font-weight:500;color:var(--color-text-primary);flex:1;min-width:0}
+.jrnl-qrow-time{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--color-text-quaternary);flex:none}
+.jrnl-qrow-detail{font-size:var(--text-sm);color:var(--color-text-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:14px}
+.jrnl-qempty{font-size:var(--text-sm);color:var(--color-text-tertiary);padding:16px}
+/* Inspector column (reuses .sift-inspector for flex column). */
+.jrnl-insp-scroll{flex:1;min-height:0;overflow-y:auto;padding:20px 30px}
+.jrnl-insp-crumb{font-size:var(--text-md);color:var(--color-text-tertiary);margin-bottom:20px}
+.jrnl-insp-sep{color:var(--color-text-quaternary);margin:0 3px}
+.jrnl-insp-crumb-cur{color:var(--color-text-primary)}
+.jrnl-insp-head{display:flex;align-items:center;gap:12px;margin-bottom:24px}
+.jrnl-insp-dot{width:11px;height:11px;border-radius:999px;flex:none}
+.jrnl-insp-action{font-size:22px;font-weight:600;color:var(--color-text-primary)}
+.jrnl-insp-time{font-family:var(--font-mono);font-size:var(--text-md);color:var(--color-text-quaternary)}
+.jrnl-insp-card{background:var(--color-background-secondary);border:1px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);padding:18px 20px;max-width:560px;display:flex;flex-wrap:wrap;gap:6px 30px}
+.jrnl-insp-field{margin-bottom:6px}
+.jrnl-insp-flabel{font-size:var(--text-xs);letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-quaternary);margin-bottom:4px}
+.jrnl-insp-fvalue{font-size:var(--text-lg);color:var(--color-text-primary)}
+.jrnl-insp-fvalue.mono{font-family:var(--font-mono);font-size:var(--text-base);color:var(--color-text-secondary);word-break:break-all}
+.jrnl-insp-rail{flex:none;display:flex;align-items:center;gap:14px;border-top:1px solid var(--color-border-secondary);background:var(--color-background-tertiary);padding:13px 30px}
+.jrnl-insp-hints{display:flex;align-items:center;gap:16px}
+.jrnl-insp-hint{display:flex;align-items:center;gap:6px;font-size:var(--text-sm);color:var(--color-text-tertiary)}
+.jrnl-insp-rail-sp{flex:1}
+.jrnl-insp-revert{height:40px;display:flex;align-items:center;gap:8px;padding:0 18px;border-radius:8px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);cursor:pointer;font-size:var(--text-base);font-weight:500;color:var(--color-text-primary)}
+.jrnl-insp-revert:hover{filter:brightness(0.96)}
+.jrnl-insp-revert:disabled{opacity:.5;cursor:default}
+/* Shared empty state (DESIGN.md "État vide") — top-aligned, never centred. Used by Revue (queue),
+   Écartés, and Bibliothèque when the screen is a real dead-end. */
+.sift-empty-state{padding:28px 30px;display:flex;flex-direction:column;align-items:flex-start;gap:var(--space-8);max-width:360px}
+.sift-empty-title{font-size:var(--text-xl);font-weight:600;color:var(--color-text-primary)}
+.sift-empty-note{font-size:var(--text-md);color:var(--color-text-tertiary);line-height:1.5}
+.sift-empty-link{margin-top:var(--space-4);font-size:var(--text-sm);color:var(--color-text-info);background:none;border:none;padding:0;cursor:pointer;font-family:inherit}
+.sift-empty-link:hover{text-decoration:underline}

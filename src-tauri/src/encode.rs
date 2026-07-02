@@ -3,7 +3,6 @@
 //! already in target shape), and a hard no-upscale guard. The caller passes the source
 //! rail (it already has it from the analysis report), so this module is independent of
 //! the analysis pipeline. ffmpeg is driven exactly like `analysis/decode.rs`.
-#![allow(dead_code)]
 
 use crate::analysis::Rail;
 use ffmpeg_sidecar::command::FfmpegCommand;
@@ -171,6 +170,16 @@ mod tests {
         }
     }
 
+    /// A missing fixture quietly `return`s a "passing" test on a dev machine without
+    /// `fixtures/` checked out — but in CI a missing fixture means the checkout is broken, not
+    /// a supported skip, and must fail loudly instead of reporting a false green (FIX-16).
+    fn skip_if_no_fixture(name: &str) {
+        eprintln!("skip: no fixture ({name})");
+        if std::env::var("CI").is_ok() {
+            panic!("fixture missing in CI: fixtures/{name} — checkout is broken, not a supported skip");
+        }
+    }
+
     #[test]
     fn target_follows_rail() {
         assert_eq!(target_for(Rail::Lossless), Target::Aiff1644);
@@ -189,7 +198,7 @@ mod tests {
     #[test]
     fn encodes_flac_to_conformant_wav() {
         let Some(src) = fixture("real_lossless.flac") else {
-            eprintln!("skip: no fixture");
+            skip_if_no_fixture("real_lossless.flac");
             return;
         };
         crate::ffmpeg::init_ffmpeg_path();
@@ -211,7 +220,7 @@ mod tests {
     #[test]
     fn mp3_is_conformant_to_mp3_target() {
         let Some(p) = fixture("real_320.mp3") else {
-            eprintln!("skip: no fixture");
+            skip_if_no_fixture("real_320.mp3");
             return;
         };
         assert!(is_conformant(&p, Target::Mp3320));
@@ -220,7 +229,7 @@ mod tests {
     #[test]
     fn flac_is_not_conformant_to_either_target() {
         let Some(p) = fixture("real_lossless.flac") else {
-            eprintln!("skip: no fixture");
+            skip_if_no_fixture("real_lossless.flac");
             return;
         };
         assert!(!is_conformant(&p, Target::Mp3320)); // wrong codec
@@ -230,7 +239,7 @@ mod tests {
     #[test]
     fn encodes_flac_to_conformant_aiff() {
         let Some(src) = fixture("real_lossless.flac") else {
-            eprintln!("skip: no fixture");
+            skip_if_no_fixture("real_lossless.flac");
             return;
         };
         crate::ffmpeg::init_ffmpeg_path(); // point ffmpeg-sidecar at the bundled dev binary
@@ -245,7 +254,7 @@ mod tests {
     #[test]
     fn encodes_flac_to_mp3_320() {
         let Some(src) = fixture("real_lossless.flac") else {
-            eprintln!("skip: no fixture");
+            skip_if_no_fixture("real_lossless.flac");
             return;
         };
         crate::ffmpeg::init_ffmpeg_path(); // point ffmpeg-sidecar at the bundled dev binary

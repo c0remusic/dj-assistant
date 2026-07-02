@@ -1,0 +1,1363 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;height:100%;}
+::-webkit-scrollbar{width:9px;height:9px;}
+::-webkit-scrollbar-thumb{background:rgba(128,120,108,0.25);border-radius:999px;border:2px solid transparent;background-clip:padding-box;}
+::-webkit-scrollbar-track{background:transparent;}
+@keyframes sfToast{from{opacity:0;transform:translate(-50%,10px);}to{opacity:1;transform:translate(-50%,0);}}
+@keyframes sfProof{from{opacity:0;transform:translateY(-5px);}to{opacity:1;transform:translateY(0);}}
+@keyframes sfPop{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+@keyframes sfFade{from{opacity:0;}to{opacity:1;}}
+</style>
+</helmet>
+<div style="height:100%;width:100%;display:flex;background:var(--canvas,#E7E2DB);font-family:Outfit,-apple-system,sans-serif;color:var(--text1,#34302B);overflow:hidden;position:relative;font-size:14px;{{cssVars}}">
+
+  <!-- ============ COL 1 · NAVIGATION (fixe) ============ -->
+  <div style="width:152px;flex:none;display:flex;flex-direction:column;background:var(--nav);border-right:1px solid var(--border);padding:16px 12px 14px;">
+    <div style="display:flex;align-items:center;gap:8px;padding:2px 8px 20px;">
+      <div style="width:16px;height:16px;border-radius:4px;background:var(--ctaBg);flex:none;"></div>
+      <span style="font-size:18px;font-weight:600;letter-spacing:-0.02em;">Sift</span>
+    </div>
+    <sc-for list="{{navItems}}" as="n" hint-placeholder-count="6">
+      <div onClick="{{n.onClick}}" style="display:flex;align-items:center;gap:5px;height:36px;padding:0 8px;border-radius:7px;cursor:pointer;font-size:12.5px;font-weight:{{n.weight}};color:{{n.color}};background:{{n.bg}};margin-bottom:1px;" style-hover="background:var(--navActive);">
+        <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{n.label}}</span>
+        <span style="flex:none;font-family:'JetBrains Mono',monospace;font-size:9.5px;color:{{n.countColor}};display:{{n.countShow}};">{{n.count}}</span>
+      </div>
+    </sc-for>
+    <div style="flex:1;"></div>
+    <sc-if value="{{showNavTasks}}" hint-placeholder-val="{{false}}">
+      <div style="display:flex;flex-direction:column;gap:6px;padding:0 9px 10px;">
+        <sc-for list="{{taskEntries}}" as="tk" hint-placeholder-count="1">
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 9px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:5px;">
+              <span style="font-size:11px;font-weight:500;">{{tk.label}}</span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--text3);">{{tk.done}}/{{tk.total}}</span>
+            </div>
+            <div style="height:3px;border-radius:2px;background:var(--track);overflow:hidden;">
+              <div style="height:100%;width:{{tk.pct}};border-radius:2px;background:{{tk.barColor}};"></div>
+            </div>
+            <sc-if value="{{tk.showStop}}" hint-placeholder-val="{{false}}">
+              <div onClick="{{tk.onStop}}" style="margin-top:6px;font-size:10.5px;color:var(--text3);cursor:pointer;" style-hover="color:var(--text1);">Arrêter</div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+    <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text4);padding:0 9px 7px;">Export</div>
+    <sc-for list="{{exportItems}}" as="e" hint-placeholder-count="2">
+      <div onClick="{{e.onClick}}" style="display:flex;align-items:center;gap:8px;height:32px;padding:0 9px;border-radius:7px;cursor:pointer;font-size:13px;color:var(--text3);opacity:0.55;" style-hover="opacity:0.85;background:var(--navActive);">
+        <span style="width:5px;height:5px;border-radius:999px;background:#B07A28;flex:none;"></span>
+        <span>{{e.label}}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <!-- ============ COL 2 · QUEUE (fixe) ============ -->
+  <div style="width:272px;flex:none;display:flex;flex-direction:column;background:var(--queue);border-right:1px solid var(--border);">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 16px 11px;">
+      <div style="font-size:13px;font-weight:600;letter-spacing:0.01em;">{{queueTitle}} <span style="font-family:'JetBrains Mono',monospace;font-weight:400;font-size:11px;color:var(--text3);margin-left:2px;">{{queueCount}}</span></div>
+      <div style="display:{{toggleShow}};background:var(--track);border:1px solid var(--border);border-radius:7px;padding:2px;gap:2px;">
+        <span onClick="{{onDetail}}" style="display:inline-block;font-size:11px;padding:3px 9px;border-radius:5px;cursor:pointer;background:{{detailBg}};color:{{detailColor}};font-weight:500;" style-hover="background:var(--rowActive);">Détail</span>
+        <span onClick="{{onBatch}}" style="display:inline-block;font-size:11px;padding:3px 9px;border-radius:5px;cursor:pointer;background:{{batchBg}};color:{{batchColor}};font-weight:500;" style-hover="background:var(--rowActive);">Lot</span>
+      </div>
+    </div>
+
+    <!-- track list (review/library/discarded) -->
+    <sc-if value="{{showTrackRows}}" hint-placeholder-val="{{true}}">
+      <div style="flex:1;overflow-y:auto;padding:0 8px 14px;">
+        <sc-for list="{{rows}}" as="r" hint-placeholder-count="10">
+          <div onClick="{{r.onClick}}" style="position:relative;display:flex;align-items:center;gap:8px;padding:{{rowPad}};margin-bottom:1px;border-radius:7px;cursor:pointer;background:{{r.bg}};" style-hover="background:var(--rowActive);">
+            <div style="position:absolute;left:2px;top:9px;bottom:9px;width:2px;border-radius:2px;background:var(--text2);opacity:{{r.barOp}};"></div>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;">
+              <div style="display:flex;align-items:center;gap:7px;">
+                <span style="width:12px;flex:none;text-align:center;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3);opacity:{{r.checkOp}};">{{r.check}}</span>
+                <span style="width:6px;height:6px;border-radius:999px;background:{{r.vColor}};flex:none;"></span>
+                <div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;">
+                  <span style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;color:{{r.titleColor}};">{{r.title}}</span>
+                  <span title="Doublon détecté dans la Bibliothèque" style="display:{{r.dupShow}};font-size:12px;color:{{r.dupColor}};flex:none;cursor:default;">⧉</span>
+                </div>
+              </div>
+              <div style="padding-left:19px;font-size:11px;color:var(--text3);min-width:0;">
+                <span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{r.artist}}</span>
+              </div>
+            </div>
+            <div style="flex:none;width:62px;display:flex;align-items:center;justify-content:center;">
+              <span style="color:{{r.vColor}};font-size:10.5px;">{{r.verdict}}</span>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <!-- journal list -->
+    <sc-if value="{{isJournal}}" hint-placeholder-val="{{false}}">
+      <div style="flex:1;overflow-y:auto;padding:0 8px 14px;">
+        <sc-for list="{{journalRows}}" as="j" hint-placeholder-count="6">
+          <div onClick="{{j.onClick}}" style="position:relative;display:flex;flex-direction:column;gap:3px;padding:10px 10px 10px 12px;margin-bottom:1px;border-radius:7px;cursor:pointer;background:{{j.bg}};" style-hover="background:var(--rowActive);">
+            <div style="position:absolute;left:2px;top:9px;bottom:9px;width:2px;border-radius:2px;background:var(--text2);opacity:{{j.barOp}};"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+              <span style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;color:{{j.color}};"><span style="width:5px;height:5px;border-radius:999px;background:{{j.dot}};"></span>{{j.action}}</span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text4);">{{j.time}}</span>
+            </div>
+            <div style="font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:11px;">{{j.detail}}</div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <!-- sources list (accueil) -->
+    <sc-if value="{{isHome}}" hint-placeholder-val="{{false}}">
+      <div style="flex:1;overflow-y:auto;padding:0 8px 14px;">
+        <sc-for list="{{sourceRows}}" as="src" hint-placeholder-count="3">
+          <div onClick="{{src.onClick}}" style="position:relative;display:flex;flex-direction:column;gap:3px;padding:10px 10px 10px 12px;margin-bottom:1px;border-radius:7px;cursor:pointer;background:{{src.bg}};" style-hover="background:var(--rowActive);">
+            <div style="position:absolute;left:2px;top:9px;bottom:9px;width:2px;border-radius:2px;background:var(--text2);opacity:{{src.barOp}};"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+              <span style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{src.name}}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:{{src.statusColor}};padding-left:0;">
+              <span style="width:5px;height:5px;border-radius:999px;background:{{src.statusColor}};flex:none;"></span>{{src.statusLabel}}
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <!-- settings section toc -->
+    <sc-if value="{{isSettings}}" hint-placeholder-val="{{false}}">
+      <div style="flex:1;padding:2px 8px 14px;overflow-y:auto;">
+        <sc-for list="{{settingsSections}}" as="sec" hint-placeholder-count="8">
+          <div onClick="{{sec.onClick}}" style="padding:7px 9px 7px {{sec.pad}}px;border-radius:7px;cursor:pointer;font-size:{{sec.size}}px;font-weight:{{sec.weight}};color:{{sec.color}};" style-hover="background:var(--rowActive);">{{sec.label}}</div>
+        </sc-for>
+      </div>
+    </sc-if>
+  </div>
+
+  <!-- ============ COL 3 · INSPECTEUR (flexible) ============ -->
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column;background:var(--canvas);">
+
+    <!-- ---- track inspector / batch (lot) ---- -->
+    <sc-if value="{{showReviewPane}}" hint-placeholder-val="{{true}}">
+    <sc-if value="{{isTrackScreen}}" hint-placeholder-val="{{true}}">
+      <div style="flex:1;overflow-y:auto;padding:20px 30px 22px;">
+
+        <!-- breadcrumb -->
+        <div style="font-size:12px;color:var(--text3);margin-bottom:16px;">{{crumbScreen}} <span style="color:var(--text4);margin:0 3px;">›</span> <span style="color:var(--text1);">{{track.title}}</span></div>
+
+        <!-- hero -->
+        <div style="display:flex;gap:18px;margin-bottom:22px;align-items:center;">
+          <div style="width:92px;height:92px;flex:none;border-radius:8px;border:1px solid var(--borderStrong);background:{{track.cover}};display:flex;align-items:flex-end;padding:8px;box-shadow:0 8px 20px rgba(20,17,14,0.28);">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:rgba(255,255,255,0.82);letter-spacing:0.04em;">{{track.catNo}}</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:5px;min-width:0;flex:1;">
+            <div style="font-size:23px;font-weight:600;letter-spacing:-0.015em;line-height:1.05;">{{track.title}}</div>
+            <div style="font-size:14.5px;color:var(--text2);">{{track.artist}} <span style="color:var(--text4);margin:0 4px;">·</span> <span style="color:var(--text3);">{{track.version}}</span></div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:rtl;text-align:left;margin-top:2px;">{{sourcePath}}</div>
+          </div>
+        </div>
+
+        <!-- AUDITION (son d'abord) -->
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:11px;padding:16px 18px;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div onClick="{{onPlay}}" style="width:48px;height:48px;flex:none;border-radius:999px;background:var(--surface);border:1px solid var(--borderStrong);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;color:var(--text1);padding-left:{{playIconPad}};" style-hover="filter:brightness(0.95);">{{playIcon}}</div>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--text3);flex:none;">{{timeNow}}</span>
+            <sc-if value="{{waveBarsMode}}" hint-placeholder-val="{{true}}">
+              <div onClick="{{onSeek}}" style="position:relative;flex:1;min-width:0;display:flex;align-items:center;gap:1.5px;height:54px;cursor:pointer;">
+                <sc-for list="{{bars}}" as="b" hint-placeholder-count="56">
+                  <div style="flex:1;height:{{b.h}};min-width:2px;border-radius:1px;background:{{b.color}};"></div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--text3);flex:none;">{{timeTotal}}</span>
+          </div>
+
+          <div style="margin-top:16px;display:flex;align-items:center;">
+            <div style="display:flex;flex-direction:column;gap:6px;flex:none;width:130px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;">
+                <span style="font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text4);">Volume</span>
+              </div>
+              <div onMouseDown="{{onVolumeDrag}}" style="position:relative;height:16px;display:flex;align-items:center;cursor:pointer;">
+                <div style="position:absolute;left:0;right:0;height:3px;border-radius:2px;background:var(--track);"></div>
+                <div style="position:absolute;left:0;width:{{volumePct}};height:3px;border-radius:2px;background:var(--ctaBg);pointer-events:none;"></div>
+                <div style="position:absolute;left:{{volumePct}};transform:translateX(-50%);width:13px;height:13px;border-radius:999px;background:var(--surface);border:1.5px solid var(--ctaBg);pointer-events:none;"></div>
+              </div>
+            </div>
+
+            <div style="flex:1;"></div>
+
+            <div style="display:flex;align-items:center;gap:14px;">
+              <div onClick="{{onKey}}" title="Le tempo ne change pas la tonalité (varispeed sinon)" style="flex:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;" style-hover="filter:brightness(0.94);">
+                <span style="font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text4);">Key-lock</span>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:4px 10px;border-radius:6px;background:{{keyBg}};border:1px solid {{keyBorder}};color:{{keyColor}};font-weight:600;">{{keyState}}</span>
+              </div>
+
+              <div style="display:flex;flex-direction:column;gap:6px;flex:none;width:130px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                  <span style="font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text4);">Tempo</span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;">{{tempoLabel}}</span>
+                </div>
+                <div onMouseDown="{{onTempoDrag}}" onDoubleClick="{{onResetTempo}}" style="position:relative;height:16px;display:flex;align-items:center;cursor:pointer;">
+                  <div style="position:absolute;left:0;right:0;height:3px;border-radius:2px;background:var(--track);"></div>
+                  <div style="position:absolute;left:{{tempoFillLeft}};width:{{tempoFillWidth}};height:3px;border-radius:2px;background:var(--ctaBg);pointer-events:none;"></div>
+                  <div style="position:absolute;left:{{tempoHandlePct}};transform:translateX(-50%);width:13px;height:13px;border-radius:999px;background:var(--surface);border:1.5px solid var(--ctaBg);pointer-events:none;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- EVIDENCE chips + inline proof -->
+        <div style="margin-bottom:16px;">
+          <div style="font-size:10px;letter-spacing:0.11em;text-transform:uppercase;color:var(--text4);margin-bottom:10px;">Preuves</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;">
+            <sc-for list="{{chips}}" as="c" hint-placeholder-count="3">
+              <div onClick="{{c.onClick}}" style="display:flex;align-items:center;gap:7px;height:30px;padding:0 13px;border-radius:999px;cursor:pointer;font-size:11.5px;font-weight:600;letter-spacing:0.02em;border:1px solid {{c.border}};background:{{c.bg}};color:{{c.color}};" style-hover="filter:brightness(0.94);">
+                <span style="display:{{c.dotShow}};width:5px;height:5px;border-radius:999px;background:{{c.dot}};"></span>
+                <span>{{c.label}}</span>
+                <span style="font-size:9px;opacity:0.55;transform:rotate({{c.chev}});transition:transform .15s;">▾</span>
+              </div>
+            </sc-for>
+          </div>
+          <sc-if value="{{proofOpen}}" hint-placeholder-val="{{false}}">
+            <div style="margin-top:12px;background:var(--card);border:1px solid var(--border);border-radius:11px;padding:16px 18px;animation:sfProof .18s ease;">
+
+              <!-- spectrum -->
+              <sc-if value="{{proofSpectrum}}" hint-placeholder-val="{{false}}">
+                <div style="display:flex;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--text2);margin-bottom:14px;">
+                  <span style="font-size:9.5px;font-family:Outfit,sans-serif;letter-spacing:0.07em;text-transform:uppercase;color:var(--text4);flex:none;">Prétend</span>
+                  <span>{{track.claimed}}</span>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                  <span style="font-size:12.5px;font-weight:600;">Analyse spectrale</span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;padding:2px 8px;border-radius:5px;background:{{specBadgeBg}};color:{{specColor}};">{{specVerdict}}</span>
+                </div>
+                <div style="display:flex;align-items:flex-end;gap:1px;height:78px;">
+                  <sc-for list="{{spectrum}}" as="s" hint-placeholder-count="40">
+                    <div style="flex:1;min-width:1px;height:{{s.h}};background:{{s.color}};border-radius:1px;"></div>
+                  </sc-for>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--text4);margin-top:6px;"><span>0</span><span>11k</span><span>16k</span><span>22 kHz</span></div>
+                <div style="font-size:11.5px;color:var(--text3);line-height:1.5;margin-top:11px;margin-bottom:14px;">{{specCaption}}</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px;padding-top:12px;border-top:1px solid var(--border);">
+                  <div>
+                    <sc-for list="{{proofLeft}}" as="pf" hint-placeholder-count="7">
+                      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:4px 0;font-size:11.5px;">
+                        <span style="color:var(--text3);">{{pf.l}}</span>
+                        <span style="font-family:'JetBrains Mono',monospace;color:var(--text1);text-align:right;">{{pf.v}}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div>
+                    <sc-for list="{{proofRight}}" as="pf" hint-placeholder-count="7">
+                      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:4px 0;font-size:11.5px;">
+                        <span style="color:var(--text3);">{{pf.l}}</span>
+                        <span style="font-family:'JetBrains Mono',monospace;color:var(--text1);text-align:right;">{{pf.v}}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
+
+              <!-- dedup -->
+              <sc-if value="{{proofDedup}}" hint-placeholder-val="{{false}}">
+                <sc-if value="{{isDup}}" hint-placeholder-val="{{false}}">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                    <span style="width:8px;height:8px;border-radius:999px;background:#B07A28;"></span>
+                    <span style="font-size:12.5px;font-weight:600;color:#8f6318;">Doublon détecté dans la Bibliothèque</span>
+                  </div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+                    <div style="border:1px solid var(--borderStrong);border-radius:8px;padding:11px 13px;">
+                      <div style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--text4);margin-bottom:6px;">Ce fichier</div>
+                      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text1);line-height:1.6;">{{track.claimed}}</div>
+                    </div>
+                    <div style="border:1px solid rgba(176,122,40,0.6);border-radius:8px;padding:11px 13px;background:rgba(176,122,40,0.24);">
+                      <div style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--text4);margin-bottom:6px;">Déjà en Bibliothèque</div>
+                      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text1);line-height:1.6;">{{dupExisting}}</div>
+                    </div>
+                  </div>
+                  <div style="display:flex;gap:8px;">
+                    <span onClick="{{onKeepThis}}" style="font-size:12px;font-weight:500;padding:6px 13px;border-radius:7px;background:var(--surface);border:1px solid var(--borderStrong);cursor:pointer;" style-hover="background:var(--rowActive);">Garder celui-ci</span>
+                    <span onClick="{{onKeepExisting}}" style="font-size:12px;font-weight:500;padding:6px 13px;border-radius:7px;background:var(--surface);border:1px solid var(--borderStrong);cursor:pointer;" style-hover="background:var(--rowActive);">Garder l'existant</span>
+                  </div>
+                </sc-if>
+                <sc-if value="{{notDup}}" hint-placeholder-val="{{true}}">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                    <span style="width:8px;height:8px;border-radius:999px;background:#4C7B57;"></span>
+                    <span style="font-size:12.5px;font-weight:600;color:#3f6d4c;">Aucun doublon</span>
+                  </div>
+                  <div style="font-size:11.5px;color:var(--text3);line-height:1.5;">Aucune empreinte acoustique correspondante. <span style="font-family:'JetBrains Mono',monospace;">4&nbsp;213</span> titres de la Bibliothèque analysés.</div>
+                </sc-if>
+              </sc-if>
+
+            </div>
+          </sc-if>
+        </div>
+
+        <!-- IDENTIFICATION -->
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:11px;padding:14px 16px;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;gap:10px;">
+            <span style="font-size:10px;letter-spacing:0.11em;text-transform:uppercase;color:var(--text4);">Identification · Discogs</span>
+            <sc-if value="{{isIdentified}}" hint-placeholder-val="{{true}}">
+              <div style="position:relative;">
+                <div onClick="{{onChange}}" style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;padding:4px 10px;border-radius:6px;border:1px solid var(--borderStrong);background:var(--surface);" style-hover="filter:brightness(0.95);">Modifier<span style="font-size:9px;color:var(--text3);">▾</span></div>
+                <sc-if value="{{identOpen}}" hint-placeholder-val="{{false}}">
+                  <div onClick="{{onChange}}" style="position:fixed;inset:0;z-index:15;"></div>
+                  <div onClick="{{stopP}}" style="position:absolute;top:34px;right:0;width:260px;background:var(--surface);border:1px solid var(--borderStrong);border-radius:10px;box-shadow:0 12px 34px rgba(15,13,10,0.35);overflow:hidden;animation:sfPop .14s ease;z-index:20;">
+                    <div style="padding:9px 12px;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--text4);border-bottom:1px solid var(--border);">Candidats Discogs</div>
+                    <div style="padding:5px;">
+                      <sc-for list="{{identCandidates}}" as="ic" hint-placeholder-count="3">
+                        <div onClick="{{ic.onClick}}" style="padding:8px 9px;border-radius:7px;cursor:pointer;background:{{ic.current}};margin-bottom:1px;" style-hover="background:var(--rowActive);">
+                          <div style="font-size:12.5px;font-weight:500;">{{ic.label}}</div>
+                          <div style="font-size:11px;color:var(--text3);margin-top:2px;">{{ic.sub}}</div>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-if>
+          </div>
+
+          <sc-if value="{{isIdentified}}" hint-placeholder-val="{{true}}">
+            <div style="display:flex;gap:34px;flex-wrap:wrap;margin-bottom:14px;">
+              <div><div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--text4);margin-bottom:4px;">Label</div><div style="font-size:13px;">{{track.label}}</div></div>
+              <div><div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--text4);margin-bottom:4px;">Année</div><div style="font-family:'JetBrains Mono',monospace;font-size:13px;">{{track.year}}</div></div>
+              <div><div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--text4);margin-bottom:4px;">Genre</div>
+                <div style="display:flex;flex-wrap:wrap;gap:5px;">
+                  <sc-for list="{{genreTags}}" as="gt" hint-placeholder-count="2">
+                    <span style="font-size:11.5px;font-weight:500;padding:3px 9px;border-radius:999px;background:var(--track);color:var(--text2);">{{gt.label}}</span>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;gap:34px;flex-wrap:wrap;margin-bottom:14px;">
+              <div><div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--text4);margin-bottom:4px;">Compatibilité CDJ</div><div style="font-size:13px;">{{tagsCdjOk}}</div></div>
+              <div><div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--text4);margin-bottom:4px;">Version ID3</div><div style="font-family:'JetBrains Mono',monospace;font-size:13px;">{{id3Version}}</div></div>
+            </div>
+            <sc-if value="{{matchNeedsCheck}}" hint-placeholder-val="{{false}}">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid var(--border);padding-top:12px;">
+                <span style="font-size:11.5px;color:var(--text3);">Cette identification Discogs correspond-elle bien à ce fichier ?</span>
+                <span style="flex:none;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;letter-spacing:0.03em;padding:5px 11px;border-radius:999px;background:{{matchBg}};color:{{matchColor}};">{{matchLabel}}</span>
+              </div>
+            </sc-if>
+          </sc-if>
+
+          <div style="display:{{unidentifiedShow}};">
+            <sc-if value="{{dsIdle}}" hint-placeholder-val="{{true}}">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;">
+                <span style="font-size:12.5px;color:var(--text3);">Aucune correspondance Discogs pour l'instant.</span>
+                <span onClick="{{onSearchDiscogs}}" style="flex:none;font-size:12.5px;font-weight:500;color:var(--text1);cursor:pointer;padding:6px 13px;border-radius:7px;border:1px solid var(--borderStrong);background:var(--surface);" style-hover="filter:brightness(0.95);">Rechercher sur Discogs</span>
+              </div>
+            </sc-if>
+            <sc-if value="{{dsSearching}}" hint-placeholder-val="{{false}}">
+              <div style="font-size:12.5px;color:var(--text3);">⟳ Recherche sur Discogs…</div>
+            </sc-if>
+            <sc-if value="{{dsResults}}" hint-placeholder-val="{{false}}">
+              <div style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--text4);margin-bottom:8px;">Candidats trouvés</div>
+              <div style="display:flex;flex-direction:column;gap:1px;">
+                <sc-for list="{{dsCandidates}}" as="dc" hint-placeholder-count="3">
+                  <div onClick="{{dc.onClick}}" style="padding:8px 10px;border-radius:7px;cursor:pointer;" style-hover="background:var(--rowActive);">
+                    <div style="font-size:12.5px;font-weight:500;">{{dc.label}}</div>
+                    <div style="font-size:11px;color:var(--text3);margin-top:2px;">{{dc.sub}}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+
+        <!-- CONCLUSION : ready to file (dernière étape) -->
+        <div style="display:flex;align-items:center;gap:16px;background:{{verdictBg}};border:1px solid {{verdictBorder}};border-radius:11px;padding:15px 18px;">
+          <span style="width:11px;height:11px;border-radius:999px;background:{{verdictColor}};flex:none;"></span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:16px;font-weight:600;color:{{verdictColor}};">{{verdictStatus}}</div>
+            <div style="font-size:11.5px;color:var(--text3);margin-top:2px;line-height:1.4;">{{verdictNote}}</div>
+          </div>
+          <div style="flex:none;max-width:46%;text-align:right;">
+            <div style="font-size:9.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--text4);margin-bottom:3px;">Nom final</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:{{verdictColor}};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{finalName}}</div>
+          </div>
+        </div>
+
+      </div>
+    </sc-if>
+
+    <sc-if value="{{isEmptyState}}" hint-placeholder-val="{{false}}">
+      <div style="flex:1;padding:28px 30px;">
+        <div style="font-size:17px;font-weight:600;margin-bottom:6px;">{{emptyTitle}}</div>
+        <div style="font-size:13px;color:var(--text3);line-height:1.5;max-width:340px;margin-bottom:14px;">{{emptyNote}}</div>
+        <sc-if value="{{emptyShowLink}}" hint-placeholder-val="{{false}}">
+          <span onClick="{{onEmptyGoReview}}" style="font-size:12.5px;font-weight:500;color:var(--text2);border-bottom:1px solid var(--borderStrong);cursor:pointer;" style-hover="color:var(--text1);">Aller à Revue →</span>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{isBatchView}}" hint-placeholder-val="{{false}}">
+      <div style="flex:1;overflow-y:auto;padding:20px 30px 22px;">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:16px;">Revue <span style="color:var(--text4);margin:0 3px;">›</span> <span style="color:var(--text1);">Lot</span></div>
+
+        <sc-if value="{{batchFileActive}}" hint-placeholder-val="{{false}}">
+          <div style="font-size:22px;font-weight:600;margin-bottom:20px;">Rangement en cours…</div>
+          <div style="display:flex;flex-direction:column;gap:1px;">
+            <sc-for list="{{batchLiveRows}}" as="lr" hint-placeholder-count="6">
+              <div style="display:flex;align-items:center;gap:10px;padding:7px 9px;border-radius:7px;background:var(--card);margin-bottom:1px;">
+                <span style="width:6px;height:6px;border-radius:999px;background:{{lr.dotColor}};flex:none;"></span>
+                <span style="font-size:13px;font-weight:500;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{lr.title}}</span>
+                <span style="font-size:11.5px;color:var(--text3);flex:none;max-width:30%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{lr.artist}}</span>
+                <span style="font-size:11px;color:{{lr.stateColor}};flex:none;width:60px;text-align:right;">{{lr.stateLabel}}</span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <div style="display:{{batchSelectShow}};">
+          <div style="font-size:22px;font-weight:600;margin-bottom:20px;">Lot <span style="color:var(--text3);font-weight:400;">· {{selCount}} sélectionné(s) sur {{queueTotal}}</span></div>
+
+          <sc-for list="{{batchGroups}}" as="grp" hint-placeholder-count="3">
+            <div style="margin-bottom:18px;">
+              <div onClick="{{grp.onToggleAll}}" style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:8px;">
+                <span style="display:{{grp.toggleShow}};width:15px;height:15px;border-radius:4px;border:1px solid var(--borderStrong);background:{{grp.allBg}};flex:none;"></span>
+                <span style="width:6px;height:6px;border-radius:999px;background:{{grp.dotColor}};flex:none;"></span>
+                <span style="font-size:13.5px;font-weight:600;">{{grp.label}}</span>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3);">{{grp.count}}</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:1px;padding-left:31px;">
+                <sc-for list="{{grp.rows}}" as="row" hint-placeholder-count="4">
+                  <div onClick="{{row.onClick}}" style="display:flex;align-items:center;gap:10px;padding:7px 9px;border-radius:7px;cursor:{{row.cursor}};opacity:{{row.opacity}};background:var(--card);margin-bottom:1px;" style-hover="background:var(--rowActive);">
+                    <span style="width:13px;height:13px;border-radius:4px;border:1px solid var(--borderStrong);background:{{row.checkBg}};flex:none;"></span>
+                    <span style="font-size:13px;font-weight:500;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{row.title}}</span>
+                    <span style="font-size:11.5px;color:var(--text3);flex:none;max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{row.artist}}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+      <!-- ACTION RAIL (ancré bas) -->
+      <sc-if value="{{showActionRail}}" hint-placeholder-val="{{true}}">
+      <div ref="{{refRail}}" style="flex:none;border-top:1px solid var(--border);background:var(--nav);padding:13px 30px;display:flex;align-items:center;gap:14px;position:relative;">
+        <sc-if value="{{batchFileActive}}" hint-placeholder-val="{{false}}">
+          <sc-for list="{{taskEntries}}" as="tk" hint-placeholder-count="1">
+            <div style="display:flex;align-items:center;gap:10px;flex:1;max-width:360px;">
+              <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px;">
+                  <span style="font-size:12px;font-weight:500;">{{tk.label}} — {{tk.stateLabel}}</span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--text3);">{{tk.done}}/{{tk.total}}</span>
+                </div>
+                <div style="height:3px;border-radius:2px;background:var(--track);overflow:hidden;">
+                  <div style="height:100%;width:{{tk.pct}};border-radius:2px;background:{{tk.barColor}};"></div>
+                </div>
+              </div>
+              <sc-if value="{{tk.showStop}}" hint-placeholder-val="{{false}}">
+                <div onClick="{{tk.onStop}}" style="flex:none;font-size:12px;color:var(--text2);cursor:pointer;padding:6px 12px;border-radius:7px;border:1px solid var(--borderStrong);background:var(--card);" style-hover="filter:brightness(0.95);">Arrêter</div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </sc-if>
+        <sc-if value="{{showDest}}" hint-placeholder-val="{{true}}">
+          <div style="position:relative;">
+            <div ref="{{refDestBtn}}" onClick="{{onDestToggle}}" style="height:40px;display:flex;align-items:center;gap:10px;padding:0 14px;border-radius:8px;background:var(--surface);border:1px solid var(--borderStrong);cursor:pointer;" style-hover="filter:brightness(0.95);">
+              <span style="font-size:9.5px;letter-spacing:0.09em;text-transform:uppercase;color:var(--text4);">Destination</span>
+              <span style="font-size:13px;font-weight:500;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{destLabel}}</span>
+              <span style="color:var(--text3);font-size:11px;">▾</span>
+            </div>
+            <sc-if value="{{destOpen}}" hint-placeholder-val="{{false}}">
+              <div onClick="{{onDestToggle}}" style="position:fixed;inset:0;z-index:15;"></div>
+              <div onClick="{{stop}}" style="position:fixed;bottom:{{destPopBottom}};left:{{destPopLeft}};width:288px;max-height:340px;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--borderStrong);border-radius:10px;box-shadow:0 12px 34px rgba(15,13,10,0.35);overflow:hidden;animation:sfPop .14s ease;z-index:20;">
+                <input value="{{destQuery}}" onInput="{{onDestQuery}}" placeholder="Filtrer les dossiers…" style="border:none;border-bottom:1px solid var(--border);background:transparent;padding:11px 14px;font-family:Outfit,sans-serif;font-size:13px;outline:none;color:var(--text1);"/>
+                <div onClick="{{onToggleInPlace}}" style="display:flex;align-items:center;gap:9px;padding:9px 14px;cursor:pointer;border-bottom:1px solid var(--border);" style-hover="background:var(--rowActive);">
+                  <span style="width:15px;height:15px;border-radius:4px;border:1px solid var(--borderStrong);background:{{inPlaceBg}};flex:none;"></span>
+                  <span style="font-size:12.5px;color:var(--text2);">Sur place (dossier source)</span>
+                </div>
+                <div style="padding:7px 14px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text4);border-bottom:1px solid var(--border);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{rootPath}}">📁 {{rootPath}}\</div>
+                <div style="overflow-y:auto;padding:5px;max-height:180px;">
+                  <sc-for list="{{binOptions}}" as="b" hint-placeholder-count="8">
+                    <div onClick="{{b.onClick}}" style="display:flex;align-items:center;gap:5px;padding:6px 9px 6px {{b.pad}}px;border-radius:6px;cursor:pointer;font-size:13px;background:{{b.bg}};color:{{b.color}};" style-hover="background:var(--rowActive);">
+                      <span onClick="{{b.onCaret}}" style="width:12px;flex:none;text-align:center;font-size:9px;color:var(--text4);cursor:pointer;">{{b.caret}}</span>
+                      <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{b.label}}</span>
+                    </div>
+                  </sc-for>
+                </div>
+                <sc-if value="{{showCreateRow}}" hint-placeholder-val="{{true}}">
+                  <div style="border-top:1px solid var(--border);padding:5px;">
+                    <sc-if value="{{creating}}" hint-placeholder-val="{{false}}">
+                      <input onKeyDown="{{onCreateKey}}" placeholder="nom du dossier…" style="width:100%;box-sizing:border-box;padding:6px 8px;font-family:'JetBrains Mono',monospace;font-size:12px;border:1px solid var(--borderStrong);border-radius:6px;outline:none;color:var(--text1);"/>
+                    </sc-if>
+                    <sc-if value="{{notCreating}}" hint-placeholder-val="{{true}}">
+                      <div onClick="{{onStartCreate}}" style="display:flex;align-items:center;gap:6px;padding:6px 9px;color:var(--text2);cursor:pointer;font-size:12.5px;" style-hover="background:var(--rowActive);">+ nouveau <span style="color:var(--text4);">{{createHint}}</span></div>
+                    </sc-if>
+                  </div>
+                </sc-if>
+                <div onClick="{{onBrowseCustom}}" style="border-top:1px solid var(--border);padding:9px 14px;display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12.5px;color:var(--text2);" style-hover="background:var(--rowActive);">📁 Parcourir un autre dossier…</div>
+              </div>
+            </sc-if>
+          </div>
+          <div style="display:flex;background:var(--track);border-radius:8px;padding:2px;gap:2px;">
+            <sc-for list="{{formats}}" as="f" hint-placeholder-count="3">
+              <span onClick="{{f.onClick}}" style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 10px;border-radius:6px;cursor:pointer;background:{{f.bg}};color:{{f.color}};" style-hover="filter:brightness(0.95);">{{f.label}}</span>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <div style="flex:1;"></div>
+
+        <sc-if value="{{showKeyHint}}" hint-placeholder-val="{{true}}">
+          <div style="display:flex;align-items:center;gap:16px;">
+            <sc-for list="{{keyHints}}" as="kh" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span style="display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:19px;padding:0 6px;border-radius:5px;border:1px solid var(--borderStrong);background:var(--surface);font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--text2);">{{kh.key}}</span>
+                <span style="font-size:10.5px;color:var(--text3);">{{kh.label}}</span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{showRailButtons}}" hint-placeholder-val="{{true}}">
+        <div onClick="{{onSecondary}}" style="height:40px;display:flex;align-items:center;gap:7px;padding:0 16px;border-radius:8px;background:var(--card);border:1px solid var(--borderStrong);cursor:pointer;font-size:13px;font-weight:500;color:{{secondaryColor}};" style-hover="filter:brightness(0.95);">
+          <span style="display:{{secPendShow}};width:5px;height:5px;border-radius:999px;background:#B07A28;"></span>{{secondaryLabel}}
+        </div>
+        <div onClick="{{onPrimary}}" style="height:40px;display:flex;align-items:center;gap:9px;padding:0 20px;border-radius:8px;background:{{primaryBg}};color:{{primaryColor}};cursor:{{primaryCursor}};font-size:13px;font-weight:600;" style-hover="filter:brightness(0.93);">{{primaryLabel}}<span style="display:{{primaryKeyShow}};align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:4px;background:rgba(255,255,255,0.18);font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500;opacity:0.9;">Entrée</span></div>
+        </sc-if>
+      </div>
+    </sc-if>
+    </sc-if>
+
+    <!-- ---- journal detail ---- -->
+    <sc-if value="{{isJournal}}" hint-placeholder-val="{{false}}">
+      <div style="flex:1;overflow-y:auto;padding:20px 30px;">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:20px;">Journal <span style="color:var(--text4);margin:0 3px;">›</span> <span style="color:var(--text1);">{{jEntry.action}}</span></div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
+          <span style="width:11px;height:11px;border-radius:999px;background:{{jEntry.dot}};"></span>
+          <span style="font-size:22px;font-weight:600;">{{jEntry.action}}</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text4);">{{jEntry.time}}</span>
+        </div>
+        <sc-if value="{{jIsBatch}}" hint-placeholder-val="{{false}}">
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:11px;padding:18px 20px;max-width:560px;">
+            <div style="margin-bottom:14px;"><div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--text4);margin-bottom:4px;">Destination</div><div style="font-family:'JetBrains Mono',monospace;font-size:13px;">{{jEntry.dest}}</div></div>
+            <div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--text4);margin-bottom:8px;border-top:1px solid var(--border);padding-top:12px;">Pistes filées</div>
+            <div style="display:flex;flex-direction:column;gap:1px;max-height:280px;overflow-y:auto;">
+              <sc-for list="{{jTracks}}" as="jt" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:8px;padding:7px 4px;">
+                  <span style="width:6px;height:6px;border-radius:999px;background:{{jt.vColor}};flex:none;"></span>
+                  <span style="font-size:13px;font-weight:500;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{jt.title}}</span>
+                  <span style="font-size:11.5px;color:var(--text3);flex:none;max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{jt.artist}}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+        <div style="display:{{jSingleShow}};">
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:11px;padding:18px 20px;max-width:560px;">
+            <div style="display:flex;gap:30px;flex-wrap:wrap;">
+              <div style="margin-bottom:6px;"><div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--text4);margin-bottom:4px;">Titre</div><div style="font-size:14px;font-weight:500;">{{jEntry.title}}</div></div>
+              <div style="margin-bottom:6px;"><div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--text4);margin-bottom:4px;">Artiste</div><div style="font-size:14px;">{{jEntry.artist}}</div></div>
+              <div style="margin-bottom:6px;"><div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--text4);margin-bottom:4px;">Destination</div><div style="font-family:'JetBrains Mono',monospace;font-size:13px;">{{jEntry.dest}}</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="flex:none;border-top:1px solid var(--border);background:var(--nav);padding:13px 30px;display:flex;align-items:center;gap:14px;">
+        <div style="display:flex;align-items:center;gap:16px;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:19px;padding:0 6px;border-radius:5px;border:1px solid var(--borderStrong);background:var(--surface);font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--text2);">⌘Z</span>
+            <span style="font-size:10.5px;color:var(--text3);">annuler</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:19px;padding:0 6px;border-radius:5px;border:1px solid var(--borderStrong);background:var(--surface);font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--text2);">↑↓</span>
+            <span style="font-size:10.5px;color:var(--text3);">nav</span>
+          </div>
+        </div>
+        <div style="flex:1;"></div>
+        <sc-if value="{{revertConfirming}}" hint-placeholder-val="{{false}}">
+          <div style="display:flex;align-items:center;gap:10px;font-size:12.5px;color:#8f6318;">Annuler {{jEntry.title}} — sûr ?</div>
+          <div onClick="{{onCancelRevertConfirm}}" style="height:40px;display:flex;align-items:center;padding:0 16px;border-radius:8px;background:var(--card);border:1px solid var(--borderStrong);cursor:pointer;font-size:13px;font-weight:500;" style-hover="filter:brightness(0.95);">Annuler</div>
+        </sc-if>
+        <div onClick="{{onRevertEntry}}" style="height:40px;display:flex;align-items:center;gap:8px;padding:0 18px;border-radius:8px;background:var(--card);border:1px solid var(--borderStrong);cursor:pointer;font-size:13px;font-weight:500;" style-hover="filter:brightness(0.95);">{{revertBtnLabel}}</div>
+      </div>
+    </sc-if>
+
+    <!-- ---- accueil (sources) ---- -->
+    <sc-if value="{{isHome}}" hint-placeholder-val="{{false}}">
+      <div style="flex:1;overflow-y:auto;padding:20px 30px;">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:20px;">Accueil <span style="color:var(--text4);margin:0 3px;">›</span> <span style="color:var(--text1);">{{srcSel.name}}</span></div>
+
+        <sc-if value="{{rootMissing}}" hint-placeholder-val="{{false}}">
+          <div style="background:rgba(176,122,40,0.26);border:1px solid rgba(176,122,40,0.6);border-radius:11px;padding:16px 18px;max-width:520px;margin-bottom:20px;">
+            <div style="font-size:14px;font-weight:600;color:#8f6318;margin-bottom:4px;">Racine de bibliothèque : non définie</div>
+            <div style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.5;">Tant qu'aucun dossier racine n'est choisi, Sift ne peut pas ranger les fichiers filés. Les sources ci-contre restent surveillées, mais le filing sera bloqué.</div>
+            <span onClick="{{onGoSettings}}" style="display:inline-block;font-size:12.5px;font-weight:500;padding:7px 14px;border-radius:7px;background:var(--surface);border:1px solid var(--borderStrong);cursor:pointer;" style-hover="filter:brightness(0.95);">Sélectionner un dossier</span>
+          </div>
+        </sc-if>
+
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;">
+          <div style="font-size:22px;font-weight:600;">{{srcSel.name}}</div>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:4px 10px;border-radius:999px;background:{{srcSel.badgeBg}};color:{{srcSel.statusColor}};">{{srcSel.statusLabel}}</span>
+        </div>
+
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:11px;padding:16px 18px;max-width:560px;margin-bottom:16px;">
+          <div style="font-size:10px;letter-spacing:0.09em;text-transform:uppercase;color:var(--text4);margin-bottom:6px;">Dossier surveillé</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--text2);word-break:break-all;">{{srcSel.path}}</div>
+        </div>
+
+        <sc-if value="{{srcHint}}" hint-placeholder-val="{{false}}">
+          <div style="display:flex;align-items:center;gap:10px;background:rgba(176,122,40,0.26);border:1px solid rgba(176,122,40,0.6);border-radius:9px;padding:11px 14px;max-width:560px;margin-bottom:16px;font-size:12px;color:#6b490f;">Vise le sous-dossier <b>Completed</b>, pas <i>Incomplete</i> — les fichiers y sont finalisés.</div>
+        </sc-if>
+
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div onClick="{{srcSel.onToggleWatch}}" style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:8px 13px;border-radius:8px;background:var(--card);border:1px solid var(--border);cursor:pointer;color:var(--text2);" style-hover="background:var(--rowActive);">
+            <span style="width:15px;height:15px;border-radius:4px;border:1px solid var(--borderStrong);background:{{srcSel.watchBg}};flex:none;"></span>
+            Surveiller ce dossier
+          </div>
+        </div>
+      </div>
+      <div style="flex:none;border-top:1px solid var(--border);background:var(--nav);padding:13px 30px;display:flex;align-items:center;gap:14px;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--text3);">↑↓ nav</div>
+        <div style="flex:1;"></div>
+        <div onClick="{{onAddSource}}" style="height:40px;display:flex;align-items:center;gap:8px;padding:0 20px;border-radius:8px;background:var(--ctaBg);color:var(--ctaText);cursor:pointer;font-size:13px;font-weight:600;" style-hover="filter:brightness(0.93);">+ Ajouter un dossier</div>
+      </div>
+    </sc-if>
+
+    <!-- ---- réglages ---- -->
+    <sc-if value="{{isSettings}}" hint-placeholder-val="{{false}}">
+      <div ref="{{refScroll}}" style="flex:1;overflow-y:auto;padding:20px 30px;">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:20px;">Réglages</div>
+
+        <div style="max-width:560px;display:flex;flex-direction:column;gap:16px;">
+
+          <div ref="{{refDiscogs}}" style="background:var(--card);border:1px solid var(--border);border-radius:11px;padding:16px 18px;">
+            <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Discogs</div>
+            <div style="font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:16px;">Le jeton permet à Sift d'interroger l'API Discogs pour identifier tes morceaux (label, année, genre). Sans jeton, les recherches sont limitées et plus lentes.</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:14px;border-top:1px solid var(--border);">
+              <div>
+                <div style="font-size:13px;margin-bottom:3px;">Jeton d'accès</div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text3);">•••• •••• 4471</div>
+              </div>
+              <div onClick="{{onNotImpl}}" style="font-size:12px;color:var(--text2);cursor:pointer;padding:4px 10px;border-radius:6px;border:1px solid var(--borderStrong);background:var(--surface);" style-hover="filter:brightness(0.95);">Modifier</div>
+            </div>
+          </div>
+
+          <div ref="{{refLibrary}}" style="background:var(--card);border:1px solid var(--border);border-radius:11px;padding:16px 18px;">
+            <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Bibliothèque</div>
+            <div style="font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:16px;">Le dossier racine est l'endroit réel sur ton disque où Sift range les morceaux filés. L'arborescence de destination (House/Deep, Techno…) vit à l'intérieur.</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:14px;border-top:1px solid var(--border);margin-bottom:10px;">
+              <div style="min-width:0;">
+                <div style="font-size:13px;margin-bottom:3px;">Dossier racine</div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{rootPathDisplay}}</div>
+              </div>
+              <div onClick="{{onNotImpl}}" style="flex:none;font-size:12px;color:var(--text2);cursor:pointer;padding:4px 10px;border-radius:6px;border:1px solid var(--borderStrong);background:var(--surface);" style-hover="filter:brightness(0.95);">Changer…</div>
+            </div>
+            <div onClick="{{onForgetRoot}}" style="display:inline-block;font-size:11.5px;color:var(--text4);cursor:pointer;" style-hover="color:var(--text2);">Oublier le dossier racine (démo — montre l'état vide de l'Accueil)</div>
+          </div>
+
+          <div ref="{{refFiles}}" style="background:var(--card);border:1px solid var(--border);border-radius:11px;padding:16px 18px;">
+            <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Fichiers</div>
+            <div style="font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:16px;">Format utilisé par défaut quand un morceau est filé, tant que tu ne le changes pas manuellement dans Revue.</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:14px;border-top:1px solid var(--border);">
+              <div style="font-size:13px;">Format par défaut</div>
+              <div style="display:flex;background:var(--track);border-radius:8px;padding:2px;gap:2px;">
+                <sc-for list="{{formats}}" as="f" hint-placeholder-count="3">
+                  <span onClick="{{f.onClick}}" style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 10px;border-radius:6px;cursor:pointer;background:{{f.bg}};color:{{f.color}};" style-hover="filter:brightness(0.95);">{{f.label}}</span>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <div ref="{{refAppearance}}" style="background:var(--card);border:1px solid var(--border);border-radius:11px;padding:16px 18px;">
+            <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Apparence</div>
+            <div style="font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:16px;">Auto suit le réglage clair/sombre de ton système. Clair et Sombre forcent un mode fixe, quel que soit le système.</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:14px;border-top:1px solid var(--border);">
+              <div style="font-size:13px;">Thème</div>
+              <div style="display:flex;background:var(--track);border-radius:8px;padding:2px;gap:2px;">
+                <sc-for list="{{themeOptions}}" as="th" hint-placeholder-count="3">
+                  <span onClick="{{th.onClick}}" style="font-size:12px;padding:6px 12px;border-radius:6px;cursor:pointer;background:{{th.bg}};color:{{th.color}};font-weight:500;" style-hover="filter:brightness(0.95);">{{th.label}}</span>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </sc-if>
+
+  </div>
+
+  <!-- toast -->
+  <sc-if value="{{toastShow}}" hint-placeholder-val="{{false}}">
+    <div style="position:absolute;bottom:70px;left:50%;transform:translateX(-50%);background:var(--ctaBg);color:var(--ctaText);font-size:13px;padding:10px 18px;border-radius:8px;box-shadow:0 10px 30px rgba(15,13,10,0.35);animation:sfToast .2s ease;z-index:40;display:flex;align-items:center;gap:9px;">
+      <span style="width:6px;height:6px;border-radius:999px;background:{{toastDot}};"></span>{{toast}}
+    </div>
+  </sc-if>
+
+  <!-- command palette ⌘K -->
+  <sc-if value="{{paletteOpen}}" hint-placeholder-val="{{false}}">
+    <div onClick="{{onClosePalette}}" style="position:absolute;inset:0;background:rgba(15,13,10,0.35);display:flex;align-items:flex-start;justify-content:center;padding-top:120px;z-index:50;animation:sfFade .14s ease;">
+      <div onClick="{{stop}}" style="width:520px;max-width:86%;background:var(--surface);border:1px solid var(--borderStrong);border-radius:12px;box-shadow:0 24px 60px rgba(10,9,7,0.45);overflow:hidden;">
+        <input value="{{pq}}" onInput="{{onPq}}" placeholder="Tapez une commande…" style="width:100%;border:none;border-bottom:1px solid var(--border);background:transparent;padding:15px 18px;font-family:Outfit,sans-serif;font-size:15px;outline:none;color:var(--text1);"/>
+        <div style="max-height:320px;overflow-y:auto;padding:6px;">
+          <sc-for list="{{paletteCmds}}" as="p" hint-placeholder-count="6">
+            <div onClick="{{p.onClick}}" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:8px;cursor:pointer;font-size:13.5px;background:{{p.bg}};" style-hover="background:var(--rowActive);">
+              <span>{{p.label}}</span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text4);">{{p.hint}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.GREEN='#4C7B57'; this.GREENT='#3f6d4c'; this.AMBER='#B07A28'; this.AMBERT='#8f6318'; this.MUTED='#8A857D';
+    let savedTheme='auto';
+    try{ savedTheme=localStorage.getItem('sift-theme')||'auto'; }catch(e){}
+    this.state = {
+      screen:'review', focus:0, mode:'detail', selection:[],
+      openChip:null, destOpen:false, destQuery:'', destination:null, format:'AIFF', inPlace:false,
+      isPlaying:false, progress:0, tempo:0, keyLock:true, volume:80,
+      toast:null, toastKind:'ok', paletteOpen:false, pq:'',
+      queue:this.buildTracks(), library:this.buildLibrary(), discarded:[], journal:this.buildJournal(),
+      sources:this.buildSources(),
+      undo:[], sFiled:0, sDiscarded:0,
+      binsTree:[
+        {rel:'House',name:'House',children:[{rel:'House/Deep',name:'Deep',children:[]},{rel:'House/Peak',name:'Peak',children:[]}]},
+        {rel:'Techno',name:'Techno',children:[]},
+        {rel:'Ambient',name:'Ambient',children:[{rel:'Ambient/Dub',name:'Dub',children:[]}]},
+        {rel:'Disco',name:'Disco',children:[{rel:'Disco/Nu-Disco',name:'Nu-Disco',children:[]}]},
+        {rel:'Edits',name:'Edits',children:[]},
+        {rel:'Unsorted',name:'Unsorted',children:[]},
+      ],
+      rootName:'Collection', rootPath:'C:\\Users\\LEETJ\\Music\\Library',
+      expandedBins:[''],
+      creating:false,
+      themeMode:savedTheme, systemDark:false,
+      settingsTab:'discogs', customDest:false,
+      identOpen:false,
+      destRect:null,
+      hintsCollapsed:false,
+      tasks:{}, batchFile:null,
+      revertConfirmId:null,
+      discogsSearch:null,
+    };
+  }
+  componentDidMount(){
+    this._key=this.onKey.bind(this); window.addEventListener('keydown',this._key);
+    this._onResize=()=>{ if(this.state.destOpen) this.updateDestRect(); };
+    window.addEventListener('resize',this._onResize);
+    try{
+      this._mq=window.matchMedia('(prefers-color-scheme: dark)');
+      this.setState({systemDark:this._mq.matches});
+      this._mqL=(e)=>this.setState({systemDark:e.matches});
+      this._mq.addEventListener?this._mq.addEventListener('change',this._mqL):this._mq.addListener(this._mqL);
+    }catch(e){}
+  }
+  componentWillUnmount(){ window.removeEventListener('keydown',this._key); window.removeEventListener('resize',this._onResize); clearInterval(this._p); clearTimeout(this._t); try{ this._mq&&(this._mq.removeEventListener?this._mq.removeEventListener('change',this._mqL):this._mq.removeListener(this._mqL)); }catch(e){} try{ this._ro&&this._ro.disconnect(); }catch(e){} clearInterval(this._batchTimer); clearTimeout(this._taskClear); clearInterval(this._exportTimer); clearTimeout(this._exportClear); clearTimeout(this._discogsT); }
+  updateDestRect(){ if(!this._destBtnEl)return; const r=this._destBtnEl.getBoundingClientRect(); this.setState({destRect:{left:r.left,bottomOffset:window.innerHeight-r.top+8}}); }
+  setupRailObserver(){
+    if(!this._railEl || this._ro) return; // only ever set up once — re-checking on every render (ref
+    // callback fires each render) caused an infinite loop: hiding the hints changes scrollWidth,
+    // which flipped the overflow check back, re-showing them, forever (React error #185).
+    this.checkRailOverflow();
+    try{
+      this._ro=new ResizeObserver(()=>{ this.checkRailOverflow(); if(this.state.destOpen) this.updateDestRect(); });
+      this._ro.observe(this._railEl);
+    }catch(e){}
+  }
+  checkRailOverflow(){
+    if(!this._railEl) return;
+    const overflow=this._railEl.scrollWidth>this._railEl.clientWidth+1;
+    if(overflow!==this.state.hintsCollapsed) this.setState({hintsCollapsed:overflow});
+  }
+
+  pseudo(seed,salt){ const s=((seed||1)*9301+49297+salt*7919)%233280; return s/233280; }
+  genWave(seed){ let s=seed*9301+49297; const r=()=>{s=(s*9301+49297)%233280;return s/233280;}; const n=56,a=[]; for(let i=0;i<n;i++){ const env=Math.sin((i/(n-1))*Math.PI); const v=0.14+(0.32+0.68*r())*Math.pow(env,0.7); a.push(Math.max(0.06,Math.min(1,v))); } return a; }
+
+  buildTracks(){
+    const T=(o)=>Object.assign({wave:this.genWave(o.seed||1)},o);
+    return [
+      T({id:'t1',src:"(04) [40 Thieves ft Qzen] Don't Turn It Off.aif",title:"Don't Turn It Off",artist:'40 Thieves',version:'Original',verdict:'lossless',match:94,dup:false,claimed:'AIFF · 1411 kbps · 44.1 kHz · 16 bit',label:'Permanent Vacation',catNo:'PV 78',year:'2015',genres:['Disco','House','Acid'],keyCode:'8A',dur:278,cover:'linear-gradient(140deg,#8a7f74,#463f39)',seed:7}),
+      T({id:'t2',src:'Dave DK - Himmelblau (Original Mix).flac',title:'Himmelblau',artist:'Dave DK',version:'Original Mix',verdict:'lossless',match:96,dup:false,claimed:'FLAC · 1002 kbps · 44.1 kHz · 16 bit',label:'Kompakt',catNo:'KOM 328',year:'2014',genres:['Deep House'],keyCode:'5A',dur:402,cover:'linear-gradient(140deg,#9b9086,#5b544c)',seed:12}),
+      T({id:'t3',src:'01 - Move Closer (rip).flac',title:'Move Closer',artist:'Phenomenal Handclap Band',version:'Original',verdict:'fake',match:88,dup:false,claimed:'FLAC · 1411 kbps · 44.1 kHz · 16 bit',label:'Tummy Touch',catNo:'TUCH 090',year:'2011',genres:['Nu-Disco'],keyCode:'11B',dur:319,cover:'linear-gradient(140deg,#7d746b,#3f3a34)',seed:23}),
+      T({id:'t4',src:'(a1) The Persuader - Stockholm.aiff',title:'Östermalm',artist:'The Persuader',version:'Original',verdict:'lossless',match:92,dup:true,claimed:'AIFF · 1411 kbps · 44.1 kHz · 16 bit',label:'Svek',catNo:'SVEK 008',year:'1997',genres:['Deep House'],keyCode:'9A',dur:431,cover:'linear-gradient(140deg,#928a80,#524b44)',seed:31}),
+      T({id:'t5',src:'01 Awaken Abyss - Untitled.wav',title:'Awaken Abyss — Untitled',artist:'Awaken Abyss',version:'—',verdict:'pending',match:null,dup:false,claimed:'WAV · 2116 kbps · 48 kHz · 24 bit',label:'—',catNo:'—',year:'—',genres:['—'],keyCode:'—',dur:366,cover:'linear-gradient(140deg,#807870,#454039)',seed:5}),
+      T({id:'t6',src:'C1-Sprit.aiff',title:'Spirit',artist:'Rick Wade',version:'Original',verdict:'lossless',match:91,dup:false,claimed:'AIFF · 1411 kbps · 44.1 kHz · 16 bit',label:'Harmonie Park',catNo:'HP 021',year:'2003',genres:['Detroit House'],keyCode:'2A',dur:388,cover:'linear-gradient(140deg,#8f857a,#4c453e)',seed:44}),
+      T({id:'t7',src:'01 - Deep Love (Original).flac',title:'Deep Love',artist:'Recloose',version:'Original',verdict:'lossless',match:90,dup:false,claimed:'FLAC · 998 kbps · 44.1 kHz · 16 bit',label:'Sonar Kollektiv',catNo:'SK 145',year:'2005',genres:['Broken Beat'],keyCode:'7A',dur:295,cover:'linear-gradient(140deg,#988e84,#57504a)',seed:16}),
+      T({id:'t8',src:'D2-Car Thief.aif',title:'Car Thief',artist:'Unknown Artist',version:'—',verdict:'fake',match:71,dup:false,claimed:'AIFF · 1411 kbps · 44.1 kHz · 16 bit',label:'—',catNo:'—',year:'—',genres:['Techno'],keyCode:'4A',dur:344,cover:'linear-gradient(140deg,#7a716a,#3c3833)',seed:52}),
+      T({id:'t9',src:'01 Blue Noise - Nautilus.aiff',title:'Nautilus',artist:'Blue Noise',version:'Original',verdict:'lossless',match:89,dup:false,claimed:'AIFF · 1411 kbps · 44.1 kHz · 16 bit',label:'Peacefrog',catNo:'PF 067',year:'2001',genres:['Ambient','Dub'],keyCode:'3B',dur:471,cover:'linear-gradient(140deg,#8b8278,#4a443d)',seed:9}),
+      T({id:'t10',src:'A1-Stepback (dub).flac',title:'Stepback',artist:'Losoul',version:'Dub',verdict:'lossless',match:93,dup:false,claimed:'FLAC · 1010 kbps · 44.1 kHz · 16 bit',label:'Playhouse',catNo:'PLAY 034',year:'1999',genres:['Deep House'],keyCode:'6A',dur:409,cover:'linear-gradient(140deg,#948a80,#514a43)',seed:27}),
+    ];
+  }
+  buildLibrary(){
+    const T=(o)=>Object.assign({wave:this.genWave(o.seed||1),genres:o.genres||['House']},o);
+    return [
+      T({id:'l1',src:'Motor City Drum Ensemble - Raw Cuts 3.flac',title:'Raw Cuts #3',artist:'Motor City Drum Ensemble',version:'Original',verdict:'lossless',match:97,dup:false,claimed:'FLAC · 1005 kbps · 44.1 kHz · 16 bit',label:'MCDE',catNo:'MCDE 003',year:'2009',genres:['Deep House'],keyCode:'8A',dur:377,cover:'linear-gradient(140deg,#8f857a,#4c453e)',seed:61}),
+      T({id:'l2',src:'Isolée - Beau Mot Plage.aiff',title:'Beau Mot Plage',artist:'Isolée',version:'Freeform Reform',verdict:'lossless',match:95,dup:false,claimed:'AIFF · 1411 kbps · 44.1 kHz · 16 bit',label:'Rewind',catNo:'REW 012',year:'2000',genres:['Microhouse'],keyCode:'5A',dur:441,cover:'linear-gradient(140deg,#948b81,#514b44)',seed:70}),
+    ];
+  }
+  buildJournal(){
+    const now=Date.now();
+    return [
+      {id:'j1',action:'Filé',dot:'#4C7B57',title:'Raw Cuts #3',artist:'Motor City Drum Ensemble',dest:'MCDE',time:this.fmtClock(now-320000)},
+      {id:'j2',action:'Filé',dot:'#4C7B57',title:'Beau Mot Plage',artist:'Isolée',dest:'Rewind',time:this.fmtClock(now-540000)},
+      {id:'j3',action:'Écarté',dot:'#8A857D',title:'bootleg_rip_128.mp3',artist:'Unknown',dest:'—',time:this.fmtClock(now-880000)},
+    ];
+  }
+  buildSources(){
+    return [
+      {id:'s1',name:'Soulseek downloads',path:'C:\\Users\\LEETJ\\Music\\Soulseek\\complete',status:'new',count:12,watched:true,hint:true},
+      {id:'s2',name:'Beatport purchases',path:'D:\\Purchases\\Beatport',status:'ok',count:0,watched:true,hint:false},
+      {id:'s3',name:'USB — DJ Denon',path:'E:\\REKORDBOX\\Import',status:'stale',count:0,watched:false,hint:false},
+    ];
+  }
+
+  // ---- theme ----
+  isDark(){ const m=this.state.themeMode; if(m==='dark')return true; if(m==='light')return false; return this.state.systemDark; }
+  theme(){
+    return this.isDark() ? {
+      canvas:'#282825', nav:'#323230', queue:'#2E2E2B', card:'#3B3A35', surface:'#46453F', track:'#46453F',
+      rowActive:'#413F38', navActive:'#3D3B35', text1:'#F5F1E9', text2:'#C9C2B7', text3:'#9C968D', text4:'#847E75',
+      border:'rgba(255,255,255,0.12)', borderStrong:'rgba(255,255,255,0.22)', ctaBg:'#F5F1E9', ctaText:'#26251F', disabled:'#57554D'
+    } : {
+      canvas:'#E7E2DB', nav:'#EDE9E2', queue:'#EAE5DE', card:'#F1EDE7', surface:'#FBF9F4', track:'#E0DAD1',
+      rowActive:'#F3EFE9', navActive:'#E1DBD2', text1:'#34302B', text2:'#5C554E', text3:'#8A857D', text4:'#B3AEA5',
+      border:'rgba(40,34,28,0.09)', borderStrong:'rgba(40,34,28,0.16)', ctaBg:'#3A352F', ctaText:'#F7F4EF', disabled:'#CFC9BF'
+    };
+  }
+  setThemeMode(m){ this.setState({themeMode:m}); try{ localStorage.setItem('sift-theme',m); }catch(e){} }
+  semGreen(){ return this.isDark()?'#9fe0af':this.GREENT; }
+  semAmber(){ return this.isDark()?'#f2c274':this.AMBERT; }
+  setSettingsTab(k){ this.setState({settingsTab:k}); }
+  scrollToSection(key){ const el=this._secRefs&&this._secRefs[key]; const c=this._scrollEl; if(el&&c){ const er=el.getBoundingClientRect(), cr=c.getBoundingClientRect(); c.scrollTop=c.scrollTop+(er.top-cr.top)-14; } }
+  fmtCompact(n){ if(n>=1000){ try{ return new Intl.NumberFormat('fr-FR',{notation:'compact',maximumFractionDigits:1}).format(n); }catch(e){ return Math.round(n/1000)+'k'; } } return String(n); }
+  onSeek(e){ const rect=e.currentTarget.getBoundingClientRect(); const x=(e.clientX-rect.left)/Math.max(1,rect.width); const t=this.active(); if(t){ this.setState({progress:Math.max(0,Math.min(1,x))}); } }
+  browseCustom(){ let p=null; try{ p=window.prompt('Chemin du dossier de destination :', this.state.rootPath||''); }catch(e){} if(p){ this.setState({destination:p,destOpen:false,inPlace:false,customDest:true}); } }
+
+  // ---- helpers ----
+  curList(){ const s=this.state; return s.screen==='library'?s.library:s.screen==='discarded'?s.discarded:s.screen==='journal'?s.journal:s.screen==='home'?s.sources:s.screen==='settings'?[]:s.queue; }
+  active(){ const l=this.curList(); if(!l.length)return null; return l[Math.min(this.state.focus,l.length-1)]; }
+  fmt(sec){ sec=Math.max(0,Math.floor(sec)); const m=Math.floor(sec/60),s=sec%60; return m+':'+(s<10?'0':'')+s; }
+  fmtClock(t){ const d=new Date(t); const h=d.getHours(),m=d.getMinutes(); return (h<10?'0':'')+h+':'+(m<10?'0':'')+m; }
+  toast(m,kind){ clearTimeout(this._t); this.setState({toast:m,toastKind:kind||'ok'}); this._t=setTimeout(()=>this.setState({toast:null}),2200); }
+  notImpl(){ this.toast('Pas encore implémenté','warn'); }
+
+  // ---- nav / motion ----
+  go(screen){ clearInterval(this._p); this.setState({screen,focus:0,openChip:null,mode:'detail',selection:[],isPlaying:false,progress:0,destOpen:false}); }
+  move(d){ const l=this.curList(); if(!l.length)return; clearInterval(this._p); const f=Math.min(Math.max(0,this.state.focus+d),l.length-1); this.setState({focus:f,openChip:null,isPlaying:false,progress:0}); }
+  toggleMode(){ if(this.state.screen!=='review')return; this.setState({mode:this.state.mode==='batch'?'detail':'batch',selection:[]}); }
+  toggleSel(){ const t=this.active(); if(!t)return; this.toggleSelId(t.id); }
+  toggleSelId(id){ const s=this.state.selection.slice(); const i=s.indexOf(id); if(i>=0)s.splice(i,1); else s.push(id); this.setState({selection:s}); }
+
+  // ---- audio ----
+  onPlay(){ if(this.state.isPlaying){ clearInterval(this._p); this.setState({isPlaying:false}); return;} this.setState({isPlaying:true}); this._p=setInterval(()=>{ const t=this.active(); if(!t){clearInterval(this._p);return;} let np=this.state.progress+0.13/t.dur; if(np>=1){ clearInterval(this._p); this.setState({progress:0,isPlaying:false}); return;} this.setState({progress:np}); },130); }
+  onTempo(d){ this.setState({tempo:Math.max(-8,Math.min(8,Math.round(this.state.tempo+d)))}); }
+  onTempoSlide(e){ this.setState({tempo:+e.target.value}); }
+  onKeyLock(){ this.setState({keyLock:!this.state.keyLock}); }
+  onVolume(e){ this.setState({volume:+e.target.value}); }
+  resetTempo(){ this.setState({tempo:0}); }
+  sliderDrag(e,kind){
+    const track=e.currentTarget;
+    const update=(clientX)=>{
+      const rect=track.getBoundingClientRect();
+      const x=Math.max(0,Math.min(1,(clientX-rect.left)/Math.max(1,rect.width)));
+      if(kind==='volume'){ this.setState({volume:Math.round(x*100)}); }
+      else { const v=Math.round(-8+x*16); this.setState({tempo:Math.max(-8,Math.min(8,v))}); }
+    };
+    update(e.clientX);
+    const onMove=(ev)=>update(ev.clientX);
+    const onUp=()=>{ window.removeEventListener('mousemove',onMove); window.removeEventListener('mouseup',onUp); };
+    window.addEventListener('mousemove',onMove);
+    window.addEventListener('mouseup',onUp);
+  }
+
+  // ---- chips ----
+  openChip(k){ this.setState({openChip:this.state.openChip===k?null:k}); }
+
+  // ---- destination / format ----
+  destToggle(){ const opening=!this.state.destOpen; this.setState({destOpen:opening,destQuery:'',creating:false}); if(opening) setTimeout(()=>this.updateDestRect(),0); }
+  pickBin(b){ this.setState({destination:b,destOpen:false,inPlace:false,creating:false,customDest:false}); }
+  setFormat(f){ this.setState({format:f}); }
+  toggleInPlace(){ this.setState({inPlace:!this.state.inPlace,destination:null,customDest:false}); }
+  toggleExpand(rel){ const e=this.state.expandedBins.slice(); const i=e.indexOf(rel); if(i>=0)e.splice(i,1); else e.push(rel); this.setState({expandedBins:e}); }
+  findBin(nodes,rel){ for(const n of nodes){ if(n.rel===rel) return n; if(n.children&&n.children.length){ const f=this.findBin(n.children,rel); if(f) return f; } } return null; }
+  flattenAll(nodes,acc){ nodes.forEach(n=>{ acc.push(n); if(n.children)this.flattenAll(n.children,acc); }); return acc; }
+  flattenVisible(){
+    const rows=[]; const exp=this.state.expandedBins;
+    const rootOpen=exp.indexOf('')>=0;
+    rows.push({rel:'',name:this.state.rootName,depth:0,hasKids:this.state.binsTree.length>0,isOpen:rootOpen});
+    const walk=(nodes,depth)=>{ nodes.forEach(n=>{ const hasKids=!!(n.children&&n.children.length); const isOpen=exp.indexOf(n.rel)>=0; rows.push({rel:n.rel,name:n.name,depth,hasKids,isOpen}); if(hasKids&&isOpen) walk(n.children,depth+1); }); };
+    if(rootOpen) walk(this.state.binsTree,1);
+    return rows;
+  }
+  startCreate(){ this.setState({creating:true}); }
+  addBin(name){
+    const parent=this.state.destination||''; const rel=parent?parent+'/'+name:name;
+    const tree=JSON.parse(JSON.stringify(this.state.binsTree));
+    if(!parent){ tree.push({rel,name,children:[]}); } else { const p=this.findBin(tree,parent); if(p){ p.children=p.children||[]; p.children.push({rel,name,children:[]}); } }
+    const exp=this.state.expandedBins.slice(); if(parent&&exp.indexOf(parent)<0) exp.push(parent);
+    this.setState({binsTree:tree,expandedBins:exp,destination:rel,creating:false});
+  }
+
+  // ---- filing ----
+  primary(){ const s=this.state; if(s.screen==='review'){ if(s.mode==='batch') this.startBatchFile(); else this.fileOne(); } else if(s.screen==='library'){ this.requeue(); } else if(s.screen==='discarded'){ this.restore(); } }
+
+  // ---- batch filing simulation (grounded in worker.rs task contract: kind analyze|identify|file, state running|stopping|done|error) ----
+  startBatchFile(){
+    const s=this.state; const ids=s.selection; if(!ids.length){ this.toast('Aucune sélection','warn'); return; }
+    if(s.batchFile){ return; }
+    const dest=this.state.destination||'Unsorted';
+    const items=s.queue.filter(t=>ids.indexOf(t.id)>=0).map(t=>Object.assign({},t,{_st:'wait'}));
+    const kept=s.queue.filter(t=>ids.indexOf(t.id)<0);
+    this.setState({
+      queue:kept, selection:[],
+      batchFile:{items,dest,idx:-1,stopping:false},
+      tasks:Object.assign({},s.tasks,{file:{done:0,total:items.length,state:'running'}}),
+    });
+    clearInterval(this._batchTimer);
+    this._batchTimer=setInterval(()=>this.batchFileTick(),450);
+  }
+  stopBatchFile(){
+    const bf=this.state.batchFile; if(!bf) return;
+    this.setState({batchFile:Object.assign({},bf,{stopping:true}), tasks:Object.assign({},this.state.tasks,{file:Object.assign({},this.state.tasks.file,{state:'running'})})});
+  }
+  batchFileTick(){
+    const bf=this.state.batchFile; if(!bf){ clearInterval(this._batchTimer); return; }
+    let idx=bf.idx+1;
+    if(idx>0){ const prev=bf.items[idx-1]; prev._st=(this.pseudo(prev.seed||1,99)>0.85)?'fail':'done'; }
+    if(bf.stopping || idx>=bf.items.length){
+      clearInterval(this._batchTimer);
+      const doneItems=bf.items.filter(x=>x._st==='done');
+      const failedOrWait=bf.items.filter(x=>x._st!=='done');
+      const s2=this.state;
+      const e=doneItems.length?{id:'j'+Date.now(),action:'Filé '+doneItems.length+' pistes',dot:'#4C7B57',title:doneItems.length+' pistes',artist:'lot',dest:bf.dest,time:this.fmtClock(Date.now()),tracks:doneItems.map(mt=>({title:mt.title,artist:mt.artist,verdict:mt.verdict}))}:null;
+      this.setState({
+        library:doneItems.concat(s2.library),
+        queue:failedOrWait.map(x=>{ const c=Object.assign({},x); delete c._st; return c; }).concat(s2.queue),
+        journal:e?[e].concat(s2.journal):s2.journal,
+        undo:e?[{type:'batch',tracks:doneItems,entry:e.id}].concat(s2.undo):s2.undo,
+        sFiled:s2.sFiled+doneItems.length,
+        batchFile:null,
+        tasks:Object.assign({},s2.tasks,{file:{done:doneItems.length,total:bf.items.length,state:(bf.stopping||failedOrWait.length)?'error':'done'}}),
+      });
+      this.toast(bf.stopping?('Arrêté — '+doneItems.length+' filées'):(failedOrWait.length?(doneItems.length+' filées, '+failedOrWait.length+' échouée(s)'):'Filé '+doneItems.length+' → '+bf.dest), (bf.stopping||failedOrWait.length)?'warn':'ok');
+      clearTimeout(this._taskClear);
+      this._taskClear=setTimeout(()=>{ this.setState(st=>{ const t=Object.assign({},st.tasks); delete t.file; return {tasks:t}; }); },2600);
+      return;
+    }
+    bf.items[idx]._st='running';
+    this.setState({ batchFile:Object.assign({},bf,{idx}), tasks:Object.assign({},this.state.tasks,{file:{done:idx,total:bf.items.length,state:'running'}}) });
+  }
+  secondary(){ const s=this.state; if(s.screen==='review'){ if(s.mode==='batch') this.notImpl(); else this.discardOne(); } else if(s.screen==='library'){ this.updateTags(); } else { this.notImpl(); } }
+  updateTags(){ const t=this.active(); if(!t){ this.toast('Aucune piste sélectionnée','warn'); return; } this.toast('Tags ID3 mis à jour → '+t.title,'ok'); }
+  exportTo(kind){
+    const s=this.state; const total=s.library.length;
+    if(!total){ this.toast('Bibliothèque vide — rien à exporter','warn'); return; }
+    if(s.tasks.export) return;
+    this.setState({tasks:Object.assign({},s.tasks,{export:{done:0,total,state:'running'}})});
+    clearInterval(this._exportTimer);
+    this._exportTimer=setInterval(()=>{
+      const cur=this.state.tasks.export; if(!cur) { clearInterval(this._exportTimer); return; }
+      const done=cur.done+Math.max(1,Math.round(total/8));
+      if(done>=total){
+        clearInterval(this._exportTimer);
+        this.setState({tasks:Object.assign({},this.state.tasks,{export:{done:total,total,state:'done'}})});
+        this.toast('Exporté vers '+kind+' — '+total+' morceaux','ok');
+        clearTimeout(this._exportClear);
+        this._exportClear=setTimeout(()=>{ this.setState(st=>{ const t2=Object.assign({},st.tasks); delete t2.export; return {tasks:t2}; }); },2400);
+      } else {
+        this.setState({tasks:Object.assign({},this.state.tasks,{export:{done,total,state:'running'}})});
+      }
+    },220);
+  }
+
+  destName(){ return this.state.inPlace?'dossier source':(this.state.destination||this.active()&&this.active().artist||'Unsorted'); }
+  fileOne(){ const s=this.state; const q=s.queue.slice(); if(!q.length)return; const t=this.active(); if(t.verdict==='pending'){ this.toast('Analyse en cours…','warn'); return;} const idx=Math.min(s.focus,q.length-1); q.splice(idx,1); const dest=this.destName(); const e={id:'j'+Date.now(),action:'Filé',dot:'#4C7B57',title:t.title,artist:t.artist,dest,time:this.fmtClock(Date.now())}; clearInterval(this._p); this.setState({queue:q,library:[t].concat(s.library),journal:[e].concat(s.journal),undo:[{type:'file',track:t,index:idx,entry:e.id}].concat(s.undo),focus:Math.min(idx,q.length-1),openChip:null,isPlaying:false,progress:0,sFiled:s.sFiled+1}); this.toast('Filé → '+dest+'.'+this.state.format.split(' ')[0].toLowerCase(),'ok'); }
+  discardOne(){ const s=this.state; const q=s.queue.slice(); if(!q.length)return; const t=this.active(); const idx=Math.min(s.focus,q.length-1); q.splice(idx,1); const e={id:'j'+Date.now(),action:'Écarté',dot:'#8A857D',title:t.title,artist:t.artist,dest:'—',time:this.fmtClock(Date.now())}; clearInterval(this._p); this.setState({queue:q,discarded:[t].concat(s.discarded),journal:[e].concat(s.journal),undo:[{type:'discard',track:t,index:idx,entry:e.id}].concat(s.undo),focus:Math.min(idx,q.length-1),openChip:null,isPlaying:false,progress:0,sDiscarded:s.sDiscarded+1}); this.toast('Écarté','ok'); }
+  fileBatch(){ const s=this.state; const ids=s.selection; if(!ids.length){ this.toast('Aucune sélection','warn'); return;} const kept=[],moved=[]; s.queue.forEach(t=>{ if(ids.indexOf(t.id)>=0)moved.push(t); else kept.push(t); }); const dest=this.state.destination||'Unsorted'; const e={id:'j'+Date.now(),action:'Filé '+moved.length+' pistes',dot:'#4C7B57',title:moved.length+' pistes',artist:'lot',dest,time:this.fmtClock(Date.now()),tracks:moved.map(mt=>({title:mt.title,artist:mt.artist,verdict:mt.verdict}))}; this.setState({queue:kept,library:moved.concat(s.library),journal:[e].concat(s.journal),undo:[{type:'batch',tracks:moved,entry:e.id}].concat(s.undo),selection:[],focus:0,mode:'detail',sFiled:s.sFiled+moved.length}); this.toast('Filé '+moved.length+' → '+dest,'ok'); }
+  requeue(){ const s=this.state; const t=this.active(); if(!t)return; const lib=s.library.filter(x=>x.id!==t.id); this.setState({library:lib,queue:[t].concat(s.queue),focus:Math.min(s.focus,lib.length-1)}); this.toast('Remis en revue','ok'); }
+  restore(){ const s=this.state; const t=this.active(); if(!t)return; const dis=s.discarded.filter(x=>x.id!==t.id); this.setState({discarded:dis,queue:[t].concat(s.queue),focus:Math.min(s.focus,dis.length-1)}); this.toast('Restauré','ok'); }
+
+  undo(){ const s=this.state; if(!s.undo.length){ this.toast('Rien à annuler','warn'); return;} const u=s.undo[0],rest=s.undo.slice(1); let queue=s.queue.slice(),library=s.library,discarded=s.discarded; if(u.type==='file'){ library=library.filter(t=>t.id!==u.track.id); queue.splice(u.index,0,u.track);} else if(u.type==='discard'){ discarded=discarded.filter(t=>t.id!==u.track.id); queue.splice(u.index,0,u.track);} else if(u.type==='batch'){ const ids=u.tracks.map(t=>t.id); library=library.filter(t=>ids.indexOf(t.id)<0); queue=u.tracks.concat(queue);} const journal=s.journal.filter(j=>j.id!==u.entry); this.setState({queue,library,discarded,journal,undo:rest,screen:'review',focus:u.index||0}); this.toast('Annulé','ok'); }
+  revertEntry(){
+    const e=this.active(); if(!e){return;}
+    const big=e.tracks&&e.tracks.length>10;
+    if(big && this.state.revertConfirmId!==e.id){ this.setState({revertConfirmId:e.id}); return; }
+    this.toast('Annulé : '+e.action,'ok');
+    const journal=this.state.journal.filter(j=>j.id!==e.id);
+    this.setState({journal,focus:0,revertConfirmId:null});
+  }
+  cancelRevertConfirm(){ this.setState({revertConfirmId:null}); }
+
+  // ---- identification ----
+  identToggle(){ this.setState({identOpen:!this.state.identOpen}); }
+  identPick(label){ this.setState({identOpen:false}); this.toast('Identification changée → '+label,'ok'); }
+  searchDiscogs(){
+    const t=this.active(); if(!t) return;
+    this.setState({discogsSearch:{trackId:t.id,state:'searching'}});
+    clearTimeout(this._discogsT);
+    this._discogsT=setTimeout(()=>{
+      const cands=[
+        {label:'Permanent Vacation — PV 78',sub:'2015 · Disco, House',data:{label:'Permanent Vacation',catNo:'PV 78',year:'2015',genres:['Disco','House']}},
+        {label:'Golf Channel — GOLF 019',sub:'2015 · Disco, Boogie',data:{label:'Golf Channel',catNo:'GOLF 019',year:'2015',genres:['Disco','Boogie']}},
+        {label:'Editorial — EDT 004',sub:'2016 · Disco',data:{label:'Editorial',catNo:'EDT 004',year:'2016',genres:['Disco']}},
+      ];
+      this.setState({discogsSearch:{trackId:t.id,state:'results',candidates:cands}});
+    },1300);
+  }
+  pickDiscogsCandidate(cand){
+    const ds=this.state.discogsSearch; if(!ds) return;
+    const patch=(list)=>list.map(x=>x.id===ds.trackId?Object.assign({},x,cand.data):x);
+    this.setState({ queue:patch(this.state.queue), library:patch(this.state.library), discarded:patch(this.state.discarded), discogsSearch:null });
+    this.toast('Identifié → '+cand.label,'ok');
+  }
+
+  // ---- sources ----
+  toggleSourceWatch(id){ const sources=this.state.sources.map(x=>x.id===id?Object.assign({},x,{watched:!x.watched}):x); this.setState({sources}); }
+  forgetRoot(){ this.setState({rootPath:''}); this.toast('Racine oubliée (démo)','warn'); }
+
+  // ---- keyboard ----
+  onKey(e){ const tag=e.target&&e.target.tagName; if(tag==='INPUT'||tag==='TEXTAREA'){ if(e.key==='Escape'){ this.setState({paletteOpen:false,destOpen:false}); e.target.blur&&e.target.blur(); } return; }
+    const k=e.key, mod=e.metaKey||e.ctrlKey;
+    if(mod&&k.toLowerCase()==='k'){ e.preventDefault(); this.setState({paletteOpen:!this.state.paletteOpen,pq:''}); return; }
+    if(mod&&k.toLowerCase()==='z'){ e.preventDefault(); this.undo(); return; }
+    if(this.state.paletteOpen){ if(k==='Escape')this.setState({paletteOpen:false}); return; }
+    if(k==='Escape'){ this.setState({openChip:null,destOpen:false}); return; }
+    if(k==='ArrowDown'){ e.preventDefault(); this.move(1); }
+    else if(k==='ArrowUp'){ e.preventDefault(); this.move(-1); }
+    else if(k===' '){ e.preventDefault(); if(this.state.mode==='batch')this.toggleSel(); else this.onPlay(); }
+    else if(k==='Enter'){ e.preventDefault(); this.primary(); }
+    else if(k==='Backspace'){ e.preventDefault(); if(this.state.screen==='review'&&this.state.mode==='detail')this.discardOne(); }
+    else if(k==='Tab'){ e.preventDefault(); this.toggleMode(); }
+    else if(k.toLowerCase()==='i'){ this.toast('Réidentification via Discogs…','ok'); }
+  }
+
+  chipStyle(kind,open){
+    const dk=this.isDark();
+    const M={ green:{bg:open?'rgba(76,123,87,0.42)':'rgba(76,123,87,0.32)',border:'rgba(76,123,87,0.8)',color:dk?'#9fe0af':'#245530',dot:'#4C7B57',dotShow:'inline-block'},
+      amber:{bg:open?'rgba(176,122,40,0.44)':'rgba(176,122,40,0.34)',border:'rgba(176,122,40,0.85)',color:dk?'#f2c274':'#6b490f',dot:'#B07A28',dotShow:'inline-block'},
+      neutral:{bg:open?this.theme().rowActive:this.theme().card,border:this.theme().borderStrong,color:this.theme().text2,dot:this.theme().text3,dotShow:'none'},
+      muted:{bg:this.theme().card,border:this.theme().border,color:this.theme().text3,dot:this.theme().text4,dotShow:'inline-block'} };
+    return M[kind]||M.neutral;
+  }
+
+  renderVals(){
+    const s=this.state, dens=this.props.density||'comfortable', waveStyle=this.props.waveStyle||'bars';
+    const showSC=this.props.showShortcuts!==false;
+    const T=this.theme();
+    const cssVars='--canvas:'+T.canvas+';--nav:'+T.nav+';--queue:'+T.queue+';--card:'+T.card+';--surface:'+T.surface+';--track:'+T.track+';--rowActive:'+T.rowActive+';--navActive:'+T.navActive+';--text1:'+T.text1+';--text2:'+T.text2+';--text3:'+T.text3+';--text4:'+T.text4+';--border:'+T.border+';--borderStrong:'+T.borderStrong+';--ctaBg:'+T.ctaBg+';--ctaText:'+T.ctaText+';--disabled:'+T.disabled+';';
+
+    const isJournal=s.screen==='journal';
+    const isHome=s.screen==='home';
+    const isSettings=s.screen==='settings';
+    const list=this.curList(), t=this.active();
+    const isBatchView = s.screen==='review' && s.mode==='batch';
+    const isTrackScreen=(s.screen==='review'||s.screen==='library'||s.screen==='discarded') && !!t && !isBatchView;
+    const isEmptyState=(s.screen==='review'||s.screen==='library'||s.screen==='discarded') && !isBatchView && !t;
+    const showReviewPane = isTrackScreen || isBatchView || isEmptyState;
+    const showTrackRows = !isJournal && !isHome && !isSettings;
+    const fmtN=(n)=>n.toLocaleString('en-US');
+
+    // nav — counts reflect the actual lists (so they never contradict the queue/empty-state content)
+    const counts={review:s.queue.length,library:s.library.length,discarded:s.discarded.length,journal:s.journal.length,home:s.sources.length,settings:0};
+    const navDef=[['home','Accueil'],['review','Revue'],['discarded','Écartés'],['journal','Journal'],['library','Bibliothèque'],['settings','Réglages']];
+    const screenLabelFr={home:'Accueil',review:'Revue',discarded:'Écartés',journal:'Journal',library:'Bibliothèque',settings:'Réglages'};
+    const navItems=navDef.map(([k,label])=>{ const on=s.screen===k; const showCount=(k==='review'||k==='library'||k==='discarded'||k==='journal'); return { label, onClick:()=>this.go(k), weight:on?600:500, color:on?T.text1:T.text2, bg:on?T.navActive:'transparent', count:this.fmtCompact(counts[k]||0), countColor:on?T.text2:T.text4, countShow:(showCount&&counts[k]>0)?'inline':'none' }; });
+    const exportItems=[{label:'Rekordbox',onClick:()=>this.exportTo('Rekordbox')},{label:'Clé USB',onClick:()=>this.exportTo('la clé USB')}];
+
+    // queue rows
+    const rowPad=dens==='compact'?'7px 9px 7px 8px':'10px 9px 10px 8px';
+    const vMeta=(v)=>v==='fake'?{l:'fake',c:this.AMBER}:v==='pending'?{l:'analyse…',c:this.MUTED}:{l:'lossless',c:this.GREEN};
+    const rows=(showTrackRows?list:[]).map((x,i)=>{ const on=i===s.focus; const sel=s.selection.indexOf(x.id)>=0; const vm=vMeta(x.verdict); return {
+      title:x.title, artist:x.artist, verdict:vm.l, vColor:vm.c,
+      onClick:()=>{ clearInterval(this._p); this.setState({focus:i,openChip:null,isPlaying:false,progress:0}); },
+      bg:on?T.rowActive:(sel?'rgba(76,123,87,0.06)':'transparent'),
+      barOp:on?1:0, titleColor:on?T.text1:T.text2,
+      dupShow:x.dup?'flex':'none', dupColor:this.isDark()?'#c2a06e':this.AMBERT,
+      check:(s.mode==='batch')?(sel?'✓':'○'):'', checkOp:(s.mode==='batch')?(sel?1:0.4):0
+    }; });
+
+    // batch groups (Lot)
+    const groupDefs=[['lossless','Prêts · lossless'],['fake','À vérifier · fake'],['pending','En analyse']];
+    const batchGroups = isBatchView ? groupDefs.map(([vk,label])=>{
+      const items=s.queue.filter(x=>x.verdict===vk);
+      const selectable=vk!=='pending';
+      const allSel=selectable && items.length>0 && items.every(x=>s.selection.indexOf(x.id)>=0);
+      return {
+        key:vk, label, count:items.length, dotColor:vk==='fake'?this.AMBER:vk==='pending'?this.MUTED:this.GREEN,
+        toggleShow:(selectable&&items.length>0)?'flex':'none',
+        allBg:allSel?'#4C7B57':'transparent',
+        onToggleAll:()=>{ if(!selectable)return; let sel=s.selection.slice(); if(allSel){ sel=sel.filter(id=>!items.some(it=>it.id===id)); } else { items.forEach(it=>{ if(sel.indexOf(it.id)<0) sel.push(it.id); }); } this.setState({selection:sel}); },
+        rows: items.map(x=>{ const on=s.selection.indexOf(x.id)>=0; return {
+          title:x.title, artist:x.artist,
+          checkBg:on?'#4C7B57':'transparent', opacity:selectable?1:0.55,
+          cursor:selectable?'pointer':'default',
+          onClick:()=>{ if(selectable) this.toggleSelId(x.id); }
+        }; })
+      };
+    }) : [];
+    const selCount=s.selection.length, queueTotal=s.queue.length;
+
+    // background task rows (progress zone) — lives in nav footer normally, relocates into the batch rail while in Lot mode
+    const taskLabels={analyze:'Analyse',identify:'Identification',file:'Rangement',export:'Export'};
+    const taskEntries=Object.keys(s.tasks).map(k=>{ const tk=s.tasks[k]; const pct=tk.total?Math.round((tk.done/tk.total)*100):0; return {
+      key:k, label:taskLabels[k]||k, done:tk.done, total:tk.total, pct:pct+'%',
+      stateLabel: tk.state==='done'?'Terminé':tk.state==='error'?'Terminé avec erreurs':(s.batchFile&&s.batchFile.stopping)?'Arrêt…':'En cours',
+      barColor: tk.state==='error'?'#B07A28':T.text2,
+      showStop: k==='file' && tk.state==='running' && !!s.batchFile,
+      onStop:()=>this.stopBatchFile(),
+    }; });
+    const hasActiveTasks=taskEntries.length>0;
+    const batchFileActive=!!s.batchFile;
+    const batchLiveRows=batchFileActive?s.batchFile.items.map(x=>({
+      title:x.title, artist:x.artist,
+      stateLabel:x._st==='done'?'terminé':x._st==='fail'?'échec':x._st==='running'?'en cours':'en attente',
+      stateColor:x._st==='done'?this.GREENT:x._st==='fail'?this.AMBERT:x._st==='running'?T.text1:T.text4,
+      dotColor:x._st==='done'?this.GREEN:x._st==='fail'?this.AMBER:x._st==='running'?T.text2:T.disabled,
+    })):[];
+
+    // journal rows
+    const journalRows=(isJournal?s.journal:[]).map((j,i)=>{ const on=i===s.focus; const detail=(j.tracks&&j.tracks.length)?(j.tracks.slice(0,2).map(x=>x.title).join(', ')+(j.tracks.length>2?' +'+(j.tracks.length-2):'')):(j.title+' — '+j.artist); return { action:j.action, time:j.time, detail, dot:j.dot, color:on?T.text1:T.text2, bg:on?T.rowActive:'transparent', barOp:on?1:0, onClick:()=>this.setState({focus:i}) }; });
+    const jE=isJournal?(s.journal[Math.min(s.focus,s.journal.length-1)]||{}):{};
+
+    // source rows
+    const statusMeta=(st)=>st==='new'?{l:'12 nouveaux',c:this.GREENT}:st==='stale'?{l:'inaccessible',c:this.AMBERT}:{l:'à jour',c:T.text3};
+    const sourceRows=(isHome?s.sources:[]).map((x,i)=>{ const on=i===s.focus; const sm=statusMeta(x.status); return { name:x.name, statusLabel:sm.l, statusColor:sm.c, bg:on?T.rowActive:'transparent', barOp:on?1:0, onClick:()=>this.setState({focus:i}) }; });
+    const srcActive=isHome?(s.sources[Math.min(s.focus,s.sources.length-1)]||{}):{};
+    const srcSmActive=statusMeta(srcActive.status||'ok');
+    const srcSel={ name:srcActive.name||'', path:srcActive.path||'', statusLabel:srcSmActive.l, statusColor:srcSmActive.c, badgeBg:(srcActive.status==='stale')?'rgba(176,122,40,0.15)':(srcActive.status==='new')?'rgba(76,123,87,0.13)':T.track, watchBg:srcActive.watched?'#4C7B57':'transparent', onToggleWatch:()=>this.toggleSourceWatch(srcActive.id) };
+    const srcHint=isHome && !!srcActive.hint;
+    const rootMissing=isHome && !s.rootPath;
+
+    // active track derived
+    let track={}, verdictColor='#4C7B57', verdictStatus='', verdictNote='', chips=[], finalName='', spectrum=[], specCaption='', specVerdict='', specColor='#4C7B57', specBadgeBg='rgba(76,123,87,0.14)', isDup=false, dupExisting='', matchPct='', matchColor=T.text3, matchLabel='', matchKind='muted', verdictBg=T.card, verdictBorder=T.border, sourceDir='', sourceName='';
+    let bars=[], timeNow='0:00', timeTotal='0:00', tempoLabel='0.0%', keyBg=T.canvas, keyBorder=T.borderStrong, keyColor=T.text1, progressPct='0%';
+    if(isTrackScreen){
+      const v=t.verdict; track=Object.assign({},t,{genreLine:(t.genres||[]).join(', ')});
+      var genreTags=(t.genres||[]).map(g=>({label:g}));
+      var isIdentified = !!(t.label && t.label!=='—');
+      verdictColor = v==='fake'?this.semAmber() : v==='pending'?this.MUTED : this.semGreen();
+      verdictStatus = v==='fake'?'À vérifier' : v==='pending'?'Analyse en cours…' : 'Prêt à filer';
+      verdictNote = v==='fake'?'Coupure spectrale à 16 kHz · transcodé depuis une source lossy.' : v==='pending'?'Empreinte + analyse spectrale en cours.' : 'True lossless vérifié · métadonnées Discogs concordantes.';
+      const ck=(k)=>({onClick:()=>this.openChip(k),chev:s.openChip===k?'180deg':'0deg'});
+      const c1=this.chipStyle(v==='fake'?'amber':v==='pending'?'muted':'green',s.openChip==='lossless');
+      const c3=this.chipStyle(t.dup?'amber':'green',s.openChip==='unique');
+      chips=[ Object.assign({label:v==='fake'?'FAKE':v==='pending'?'CHECKING…':'LOSSLESS'},c1,ck('lossless')) ];
+      if(t.dup){ chips.push(Object.assign({label:'DUPLICATE'},c3,ck('unique'))); }
+      const ext=s.format.split(' ')[0].toLowerCase();
+      finalName='→ '+t.artist+' - '+t.title+' ('+t.version+').'+ext;
+      // spectrum
+      const fake=v==='fake'; const cliff=fake?26:37, n=40;
+      for(let i=0;i<n;i++){ const f=i/(n-1); let val; if(i<cliff){ val=0.4+0.5*Math.pow(1-f,0.5); val=Math.min(1,val+((i*37)%11)/11*0.12);} else { val=fake?0.02:Math.max(0.02,0.3*Math.pow(1-f,3)); } const onb=i<cliff; spectrum.push({h:(6+val*68)+'px',color:onb?(fake?'#B07A28':'#4C7B57'):T.disabled}); }
+      specVerdict=fake?'fake':'lossless'; specColor=fake?this.semAmber():this.semGreen(); specBadgeBg=fake?'rgba(176,122,40,0.34)':'rgba(76,123,87,0.32)';
+      specCaption=fake?"L'énergie s'effondre vers 16 kHz — lowpass caractéristique d'une source lossy (MP3) réencapsulée en FLAC. Signalé fake.":'Énergie spectrale complète jusqu\u2019à 22 kHz avec rolloff naturel des aigus — pas de palier lowpass. Cohérent avec un vrai lossless.';
+      // proof metrics (grounded in analysis report fields: cutoff_hz, clip_runs/clip_pct, true_peak_dbtp, dc_offset, phase_correlation, silence_head/tail_ms, truncated, container_ok, tags_cdj_ok, id3_version, has_cover)
+      const sd=t.seed||1, pr=(salt)=>this.pseudo(sd,salt);
+      const cutoffHz=Math.round((cliff/n)*22000);
+      const srMatch=(t.claimed||'').match(/([\d.]+)\s*kHz/); const sampleRate=srMatch?Math.round(parseFloat(srMatch[1])*1000)+' Hz':'44100 Hz';
+      const clipPct=(fake&&pr(2)>0.6)?(pr(3)*0.4).toFixed(2):'0.00'; const clipRuns=clipPct!=='0.00'?Math.round(1+pr(4)*4):0;
+      const truePeak='-'+(0.3+pr(1)*2.4).toFixed(2)+' dBTP';
+      const silenceHead=Math.round(20+pr(5)*170)+' ms'; const silenceTail=Math.round(90+pr(6)*380)+' ms';
+      const truncated=pr(7)>0.93?'oui':'non';
+      const dcOffset=((pr(8)-0.5)*0.0016).toFixed(5);
+      const phaseCorr=(0.78+pr(9)*0.21).toFixed(3);
+      const peaksPts=Math.round(t.dur*86);
+      var proofLeft=[
+        {l:'Verdict',v:specVerdict},
+        {l:'Durée',v:t.dur.toFixed(1)+' s'},
+        {l:'True-peak',v:truePeak},
+        {l:'Écrêtage',v:clipRuns+' runs / '+clipPct+'%'},
+        {l:'Silence début',v:silenceHead},
+        {l:'Tronqué',v:truncated},
+        {l:"Fréquence d'échantillonnage",v:sampleRate},
+      ];
+      var proofRight=[
+        {l:'Coupure',v:cutoffHz+' Hz'},
+        {l:'Canaux',v:'2'},
+        {l:'DC offset',v:dcOffset},
+        {l:'Corrélation de phase',v:phaseCorr},
+        {l:'Silence fin',v:silenceTail},
+        {l:'Conteneur OK',v:'oui'},
+        {l:'Pics (couverture)',v:peaksPts+' pts ≈ '+t.dur.toFixed(1)+'s / '+t.dur.toFixed(1)+'s (100%)'},
+      ];
+      var tagsCdjOk=pr(10)>0.85?'non':'oui', id3Version=pr(11)>0.5?'ID3v2.3':'ID3v2.4', hasCover='oui';
+      isDup=!!t.dup; dupExisting='FLAC · 1006 kbps · 44.1 kHz\nBibliothèque / Deep House'; matchPct=(t.match||0)+'%';
+      matchColor=(v==='pending')?this.MUTED:(v==='fake'?this.semAmber():this.semGreen()); matchLabel=(v==='pending')?'en cours':(v==='fake'?'CHECK MATCH':'MATCH');
+      matchKind=(v==='pending')?'muted':(v==='fake'?'amber':'green');
+      sourceName=t.src; sourceDir='C:\\Users\\LEETJ\\Music\\Soulseek\\complete\\'; var sp=sourceDir+sourceName;
+      verdictBg=(v==='fake')?'rgba(176,122,40,0.30)':(v==='pending')?T.card:'rgba(76,123,87,0.28)';
+      verdictBorder=(v==='fake')?'rgba(176,122,40,0.65)':(v==='pending')?T.border:'rgba(76,123,87,0.55)';
+      // audio
+      const p=s.progress; bars=t.wave.map((w,i)=>({h:(4+w*40)+'px', color:(i/t.wave.length)<=p?T.text2:T.disabled}));
+      timeNow=this.fmt(p*t.dur); timeTotal=this.fmt(t.dur);
+      tempoLabel=(s.tempo>=0?'+':'')+s.tempo+'%';
+      progressPct=(p*100)+'%';
+      if(s.keyLock){ keyBg=T.ctaBg; keyBorder=T.ctaBg; keyColor=T.ctaText; } else { keyBg='transparent'; keyBorder=T.borderStrong; keyColor=T.text3; }
+    }
+
+    // rail config
+    let showDest=false, primaryLabel='', primaryOn=true, secondaryLabel='', secPend=false, keyHints=[];
+    const pending = isTrackScreen && t.verdict==='pending';
+    if(s.screen==='review'){
+      if(s.mode==='batch'){ showDest=!batchFileActive; primaryLabel='Déplacer la sélection ('+s.selection.length+')'; secondaryLabel='Écarter ('+s.selection.length+')'; secPend=true; primaryOn=s.selection.length>0 && !batchFileActive; keyHints=[{key:'Espace',label:'sélection'},{key:'Entrée',label:'déplacer'},{key:'↑↓',label:'nav'}]; }
+      else { showDest=true; primaryLabel='Déplacer et encoder'; secondaryLabel=(isTrackScreen&&t.verdict==='fake')?'Ressourcer':'Écarter'; primaryOn=!pending; keyHints=[{key:'Espace',label:'écouter'},{key:'Entrée',label:'filer'},{key:'Suppr',label:'écarter'},{key:'↑↓',label:'nav'}]; }
+    } else if(s.screen==='library'){ primaryLabel='Remettre en revue'; secondaryLabel='Mettre à jour les tags'; secPend=true; keyHints=[{key:'Entrée',label:'remettre en revue'},{key:'↑↓',label:'nav'}]; }
+    else if(s.screen==='discarded'){ primaryLabel='Restaurer'; secondaryLabel='Purger'; secPend=true; keyHints=[{key:'Entrée',label:'restaurer'},{key:'↑↓',label:'nav'}]; }
+
+    const destLabel = s.inPlace?'Sur place':(s.destination||(isTrackScreen?t.artist:'—'));
+    const bq=s.destQuery.trim().toLowerCase();
+    let binOptions;
+    if(bq){
+      const all=this.flattenAll(s.binsTree,[]);
+      binOptions=all.filter(n=>n.rel.toLowerCase().indexOf(bq)>=0||n.name.toLowerCase().indexOf(bq)>=0)
+        .map(n=>({label:n.rel,pad:9,caret:'',onCaret:()=>{},onClick:()=>this.pickBin(n.rel),bg:(s.destination===n.rel)?'rgba(76,123,87,0.1)':'transparent',color:T.text2}));
+    } else {
+      binOptions=this.flattenVisible().map(r=>({
+        label:r.name, pad:9+r.depth*14,
+        caret:r.hasKids?(r.isOpen?'▾':'▸'):'',
+        onCaret:(e)=>{e.stopPropagation();this.toggleExpand(r.rel);},
+        onClick:()=>this.pickBin(r.rel),
+        bg:(s.destination===r.rel||(!s.destination&&r.rel===''&&!s.inPlace))?'rgba(76,123,87,0.1)':'transparent',
+        color:T.text2,
+      }));
+    }
+    const formats=['MP3','AIFF','WAV'].map(f=>({label:f,onClick:()=>this.setFormat(f),bg:s.format===f?T.surface:'transparent',color:s.format===f?T.text1:T.text3}));
+    const themeOptions=[['auto','Auto'],['light','Clair'],['dark','Sombre']].map(([k,label])=>({label,onClick:()=>this.setThemeMode(k),bg:s.themeMode===k?T.surface:'transparent',color:s.themeMode===k?T.text1:T.text3}));
+
+    // palette
+    const cmds=[
+      {label:'Filer la piste actuelle',hint:'↵',run:()=>{this.setState({paletteOpen:false});this.primary();}},
+      {label:'Écarter la piste actuelle',hint:'⌫',run:()=>{this.setState({paletteOpen:false});this.discardOne();}},
+      {label:'Réidentifier avec Discogs',hint:'I',run:()=>{this.setState({paletteOpen:false});this.toast('Réidentification via Discogs…','ok');}},
+      {label:'Annuler la dernière action',hint:'⌘Z',run:()=>{this.setState({paletteOpen:false});this.undo();}},
+      {label:'Basculer Détail / Lot',hint:'Tab',run:()=>{this.setState({paletteOpen:false});this.toggleMode();}},
+      {label:'Aller à Accueil',hint:'',run:()=>this.go('home')},
+      {label:'Aller à Revue',hint:'',run:()=>this.go('review')},
+      {label:'Aller à Écartés',hint:'',run:()=>this.go('discarded')},
+      {label:'Aller à Journal',hint:'',run:()=>this.go('journal')},
+      {label:'Aller à Bibliothèque',hint:'',run:()=>this.go('library')},
+      {label:'Aller à Réglages',hint:'',run:()=>this.go('settings')},
+      {label:'Exporter vers Rekordbox',hint:'',run:()=>{this.setState({paletteOpen:false});this.notImpl();}},
+    ];
+    const pql=s.pq.toLowerCase();
+    const paletteCmds=cmds.filter(c=>c.label.toLowerCase().indexOf(pql)>=0).map(c=>({label:c.label,hint:c.hint,onClick:c.run,bg:'transparent'}));
+
+    return {
+      cssVars,
+      navItems, exportItems,
+      queueTitle:isJournal?'Historique':isHome?'Sources':isSettings?'Réglages':'File',
+      queueCount:isJournal?fmtN(s.journal.length):isHome?fmtN(s.sources.length):isSettings?'':fmtN(counts[s.screen]||0),
+      toggleShow:s.screen==='review'?'flex':'none',
+      onDetail:()=>this.setState({mode:'detail',selection:[]}), onBatch:()=>this.setState({mode:'batch'}),
+      detailBg:s.mode==='detail'?T.surface:'transparent', detailColor:s.mode==='detail'?T.text1:T.text3,
+      batchBg:s.mode==='batch'?T.surface:'transparent', batchColor:s.mode==='batch'?T.text1:T.text3,
+      showTrackRows, isJournal, isHome, isSettings, isTrackScreen, isBatchView, isEmptyState, showReviewPane, batchGroups, selCount, queueTotal, rowPad, rows, journalRows, sourceRows,
+      taskEntries, hasActiveTasks, showNavTasks:hasActiveTasks && !isBatchView, batchFileActive, batchLiveRows, batchSelectShow:batchFileActive?'none':'block',
+      emptyTitle: s.screen==='review'?'File vide':s.screen==='library'?'Bibliothèque vide':'Rien dans Écartés',
+      emptyNote: s.screen==='review'?'Aucune piste à examiner pour le moment — les nouveaux fichiers détectés apparaîtront ici.':s.screen==='library'?'Aucun morceau filé pour l\u2019instant. File une piste depuis Revue pour la voir apparaître ici.':'Les pistes que tu écartes depuis Revue apparaissent ici, avec possibilité de les restaurer.',
+      emptyShowLink: isEmptyState && (s.screen==='library'||s.screen==='discarded'),
+      onEmptyGoReview:()=>this.go('review'),
+      showActionRail: !isEmptyState,
+      settingsSections:[
+        {label:'Discogs',key:'discogs',sub:false},
+        {label:"Jeton d'accès",key:'discogs',sub:true},
+        {label:'Bibliothèque',key:'library',sub:false},
+        {label:'Dossier racine',key:'library',sub:true},
+        {label:'Fichiers',key:'files',sub:false},
+        {label:'Format par défaut',key:'files',sub:true},
+        {label:'Apparence',key:'appearance',sub:false},
+        {label:'Thème',key:'appearance',sub:true},
+      ].map(x=>({label:x.label,onClick:()=>this.scrollToSection(x.key),pad:x.sub?22:9,size:x.sub?12:13,weight:x.sub?400:600,color:x.sub?T.text3:T.text1})),
+      refScroll:(el)=>{ this._scrollEl=el; },
+      refDiscogs:(el)=>{ this._secRefs=this._secRefs||{}; this._secRefs.discogs=el; },
+      refLibrary:(el)=>{ this._secRefs=this._secRefs||{}; this._secRefs.library=el; },
+      refFiles:(el)=>{ this._secRefs=this._secRefs||{}; this._secRefs.files=el; },
+      refAppearance:(el)=>{ this._secRefs=this._secRefs||{}; this._secRefs.appearance=el; },
+      crumbScreen:screenLabelFr[s.screen]||'',
+      track, waveBarsMode:waveStyle==='bars', bars, timeNow, timeTotal,
+      playIcon:s.isPlaying?'❚❚':'►', playIconPad:s.isPlaying?'0px':'2px',
+      onPlay:()=>this.onPlay(), onTempoUp:()=>this.onTempo(1), onTempoDown:()=>this.onTempo(-1), tempoLabel, tempo:s.tempo, onTempoSlide:(e)=>this.onTempoSlide(e), progressPct, onResetTempo:()=>this.resetTempo(),
+      volume:s.volume, volumeLabel:s.volume+'%', onVolume:(e)=>this.onVolume(e),
+      volumePct:s.volume+'%', onVolumeDrag:(e)=>this.sliderDrag(e,'volume'), onTempoDrag:(e)=>this.sliderDrag(e,'tempo'),
+      tempoHandlePct:((s.tempo+8)/16*100)+'%',
+      tempoFillLeft:(s.tempo>=0?'50%':(50-(-s.tempo/8*50))+'%'),
+      tempoFillWidth:(Math.abs(s.tempo)/8*50)+'%',
+      onKey:()=>this.onKeyLock(), keyBg, keyBorder, keyColor, keyState:s.keyLock?'VERR':'LIBRE',
+      verdictColor, verdictStatus, verdictNote, finalName, verdictBg, verdictBorder, sourceDir, sourceName, sourcePath:sourceDir+sourceName,
+      chips, proofOpen:!!s.openChip, proofSpectrum:s.openChip==='lossless', proofDiscogs:s.openChip==='match', proofDedup:s.openChip==='unique',
+      spectrum, specCaption, specVerdict, specColor, specBadgeBg, matchPct, matchColor, matchLabel, matchBg:(matchKind==='green'?'rgba(76,123,87,0.32)':matchKind==='amber'?'rgba(176,122,40,0.34)':T.track), isDup, notDup:!isDup, dupExisting,
+      proofLeft:(typeof proofLeft!=='undefined')?proofLeft:[], proofRight:(typeof proofRight!=='undefined')?proofRight:[],
+      genreTags:(typeof genreTags!=='undefined')?genreTags:[],
+      isIdentified:(typeof isIdentified!=='undefined')?isIdentified:true,
+      onSearchDiscogs:()=>this.searchDiscogs(),
+      dsIdle: !(s.discogsSearch && isTrackScreen && s.discogsSearch.trackId===t.id),
+      dsSearching: !!(s.discogsSearch && isTrackScreen && s.discogsSearch.trackId===t.id && s.discogsSearch.state==='searching'),
+      dsResults: !!(s.discogsSearch && isTrackScreen && s.discogsSearch.trackId===t.id && s.discogsSearch.state==='results'),
+      dsCandidates: (s.discogsSearch && isTrackScreen && s.discogsSearch.trackId===t.id && s.discogsSearch.candidates)?s.discogsSearch.candidates.map(c=>({label:c.label,sub:c.sub,onClick:()=>this.pickDiscogsCandidate(c)})):[],
+      unidentifiedShow:(typeof isIdentified!=='undefined'&&!isIdentified)?'block':'none',
+      tagsCdjOk:(typeof tagsCdjOk!=='undefined')?tagsCdjOk:'—', id3Version:(typeof id3Version!=='undefined')?id3Version:'—', hasCover:(typeof hasCover!=='undefined')?hasCover:'—',
+      matchNeedsCheck:matchKind==='amber', matchJustify:matchKind==='amber'?'space-between':'flex-end',
+      matchBorderTop:matchKind==='amber'?'1px solid var(--border)':'none', matchPadTop:matchKind==='amber'?'12px':'0',
+      onApply:()=>{this.toast('Métadonnées appliquées','ok');}, onKeepThis:()=>{this.toast('Ce fichier est conservé','ok');}, onKeepExisting:()=>{this.setState({openChip:null});this.toast('Existant conservé — celui-ci écarté','ok');},
+      onChange:()=>this.identToggle(), identOpen:s.identOpen, stopP:(e)=>e.stopPropagation(),
+      identCandidates:isTrackScreen?[
+        {label:track.label+' — '+track.catNo, sub:(track.year||'')+' · '+(track.genres||[]).join(', ')+'  · actuel', current:T.rowActive, onClick:()=>{}},
+        {label:'Golf Channel — GOLF 019', sub:'2015 · Disco, Boogie', current:'transparent', onClick:()=>this.identPick('Golf Channel — GOLF 019')},
+        {label:'Editorial — EDT 004', sub:'2016 · Disco', current:'transparent', onClick:()=>this.identPick('Editorial — EDT 004')},
+      ]:[],
+      // rail
+      showDest, onDestToggle:()=>this.destToggle(), destLabel, destOpen:s.destOpen, destQuery:s.destQuery, onDestQuery:(e)=>this.setState({destQuery:e.target.value}),
+      refDestBtn:(el)=>{ this._destBtnEl=el; },
+      destPopLeft:(s.destRect?s.destRect.left:0)+'px', destPopBottom:(s.destRect?s.destRect.bottomOffset:48)+'px',
+      inPlaceBg:s.inPlace?'#4C7B57':'transparent', onToggleInPlace:()=>this.toggleInPlace(), binOptions, formats,
+      showCreateRow:!bq, creating:s.creating, notCreating:!s.creating, createHint:s.destination?('dans '+s.destination):'', rootPath:s.rootPath, rootPathDisplay:s.rootPath||'non définie',
+      onStartCreate:()=>this.startCreate(), onCreateKey:(e)=>{ if(e.key==='Enter'){ const v=e.target.value.trim(); if(v)this.addBin(v); } else if(e.key==='Escape'){ this.setState({creating:false}); } },
+      onBrowseCustom:()=>this.browseCustom(), onSeek:(e)=>this.onSeek(e),
+      showKeyHint:showSC && !s.hintsCollapsed, keyHints, refRail:(el)=>{ this._railEl=el; this.setupRailObserver(); },
+      showRailButtons:!batchFileActive,
+      onSecondary:()=>this.secondary(), secondaryLabel, secPendShow:secPend?'inline-block':'none', secondaryColor:secondaryLabel==='Ressourcer'?this.semAmber():T.text1,
+      onPrimary:()=>{ if(primaryOn)this.primary(); }, primaryLabel,
+      primaryBg:primaryOn?T.ctaBg:T.disabled, primaryColor:primaryOn?T.ctaText:T.nav, primaryCursor:primaryOn?'pointer':'default',
+      primaryKeyShow:(s.screen==='review'&&s.mode==='detail')?'inline-flex':'none',
+      // journal detail
+      jEntry:{action:jE.action||'', time:jE.time||'', dot:jE.dot||'#8A857D', title:jE.title||'', artist:jE.artist||'', dest:jE.dest||'—'},
+      jIsBatch:!!(jE.tracks&&jE.tracks.length), jSingleShow:(jE.tracks&&jE.tracks.length)?'none':'block',
+      jTracks:(jE.tracks||[]).map(bt=>({title:bt.title,artist:bt.artist,verdict:bt.verdict==='fake'?'fake':bt.verdict==='pending'?'analyse…':'lossless',vColor:bt.verdict==='fake'?this.AMBER:bt.verdict==='pending'?this.MUTED:this.GREEN})),
+      onRevertEntry:()=>this.revertEntry(),
+      revertConfirming: s.revertConfirmId===jE.id && !!(jE.tracks&&jE.tracks.length>10),
+      onCancelRevertConfirm:()=>this.cancelRevertConfirm(),
+      revertBtnLabel: (s.revertConfirmId===jE.id && !!(jE.tracks&&jE.tracks.length>10)) ? 'Confirmer' : 'Annuler cette action',
+      // home
+      srcSel, srcHint, rootMissing, onAddSource:()=>this.notImpl(), onGoSettings:()=>this.go('settings'),
+      // settings
+      onNotImpl:()=>this.notImpl(), onForgetRoot:()=>this.forgetRoot(), themeOptions,
+      settingsTab:s.settingsTab,
+      tabDiscogs:s.settingsTab==='discogs', tabLibrary:s.settingsTab==='library', tabFiles:s.settingsTab==='files', tabAppearance:s.settingsTab==='appearance',
+      // overlays
+      toastShow:!!s.toast, toast:s.toast, toastDot:s.toastKind==='warn'?'#B07A28':'#4C7B57',
+      paletteOpen:s.paletteOpen, pq:s.pq, onPq:(e)=>this.setState({pq:e.target.value}), paletteCmds,
+      onClosePalette:()=>this.setState({paletteOpen:false}), stop:(e)=>e.stopPropagation(),
+    };
+  }
+}
+
+</script>
+</body>
+</html>

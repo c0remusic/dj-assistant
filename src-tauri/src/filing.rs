@@ -3,7 +3,6 @@
 //! batch (see actions.rs). Mono-location: conformant files are moved; converted files
 //! land in the bin and the original goes to `.sift-trash` (restorable via undo). Composes
 //! naming/encode/tagging/library/actions/settings.
-#![allow(dead_code)]
 
 use crate::encode::{self, EncodeError, Target};
 use crate::naming::{self, Canonical};
@@ -12,11 +11,37 @@ use rusqlite::{params, Connection};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 
+/// Sentinel destination meaning "file in place": the track's destination is its OWN source
+/// folder, not a bin under the library root. Travels through `bin_rel` like any other
+/// destination (the single decision channel) — `plan_file` resolves it instead of `safe_join`.
+/// The frontend mirrors this exact literal (`shared/contracts.ts` `FILE_IN_PLACE`); keep them
+/// in sync. Must never reach `library::safe_join` (it would create a literal `__SOURCE__` dir).
+pub const FILE_IN_PLACE: &str = "__SOURCE__";
+
+/// Prefix marking `bin_rel` as a trusted absolute path OUTSIDE the library root, chosen via a
+/// native OS directory picker ("Parcourir un autre dossier…") — the ONE deliberate hole in
+/// `safe_join`'s anti-traversal boundary (`library::safe_join` rejects every other absolute or
+/// `..`-containing path by design, see its tests). Trust boundary: the frontend must build this
+/// value ONLY from a path the Tauri dialog plugin returned (an existing directory the user
+/// navigated to and selected), never from free-typed or otherwise user-suppliable text — see
+/// `shared/contracts.ts`'s mirror of this exact literal. `plan_file` still re-validates the path
+/// actually exists and is a directory before use (defense in depth: the folder could have been
+/// deleted or unmounted between the moment it was picked and the moment a file lands there).
+pub const EXTERNAL_DEST_PREFIX: &str = "__EXTERNAL__::";
+
 /// Why filing could not complete (nothing is left half-filed on these — see ordering).
 #[derive(Debug, Clone, PartialEq)]
 pub enum FilingError {
     NotFound,
     Upscale,
+    /// The source's declared rail (from its extension) diverges from what its content actually
+    /// is (lossy content behind a lossless extension — the BUG-1 scenario: e.g. an MP3 renamed
+    /// `.flac`). Distinct from `Upscale`: this is a WARN-and-confirm case (FIX-1, option B), not
+    /// a hard refusal — the caller can retry `plan_file` with `allow_rail_mismatch=true` once the
+    /// user has explicitly confirmed. Stable sentinel string (`"RAIL_MISMATCH"`, mirrors the
+    /// existing `"NoLibraryRoot"` convention) so the front can pattern-match it distinctly from
+    /// other filing errors.
+    RailMismatch,
     Encode(String),
     Tag(String),
     Io(String),
@@ -28,6 +53,7 @@ impl std::fmt::Display for FilingError {
         match self {
             FilingError::NotFound => write!(f, "track not found"),
             FilingError::Upscale => write!(f, "refused: cannot upscale lossy to lossless"),
+            FilingError::RailMismatch => write!(f, "RAIL_MISMATCH"),
             FilingError::Encode(m) => write!(f, "encode: {m}"),
             FilingError::Tag(m) => write!(f, "tag: {m}"),
             FilingError::Io(m) => write!(f, "io: {m}"),
@@ -54,6 +80,17 @@ pub struct FileResult {
 pub struct BatchResult {
     pub filed: usize,
     pub needs_validation: Vec<i64>,
+    /// True when the run was stop-net cancelled before processing every id (the summary is then
+    /// partial: what was filed before the stop stays filed — nothing is rolled back).
+    pub cancelled: bool,
+}
+
+/// Outcome of a batch reject (re-sourcing): how many were marked, and which ids failed — so the
+/// UI can flag a misfire instead of silently dropping it.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct RejectBatchResult {
+    pub rejected: usize,
+    pub failed: Vec<i64>,
 }
 
 /// Source path of a track by id.
@@ -82,7 +119,8 @@ fn file_name_of(path: &str) -> String {
 
 /// A unique batch id: track id + millis + a process-monotonic counter, so two filings of the
 /// same track within the same millisecond (file → undo → re-file) can never share a batch_id.
-fn new_batch_id(track_id: i64) -> String {
+/// Shared with `apply_tags` so a tag-edit batch gets the same collision-free id scheme.
+pub(crate) fn new_batch_id(track_id: i64) -> String {
     use std::sync::atomic::{AtomicU64, Ordering};
     static SEQ: AtomicU64 = AtomicU64::new(0);
     let ms = std::time::SystemTime::now()
@@ -106,13 +144,67 @@ pub fn reconcile_track(conn: &Connection, track_id: i64) -> Result<Canonical, Fi
     Ok(naming::reconcile(&artist, &title, &stem))
 }
 
-/// FS-only: move `source` into `<root>/.sift-trash/<track_id>__<name>` (collision-free).
+/// Centralised trash directory: `{Documents}/Sift/Trash` on all platforms.
+/// Falls back to `{home}/Documents/Sift/Trash` if `dirs::document_dir()` returns None.
+fn sift_trash_dir() -> Result<PathBuf, FilingError> {
+    let base = dirs::document_dir()
+        .or_else(|| dirs::home_dir().map(|h| h.join("Documents")))
+        .ok_or_else(|| FilingError::Io("cannot locate Documents folder".into()))?;
+    Ok(base.join("Sift").join("Trash"))
+}
+
+/// Copy `source` to `dest`, verify the copy's size matches, then delete `source`. Cross-disk
+/// safe (no rename). On any failure the partial `dest` is cleaned up (best-effort) and `source`
+/// is left untouched.
+fn copy_verify_delete(source: &str, dest: &Path) -> Result<(), FilingError> {
+    let src_len = std::fs::metadata(source)
+        .map_err(|e| FilingError::Io(format!("stat source: {e}")))?
+        .len();
+
+    std::fs::copy(source, dest).map_err(|e| FilingError::Io(format!("copy: {e}")))?;
+
+    let dst_len = match std::fs::metadata(dest) {
+        Ok(m) => m.len(),
+        Err(e) => {
+            let _ = std::fs::remove_file(dest);
+            return Err(FilingError::Io(format!("stat copy: {e}")));
+        }
+    };
+
+    if dst_len != src_len {
+        let _ = std::fs::remove_file(dest);
+        return Err(FilingError::Io(format!(
+            "copy size mismatch (src {src_len} != dst {dst_len})"
+        )));
+    }
+
+    std::fs::remove_file(source).map_err(|e| FilingError::Io(format!("remove source after copy: {e}")))
+}
+
+/// FIX-10: move `source` to `dest`, trying `rename` first (fast, same-device) and falling back
+/// to `copy_verify_delete` only on a genuine cross-device error (Windows os error 17
+/// `ERROR_NOT_SAME_DEVICE`, Unix os error 18 `EXDEV`) — a conformant filing or a rollback can
+/// cross from the source's disk to the library's (or back), where a plain rename hard-fails.
+fn move_cross_disk_safe(source: &str, dest: &Path) -> Result<(), FilingError> {
+    match std::fs::rename(source, dest) {
+        Ok(()) => Ok(()),
+        Err(e) if matches!(e.raw_os_error(), Some(17) | Some(18)) => copy_verify_delete(source, dest),
+        Err(e) => Err(FilingError::Io(e.to_string())),
+    }
+}
+
+/// FS-only: copy `source` into `<Documents>/Sift/Trash/<track_id>__<name>` (collision-free),
+/// verify the copy size, then delete the source. Cross-disk safe (no rename) — the trash dir is
+/// virtually always on a different disk than the library, so skip straight to copy_verify_delete
+/// instead of trying (and failing) rename first every time.
 /// Returns the trash path. No DB — journaling is the caller's job.
-fn trash_file_fs(root: &Path, track_id: i64, source: &str) -> Result<String, FilingError> {
-    let trash_dir = root.join(".sift-trash");
+/// FIX-6: no `root` param — the trash dir is centralized under Documents, never under the
+/// library root, so a `root` argument was resolved and threaded through 3 callers for nothing.
+fn trash_file_fs(track_id: i64, source: &str) -> Result<String, FilingError> {
+    let trash_dir = sift_trash_dir()?;
     std::fs::create_dir_all(&trash_dir).map_err(|e| FilingError::Io(e.to_string()))?;
-    let dest = library::ensure_unique(&trash_dir.join(format!("{track_id}__{}", file_name_of(source))));
-    std::fs::rename(source, &dest).map_err(|e| FilingError::Io(e.to_string()))?;
+    let dest = library::ensure_unique(&trash_dir.join(format!("{track_id}__{}", file_name_of(source))), None);
+    copy_verify_delete(source, &dest)?;
     Ok(dest.to_string_lossy().to_string())
 }
 
@@ -120,12 +212,11 @@ fn trash_file_fs(root: &Path, track_id: i64, source: &str) -> Result<String, Fil
 /// the DB lock across it is fine).
 fn move_to_trash(
     conn: &Connection,
-    root: &Path,
     track_id: i64,
     batch_id: &str,
     source: &str,
 ) -> Result<String, FilingError> {
-    let dest = trash_file_fs(root, track_id, source)?;
+    let dest = trash_file_fs(track_id, source)?;
     actions::record(conn, batch_id, Some(track_id), "trash", Some(source), Some(&dest))
         .map_err(|e| FilingError::Db(e.to_string()))?;
     Ok(dest)
@@ -141,6 +232,33 @@ fn save_metadata(conn: &Connection, track_id: i64, c: &Canonical) -> Result<(), 
     Ok(())
 }
 
+/// Enrichment tag fields loaded once (under the lock) so phase 2 writes them without DB access.
+#[derive(Default, Clone)]
+pub struct TagExtras {
+    pub label: Option<String>,
+    pub year: Option<i64>,
+    pub genres: Vec<String>,
+    pub cover_path: Option<String>,
+}
+
+/// Load the enrichment tag fields (label, year, genres, cover) for a track from the DB. The single
+/// source of these values for tag writes — used by both `plan_file` (filing) and `apply_tags` (the
+/// in-place ID3 write), so the two write the SAME label/year/genres/cover a track carries.
+pub fn load_tag_extras(conn: &Connection, track_id: i64) -> TagExtras {
+    TagExtras {
+        label: conn
+            .query_row("SELECT label FROM metadata WHERE track_id=?1", params![track_id], |r| r.get::<_, Option<String>>(0))
+            .ok().flatten(),
+        year: conn
+            .query_row("SELECT year FROM metadata WHERE track_id=?1", params![track_id], |r| r.get::<_, Option<i64>>(0))
+            .ok().flatten(),
+        genres: crate::genres::get_genres(conn, track_id).unwrap_or_default(),
+        cover_path: conn
+            .query_row("SELECT cover_path FROM metadata WHERE track_id=?1", params![track_id], |r| r.get::<_, Option<String>>(0))
+            .ok().flatten(),
+    }
+}
+
 /// A filing decided under the DB lock (phase 1), ready to run lock-free (phase 2) and then
 /// be committed under the lock (phase 3). Holding the connection across the multi-second
 /// ffmpeg encode would freeze every other DB user (analysis workers + all IPC); splitting
@@ -154,14 +272,17 @@ pub struct FilePlan {
     target: Target,
     canonical: Canonical,
     bin_rel: String,
-    root: PathBuf,
+    extras: TagExtras,
 }
 
-/// One filesystem effect performed in phase 2, to be journaled in phase 3.
+/// One filesystem effect performed in phase 2, to be journaled in phase 3. `meta` carries the
+/// optional JSON payload of the journal's `meta` column — used by the conformant filing's `tag_edit`
+/// row to stash the OLD tags (so a revert can restore them); `None` for the plain move/convert/trash.
 pub struct FsLog {
     kind: &'static str,
     from: String,
     to: String,
+    meta: Option<String>,
 }
 
 /// The string value persisted in `tracks.target_format`.
@@ -175,6 +296,13 @@ fn target_str(target: Target) -> &'static str {
 
 /// Phase 1 (under the DB lock): resolve metadata + the collision-free destination and apply
 /// the no-upscale guard. No slow work — only fast DB reads and a `create_dir_all`.
+/// `allow_rail_mismatch`: when false (the default from IPC), a source whose extension claims
+/// lossless but whose CONTENT is actually lossy (FIX-1 / BUG-1) is refused with
+/// `FilingError::RailMismatch` instead of silently filed — the front shows a confirmation and
+/// retries with `true` if the user proceeds anyway.
+#[allow(clippy::too_many_arguments)] // each param is an independent, orthogonal input to the
+// plan (DB handle, library context, track identity, user overrides) — bundling them into a
+// struct here would just move the same 8 fields one level up without reducing real complexity.
 pub fn plan_file(
     conn: &Connection,
     root: &Path,
@@ -183,6 +311,7 @@ pub fn plan_file(
     bin_rel: &str,
     override_target: Option<Target>,
     edited: Option<Canonical>,
+    allow_rail_mismatch: bool,
 ) -> Result<FilePlan, FilingError> {
     let source = track_path(conn, track_id)?;
     let canonical = match edited {
@@ -191,26 +320,75 @@ pub fn plan_file(
     };
 
     let source_rail = crate::analysis::tags::rail_from_ext(&ext_of(&source));
+    // BUG-1 guard: the extension says lossless, but is the CONTENT actually lossy? (an MP3
+    // renamed `.flac` would otherwise sail through and get "converted" into a fabricated
+    // lossless AIFF/WAV — exactly what guard_no_upscale below exists to block, except it never
+    // sees the real codec because `source_rail` here is extension-derived, not content-derived.)
+    // Only probe content when it matters (declared lossless) — skip the extra I/O for a
+    // declared-lossy source, where a content mismatch only means an unnecessary downscale, not
+    // a fabricated-lossless risk.
+    if source_rail == crate::analysis::Rail::Lossless
+        && !allow_rail_mismatch
+        && crate::analysis::tags::rail_from_content(&source) == crate::analysis::Rail::Lossy
+    {
+        return Err(FilingError::RailMismatch);
+    }
     let target = override_target.unwrap_or_else(|| encode::target_for(source_rail));
     if encode::guard_no_upscale(source_rail, target).is_err() {
         return Err(FilingError::Upscale);
     }
 
-    let dest_dir = library::safe_join(root, bin_rel).map_err(FilingError::Io)?;
+    // A conformant file is MOVED as-is (no transcode), so its container is unchanged — keep its own
+    // extension instead of forcing target.ext(). This stops a `.aif` source from being renamed to
+    // `.aiff`: with a single possible output name, a blocked revert (external lock, os error 32 —
+    // proved in the revert-duplicate relevé) can no longer strand a `.aif` beside a `.aiff`. The
+    // conversion path produces a genuinely new file, which keeps the canonical target extension.
+    let conformant = encode::is_conformant(&source, target);
+    let out_ext = if conformant { ext_of(&source) } else { target.ext().to_string() };
+
+    // The single point where the destination directory is decided. The `FILE_IN_PLACE` sentinel
+    // means "file into the track's own source folder" — resolve it to `source.parent()` and NEVER
+    // route it through `safe_join` (which would sanitize it into a literal `root/__SOURCE__` dir).
+    let dest_dir = if bin_rel == FILE_IN_PLACE {
+        Path::new(&source)
+            .parent()
+            .ok_or_else(|| FilingError::Io("source file has no parent directory".into()))?
+            .to_path_buf()
+    } else if let Some(abs) = bin_rel.strip_prefix(EXTERNAL_DEST_PREFIX) {
+        // Trusted external folder (see EXTERNAL_DEST_PREFIX doc) — still re-checked here, not
+        // taken on faith: fail loudly if it's gone rather than silently recreating it elsewhere
+        // (create_dir_all below would otherwise happily conjure a new, wrong directory).
+        let p = PathBuf::from(abs);
+        if !p.is_dir() {
+            return Err(FilingError::Io(format!(
+                "external destination no longer exists: {abs}"
+            )));
+        }
+        p
+    } else {
+        library::safe_join(root, bin_rel).map_err(FilingError::Io)?
+    };
     std::fs::create_dir_all(&dest_dir).map_err(|e| FilingError::Io(e.to_string()))?;
-    let filename = naming::render_filename(template, &canonical, target.ext());
-    let dest = library::ensure_unique(&dest_dir.join(&filename));
+    let filename = naming::render_filename(template, &canonical, &out_ext);
+    // Ignore the source itself as a collision ONLY for the conformant (move) path: filing a
+    // conformant track in place onto its own (already-correct) name must keep that name, not bump
+    // it to " (2)". The non-conformant path ENCODES source → dest, so dest must never equal source
+    // (FFmpeg reading and writing the same file would corrupt it) — keep the normal collision bump.
+    let ignore_self = if conformant { Some(Path::new(&source)) } else { None };
+    let dest = library::ensure_unique(&dest_dir.join(&filename), ignore_self);
+
+    let extras = load_tag_extras(conn, track_id);
 
     Ok(FilePlan {
-        conformant: encode::is_conformant(&source, target),
+        conformant,
         source,
         dest: dest.to_string_lossy().to_string(),
         target,
         canonical,
         bin_rel: bin_rel.to_string(),
-        root: root.to_path_buf(),
         batch_id: new_batch_id(track_id),
         track_id,
+        extras,
     })
 }
 
@@ -219,24 +397,39 @@ pub fn plan_file(
 pub fn execute_file(plan: &FilePlan) -> Result<Vec<FsLog>, FilingError> {
     let mut log = Vec::new();
     if plan.conformant {
-        // tag in place, then move the single physical file into the bin
-        tagging::write_tags(&plan.source, &plan.canonical.artist, &plan.canonical.title)
-            .map_err(FilingError::Tag)?;
-        std::fs::rename(&plan.source, &plan.dest).map_err(|e| FilingError::Io(e.to_string()))?;
-        log.push(FsLog { kind: "move", from: plan.source.clone(), to: plan.dest.clone() });
+        // A conformant filing tags the file IN PLACE then MOVES it — no trashed original to restore
+        // from. So capture the OLD tags FIRST (fail clear if unreadable — never file without the net),
+        // and journal them as a `tag_edit` row BEFORE the `move`. revert_batch undoes newest-first, so
+        // it reverses the move (file back at `source`) THEN restores the old tags at `source` — the
+        // exact path the tag_edit row points at. Reuses the B4 snapshot/restore mechanism verbatim.
+        let old_tags = tagging::read_tags_full(&plan.source).map_err(FilingError::Tag)?;
+        let snapshot = serde_json::to_string(&old_tags)
+            .map_err(|e| FilingError::Tag(format!("serialize tag snapshot: {e}")))?;
+        log.push(FsLog { kind: "tag_edit", from: plan.source.clone(), to: plan.source.clone(), meta: Some(snapshot) });
+        tagging::write_tags_full(
+            &plan.source, &plan.canonical.artist, &plan.canonical.title,
+            plan.extras.label.as_deref(), plan.extras.year, &plan.extras.genres,
+            plan.extras.cover_path.as_deref(),
+        ).map_err(FilingError::Tag)?;
+        move_cross_disk_safe(&plan.source, Path::new(&plan.dest))?;
+        log.push(FsLog { kind: "move", from: plan.source.clone(), to: plan.dest.clone(), meta: None });
     } else {
         // transcode into the bin, tag the result, then trash the original (mono-location)
         encode::encode(&plan.source, &plan.dest, plan.target).map_err(|e| match e {
             EncodeError::Upscale => FilingError::Upscale,
             EncodeError::Ffmpeg(m) => FilingError::Encode(m),
         })?;
-        if let Err(e) = tagging::write_tags(&plan.dest, &plan.canonical.artist, &plan.canonical.title) {
+        if let Err(e) = tagging::write_tags_full(
+            &plan.dest, &plan.canonical.artist, &plan.canonical.title,
+            plan.extras.label.as_deref(), plan.extras.year, &plan.extras.genres,
+            plan.extras.cover_path.as_deref(),
+        ) {
             let _ = std::fs::remove_file(&plan.dest); // drop the orphan transcode
             return Err(FilingError::Tag(e));
         }
-        log.push(FsLog { kind: "convert", from: plan.source.clone(), to: plan.dest.clone() });
-        match trash_file_fs(&plan.root, plan.track_id, &plan.source) {
-            Ok(trash) => log.push(FsLog { kind: "trash", from: plan.source.clone(), to: trash }),
+        log.push(FsLog { kind: "convert", from: plan.source.clone(), to: plan.dest.clone(), meta: None });
+        match trash_file_fs(plan.track_id, &plan.source) {
+            Ok(trash) => log.push(FsLog { kind: "trash", from: plan.source.clone(), to: trash, meta: None }),
             Err(e) => {
                 let _ = std::fs::remove_file(&plan.dest);
                 return Err(e);
@@ -250,11 +443,23 @@ pub fn execute_file(plan: &FilePlan) -> Result<Vec<FsLog>, FilingError> {
 fn rollback_fs(log: &[FsLog]) {
     for fs in log.iter().rev() {
         match fs.kind {
+            // FIX-10: same cross-disk-safe fallback as the forward move — a rollback of the
+            // conformant path's rename can cross disks too.
             "move" | "trash" => {
-                let _ = std::fs::rename(&fs.to, &fs.from);
+                let _ = move_cross_disk_safe(&fs.to, Path::new(&fs.from));
             }
             "convert" => {
                 let _ = std::fs::remove_file(&fs.to);
+            }
+            // Conformant filing: undo the in-place tag write by restoring the captured old tags at
+            // `from` (the file is back there — the move row, newer, was reversed just above). Reuses
+            // the B4 restore; best-effort like the rest of this rollback (errors are swallowed).
+            "tag_edit" => {
+                if let Some(meta) = &fs.meta {
+                    if let Ok(snap) = serde_json::from_str::<tagging::TagsSnapshot>(meta) {
+                        let _ = tagging::restore_tags(&fs.from, &snap);
+                    }
+                }
             }
             _ => {}
         }
@@ -269,9 +474,9 @@ pub fn commit_file(conn: &Connection, plan: &FilePlan, log: Vec<FsLog>) -> Resul
         let _ = conn.execute("DELETE FROM actions WHERE batch_id=?1", params![plan.batch_id]);
     };
     for fs in &log {
-        if let Err(e) =
-            actions::record(conn, &plan.batch_id, Some(plan.track_id), fs.kind, Some(&fs.from), Some(&fs.to))
-        {
+        if let Err(e) = actions::record_with_meta(
+            conn, &plan.batch_id, Some(plan.track_id), fs.kind, Some(&fs.from), Some(&fs.to), fs.meta.as_deref(),
+        ) {
             undo(conn);
             return Err(FilingError::Db(e.to_string()));
         }
@@ -291,10 +496,13 @@ pub fn commit_file(conn: &Connection, plan: &FilePlan, log: Vec<FsLog>) -> Resul
     Ok(FileResult { path: plan.dest.clone(), batch_id: plan.batch_id.clone() })
 }
 
-/// File one track into `bin_rel` under `root`, holding `conn` throughout (used by tests and
-/// `file_batch`). The interactive IPC path (`ipc_filing::file_track`) instead runs the three
-/// phases with the lock released around the encode. See module docs for the ordering and the
-/// mono-location / undo contract.
+/// File one track into `bin_rel` under `root`, holding `conn` throughout — a synchronous test
+/// convenience that chains the three phases under a single lock. Production never holds the lock
+/// across the encode: the interactive path (`ipc_filing::file_track`) and the detached batch
+/// (`ipc_filing::run_file_batch`) run the phases with the lock released around it. See module docs
+/// for the ordering and the mono-location / undo contract.
+#[cfg(test)]
+#[allow(clippy::too_many_arguments)] // mirrors plan_file's shape (test-only convenience wrapper)
 pub fn file_track(
     conn: &Connection,
     root: &Path,
@@ -303,36 +511,51 @@ pub fn file_track(
     bin_rel: &str,
     override_target: Option<Target>,
     edited: Option<Canonical>,
+    allow_rail_mismatch: bool,
 ) -> Result<FileResult, FilingError> {
-    let plan = plan_file(conn, root, template, track_id, bin_rel, override_target, edited)?;
+    let plan = plan_file(conn, root, template, track_id, bin_rel, override_target, edited, allow_rail_mismatch)?;
     let log = execute_file(&plan)?;
     commit_file(conn, &plan, log)
 }
 
-/// File every green track of `track_ids` into `bin_rel`; leave yellow (or unreadable) ones
-/// pending and return their ids in `needs_validation`. A track that errors during filing is
-/// also returned as needing validation (not silently dropped).
-pub fn file_batch(
-    conn: &Connection,
-    root: &Path,
-    template: &str,
-    track_ids: &[i64],
-    bin_rel: &str,
-) -> BatchResult {
-    let mut filed = 0usize;
-    let mut needs_validation = Vec::new();
-    for &id in track_ids {
-        match reconcile_track(conn, id) {
-            Ok(c) if c.confidence == naming::Confidence::Green => {
-                match file_track(conn, root, template, id, bin_rel, None, Some(c)) {
-                    Ok(_) => filed += 1,
-                    Err(_) => needs_validation.push(id),
-                }
-            }
-            _ => needs_validation.push(id),
-        }
+/// Canonical metadata persisted by an earlier Discogs identification (the `metadata` table),
+/// if present and usable. A Discogs/manual match is a high-confidence name, so it's returned
+/// Green — this is what lets a per-track identity applied in Review feed `file_batch` (whose
+/// tag-based reconcile would otherwise ignore the applied identity). `None` = no usable row,
+/// fall back to reconcile.
+fn canonical_from_metadata(conn: &Connection, track_id: i64) -> rusqlite::Result<Option<Canonical>> {
+    let row = conn.query_row(
+        "SELECT artist, title FROM metadata WHERE track_id=?1",
+        params![track_id],
+        |r| Ok((r.get::<_, Option<String>>(0)?, r.get::<_, Option<String>>(1)?)),
+    );
+    match row {
+        Ok((Some(a), Some(t))) if !a.trim().is_empty() && !t.trim().is_empty() => Ok(Some(Canonical {
+            artist: a,
+            title: t,
+            version: None,
+            confidence: naming::Confidence::Green,
+        })),
+        Ok(_) => Ok(None),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e),
     }
-    BatchResult { filed, needs_validation }
+}
+
+/// Pick the canonical name to AUTO-file a batch track on, or `None` if it must stay pending for
+/// manual review. A track identified via Discogs (persisted in `metadata`) files on that
+/// high-confidence name; otherwise the tag/filename reconcile must come out Green. Pure DB read —
+/// the detached batch loop (`ipc_filing::file_batch`) calls this under the per-file lock, before
+/// planning the file, then runs the same plan/execute/commit phases as the interactive path.
+pub fn batch_canonical(conn: &Connection, track_id: i64) -> Option<Canonical> {
+    match canonical_from_metadata(conn, track_id) {
+        Ok(Some(c)) => Some(c),
+        Ok(None) => match reconcile_track(conn, track_id) {
+            Ok(c) if c.confidence == naming::Confidence::Green => Some(c),
+            _ => None,
+        },
+        Err(_) => None,
+    }
 }
 
 /// Mark a track for re-sourcing (goes to Écartés, M4b): status `resourcing` + a `reject`
@@ -346,11 +569,27 @@ pub fn reject_track(conn: &Connection, track_id: i64) -> Result<(), FilingError>
     Ok(())
 }
 
-/// Move a track's file to `.sift-trash` and mark it `trash` (reversible via undo).
-pub fn trash_track(conn: &Connection, root: &Path, track_id: i64) -> Result<(), FilingError> {
+/// Reject every track of `track_ids` for re-sourcing (each → Écartés, status-only like
+/// `reject_track`). A track that errors is reported in `failed` rather than aborting the batch,
+/// so one bad id never strands the rest — mirroring `file_batch`'s fail-soft, no-panic shape.
+pub fn reject_batch(conn: &Connection, track_ids: &[i64]) -> RejectBatchResult {
+    let mut rejected = 0usize;
+    let mut failed = Vec::new();
+    for &id in track_ids {
+        match reject_track(conn, id) {
+            Ok(()) => rejected += 1,
+            Err(_) => failed.push(id),
+        }
+    }
+    RejectBatchResult { rejected, failed }
+}
+
+/// Move a track's file to `.sift-trash` and mark it `trash` (reversible via undo). FIX-6: no
+/// `library_root` precondition — the trash dir doesn't live under it (see `trash_file_fs`).
+pub fn trash_track(conn: &Connection, track_id: i64) -> Result<(), FilingError> {
     let source = track_path(conn, track_id)?;
     let batch_id = new_batch_id(track_id);
-    move_to_trash(conn, root, track_id, &batch_id, &source)?;
+    move_to_trash(conn, track_id, &batch_id, &source)?;
     conn.execute("UPDATE tracks SET status='trash' WHERE id=?1", params![track_id])?;
     Ok(())
 }
@@ -388,6 +627,31 @@ mod tests {
     }
 
     #[test]
+    fn canonical_from_metadata_prefers_persisted_identity() {
+        let conn = db();
+        conn.execute("INSERT INTO tracks(id, path, status) VALUES(1,'/x.flac','pending')", [])
+            .unwrap();
+        // No metadata row → None (file_batch then falls back to the tag/filename reconcile).
+        assert!(canonical_from_metadata(&conn, 1).unwrap().is_none());
+
+        // A Discogs identity → a Green canonical on that name (what lets a per-track applied identity feed file_batch).
+        conn.execute(
+            "INSERT INTO metadata(track_id, artist, title, source) VALUES(1,'Larry Heard','Can You Feel It','discogs')",
+            [],
+        )
+        .unwrap();
+        let c = canonical_from_metadata(&conn, 1).unwrap().expect("metadata present");
+        assert_eq!(c.artist, "Larry Heard");
+        assert_eq!(c.title, "Can You Feel It");
+        assert_eq!(c.confidence, crate::naming::Confidence::Green);
+
+        // A blank-name row must be treated as absent (never file on an empty name).
+        conn.execute("UPDATE metadata SET artist='', title='' WHERE track_id=1", [])
+            .unwrap();
+        assert!(canonical_from_metadata(&conn, 1).unwrap().is_none());
+    }
+
+    #[test]
     fn reconcile_track_reads_filename_when_tags_absent() {
         let conn = db();
         let dir = tempfile::tempdir().unwrap();
@@ -414,7 +678,7 @@ mod tests {
         let res = file_track(&conn, &root, "{artist} - {title}", id, "House", None, Some(Canonical {
             artist: "Larry Heard".into(), title: "Can You Feel It".into(), version: None,
             confidence: crate::naming::Confidence::Green,
-        })).unwrap();
+        }), false).unwrap();
 
         // moved into bin, original gone (mono-location), one move action
         assert!(std::path::Path::new(&res.path).exists());
@@ -427,6 +691,72 @@ mod tests {
         assert_eq!(folder.as_deref(), Some("House"));
         let moves: i64 = conn.query_row("SELECT count(*) FROM actions WHERE type='move' AND undone=0", [], |r| r.get(0)).unwrap();
         assert_eq!(moves, 1);
+    }
+
+    /// Reverting a CONFORMANT filing must remove the Discogs tags FROM THE FILE (restore the old
+    /// ones), not just move the file back — else the file still carries the applied tags and the B9
+    /// "not written" marker would wrongly stay hidden. The conformant filing journals tag_edit+move;
+    /// revert undoes the move (file → source) THEN restores the captured old tags at source.
+    #[test]
+    fn revert_of_conformant_filing_restores_old_file_tags() {
+        let conn = db();
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("lib");
+        std::fs::create_dir_all(root.join("House")).unwrap();
+        let Some((id, src)) = seed_track(&conn, dir.path(), "real_320.mp3", "src.mp3") else {
+            eprintln!("skip: no fixture");
+            return;
+        };
+        // Give the source file KNOWN old tags before filing.
+        crate::tagging::write_tags_full(src.to_str().unwrap(), "OLD Artist", "OLD Title", None, None, &[], None).unwrap();
+
+        let res = file_track(&conn, &root, "{artist} - {title}", id, "House", None, Some(Canonical {
+            artist: "NEW Artist".into(), title: "NEW Title".into(), version: None,
+            confidence: crate::naming::Confidence::Green,
+        }), false).unwrap();
+        // Filed: file moved into the bin, carrying the NEW tags.
+        let after = crate::tagging::read_tags_full(&res.path).unwrap();
+        assert_eq!(after.artist.as_deref(), Some("NEW Artist"), "filing wrote the new tags");
+
+        // Revert the whole filing batch (move undone, then old tags restored).
+        crate::actions::revert_batch(&conn, &res.batch_id).unwrap();
+
+        assert!(src.exists(), "the file is moved back to its source");
+        assert!(!std::path::Path::new(&res.path).exists(), "nothing left at the bin destination");
+        let restored = crate::tagging::read_tags_full(src.to_str().unwrap()).unwrap();
+        assert_eq!(restored.artist.as_deref(), Some("OLD Artist"), "old file tags restored on revert");
+        assert_eq!(restored.title.as_deref(), Some("OLD Title"));
+    }
+
+    /// FIX-15: `rollback_fs` (the "nothing is left half-filed" guarantee) had no test forcing
+    /// `commit_file` to fail AFTER `execute_file` already moved the file. Deleting the track row
+    /// between the two phases makes the actions insert's FK (track_id REFERENCES tracks(id))
+    /// fail — the same shape of failure `commit_file` guards against (a real DB error mid-commit).
+    #[test]
+    fn commit_failure_rolls_back_the_conformant_move() {
+        let conn = db();
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("lib");
+        std::fs::create_dir_all(root.join("House")).unwrap();
+        let Some((id, src)) = seed_track(&conn, dir.path(), "real_320.mp3", "src.mp3") else {
+            eprintln!("skip: no fixture");
+            return;
+        };
+        let plan = plan_file(&conn, &root, "{artist} - {title}", id, "House", None, Some(Canonical {
+            artist: "Larry Heard".into(), title: "Can You Feel It".into(), version: None,
+            confidence: crate::naming::Confidence::Green,
+        }), false).unwrap();
+        let log = execute_file(&plan).unwrap();
+        // Phase 2 already ran: the file really moved.
+        assert!(!src.exists());
+        assert!(std::path::Path::new(&plan.dest).exists());
+
+        conn.execute("DELETE FROM tracks WHERE id=?1", params![id]).unwrap();
+        assert!(commit_file(&conn, &plan, log).is_err(), "commit must fail once its track row is gone");
+
+        // Nothing left half-filed: the file is back at its original path, gone from the bin.
+        assert!(src.exists(), "rollback must restore the file at its original path");
+        assert!(!std::path::Path::new(&plan.dest).exists(), "rollback must remove it from the bin");
     }
 
     #[test]
@@ -444,7 +774,7 @@ mod tests {
         let res = file_track(&conn, &root, "{artist} - {title}", id, "House", None, Some(Canonical {
             artist: "Theo Parrish".into(), title: "Falling Up".into(), version: None,
             confidence: crate::naming::Confidence::Green,
-        })).unwrap();
+        }), false).unwrap();
 
         // converted AIFF lands in the bin; conformant to target
         assert!(res.path.ends_with("Theo Parrish - Falling Up.aiff"));
@@ -455,6 +785,47 @@ mod tests {
         let trash_rows: i64 = conn.query_row("SELECT count(*) FROM actions WHERE type='trash' AND undone=0", [], |r| r.get(0)).unwrap();
         assert_eq!(convert_rows, 1);
         assert_eq!(trash_rows, 1);
+    }
+
+    /// Root fix for the `.aif`/`.aiff` revert-duplicate: a CONFORMANT AIFF is moved (no transcode),
+    /// so it must keep its own extension instead of being forced to the canonical `.aiff`. We build a
+    /// conformant 3-letter `.aif` by encoding the lossless fixture to AIFF 16/44.1, then file it and
+    /// assert the destination stays `.aif` and the action was a `move` (not `convert`). With a single
+    /// possible output name, a later blocked revert can no longer leave a `.aif` next to a `.aiff`.
+    #[test]
+    fn files_conformant_aif_preserving_its_extension() {
+        let conn = db();
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("lib");
+        std::fs::create_dir_all(root.join("House")).unwrap();
+        let Some(flac) = fixture("real_lossless.flac") else {
+            eprintln!("skip: no fixture");
+            return;
+        };
+        crate::ffmpeg::init_ffmpeg_path();
+
+        // A conformant source whose extension is the 3-letter `.aif` (the case formerly forced to `.aiff`).
+        let aif_src = dir.path().join("src.aif");
+        crate::encode::encode(&flac, aif_src.to_str().unwrap(), crate::encode::Target::Aiff1644).unwrap();
+        assert!(crate::encode::is_conformant(aif_src.to_str().unwrap(), crate::encode::Target::Aiff1644), "the built .aif is conformant");
+        conn.execute("INSERT INTO tracks(path, status) VALUES(?1, 'pending')", params![aif_src.to_str().unwrap()]).unwrap();
+        let id = conn.last_insert_rowid();
+
+        let res = file_track(&conn, &root, "{artist} - {title}", id, "House", None, Some(Canonical {
+            artist: "Larry Heard".into(), title: "Can You Feel It".into(), version: None,
+            confidence: crate::naming::Confidence::Green,
+        }), false).unwrap();
+
+        // Moved keeping `.aif` — NOT forced to the 4-letter `.aiff`.
+        assert!(res.path.ends_with("Larry Heard - Can You Feel It.aif"), "dest keeps .aif: {}", res.path);
+        assert!(!res.path.ends_with(".aiff"), "must not force .aiff on a moved conformant file");
+        assert!(std::path::Path::new(&res.path).exists());
+        assert!(!aif_src.exists(), "moved out of source (mono-location)");
+        // It was a pure MOVE: no conversion, no trash.
+        let moves: i64 = conn.query_row("SELECT count(*) FROM actions WHERE type='move' AND undone=0", [], |r| r.get(0)).unwrap();
+        let converts: i64 = conn.query_row("SELECT count(*) FROM actions WHERE type='convert' AND undone=0", [], |r| r.get(0)).unwrap();
+        assert_eq!(moves, 1, "conformant .aif is moved");
+        assert_eq!(converts, 0, "no conversion for an already-conformant file");
     }
 
     #[test]
@@ -469,8 +840,53 @@ mod tests {
         };
         let err = file_track(&conn, &root, "{artist} - {title}", id, "", Some(Target::Aiff1644), Some(Canonical {
             artist: "X".into(), title: "Y".into(), version: None, confidence: crate::naming::Confidence::Green,
-        }));
+        }), false);
         assert_eq!(err, Err(FilingError::Upscale));
+    }
+
+    #[test]
+    fn plan_file_external_dest_resolves_outside_root_when_directory_exists() {
+        let conn = db();
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("lib");
+        std::fs::create_dir_all(&root).unwrap();
+        let external = dir.path().join("elsewhere");
+        std::fs::create_dir_all(&external).unwrap();
+        let Some((id, _)) = seed_track(&conn, dir.path(), "real_320.mp3", "src.mp3") else {
+            eprintln!("skip: no fixture");
+            return;
+        };
+        let bin_rel = format!("{EXTERNAL_DEST_PREFIX}{}", external.to_str().unwrap());
+        let plan = plan_file(&conn, &root, "{artist} - {title}", id, &bin_rel, None, Some(Canonical {
+            artist: "X".into(), title: "Y".into(), version: None, confidence: crate::naming::Confidence::Green,
+        }), false).unwrap();
+        let dest = Path::new(&plan.dest);
+        assert!(dest.starts_with(&external), "dest {dest:?} should land under the external dir, not the library root");
+        assert!(!dest.starts_with(&root), "dest {dest:?} must NOT be under the library root");
+    }
+
+    #[test]
+    fn plan_file_external_dest_fails_loudly_when_directory_is_gone() {
+        let conn = db();
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("lib");
+        std::fs::create_dir_all(&root).unwrap();
+        let Some((id, _)) = seed_track(&conn, dir.path(), "real_320.mp3", "src.mp3") else {
+            eprintln!("skip: no fixture");
+            return;
+        };
+        let missing = dir.path().join("never-created");
+        let bin_rel = format!("{EXTERNAL_DEST_PREFIX}{}", missing.to_str().unwrap());
+        let err = plan_file(&conn, &root, "{artist} - {title}", id, &bin_rel, None, Some(Canonical {
+            artist: "X".into(), title: "Y".into(), version: None, confidence: crate::naming::Confidence::Green,
+        }), false);
+        assert_eq!(
+            err.err(),
+            Some(FilingError::Io(format!(
+                "external destination no longer exists: {}",
+                missing.to_str().unwrap()
+            )))
+        );
     }
 
     #[test]
@@ -489,19 +905,148 @@ mod tests {
     }
 
     #[test]
+    fn reject_batch_marks_all_and_collects_bad_ids() {
+        let conn = db();
+        let dir = tempfile::tempdir().unwrap();
+        let (Some((a, _)), Some((b, _))) = (
+            seed_track(&conn, dir.path(), "real_320.mp3", "a.mp3"),
+            seed_track(&conn, dir.path(), "real_320.mp3", "b.mp3"),
+        ) else {
+            eprintln!("skip: no fixture");
+            return;
+        };
+        // 999 is not a real track id → reject_track errors → reported in `failed`, batch not aborted.
+        let res = reject_batch(&conn, &[a, b, 999]);
+        assert_eq!(res, RejectBatchResult { rejected: 2, failed: vec![999] });
+        let resourced: i64 = conn
+            .query_row("SELECT count(*) FROM tracks WHERE status='resourcing'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(resourced, 2);
+    }
+
+    #[test]
     fn trash_track_moves_to_sift_trash() {
         let conn = db();
         let dir = tempfile::tempdir().unwrap();
-        let root = dir.path().join("lib");
-        std::fs::create_dir_all(&root).unwrap();
         let Some((id, src)) = seed_track(&conn, dir.path(), "real_320.mp3", "src.mp3") else {
             eprintln!("skip: no fixture");
             return;
         };
-        trash_track(&conn, &root, id).unwrap();
+        trash_track(&conn, id).unwrap();
         assert!(!src.exists());
         let status: String = conn.query_row("SELECT status FROM tracks WHERE id=?1", params![id], |r| r.get(0)).unwrap();
         assert_eq!(status, "trash");
-        assert!(root.join(".sift-trash").read_dir().unwrap().count() >= 1);
+        // Trash is centralized to <Documents>/Sift/Trash/ (cross-disk safe), not under `root`.
+        // The moved file is named `<track_id>__<original_name>` there (ensure_unique may suffix it
+        // if a prior run left one behind, so match on the `<id>__` prefix, not an exact name).
+        let trash_dir = sift_trash_dir().unwrap();
+        let prefix = format!("{id}__");
+        let entries: Vec<std::path::PathBuf> = trash_dir
+            .read_dir()
+            .unwrap()
+            .filter_map(|e| e.ok().map(|e| e.path()))
+            .filter(|p| p.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.starts_with(&prefix)))
+            .collect();
+        assert!(!entries.is_empty(), "trashed file should land in the central Sift trash dir");
+        for p in entries {
+            std::fs::remove_file(&p).ok();
+        }
+    }
+
+    #[test]
+    fn filing_writes_applied_genres_to_the_file() {
+        let conn = db();
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("lib");
+        std::fs::create_dir_all(root.join("House")).unwrap();
+        let Some((id, _src)) = seed_track(&conn, dir.path(), "real_320.mp3", "src.mp3") else {
+            eprintln!("skip: no fixture");
+            return;
+        };
+
+        // seed a Discogs identity for the track BEFORE filing
+        let cand = crate::metadata::Candidate {
+            artist: "Larry Heard".into(),
+            title: "Mystery of Love".into(),
+            label: Some("Alleviated".into()),
+            year: Some(1986),
+            styles: vec!["Deep House".into()],
+            country: None,
+            format: None,
+            cover_url: None,
+            release_id: "12345".into(),
+            source: "discogs".into(),
+        };
+        crate::metadata::apply_identity(&conn, id, &cand, None).unwrap();
+
+        let res = file_track(&conn, &root, "{artist} - {title}", id, "House", None, Some(Canonical {
+            artist: "Larry Heard".into(),
+            title: "Mystery of Love".into(),
+            version: None,
+            confidence: crate::naming::Confidence::Green,
+        }), false).unwrap();
+
+        use lofty::file::TaggedFileExt;
+        use lofty::probe::Probe;
+        use lofty::tag::ItemKey;
+        let tagged = Probe::open(&res.path).unwrap().read().unwrap();
+        let tag = tagged.primary_tag().unwrap();
+        let genre = tag.get_string(ItemKey::Genre).unwrap_or("");
+        assert!(genre.contains("Deep House"), "filed file has applied genre; got {genre:?}");
+    }
+
+    /// FIX-1 (BUG-1): an MP3 disguised with a `.flac` extension must be REFUSED by default
+    /// (`RailMismatch`, not silently converted into a fabricated lossless AIFF), and must succeed
+    /// once the caller explicitly passes `allow_rail_mismatch=true` (the confirmed-by-the-user
+    /// path). A genuine FLAC must file normally either way — no false positive.
+    #[test]
+    fn plan_file_blocks_a_disguised_lossy_source_unless_allowed() {
+        let conn = db();
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("lib");
+        std::fs::create_dir_all(&root).unwrap();
+        let Some(mp3) = fixture("real_320.mp3") else {
+            eprintln!("skip: no fixture");
+            return;
+        };
+        let disguised = dir.path().join("disguised.flac");
+        std::fs::copy(&mp3, &disguised).unwrap();
+        conn.execute(
+            "INSERT INTO tracks(path, status) VALUES(?1, 'pending')",
+            params![disguised.to_str().unwrap()],
+        )
+        .unwrap();
+        let id = conn.last_insert_rowid();
+        let canonical = Some(Canonical {
+            artist: "X".into(), title: "Y".into(), version: None, confidence: crate::naming::Confidence::Green,
+        });
+
+        // Default (allow_rail_mismatch=false): refused, nothing touched.
+        let blocked = plan_file(&conn, &root, "{artist} - {title}", id, "House", None, canonical.clone(), false);
+        assert_eq!(blocked.err(), Some(FilingError::RailMismatch));
+        assert!(disguised.exists(), "refused plan must not touch the source file");
+
+        // Explicit confirmation (allow_rail_mismatch=true): proceeds normally.
+        crate::ffmpeg::init_ffmpeg_path();
+        let allowed = plan_file(&conn, &root, "{artist} - {title}", id, "House", None, canonical, true);
+        assert!(allowed.is_ok(), "an explicitly confirmed mismatch must proceed: {:?}", allowed.err());
+    }
+
+    /// No false positive: a genuine FLAC must never trip the mismatch guard.
+    #[test]
+    fn plan_file_does_not_flag_a_genuine_lossless_source() {
+        let conn = db();
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("lib");
+        std::fs::create_dir_all(&root).unwrap();
+        let Some((id, _src)) = seed_track(&conn, dir.path(), "real_lossless.flac", "src.flac") else {
+            eprintln!("skip: no fixture");
+            return;
+        };
+        crate::ffmpeg::init_ffmpeg_path();
+        let res = plan_file(&conn, &root, "{artist} - {title}", id, "House", None, Some(Canonical {
+            artist: "X".into(), title: "Y".into(), version: None, confidence: crate::naming::Confidence::Green,
+        }), false);
+        assert!(res.is_ok(), "a genuine FLAC must not be blocked: {:?}", res.err());
     }
 }

@@ -1,7 +1,6 @@
 //! Typed access to the `settings(key, value)` table: the few app-wide preferences the
 //! filing loop needs (library root, filename template, trash purge window). String values
 //! only; callers parse as needed. Created in migration v4.
-#![allow(dead_code)]
 
 use rusqlite::{params, Connection};
 
@@ -11,6 +10,11 @@ pub const LIBRARY_ROOT: &str = "library_root";
 pub const FILENAME_TEMPLATE: &str = "filename_template";
 /// Days a trashed file is kept in `.sift-trash` before purge.
 pub const TRASH_PURGE_DAYS: &str = "trash_purge_days";
+/// Discogs personal access token (entered in Réglages). Empty/unset = identification disabled.
+pub const DISCOGS_TOKEN: &str = "discogs_token";
+/// Key under which the current session's unique ID is stored at app launch.
+/// Written once at startup; read by the `actions` INSERT via SQL subquery.
+pub const CURRENT_SESSION_ID: &str = "current_session_id";
 
 /// The default filename template when the setting is unset.
 pub const DEFAULT_TEMPLATE: &str = "{artist} - {title}{version}";

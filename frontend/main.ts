@@ -1,3 +1,8 @@
+// Self-hosted UI fonts — Outfit (UI: 400 body, 600 titles/labels) + JetBrains Mono (numbers).
+// Bundled via @fontsource so the desktop app needs no network. See system.md (Typographie).
+import "@fontsource/outfit/400.css";
+import "@fontsource/outfit/600.css";
+import "@fontsource/jetbrains-mono/400.css";
 import "./app.js";
 import { invoke } from "@tauri-apps/api/core";
 import { appInfo, dbHealth, ffmpegVersion } from "./ipc";
@@ -23,4 +28,14 @@ if (inTauri) {
       await invoke("report_smoke", { ok: false, detail: String(e) });
     }
   })();
+
+  // Headless playback self-test: exercises the real audio-load path on every queued track
+  // and logs OK/FAIL per file (no manual clicks). Auto-runs with VITE_SIFT_SELFTEST=1; also
+  // exposed as window.__siftSelfTest() to trigger from devtools.
+  void import("./selftest").then((m) => {
+    (window as { __siftSelfTest?: () => void }).__siftSelfTest = () => void m.runSelfTest();
+    if ((import.meta as { env?: Record<string, string> }).env?.VITE_SIFT_SELFTEST === "1") {
+      setTimeout(() => void m.runSelfTest(), 2500);
+    }
+  });
 }

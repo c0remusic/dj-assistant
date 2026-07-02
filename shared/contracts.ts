@@ -1,5 +1,18 @@
 // Wire contract — mirror of src-tauri/src/ipc.rs serde structs.
 // Keep field names and types in sync with the Rust side. Bump when the Rust side changes.
+
+/** Sentinel `binRel` meaning "file in place" (destination = each track's own source folder).
+ * Mirror of Rust `filing::FILE_IN_PLACE`; the two literals MUST stay identical. Travels through
+ * the normal `binRel` channel — no separate flag — and the backend resolves it in `plan_file`. */
+export const FILE_IN_PLACE = "__SOURCE__";
+
+/** Prefix marking `binRel` as a trusted absolute path OUTSIDE the library root ("Parcourir un
+ * autre dossier…"). Mirror of Rust `filing::EXTERNAL_DEST_PREFIX`; the two literals MUST stay
+ * identical. Trust boundary: build this value ONLY from a path returned by the Tauri directory
+ * picker dialog (an existing directory the user navigated to and selected) — never from
+ * free-typed text. The backend still re-validates the path exists before use. */
+export const EXTERNAL_DEST_PREFIX = "__EXTERNAL__::";
+
 export interface AppInfo {
   name: string;
   version: string;
@@ -24,6 +37,11 @@ export interface QueueItem {
   filename: string | null;
   source_id: number | null;
   verdict: "ok" | "fake" | "grey" | null;
+  /** Declared rail, NULL until analysed. Drives batch grouping + output format. */
+  rail: "lossless" | "lossy" | "unknown" | null;
+  /** Identified artist/title (metadata table), NULL until identified — the "after" name. */
+  artist: string | null;
+  title: string | null;
   /** Shares a name with another pending/filed track (dedup name pre-filter). */
   dup: boolean;
 }
@@ -62,6 +80,9 @@ export interface AnalysisReport {
   declared_rail: "lossless" | "lossy" | "unknown";
   cutoff_hz: number;
   verdict: "ok" | "fake" | "grey";
+  /** Equivalent lossy bitrate estimated from cutoff_hz (FIX-11: computed in Rust, single
+   *  source of truth shared with the verdict logic — don't recompute this in TS). */
+  est_kbps: number;
   peaks: number[];
   spectrogram: Spectrogram;
   clip_runs: number;
@@ -109,10 +130,26 @@ export interface FileResult {
   batch_id: string;
 }
 
-/** Result of filing a batch: how many filed, and the ids left needing validation. */
+/** Result of filing a batch: how many filed, and the ids left needing validation. `cancelled` is
+ *  true when the run was stop-net cancelled before processing every id (the result is then partial;
+ *  nothing is rolled back). */
 export interface BatchResult {
   filed: number;
   needs_validation: number[];
+  cancelled: boolean;
+}
+
+/** Per-file filing progress (mirror of ipc_filing.rs FileProgress). `done` = files processed so
+ *  far (filed or bounced), `total` = batch size. Drives the global progress zone's "file" row. */
+export interface FileProgress {
+  done: number;
+  total: number;
+}
+
+/** Result of rejecting a batch: how many marked for re-sourcing, and the ids that failed. */
+export interface RejectBatchResult {
+  rejected: number;
+  failed: number[];
 }
 
 /** One rejected/trashed track for the Écartés view. */
@@ -127,11 +164,92 @@ export interface EcarteItem {
   title: string;
 }
 
-/** One consultable undo-journal entry (a live batch, summarized by its latest action). */
+/** One consultable undo-journal entry (a live batch, summarized by its first action). */
 export interface JournalEntry {
   batch_id: string;
   track_id: number | null;
+  /** First action type of the batch — determines display category.
+   *  "convert"|"move" → Filés; "trash" → Jetés; "reject" → Rejetés. */
   kind: "convert" | "move" | "trash" | "reject";
+  from_path: string | null;
   to_path: string | null;
   ts: string;
+  session_id: string | null;
+  /** Distinct track count in the batch — used to gate the last-batch confirmation on > 10. */
+  track_count: number;
+}
+
+// ---- M6b library browser (mirror of library.rs) ----
+
+export interface LibraryTrack {
+  id: number;
+  path: string;
+  artist: string | null;
+  title: string | null;
+  format: string | null;
+  bitrate: number | null;
+  duration: number | null;
+  bpm: number | null;
+  year: number | null;
+  label: string | null;
+  genres: string[];
+  discogs_release_id: string | null;
+  cover_path: string | null;
+  has_cover: boolean;
+  verdict: string | null;
+  folder: string | null;
+}
+
+/** Read-only identity + release facts for a track, from the persisted `metadata` table. Mirror of
+ * Rust `ipc_filing::TrackRelease`. `identified` = a Discogs release was chosen → the front trusts
+ * `artist`/`title` here over reconcile (which recomputes from the still-untouched file tags). All
+ * null / `identified:false` when there is no metadata row. `version` is the remix/dub split off the
+ * chosen Discogs title and persisted in the `metadata.version` column, so the picked release survives
+ * a close+reopen; the front falls back to reconcile's version when it is null. NOT folded into
+ * `Canonical`. */
+export interface TrackRelease {
+  artist: string | null;
+  title: string | null;
+  version: string | null;
+  label: string | null;
+  year: number | null;
+  cover_path: string | null;
+  /** The track's sub-genres in stored order — the same list write_tags_full joins into the file's
+   * Genre field. Shown on open; the joined form feeds the file-vs-display discrepancy check. */
+  genres: string[];
+  identified: boolean;
+}
+
+/** The file's REAL tag values (the fields write_tags_full owns), read once on open via
+ * `track_file_tags`. Compared IN MEMORY against the displayed identity to flag tags not yet written
+ * to the file (no per-keystroke disk read). `genre_joined` is the single Genre field exactly as the
+ * file holds it (write_tags_full's joined "A; B" form). Mirror of Rust `ipc_filing::FileTags`. */
+export interface FileTags {
+  artist: string | null;
+  title: string | null;
+  label: string | null;
+  year: number | null;
+  genre_joined: string | null;
+}
+
+export interface LibraryFolder { name: string; count: number; }
+export interface LibraryFacets { folders: LibraryFolder[]; genres: LibraryFolder[]; }
+
+export interface LibraryFilter {
+  folder?: string | null;
+  quality?: "lossless" | "mp3" | null;
+  genre?: string | null;
+  q?: string | null;
+}
+
+/** User-edited metadata for a filed track (Bibliothèque inline edit). Mirror of
+ * src-tauri/src/metadata/mod.rs MetadataEdit. The backend writes the file tags first,
+ * then the DB — and preserves discogs_release_id/source (a manual edit never wipes the link). */
+export interface MetadataEdit {
+  artist: string;
+  title: string;
+  label: string | null;
+  year: number | null;
+  genres: string[];
+  cover_path: string | null;
 }

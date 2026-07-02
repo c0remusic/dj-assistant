@@ -52,6 +52,9 @@ pub struct AnalysisReport {
     pub declared_rail: Rail,
     pub cutoff_hz: f32,
     pub verdict: Verdict,
+    /// Equivalent lossy bitrate estimated from `cutoff_hz` (FIX-11: single source of truth,
+    /// see `verdict::estimate_kbps` — the front no longer computes this itself).
+    pub est_kbps: u32,
     pub peaks: Vec<f32>,
     pub spectrogram: Spectrogram,
     pub clip_runs: u32,
@@ -92,7 +95,9 @@ pub fn analyze(path: &str, with_spectrogram: bool) -> Result<AnalysisReport, Str
     let tag = tags::read(path);
     let target_ch = if tag.channels >= 2 { 2 } else { 1 };
 
-    let sr = 44100u32;
+    // Native sample rate from the header — drives every frequency-domain accumulator so the
+    // cutoff/spectrogram map bins → Hz correctly (no resample, no hardcoded-rate skew).
+    let sr = decode::probe(path)?.sample_rate;
     let mut dc = DcAccumulator::new();
     let mut clip = ClipAccumulator::new(CLIP_THRESHOLD, CLIP_MIN_RUN);
     let mut tp = TruePeakAccumulator::new();
@@ -129,6 +134,7 @@ pub fn analyze(path: &str, with_spectrogram: bool) -> Result<AnalysisReport, Str
 
     let cutoff_hz = spec_res.cutoff_hz;
     let verdict = verdict::verdict(cutoff_hz, tag.declared_rail, tag.declared_bitrate);
+    let est_kbps = verdict::estimate_kbps(cutoff_hz);
 
     log::info!(
         "analyze {} : {} ms (decode+dsp, {} ch, {:.1}s, spectro={})",
@@ -149,6 +155,7 @@ pub fn analyze(path: &str, with_spectrogram: bool) -> Result<AnalysisReport, Str
         declared_rail: tag.declared_rail,
         cutoff_hz,
         verdict,
+        est_kbps,
         peaks: pk.finish(),
         spectrogram: spec_res.spectrogram,
         clip_runs,
@@ -184,6 +191,7 @@ mod tests {
             declared_rail: Rail::Lossless,
             cutoff_hz: 21000.0,
             verdict: Verdict::Ok,
+            est_kbps: 320,
             peaks: vec![0.0, 1.0],
             spectrogram: Spectrogram { frames: 0, bins: 0, hz_per_bin: 0.0, sec_per_frame: 0.0, mag_db: vec![] },
             clip_runs: 0,

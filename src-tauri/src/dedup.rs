@@ -3,7 +3,6 @@
 //! key (`naming::name_key`) and flags collisions: `name_dups` marks the queue, `find_duplicate`
 //! reports the best name match for one track. The acoustic confirmation upgrades the match
 //! `kind` from `name` to `both` when the sound agrees.
-#![allow(dead_code)]
 
 use crate::{fingerprint, naming};
 use rusqlite::{params, Connection};

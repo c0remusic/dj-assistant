@@ -91,7 +91,8 @@ pub fn persist_report(conn: &Connection, id: i64, r: &AnalysisReport) -> rusqlit
             r.id3_version,
             r.has_cover as i64,
             r.tags_cdj_ok as i64,
-            // cache the report (spectrogram is empty here — computed on demand) for instant re-open
+            // cache the full report, spectrogram included (FIX-3) — instant re-open AND instant
+            // spectrogram, no re-decode either way
             serde_json::to_string(r).unwrap_or_default(),
         ],
     )?;
@@ -114,8 +115,7 @@ pub fn init(app: &AppHandle) {
     let n = std::thread::available_parallelism()
         .map(|n| n.get())
         .unwrap_or(2)
-        .min(4)
-        .max(1);
+        .clamp(1, 4);
     let worker = AnalysisWorker {
         inner: Arc::new((
             Mutex::new(Queue {
@@ -219,11 +219,13 @@ fn persist_result(app: &AppHandle, id: i64, path: &str, result: Result<AnalysisR
 }
 
 fn worker_loop(app: AppHandle, inner: Arc<(Mutex<Queue>, Condvar)>) {
-    loop {
-        let Some(id) = pop(&inner) else { break };
+    while let Some(id) = pop(&inner) {
         if let Some(path) = read_path(&app, id) {
             // Heavy work runs WITHOUT holding the DB lock — UI stays responsive.
-            let result = analysis::analyze(&path, false);
+            // FIX-3: collect the display spectrogram here too (bounded ~200KB, the FFT itself
+            // already runs regardless of this flag — see SpectrumAccumulator::new) so it's
+            // cached in report_json and the Revue spectrogram click never has to re-decode.
+            let result = analysis::analyze(&path, true);
             persist_result(&app, id, &path, result);
         }
         finish(&inner, id);
@@ -263,6 +265,7 @@ mod tests {
             declared_rail: Rail::Lossless,
             cutoff_hz: 16000.0,
             verdict: Verdict::Fake,
+            est_kbps: 128,
             peaks: vec![],
             spectrogram: Spectrogram { frames: 0, bins: 0, hz_per_bin: 0.0, sec_per_frame: 0.0, mag_db: vec![] },
             clip_runs: 2,

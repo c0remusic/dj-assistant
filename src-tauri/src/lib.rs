@@ -7,9 +7,13 @@ mod encode;
 mod ffmpeg;
 mod filing;
 mod fingerprint;
+mod genres;
 mod ipc;
 mod ipc_filing;
+mod ipc_identify;
+mod ipc_library;
 mod library;
+mod metadata;
 mod naming;
 mod queue;
 mod scanner;
@@ -25,7 +29,17 @@ use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // Must be the FIRST plugin. A second launch focuses the running window instead of
+        // opening a rival instance — two Sift processes on one SQLite DB + file-moving
+        // pipeline risks corruption.
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.unminimize();
+                let _ = w.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -38,7 +52,18 @@ pub fn run() {
             let dir = app.path().app_data_dir().expect("no app data dir");
             std::fs::create_dir_all(&dir).ok();
             let conn = db::open(&dir.join("sift.db")).expect("db open failed");
+            let session_id = format!(
+                "{}-{}",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis(),
+                std::process::id()
+            );
+            settings::set(&conn, settings::CURRENT_SESSION_ID, &session_id)
+                .expect("session_id write failed");
             app.manage(Mutex::new(conn));
+            app.manage(ipc_filing::FilingCancel::default());
             watcher::init_state(app.handle());
             watcher::start_all(app.handle());
             worker::init(app.handle());
@@ -62,21 +87,34 @@ pub fn run() {
             ipc::open_url,
             ipc::playback_url,
             ipc_filing::reconcile,
+            ipc_filing::preview_filename,
+            ipc_filing::track_release,
+            ipc_filing::track_file_tags,
+            ipc_filing::apply_tags,
             ipc_filing::file_track,
             ipc_filing::file_batch,
+            ipc_filing::file_cancel,
             ipc_filing::reject_track,
+            ipc_filing::reject_batch,
             ipc_filing::trash_track,
             ipc_filing::list_bins,
             ipc_filing::create_bin,
             ipc_filing::undo_last,
             ipc_filing::revert_batch,
             ipc_filing::list_journal,
+            ipc_filing::get_session_id,
             ipc_filing::get_setting,
             ipc_filing::set_setting,
             ipc_filing::list_ecartes,
             ipc_filing::restore_track,
+            ipc_filing::requeue_track,
             ipc_filing::purge_trash,
-            ipc_filing::find_duplicate
+            ipc_filing::find_duplicate,
+            ipc_identify::identify,
+            ipc_identify::apply_identity_cmd,
+            ipc_library::list_library,
+            ipc_library::library_folders,
+            ipc_library::update_metadata
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

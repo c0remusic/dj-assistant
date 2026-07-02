@@ -209,6 +209,24 @@ dans ce jalon (voir M8) — en V1 l'utilisateur est prévenu et décide.
 - **Tableau de bord** : % lossless vs MP3, doublons restants, fakes à re-sourcer, par genre.
 - Panneau métadonnées éditable (pochette + champs Discogs).
 
+### M6a — Identification Discogs ✅ **fait** (2026-06-14)
+Spec : `docs/superpowers/specs/2026-06-14-m6a-discogs-identification-design.md` · Plan :
+`docs/superpowers/plans/2026-06-14-m6a-discogs-identification.md`.
+- Bouton **« Identifier »** dans la revue (à la demande), derrière un trait `MetadataProvider`
+  (Discogs d'abord, `ureq`). Meilleur match + « autres » ; rien écrit avant le rangement.
+- **Sous-genres Discogs uniquement** (`style`), multi-valeur en DB (table `track_genres`,
+  migration v6) ; écrits dans le tag fichier **joints** `A; B` (le multi-item ne round-trip pas
+  sur ID3 ; Rekordbox lit un champ genre unique).
+- `apply_identity` upsert `metadata` (label/année/pochette/release_id) ; `write_tags_full`
+  écrit label/année/genres/**pochette embarquée** au rangement. Token dans **Réglages**.
+- 127 tests lib verts, tsc + build verts. **Reste : smoke test live** (token Discogs réel) +
+  petits suivis (retirer les `#![allow(dead_code)]` des modules câblés ; `release_id` robuste si
+  l'API renvoie une string ; rendre la pochette dans l'onglet Biblio = M6b).
+
+**Reste de M6 → M6b** (spec séparée) : onglet Bibliothèque, mini-lecteur, dashboard,
+édition fine des métadonnées, tags custom. + **AcoustID** comme 2ᵉ provider (réutilise nos
+empreintes Chromaprint).
+
 ## M7 — Rekordbox XML + batch + clé USB (Phase B)
 - **Génération playlists Rekordbox via XML** (dossiers + tags → playlists). Rappels (Rekordbox fermé).
 - **Vue batch / tableau** : tri (verdict/format/BPM), sélection multiple, action groupée, aperçu.

@@ -12,9 +12,15 @@
 | Jalon | Statut |
 |---|---|
 | **M0 — Scaffolding** | ✅ **fait** — Tauri v2 boote, FFmpeg sidecar bundlé (`ffmpeg-sidecar`), SQLite + migrations, IPC typé, CI Win+Mac |
-| **M1 — Watcher + file « à traiter »** | ✅ **fait** — multi-dossiers, scan complet + diff, watcher live (`notify`), file = `tracks pending`, UI Accueil (sources + warning Completed) + Revue câblées |
-| M2 — Analyseur (waveform/spectro/verdict) ⭐ | à venir |
-| M3+ | voir [`docs/plan-implementation.md`](docs/plan-implementation.md) |
+| **M1 — Watcher + file « à traiter »** | ✅ **fait** — multi-dossiers, scan complet + diff, watcher live (`notify`), file = `tracks pending`, UI Accueil + Revue câblées |
+| **M2 — Analyseur (waveform/spectro/verdict)** ⭐ | ✅ **fait** — décodage **Symphonia** (pur Rust), `rustfft`, verdict fake/grey, clipping/troncature/silence/DC/phase, cache DB (`analysis/`, `worker.rs`) |
+| **M3 — Player + tempo** | ✅ **fait** — WaveSurfer v7 (lecture native AIFF/WAV/FLAC/MP3), key-lock `preservesPitch`, fader tempo (`report-view.ts`) |
+| **M4 — Encodeur + « déplacer = encoder + ranger »** ⭐ | ✅ **fait** — 2 rails, anti-upscale, tags+nommage, bacs, undo/corbeille (`encode/naming/tagging/filing/actions.rs`, `filing.ts`) |
+| **M4b — Écartés** | ✅ **fait** — re-sourcer/corbeille, liens d'achat, copie Soulseek (`ecartes.rs`) |
+| **M5 — Dédup par empreinte** | ✅ **fait** (flux entrant) — `name_key` + `rusty-chromaprint` à la demande (`dedup.rs`, `fingerprint.rs`) |
+| **M6a — Identification Discogs** | ✅ **fait** — trait `MetadataProvider`, cascade, pochette + genres + `release_id` (`metadata/discogs.rs`, `ipc_identify.rs`) |
+| **M6b — Bibliothèque** | 🚧 **en cours** — parcourir/éditer/re-ranger (`library.rs`, `library-detail.ts`) |
+| M7 (Rekordbox XML + batch + clé USB) · M8 (écriture Rekordbox, **gelée**) | à venir — voir [`docs/plan-implementation.md`](docs/plan-implementation.md) |
 
 La maquette UI/UX d'origine vit dans `index.html` + `frontend/` (migrée comme shell frontend
 de l'app). Le découpage complet et les décisions de cadrage : [`docs/plan-implementation.md`](docs/plan-implementation.md).
@@ -25,10 +31,10 @@ Le plan détaillé de M0 : [`docs/plans/2026-06-12-m0-scaffolding.md`](docs/plan
 | Brique | Choix |
 |---|---|
 | Shell desktop | **Tauri v2** (Rust + WebView), frontend **Vite** vanilla |
-| Traitement audio | **FFmpeg** via le crate **`ffmpeg-sidecar`**, binaire bundlé (Tauri `externalBin`) |
-| Waveform/lecture | wavesurfer.js (M3) |
-| Time-stretch | SoundTouch.js — key-lock (M3) |
-| Empreinte | Chromaprint / AcoustID (M5) |
+| Décodage analyse | **Symphonia** (pur Rust, in-process) → `rustfft` — pas de spawn par fichier |
+| Conversion / encodage | **FFmpeg** via le crate **`ffmpeg-sidecar`**, binaire bundlé (Tauri `externalBin`) |
+| Waveform/lecture | **wavesurfer.js** v7 (lecture native, key-lock `preservesPitch` pour le nudge tempo) |
+| Empreinte | **`rusty-chromaprint`** (dédup local) — AcoustID en ligne = piste future |
 | État | **SQLite** (rusqlite, bundled) — migrations via `PRAGMA user_version` |
 
 ## Prérequis dev
@@ -62,15 +68,34 @@ npm run dev              # Vite sur http://localhost:5173
 
 ```
 sift/
-├── index.html                  # entrée Vite (markup de l'app)
-├── frontend/                   # styles.css · app.js (logique UI) · main.ts · ipc.ts
-├── shared/contracts.ts         # types IPC partagés (miroir des structs Rust)
+├── index.html                  # entrée Vite (markup + shell nav de l'app)
+├── frontend/                   # UI
+│   ├── main.ts · app.js        #   boot + maquette navigateur
+│   ├── sift-live.ts            #   point d'entrée wiring live (Tauri only)
+│   ├── chrome.ts               #   shell global (nav rail, routing)
+│   ├── home-sources.ts         #   écran Accueil
+│   ├── ecartes-view.ts         #   écran Écartés
+│   ├── report-view.ts          #   écran Revue (son-d'abord, waveform)
+│   ├── filing.ts               #   rail de classement
+│   ├── batch-tracklist.ts      #   tracklist batch
+│   ├── journal.ts              #   journal d'actions post-batch
+│   ├── progress-zone.ts        #   progression encodage
+│   ├── library-detail.ts · identify-shared.ts · selftest.ts · dom.ts
+│   ├── ipc.ts · styles.css
+├── shared/contracts.ts         # types IPC partagés (miroir manuel des structs Rust)
 ├── scripts/fetch-ffmpeg.mjs    # télécharge le binaire FFmpeg par OS
-├── src-tauri/                  # backend Rust
-│   ├── src/{lib,main,ffmpeg,db,ipc}.rs
-│   ├── binaries/               # ffmpeg-<triple> (gitignored, fetché)
+├── src-tauri/src/              # backend Rust (lib = sift_lib)
+│   ├── analysis/               #   décodage Symphonia + DSP (verdict, peaks, spectre, phase…)
+│   ├── metadata/               #   Discogs + cover + apply_identity
+│   ├── scanner.rs · watcher.rs · sources.rs · worker.rs · queue.rs
+│   ├── filing.rs · actions.rs · encode.rs · naming.rs · tagging.rs
+│   ├── dedup.rs · fingerprint.rs · ecartes.rs · library.rs · genres.rs · ffmpeg.rs
+│   ├── db.rs · settings.rs · lib.rs · main.rs
+│   ├── ipc.rs · ipc_filing.rs · ipc_identify.rs · ipc_library.rs
+│   ├── binaries/               #   ffmpeg-<triple> (gitignored, fetché)
 │   └── tauri.conf.json
-├── docs/                       # plan d'implémentation + plans détaillés par jalon
+├── docs/                       # plan d'implémentation + plans/specs/reviews par jalon
+├── audit/                      # audit de direction (lecture seule, 2026-06)
 └── .github/workflows/build.yml # CI : .msi (Win) + .dmg (Mac)
 ```
 

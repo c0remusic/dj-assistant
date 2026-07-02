@@ -73,3 +73,27 @@ fn anchor_real_lossless_not_fake() {
     let r = analyze(&p, false).expect("analyze");
     assert_ne!(r.verdict, Verdict::Fake);
 }
+
+// The analysis must map FFT bins to Hz using the file's TRUE sample rate. For a 48 k file,
+// `hz_per_bin` must be 48000/FFT_SIZE — not the legacy hardcoded 44100/FFT_SIZE. This is the
+// crux of authenticity: a wrong rate skews every frequency, including the cutoff verdict.
+#[test]
+fn analysis_uses_native_sample_rate_for_frequency_mapping() {
+    let (Some(p44), Some(p48)) = (fixture("fake_lossless.flac"), fixture("fake_lossless_48k.flac"))
+    else {
+        eprintln!("skip: no fixture");
+        return;
+    };
+    // hz_per_bin scales linearly with the sample rate used by the analyzer. Derive the
+    // expected 48 k value from the 44.1 k reference, so we don't hardcode the bin count.
+    let h44 = analyze(&p44, true).expect("analyze 44k").spectrogram.hz_per_bin;
+    let r48 = analyze(&p48, true).expect("analyze 48k"); // with_spectrogram → hz_per_bin populated
+    assert_eq!(r48.sample_rate, 48000, "report should carry the native rate");
+    let expected = h44 * 48000.0 / 44100.0;
+    assert!(
+        (r48.spectrogram.hz_per_bin - expected).abs() < 0.5,
+        "hz_per_bin {} should scale with native 48 k (expected {}), not stay at the hardcoded 44.1 k",
+        r48.spectrogram.hz_per_bin,
+        expected
+    );
+}

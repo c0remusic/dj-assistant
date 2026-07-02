@@ -8,32 +8,22 @@
 <link rel="stylesheet" href="/frontend/styles.css">
 </head>
 <body>
-<div class="wrap">
-  <div class="title"><i class="ti ti-disc" style="font-size:20px;vertical-align:-3px;margin-right:6px" aria-hidden="true"></i>Sift</div>
-  <div class="pitch">Le poste de prépa entre Soulseek et tes platines. Tu télécharges en vrac — albums, dossiers, noms d'utilisateurs, formats mélangés. Sift <strong>écoute, vérifie et range</strong> : il repère les <strong>faux fichiers</strong> (MP3 transcodés vendus pour du lossless) au spectrogramme, t'évite les <strong>doublons</strong> et ce qui est <strong>déjà dans ta biblio</strong>, <strong>convertit au format CDJ</strong> au moment où tu ranges, <strong>renomme</strong> proprement depuis Discogs, et pousse tes dossiers en <strong>playlists Rekordbox</strong>. Un seul geste par morceau : écouter → ranger ou jeter.</div>
-  <div class="sub">Démo interactive d'UI/UX · pas de vrai audio ni traitement. Clique les onglets à gauche ; dans Revue, choisis un dossier (1-5 / clic) puis Ranger (&crarr;).</div>
-  <div class="pa" id="pa" tabindex="0">
-    <div class="sb" id="nav">
-      <div class="nv" data-view="home" title="Accueil"><i class="ti ti-home" aria-hidden="true"></i><span>Accueil</span></div>
-      <div class="nv" data-view="revue" title="À traiter"><i class="ti ti-headphones" aria-hidden="true"></i><span>Revue</span></div>
-      <div class="nv" data-view="ecarts" title="Écartés / À re-sourcer"><i class="ti ti-alert-circle" aria-hidden="true"></i><span>Écartés</span></div>
-      <div class="nv" data-view="biblio" title="Bibliothèque"><i class="ti ti-folders" aria-hidden="true"></i><span>Biblio</span></div>
-      <div class="nv" data-view="rkb" title="Rekordbox"><i class="ti ti-playlist" aria-hidden="true"></i><span>Rekordbox</span></div>
-      <div class="nv" data-view="cle" title="Formater la clé"><i class="ti ti-usb" aria-hidden="true"></i><span>Clé USB</span></div>
-      <div class="nv" data-view="reglages" style="margin-top:auto" title="Réglages"><i class="ti ti-settings" aria-hidden="true"></i><span>Réglages</span></div>
+<div class="pa" id="pa" tabindex="0">
+  <div class="sb" id="nav">
+    <div class="nav-brand"><i class="ti ti-filter" aria-hidden="true"></i><span>Sift</span></div>
+    <div class="nv" data-view="home" title="Accueil"><i class="ti ti-home" aria-hidden="true"></i><span>Accueil</span></div>
+    <div class="nv" data-view="revue" title="Revue"><i class="ti ti-headphones" aria-hidden="true"></i><span>Revue</span><span class="nav-badge" data-badge="revue"></span></div>
+    <div class="nv" data-view="ecarts" title="Écartés / à re-sourcer"><i class="ti ti-alert-circle" aria-hidden="true"></i><span>Écartés</span></div>
+    <div class="nv" data-view="journal" title="Journal des actions"><i class="ti ti-history" aria-hidden="true"></i><span>Journal</span></div>
+    <div class="nv" data-view="biblio" title="Bibliothèque"><i class="ti ti-folders" aria-hidden="true"></i><span>Bibliothèque</span></div>
+    <div class="nav-foot">
+      <div class="nv-grp" data-grp="export">Export</div>
+      <div class="nv nv-export" data-view="rkb" title="Rekordbox"><span class="nv-export-dot" aria-hidden="true"></span><span>Rekordbox</span></div>
+      <div class="nv nv-export" data-view="cle" title="Formater une clé USB"><span class="nv-export-dot" aria-hidden="true"></span><span>Clé USB</span></div>
+      <div class="nv" data-view="reglages" title="Réglages"><i class="ti ti-settings" aria-hidden="true"></i><span>Réglages</span></div>
     </div>
-    <div id="content" style="flex:1;min-width:0;display:flex"></div>
   </div>
-  <div class="frow">
-    <div class="fcard"><i class="ti ti-headphones"></i><div><b>Écoute & pré-sélection</b><span>Waveform cliquable, pré-écoute, accélération/ralenti type platine (±%) pour juger un morceau avant de le garder.</span></div></div>
-    <div class="fcard"><i class="ti ti-wave-sine"></i><div><b>Détecteur de faux</b><span>Spectrogramme + analyse de coupure : repère les MP3 transcodés déguisés en lossless. Sensibilité réglable.</span></div></div>
-    <div class="fcard"><i class="ti ti-arrows-shuffle"></i><div><b>Doublons & déjà-en-biblio</b><span>Détecte les copies et ce que tu possèdes déjà — par empreinte audio, indépendamment du nom de fichier.</span></div></div>
-    <div class="fcard"><i class="ti ti-file-export"></i><div><b>Conversion au rangement</b><span>Encode au format CDJ (AIFF / WAV / MP3 320) au moment où tu ranges. Lossy et lossless restent séparés.</span></div></div>
-    <div class="fcard"><i class="ti ti-tag"></i><div><b>Nommage & métadonnées Discogs</b><span>Renomme proprement, récupère pochette, label, année, genre depuis Discogs.</span></div></div>
-    <div class="fcard"><i class="ti ti-folders"></i><div><b>Rangement en dossiers</b><span>Déplace les fichiers dans tes dossiers de genres/labels. Création à la volée, mode batch.</span></div></div>
-    <div class="fcard"><i class="ti ti-playlist"></i><div><b>Sync Rekordbox</b><span>Tes dossiers deviennent des playlists Rekordbox (XML sûr ou master.db natif avec backup).</span></div></div>
-    <div class="fcard"><i class="ti ti-usb"></i><div><b>Préparation de clé USB</b><span>Formate en FAT32 (tous CDJ) ou exFAT (CDJ récents), prête à brancher en club.</span></div></div>
-  </div>
+  <div id="content" style="flex:1;min-width:0;display:flex"></div>
 </div>
 <script type="module" src="/frontend/main.ts"></script>
 </body>

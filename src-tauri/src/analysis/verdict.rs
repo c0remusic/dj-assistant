@@ -4,6 +4,7 @@
 //! 1. **Fake lossless** — declared FLAC/WAV/AIFF but the spectrum shows a lossy lowpass cliff.
 //! 2. **Over-encoded lossy** — declared e.g. 320 kbps MP3 but the cutoff is far below what
 //!    that bitrate produces → it was re-encoded UP from a lower-quality source.
+//!
 //! An honestly-labelled low-bitrate MP3 (cutoff matches its bitrate) stays `Ok` here — its
 //! "below the user's quality threshold" handling is a separate axis (M4 rules).
 
@@ -27,6 +28,20 @@ pub fn min_cutoff_hz_for_bitrate(kbps: u32) -> f32 {
         b if b >= 128 => 14500.0,
         _ => 12000.0,
     }
+}
+
+/// Equivalent lossy bitrate for a measured cutoff, read off the SAME tiers `verdict()` uses to
+/// call a bitrate over-encoded (FIX-11: this used to be duplicated in report-view.ts with a
+/// shifted table — e.g. a cutoff the verdict logic scored against the 192kbps band showed as
+/// "≈256 kbps" in the UI). Rust is the single source of truth; the front just displays this.
+pub fn estimate_kbps(cutoff_hz: f32) -> u32 {
+    const TIERS: [u32; 5] = [320, 256, 192, 160, 128];
+    for b in TIERS {
+        if cutoff_hz >= min_cutoff_hz_for_bitrate(b) {
+            return b;
+        }
+    }
+    128
 }
 
 /// Maps cutoff + declared rail + declared bitrate to a verdict.
@@ -83,6 +98,22 @@ mod tests {
         assert_eq!(verdict(16000.0, Rail::Lossy, Some(320)), Verdict::Fake);
         // declared 256 but cuts at 15k
         assert_eq!(verdict(15000.0, Rail::Lossy, Some(256)), Verdict::Fake);
+    }
+
+    // FIX-18: 192/160 kbps were the only two of the six min_cutoff_hz_for_bitrate tiers never
+    // exercised by a direct test (only 320/256/128 were covered above).
+    #[test]
+    fn honest_192_and_160_mp3_is_ok() {
+        assert_eq!(verdict(17000.0, Rail::Lossy, Some(192)), Verdict::Ok);
+        assert_eq!(verdict(16000.0, Rail::Lossy, Some(160)), Verdict::Ok);
+    }
+
+    #[test]
+    fn over_encoded_192_and_160_mp3_is_fake() {
+        // declared 192 but cuts at 15k (below the 16500Hz floor for 192) → fraud
+        assert_eq!(verdict(15000.0, Rail::Lossy, Some(192)), Verdict::Fake);
+        // declared 160 but cuts at 14k (below the 15500Hz floor for 160) → fraud
+        assert_eq!(verdict(14000.0, Rail::Lossy, Some(160)), Verdict::Fake);
     }
 
     #[test]

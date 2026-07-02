@@ -184,9 +184,9 @@ impl SpectrumAccumulator {
         while ci < src_cols {
             let col = &self.spec_cols[ci];
             let mut pooled = vec![0u8; out_bins];
-            for b in 0..self.bins {
+            for (b, &v) in col.iter().enumerate().take(self.bins) {
                 let ob = b / bin_pool;
-                if col[b] > pooled[ob] { pooled[ob] = col[b]; }
+                if v > pooled[ob] { pooled[ob] = v; }
             }
             out_cols.push(pooled);
             ci += col_stride;

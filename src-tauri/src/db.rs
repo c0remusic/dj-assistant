@@ -90,6 +90,28 @@ const MIGRATIONS: &[&str] = &[
     r#"
     ALTER TABLE tracks ADD COLUMN report_json TEXT;
     "#,
+    // v6 — M6a Discogs identification: per-track sub-genres (Discogs "style"), multiple per
+    // track, ordered. metadata.genre stays for back-compat but track_genres is the source.
+    r#"
+    CREATE TABLE track_genres (
+        track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+        genre    TEXT NOT NULL,
+        ord      INTEGER NOT NULL,
+        PRIMARY KEY (track_id, genre)
+    );
+    CREATE INDEX idx_track_genres_track ON track_genres(track_id);
+    "#,
+    // v7 — revertable "Apply ID3 tags": a free-form JSON column on the journal where the
+    // tag_edit action stores the OLD tags captured before the write, so a revert can restore
+    // them. Other action types leave it NULL.
+    r#"
+    ALTER TABLE actions ADD COLUMN meta TEXT;
+    "#,
+    // v8 — Journal session grouping: tag each new action with the app session that produced it.
+    // Actions from before this migration keep session_id = NULL → front shows them under "Antérieur".
+    r#"
+    ALTER TABLE actions ADD COLUMN session_id TEXT;
+    "#,
 ];
 
 /// Applies any migrations the DB hasn't seen yet, tracked via PRAGMA user_version.
@@ -148,7 +170,7 @@ mod tests {
     fn migrations_create_all_tables() {
         let conn = Connection::open_in_memory().unwrap();
         run_migrations(&conn).unwrap();
-        assert_eq!(table_count(&conn).unwrap(), 6); // v4 adds `settings`
+        assert_eq!(table_count(&conn).unwrap(), 7); // v4 adds `settings`, v6 adds `track_genres`
     }
 
     #[test]
@@ -156,7 +178,7 @@ mod tests {
         let conn = Connection::open_in_memory().unwrap();
         run_migrations(&conn).unwrap();
         run_migrations(&conn).unwrap(); // second run must not error or duplicate
-        assert_eq!(table_count(&conn).unwrap(), 6);
+        assert_eq!(table_count(&conn).unwrap(), 7);
     }
 
     #[test]
@@ -232,5 +254,33 @@ mod tests {
         // settings table exists and is writable
         conn.execute("INSERT INTO settings(key,value) VALUES('k','v')", [])
             .expect("settings table usable");
+    }
+
+    #[test]
+    fn actions_has_v7_meta_column() {
+        let conn = Connection::open_in_memory().unwrap();
+        run_migrations(&conn).unwrap();
+        let acols: Vec<String> = conn
+            .prepare("SELECT name FROM pragma_table_info('actions')")
+            .unwrap()
+            .query_map([], |r| r.get::<_, String>(0))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+        assert!(acols.contains(&"meta".to_string()), "actions missing column meta");
+    }
+
+    #[test]
+    fn actions_has_v8_session_id_column() {
+        let conn = Connection::open_in_memory().unwrap();
+        run_migrations(&conn).unwrap();
+        let acols: Vec<String> = conn
+            .prepare("SELECT name FROM pragma_table_info('actions')")
+            .unwrap()
+            .query_map([], |r| r.get::<_, String>(0))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+        assert!(acols.contains(&"session_id".to_string()), "actions missing column session_id");
     }
 }
