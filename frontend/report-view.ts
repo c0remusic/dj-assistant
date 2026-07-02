@@ -193,8 +193,9 @@ function playerRowHtml(name: string): string {
     playerMiniHeaderHtml(name) +
     `<div class="sift-player-audition">` +
     `<button class="sift-play sift-play-btn" title="Lecture / pause (espace)"><i class="ti ti-player-play"></i></button>` +
-    `<div class="sift-wave-wrap">` +
+    `<div class="sift-wave-wrap is-paused">` +
     `<div class="sift-wave sift-player-wave"></div>` +
+    `<div class="sift-wave-hover"></div>` +
     `<span class="sift-time-elapsed">0:00</span>` +
     `<span class="sift-time-total">0:00</span>` +
     `</div>` +
@@ -542,9 +543,36 @@ async function mountPlayer(root: HTMLElement, path: string, peaks?: number[], du
     updateTime();
   });
   ws.on("timeupdate", updateTime);
-  ws.on("play", () => setIcon("player-pause"));
-  ws.on("pause", () => setIcon("player-play"));
-  ws.on("finish", () => setIcon("player-play"));
+
+  // Waveform dims a touch while paused (and re-lights on hover, so scrubbing/seeking a paused
+  // track still reads clearly) — `.is-paused` starts set in the HTML (nothing is playing yet).
+  const waveWrapEl = root.querySelector<HTMLElement>(".sift-wave-wrap");
+  ws.on("play", () => {
+    setIcon("player-pause");
+    waveWrapEl?.classList.remove("is-paused");
+  });
+  ws.on("pause", () => {
+    setIcon("player-play");
+    waveWrapEl?.classList.add("is-paused");
+  });
+  ws.on("finish", () => {
+    setIcon("player-play");
+    waveWrapEl?.classList.add("is-paused");
+  });
+
+  // Hover-scrub preview: lighten the waveform from the start up to the cursor, so hovering
+  // previews where a click would seek to — dimmer than the actual orange playhead fill.
+  const waveHoverEl = root.querySelector<HTMLElement>(".sift-wave-hover");
+  if (waveHoverEl) {
+    container.addEventListener("mousemove", (e) => {
+      const rect = container.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / Math.max(1, rect.width)));
+      waveHoverEl.style.width = `${pct * 100}%`;
+    });
+    container.addEventListener("mouseleave", () => {
+      waveHoverEl.style.width = "0";
+    });
+  }
   ws.on("error", (e) => {
     console.error("wavesurfer error", e);
     // route to the Rust log so it shows in the dev console (webview console isn't readable here)
