@@ -537,9 +537,47 @@ async function mountPlayer(root: HTMLElement, path: string, peaks?: number[], du
     waveWrapEl?.classList.add("is-paused");
   });
 
-  // Hover-scrub preview: lighten the waveform from the start up to the cursor, so hovering
-  // previews where a click would seek to — dimmer than the actual orange playhead fill.
+  // Hover-scrub preview: recolor the waveform's own bars from the start up to the cursor (no
+  // extra rectangle/line drawn on top) — dimmer than the actual orange playhead fill. WaveSurfer
+  // renders into a shadow-DOM canvas (bars opaque, gaps transparent); `waveHoverEl` is a plain
+  // absolutely-positioned div, alpha-masked to a live snapshot of that same canvas so only the
+  // bar pixels — not the gaps between them — pick up the tint as its width tracks the cursor.
   const waveHoverEl = root.querySelector<HTMLElement>(".sift-wave-hover");
+  const findWaveCanvas = (): HTMLCanvasElement | null =>
+    container.querySelector<HTMLElement>(":scope > div")?.shadowRoot?.querySelector("canvas") ?? null;
+  const updateWaveMask = () => {
+    if (!waveHoverEl) return;
+    const canvas = findWaveCanvas();
+    if (!canvas) return;
+    try {
+      // The live bars are drawn translucent (waveColor ~.35 alpha) — used as-is that would mask
+      // the overlay down to a near-invisible tint. Binarize instead: any pixel the bars touch at
+      // all becomes fully opaque in the mask, so the overlay reads at its own full strength on
+      // every bar pixel and stays at zero everywhere in the gaps between them.
+      const maskCanvas = document.createElement("canvas");
+      maskCanvas.width = canvas.width;
+      maskCanvas.height = canvas.height;
+      const mctx = maskCanvas.getContext("2d");
+      if (!mctx) return;
+      mctx.drawImage(canvas, 0, 0);
+      const img = mctx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
+      const d = img.data;
+      for (let i = 3; i < d.length; i += 4) if (d[i] > 0) d[i] = 255;
+      mctx.putImageData(img, 0, 0);
+      const url = `url(${maskCanvas.toDataURL()})`;
+      const rect = canvas.getBoundingClientRect();
+      const size = `${rect.width}px ${rect.height}px`;
+      for (const prop of ["mask", "-webkit-mask"]) {
+        waveHoverEl.style.setProperty(`${prop}-image`, url);
+        waveHoverEl.style.setProperty(`${prop}-repeat`, "no-repeat");
+        waveHoverEl.style.setProperty(`${prop}-size`, size);
+        waveHoverEl.style.setProperty(`${prop}-position`, "0 0");
+      }
+    } catch {
+      // getImageData/toDataURL can throw on a tainted canvas — hover preview just stays unmasked.
+    }
+  };
+  ws.on("redrawcomplete", updateWaveMask);
   if (waveHoverEl) {
     container.addEventListener("mousemove", (e) => {
       const rect = container.getBoundingClientRect();
