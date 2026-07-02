@@ -71,7 +71,10 @@ function openLink(u){window.open(u,'_blank','noopener');}
       +(filed?'<div class="col-h" style="margin-top:12px">Répartition par dossier</div>'+bars:'');
     content.innerHTML='<div class="home-body"><div class="home-left">'+leftHtml+'</div></div>';
     } else {
-      content.innerHTML='<div class="home-body"><div class="home-left"><div class="h1">Accueil</div></div></div>';
+      // Live (Tauri): shell only — list rail (col 2) + inspector (col 3), matching the
+      // Revue queue/sift-inspector grammar. renderHomeSources() (home-sources.ts) owns
+      // everything inside both columns; this bare shell is never itself visible.
+      content.innerHTML='<div class="home-body"><div class="queue" id="homequeue" style="width:272px"></div><div class="sift-inspector" id="homeinspector"></div></div>';
     }
     if(window.__siftHome)window.__siftHome();
   }

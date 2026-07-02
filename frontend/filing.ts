@@ -761,6 +761,16 @@ function restoreIdentifiedLine(
   if (!host || !idBtn) return;
   host.hidden = false;
   host.innerHTML = identifiedLineHtml(artist, title, coverPath);
+  // Cover was only ever set on a FRESH identify this session (onIdentityApplied) — never on
+  // reopen of an already-identified track, so the hero/player cover stayed hidden until you
+  // re-ran Identify (docs/audit-fidelite-2026-07-02.md décision #5, bug de branchement confirmé).
+  if (coverPath) {
+    const src = convertFileSrc(coverPath);
+    mid.querySelectorAll<HTMLImageElement>(".sift-report-cover").forEach((covEl) => {
+      covEl.src = src;
+      covEl.hidden = false;
+    });
+  }
   // [C1] Match the post-fetch state: the primary button reads "Re-identify".
   idBtn.innerHTML = '<i class="ti ti-refresh sift-icon-inline-sm"></i> Ré-identifier';
   // Cold-start "change": the original candidates aren't in memory → re-run a Discogs fetch.
@@ -1512,6 +1522,10 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
   renderGenres(); // fill .sift-genres from state.genres (also shows genres on reopen, not just fresh fetch)
   refreshDiscrepancy(); // flag the marker if the file's tags differ from the displayed identity
   updateHeaderName(mid); // show the clean proposed name in the report header
+  // Paint "Nom final" on first open — previously only set on a later edit/identify/format
+  // click, so the verdict panel's name field stayed empty until the user touched something
+  // (docs/audit-fidelite-2026-07-02.md §2, bug confirmé sur capture fraîche).
+  refreshPreview();
 
   // Verdict-panel chip (board: LOSSLESS · DUPLICATE): only appended when dedup found a real match —
   // no "UNIQUE" chip for the common case, per the maquette rule that a chip exists to flag

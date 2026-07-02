@@ -227,16 +227,14 @@ export function verdictCardHtml(r: AnalysisReport): string {
     grey: ["ti-help-circle", "À vérifier d'abord", "var(--color-text-warning)", "rgba(221,166,63,.16)"],
   } as const;
   const [icon, label, fg, panelBg] = map[r.verdict];
-  const rq = realQuality(r);
-  const qualityChip =
-    r.verdict === "ok" && r.declared_rail === "lossless"
-      ? vchipHtml("LOSSLESS", "success")
-      : vchipHtml(rq.label, r.verdict === "fake" ? "danger" : r.verdict === "grey" ? "warning" : "neutral");
+  // Chips (LOSSLESS/MATCH/DUPLICATE) live in the separate "Preuves" block (evidenceChipsHtml,
+  // rendered right after the player — Sift.dc.html:221-232) — the conclusion bandeau is dot +
+  // status + note + Nom final only, matching the maquette's CONCLUSION block exactly
+  // (Sift.dc.html:381-392). Confirmé écart de structure, docs/audit-fidelite-2026-07-02.md décision #1.
   return (
     `<div class="sift-verdict-card" style="background:${panelBg}">` +
     `<div class="sift-verdict-main">` +
     `<div class="sift-verdict-head"><i class="ti ${icon}" style="color:${fg}"></i><span class="sift-verdict-label" style="color:${fg}">${label}</span></div>` +
-    `<div class="sift-vchips sift-vchips-row">${qualityChip}</div>` +
     `</div>` +
     `<div class="sift-verdict-finalname-col">` +
     `<div class="sift-verdict-finalname-label">Nom final</div>` +
@@ -246,9 +244,28 @@ export function verdictCardHtml(r: AnalysisReport): string {
   );
 }
 
+/** The "Preuves" chip row (LOSSLESS from analysis; MATCH/DUPLICATE appended later by filing.ts
+ *  onto the same `.sift-vchips` node). Positioned right after the player, before Identification —
+ *  Sift.dc.html:221-232 ("EVIDENCE chips"). Was fused into the verdict conclusion bandeau before;
+ *  split out per docs/audit-fidelite-2026-07-02.md décision #1. */
+function evidenceChipsHtml(r: AnalysisReport): string {
+  const rq = realQuality(r);
+  const qualityChip =
+    r.verdict === "ok" && r.declared_rail === "lossless"
+      ? vchipHtml("LOSSLESS", "success")
+      : vchipHtml(rq.label, r.verdict === "fake" ? "danger" : r.verdict === "grey" ? "warning" : "neutral");
+  return (
+    `<div class="sift-evidence">` +
+    `<div class="sift-evidence-label">Preuves</div>` +
+    `<div class="sift-vchips sift-vchips-row">${qualityChip}</div>` +
+    `</div>`
+  );
+}
+
 function spectroAndTagsHtml(r: AnalysisReport): string {
   const yn = (b: boolean) => (b ? "oui" : "non");
   return (
+    evidenceChipsHtml(r) +
     `<div class="sift-spectro-box">` +
     `<button class="sift-sg-toggle sift-spectro-toggle">` +
     `<span class="sift-spectro-toggle-label"><span class="sift-sg-caret sift-spectro-caret">▸</span> Preuve (spectre)</span>` +
