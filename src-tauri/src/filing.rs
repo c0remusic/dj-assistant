@@ -728,6 +728,37 @@ mod tests {
         assert_eq!(restored.title.as_deref(), Some("OLD Title"));
     }
 
+    /// FIX-15: `rollback_fs` (the "nothing is left half-filed" guarantee) had no test forcing
+    /// `commit_file` to fail AFTER `execute_file` already moved the file. Deleting the track row
+    /// between the two phases makes the actions insert's FK (track_id REFERENCES tracks(id))
+    /// fail — the same shape of failure `commit_file` guards against (a real DB error mid-commit).
+    #[test]
+    fn commit_failure_rolls_back_the_conformant_move() {
+        let conn = db();
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("lib");
+        std::fs::create_dir_all(root.join("House")).unwrap();
+        let Some((id, src)) = seed_track(&conn, dir.path(), "real_320.mp3", "src.mp3") else {
+            eprintln!("skip: no fixture");
+            return;
+        };
+        let plan = plan_file(&conn, &root, "{artist} - {title}", id, "House", None, Some(Canonical {
+            artist: "Larry Heard".into(), title: "Can You Feel It".into(), version: None,
+            confidence: crate::naming::Confidence::Green,
+        }), false).unwrap();
+        let log = execute_file(&plan).unwrap();
+        // Phase 2 already ran: the file really moved.
+        assert!(!src.exists());
+        assert!(std::path::Path::new(&plan.dest).exists());
+
+        conn.execute("DELETE FROM tracks WHERE id=?1", params![id]).unwrap();
+        assert!(commit_file(&conn, &plan, log).is_err(), "commit must fail once its track row is gone");
+
+        // Nothing left half-filed: the file is back at its original path, gone from the bin.
+        assert!(src.exists(), "rollback must restore the file at its original path");
+        assert!(!std::path::Path::new(&plan.dest).exists(), "rollback must remove it from the bin");
+    }
+
     #[test]
     fn files_flac_by_converting_to_aiff_and_trashing_original() {
         let conn = db();
