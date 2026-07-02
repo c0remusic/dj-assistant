@@ -126,6 +126,10 @@ pub fn list_filed(
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
 
+    // FIX-22: one batched genres query for every row instead of one query per row.
+    let ids: Vec<i64> = rows.iter().map(|r| r.0).collect();
+    let mut genres_by_track = crate::genres::get_genres_batch(conn, &ids)?;
+
     let mut out = Vec::with_capacity(rows.len());
     for (id, path, format, bitrate, duration, verdict, folder, has_cover, artist, title, label, year, bpm, cover_path, rel) in rows {
         out.push(LibraryTrack {
@@ -139,7 +143,7 @@ pub fn list_filed(
             bpm,
             year,
             label,
-            genres: crate::genres::get_genres(conn, id)?,
+            genres: genres_by_track.remove(&id).unwrap_or_default(),
             discogs_release_id: rel,
             cover_path,
             has_cover: has_cover.unwrap_or(0) != 0,
