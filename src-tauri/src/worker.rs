@@ -91,7 +91,8 @@ pub fn persist_report(conn: &Connection, id: i64, r: &AnalysisReport) -> rusqlit
             r.id3_version,
             r.has_cover as i64,
             r.tags_cdj_ok as i64,
-            // cache the report (spectrogram is empty here — computed on demand) for instant re-open
+            // cache the full report, spectrogram included (FIX-3) — instant re-open AND instant
+            // spectrogram, no re-decode either way
             serde_json::to_string(r).unwrap_or_default(),
         ],
     )?;
@@ -221,7 +222,10 @@ fn worker_loop(app: AppHandle, inner: Arc<(Mutex<Queue>, Condvar)>) {
     while let Some(id) = pop(&inner) {
         if let Some(path) = read_path(&app, id) {
             // Heavy work runs WITHOUT holding the DB lock — UI stays responsive.
-            let result = analysis::analyze(&path, false);
+            // FIX-3: collect the display spectrogram here too (bounded ~200KB, the FFT itself
+            // already runs regardless of this flag — see SpectrumAccumulator::new) so it's
+            // cached in report_json and the Revue spectrogram click never has to re-decode.
+            let result = analysis::analyze(&path, true);
             persist_result(&app, id, &path, result);
         }
         finish(&inner, id);

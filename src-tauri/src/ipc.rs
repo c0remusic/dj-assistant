@@ -239,35 +239,37 @@ pub fn analyze_path(
         if !known {
             return Err("unknown track path".into());
         }
-        // Serve the cached report instantly (no re-decode), except when a spectrogram is
-        // requested (computed on demand, not cached).
-        if !with_spectrogram {
-            let cached: Option<String> = conn
-                .query_row(
-                    "SELECT report_json FROM tracks WHERE path=?1",
-                    rusqlite::params![path],
-                    |r| r.get::<_, Option<String>>(0),
-                )
-                .ok()
-                .flatten();
-            if let Some(json) = cached {
-                if !json.is_empty() {
-                    return serde_json::from_str(&json).map_err(|e| e.to_string());
+        // Serve the cached report instantly (no re-decode). FIX-3: the cache now carries the
+        // spectrogram too (worker.rs analyzes with_spectrogram=true), so a spectrogram request
+        // can also be served from cache — unless this row predates that fix (empty grid), in
+        // which case fall through to a fresh decode below.
+        let cached: Option<String> = conn
+            .query_row(
+                "SELECT report_json FROM tracks WHERE path=?1",
+                rusqlite::params![path],
+                |r| r.get::<_, Option<String>>(0),
+            )
+            .ok()
+            .flatten();
+        if let Some(json) = cached {
+            if !json.is_empty() {
+                let report: crate::analysis::AnalysisReport =
+                    serde_json::from_str(&json).map_err(|e| e.to_string())?;
+                if !with_spectrogram || !report.spectrogram.mag_db.is_empty() {
+                    return Ok(report);
                 }
             }
         }
     }
     let report = crate::analysis::analyze(&path, with_spectrogram)?;
-    // self-heal the cache: store the freshly-computed report (without the heavy spectrogram)
-    // so the next open of this track is instant, even for tracks analysed before this cache.
-    if !with_spectrogram {
-        if let Ok(conn) = conn.lock() {
-            if let Ok(json) = serde_json::to_string(&report) {
-                let _ = conn.execute(
-                    "UPDATE tracks SET report_json=?2 WHERE path=?1",
-                    rusqlite::params![path, json],
-                );
-            }
+    // self-heal the cache: store the freshly-computed report (spectrogram included when
+    // requested) so the next open of this track is instant either way.
+    if let Ok(conn) = conn.lock() {
+        if let Ok(json) = serde_json::to_string(&report) {
+            let _ = conn.execute(
+                "UPDATE tracks SET report_json=?2 WHERE path=?1",
+                rusqlite::params![path, json],
+            );
         }
     }
     Ok(report)
