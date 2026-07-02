@@ -254,10 +254,14 @@ function evidenceChipsHtml(r: AnalysisReport): string {
     r.verdict === "ok" && r.declared_rail === "lossless"
       ? vchipHtml("LOSSLESS", "success")
       : vchipHtml(rq.label, r.verdict === "fake" ? "danger" : r.verdict === "grey" ? "warning" : "neutral");
+  // FIX-4: name CDJ explicitly right under the verdict — no audited competitor targets CDJ
+  // compatibility, it's the differentiator, and it used to be a generic yes/no row buried under
+  // Genres in the Identification card (filing.ts) with no mention of "CDJ" nearby.
+  const cdjChip = vchipHtml(r.tags_cdj_ok ? "CDJ compatible" : "CDJ incompatible", r.tags_cdj_ok ? "success" : "warning");
   return (
     `<div class="sift-evidence">` +
     `<div class="sift-evidence-label">Preuves</div>` +
-    `<div class="sift-vchips sift-vchips-row">${qualityChip}</div>` +
+    `<div class="sift-vchips sift-vchips-row">${qualityChip}${cdjChip}</div>` +
     `</div>`
   );
 }

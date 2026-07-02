@@ -1004,8 +1004,6 @@ function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string, report:
     host.innerHTML = "";
     return;
   }
-  const yn = (b: boolean) => (b ? "oui" : "non");
-
   // [I6] Add tooltip to confidence badge so the colour is self-explanatory.
   const badge =
     c.confidence === "green"
@@ -1043,12 +1041,13 @@ function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string, report:
     `<div class="sift-release"></div>` +
     `<div class="col-h sift-col-h-tight">Genres</div>` +
     `<div class="sift-genres sift-genres-box"></div>` +
-    // Compatibilité CDJ / Version ID3: moved here from the spectral-proof box (report-view.ts) —
-    // the maquette groups them with Label/Année/Genre in Identification, not with the spectrum
-    // evidence. `report` is null only if analysis failed to load; nothing renders in that case.
+    // Version ID3: moved here from the spectral-proof box (report-view.ts) — the maquette groups
+    // it with Label/Année/Genre in Identification, not with the spectrum evidence. Compatibilité
+    // CDJ moved OUT of this card (FIX-4): it now surfaces as an explicit "CDJ" chip right under
+    // the main verdict (report-view.ts::evidenceChipsHtml) instead of a generic yes/no row buried
+    // here. `report` is null only if analysis failed to load; nothing renders in that case.
     (report
       ? `<div class="sift-spectro-rows">` +
-        row("Compatibilité CDJ", yn(report.tags_cdj_ok)) +
         row("Version ID3", report.id3_version || "—") +
         `</div>`
       : "") +
