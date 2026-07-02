@@ -809,11 +809,17 @@ function wireCandidateClicks(
       if (!c || !state.track) return;
       el.style.opacity = "0.5";
       el.style.pointerEvents = "none";
+      // FIX-21: openSeq-guarded, same pattern as openFilingInto/setApplyIdle — without it, a
+      // slow applyIdentity resolving after the user already navigated to a different track would
+      // write the fetched metadata onto the WRONG track's pane (state.canonical, cover, DOM).
+      const myseq = openSeq;
       void applyIdentity(state.track.id, c)
         .then((applied) => {
+          if (myseq !== openSeq) return; // a newer open started while we awaited — drop this result
           onIdentityApplied(applied, editor, mid, host, candidates, idBtn);
         })
         .catch((e) => {
+          if (myseq !== openSeq) return;
           el.style.opacity = "";
           el.style.pointerEvents = "";
           // [m10] errors get a warning icon to distinguish from "no results"
@@ -832,6 +838,10 @@ async function doIdentify(
 ): Promise<void> {
   if (!state.track) return;
   const trackId = state.track.id;
+  // FIX-21: openSeq-guarded — identify's await can outlive the user navigating to another
+  // track (openFilingInto bumps openSeq on every open); without this a slow/late response
+  // painted candidates/errors from THIS track's search into a pane now showing a different one.
+  const myseq = openSeq;
   const origLabel = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = '<i class="ti ti-loader-2 sift-spin sift-searching-icon"></i> Recherche…';
@@ -841,9 +851,11 @@ async function doIdentify(
   let candidates: Candidate[] = [];
   try {
     candidates = await identify(trackId);
+    if (myseq !== openSeq) return; // a newer open started while we awaited — drop this result
     renderCandidates(host, candidates);
     wireCandidateClicks(host, candidates, editor, mid, btn);
   } catch (err) {
+    if (myseq !== openSeq) return;
     const msg = String(err);
     if (msg.includes("NO_TOKEN")) {
       // [C2/m5] explain WHY + give a direct action to open Réglages
