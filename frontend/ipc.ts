@@ -66,6 +66,11 @@ export const onAnalysisChanged = (cb: () => void): Promise<UnlistenFn> =>
 export const reconcile = (trackId: number): Promise<Canonical> =>
   invoke("reconcile", { trackId });
 
+/** Live filename preview via the SAME naming::render_filename the real filing path uses (FIX-12) —
+ * real active template + real sanitize(), not a front-side reimplementation. */
+export const previewFilename = (edited: Canonical, ext: string): Promise<string> =>
+  invoke("preview_filename", { edited, ext });
+
 /** Read-only release facts (label/year/genres) from the persisted `metadata` table. Fast DB read,
  * no network — used to show label/year/genres on a cold open. */
 export const trackRelease = (trackId: number): Promise<TrackRelease> =>

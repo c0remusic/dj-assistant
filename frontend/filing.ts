@@ -22,6 +22,7 @@ import {
   applyIdentity,
   trackRelease,
   trackFileTags,
+  previewFilename,
 } from "./ipc";
 import type { Candidate, AppliedIdentity } from "./ipc";
 import type { DupMatch, TrackRelease, FileTags } from "../shared/contracts";
@@ -491,17 +492,6 @@ export function targetExt(t: Target): string {
   return "aiff";
 }
 
-/** Live filename preview from the edited canonical + chosen target. */
-function previewName(): string {
-  const c = state.canonical;
-  if (!c) return "";
-  const ver = c.version && c.version.trim() ? ` (${c.version.trim()})` : "";
-  // Same default as the lit format chip (renderFoot): state.target when set, else defaultTarget(rail).
-  // A hard-coded "mp3_320" here made an AIFF-source preview show ".mp3" while the AIFF chip was lit.
-  const ext = targetExt(state.target ?? defaultTarget(state.rail));
-  return `${c.artist} - ${c.title}${ver}.${ext}`;
-}
-
 /** Clean display name from the (edited) canonical — what the file will be called. */
 function displayName(): string {
   const c = state.canonical;
@@ -538,15 +528,39 @@ function refreshFootButton(): void {
     .forEach((el) => (el.textContent = binLabel()));
 }
 
+// FIX-12: refreshPreview is wired to the artist/title/version inputs' `input` event — fires on
+// every keystroke. previewFilename() is an IPC round-trip, so debounce it (150ms), and guard
+// with a sequence token so a slow/reordered response from an earlier keystroke can never
+// overwrite the result of a newer one (same hazard class as identify/openFilingInto elsewhere).
+let previewSeq = 0;
+let previewTimer: ReturnType<typeof setTimeout> | undefined;
+
 /** Re-sync the filename preview from the current canonical + target. The preview lives in the rail
  *  (#filfoot) right below the format chips, so a format change or a field edit must refresh this
- *  node (the extension follows state.target). Probe non-throw: the rail may be gone. */
+ *  node (the extension follows state.target). Probe non-throw: the rail may be gone. Renders via
+ *  naming::render_filename (real template + sanitize()) in Rust — not a TS reimplementation. */
 function refreshPreview(): void {
-  const name = previewName();
+  const c = state.canonical;
   const prev = document.querySelector<HTMLElement>(".sift-fil-prev");
-  if (prev) prev.textContent = `→ ${name}`;
   const verdictName = document.querySelector<HTMLElement>(".sift-verdict-finalname");
-  if (verdictName) verdictName.textContent = `→ ${name}`;
+  if (!c) {
+    if (prev) prev.textContent = "";
+    if (verdictName) verdictName.textContent = "";
+    return;
+  }
+  // Same default as the lit format chip (renderFoot): state.target when set, else defaultTarget(rail).
+  const ext = targetExt(state.target ?? defaultTarget(state.rail));
+  const mySeq = ++previewSeq;
+  if (previewTimer !== undefined) clearTimeout(previewTimer);
+  previewTimer = setTimeout(() => {
+    void previewFilename(c, ext)
+      .then((name) => {
+        if (mySeq !== previewSeq) return; // superseded by a newer edit — drop this stale result
+        if (prev) prev.textContent = `→ ${name}`;
+        if (verdictName) verdictName.textContent = `→ ${name}`;
+      })
+      .catch((e) => console.error("previewFilename failed", e));
+  }, 150);
 }
 
 // Per-track Discogs release facts (label/year), captured when an identity is applied so they
@@ -1538,7 +1552,7 @@ export async function openFilingInto(mid: HTMLElement, item: QueueItem): Promise
   let rail = "unknown";
   if (["flac", "wav", "aif", "aiff", "alac"].includes(ext)) rail = "lossless";
   else if (["mp3", "m4a", "aac", "ogg"].includes(ext)) rail = "lossy";
-  state.rail = rail; // so previewName/refreshPreview default the extension like the lit chip does
+  state.rail = rail; // so refreshPreview defaults the extension like the lit chip does
 
   renderFoot(footEl, mid, rail);
   const editorEl = requireEl<HTMLElement>(".sift-fil-editor", "openFilingInto", mid);

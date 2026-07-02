@@ -87,6 +87,7 @@ pub fn run() {
             ipc::open_url,
             ipc::playback_url,
             ipc_filing::reconcile,
+            ipc_filing::preview_filename,
             ipc_filing::track_release,
             ipc_filing::track_file_tags,
             ipc_filing::apply_tags,

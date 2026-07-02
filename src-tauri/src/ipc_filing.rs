@@ -55,6 +55,20 @@ pub fn reconcile(conn: State<'_, Mutex<Connection>>, track_id: i64) -> Result<Ca
     filing::reconcile_track(&conn, track_id).map_err(|e| e.to_string())
 }
 
+/// Live preview of the filename Sift will actually produce, using the SAME
+/// `naming::render_filename` (real template + `sanitize()`) the actual filing path calls
+/// (FIX-12) — the front used to hardcode "{artist} - {title}" and skip `sanitize()` entirely,
+/// so a title containing `/` previewed a name that would never match the real, sanitized file.
+#[tauri::command]
+pub fn preview_filename(
+    conn: State<'_, Mutex<Connection>>,
+    edited: Canonical,
+    ext: String,
+) -> Result<String, String> {
+    let conn = conn.lock().map_err(|e| e.to_string())?;
+    Ok(crate::naming::render_filename(&template(&conn), &edited, &ext))
+}
+
 /// Read-only identity + release facts persisted by `apply_identity` in the `metadata` table.
 /// `identified` is true when a Discogs release was chosen (`discogs_release_id` not NULL) — the
 /// front then trusts `artist`/`title` here over what `reconcile` recomputes from the file tags
