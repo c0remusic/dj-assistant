@@ -70,7 +70,10 @@ pub fn record_with_meta(
 
 /// Reverse one action's filesystem effect. Guards refuse to overwrite or act on stale
 /// state; on a guard failure nothing is changed and `Blocked` is returned.
-fn revert_one_fs(
+/// `pub(crate)`: also called directly by `ecartes::restore_track` (FIX-5), which reverses a
+/// single `trash` action outside the `revert_batch` LIFO flow — same guards, same primitive,
+/// no separate reimplementation.
+pub(crate) fn revert_one_fs(
     kind: &str,
     from_path: Option<&str>,
     to_path: Option<&str>,

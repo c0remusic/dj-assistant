@@ -427,7 +427,8 @@ pub fn reject_batch(
     Ok(res)
 }
 
-/// Move a track's file to `.sift-trash` (reversible via undo) and mark it trashed.
+/// Move a track's file to `.sift-trash` (reversible via undo) and mark it trashed. FIX-6: no
+/// library-root precondition — the trash dir lives under Documents, not the library root.
 #[tauri::command]
 pub fn trash_track(
     app: AppHandle,
@@ -436,8 +437,7 @@ pub fn trash_track(
 ) -> Result<(), String> {
     {
         let conn = conn.lock().map_err(|e| e.to_string())?;
-        let root = library_root(&conn)?;
-        filing::trash_track(&conn, &root, track_id).map_err(|e| e.to_string())?;
+        filing::trash_track(&conn, track_id).map_err(|e| e.to_string())?;
     }
     app.emit("queue:changed", ()).ok();
     Ok(())

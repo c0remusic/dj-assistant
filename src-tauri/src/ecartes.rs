@@ -7,7 +7,6 @@
 use crate::filing;
 use rusqlite::{params, Connection};
 use serde::Serialize;
-use std::path::Path;
 
 /// One rejected/trashed track for the Écartés view.
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -113,16 +112,12 @@ pub fn restore_track(conn: &Connection, track_id: i64) -> Result<(), String> {
         })?;
     let from = from.ok_or("missing original path")?;
     let to = to.ok_or("missing trash path")?;
-    if !Path::new(&to).exists() {
-        return Err(format!("trashed file gone: {to}"));
-    }
-    if Path::new(&from).exists() {
-        return Err(format!("original location occupied: {from}"));
-    }
-    if let Some(parent) = Path::new(&from).parent() {
-        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    }
-    std::fs::rename(&to, &from).map_err(|e| e.to_string())?;
+    // FIX-5: route through the same guarded copy->verify->delete primitive `revert_batch` uses
+    // for a `trash` row (actions::revert_one_fs) instead of a direct `std::fs::rename` — the
+    // trash directory lives outside the library root (`{Documents}/Sift/Trash`), often on a
+    // different disk than the original source, where a plain rename fails outright.
+    crate::actions::revert_one_fs("trash", Some(&from), Some(&to), None)
+        .map_err(|e| e.to_string())?;
     conn.execute("UPDATE actions SET undone=1 WHERE id=?1", params![action_id])
         .map_err(|e| e.to_string())?;
     conn.execute("UPDATE tracks SET status='pending' WHERE id=?1", params![track_id])

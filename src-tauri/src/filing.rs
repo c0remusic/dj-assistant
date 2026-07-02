@@ -156,7 +156,9 @@ fn sift_trash_dir() -> Result<PathBuf, FilingError> {
 /// FS-only: copy `source` into `<Documents>/Sift/Trash/<track_id>__<name>` (collision-free),
 /// verify the copy size, then delete the source. Cross-disk safe (no rename).
 /// Returns the trash path. No DB — journaling is the caller's job.
-fn trash_file_fs(_root: &Path, track_id: i64, source: &str) -> Result<String, FilingError> {
+/// FIX-6: no `root` param — the trash dir is centralized under Documents, never under the
+/// library root, so a `root` argument was resolved and threaded through 3 callers for nothing.
+fn trash_file_fs(track_id: i64, source: &str) -> Result<String, FilingError> {
     let trash_dir = sift_trash_dir()?;
     std::fs::create_dir_all(&trash_dir).map_err(|e| FilingError::Io(e.to_string()))?;
     let dest = library::ensure_unique(&trash_dir.join(format!("{track_id}__{}", file_name_of(source))), None);
@@ -192,12 +194,11 @@ fn trash_file_fs(_root: &Path, track_id: i64, source: &str) -> Result<String, Fi
 /// the DB lock across it is fine).
 fn move_to_trash(
     conn: &Connection,
-    root: &Path,
     track_id: i64,
     batch_id: &str,
     source: &str,
 ) -> Result<String, FilingError> {
-    let dest = trash_file_fs(root, track_id, source)?;
+    let dest = trash_file_fs(track_id, source)?;
     actions::record(conn, batch_id, Some(track_id), "trash", Some(source), Some(&dest))
         .map_err(|e| FilingError::Db(e.to_string()))?;
     Ok(dest)
@@ -253,7 +254,6 @@ pub struct FilePlan {
     target: Target,
     canonical: Canonical,
     bin_rel: String,
-    root: PathBuf,
     extras: TagExtras,
 }
 
@@ -368,7 +368,6 @@ pub fn plan_file(
         target,
         canonical,
         bin_rel: bin_rel.to_string(),
-        root: root.to_path_buf(),
         batch_id: new_batch_id(track_id),
         track_id,
         extras,
@@ -411,7 +410,7 @@ pub fn execute_file(plan: &FilePlan) -> Result<Vec<FsLog>, FilingError> {
             return Err(FilingError::Tag(e));
         }
         log.push(FsLog { kind: "convert", from: plan.source.clone(), to: plan.dest.clone(), meta: None });
-        match trash_file_fs(&plan.root, plan.track_id, &plan.source) {
+        match trash_file_fs(plan.track_id, &plan.source) {
             Ok(trash) => log.push(FsLog { kind: "trash", from: plan.source.clone(), to: trash, meta: None }),
             Err(e) => {
                 let _ = std::fs::remove_file(&plan.dest);
@@ -565,11 +564,12 @@ pub fn reject_batch(conn: &Connection, track_ids: &[i64]) -> RejectBatchResult {
     RejectBatchResult { rejected, failed }
 }
 
-/// Move a track's file to `.sift-trash` and mark it `trash` (reversible via undo).
-pub fn trash_track(conn: &Connection, root: &Path, track_id: i64) -> Result<(), FilingError> {
+/// Move a track's file to `.sift-trash` and mark it `trash` (reversible via undo). FIX-6: no
+/// `library_root` precondition — the trash dir doesn't live under it (see `trash_file_fs`).
+pub fn trash_track(conn: &Connection, track_id: i64) -> Result<(), FilingError> {
     let source = track_path(conn, track_id)?;
     let batch_id = new_batch_id(track_id);
-    move_to_trash(conn, root, track_id, &batch_id, &source)?;
+    move_to_trash(conn, track_id, &batch_id, &source)?;
     conn.execute("UPDATE tracks SET status='trash' WHERE id=?1", params![track_id])?;
     Ok(())
 }
@@ -877,13 +877,11 @@ mod tests {
     fn trash_track_moves_to_sift_trash() {
         let conn = db();
         let dir = tempfile::tempdir().unwrap();
-        let root = dir.path().join("lib");
-        std::fs::create_dir_all(&root).unwrap();
         let Some((id, src)) = seed_track(&conn, dir.path(), "real_320.mp3", "src.mp3") else {
             eprintln!("skip: no fixture");
             return;
         };
-        trash_track(&conn, &root, id).unwrap();
+        trash_track(&conn, id).unwrap();
         assert!(!src.exists());
         let status: String = conn.query_row("SELECT status FROM tracks WHERE id=?1", params![id], |r| r.get(0)).unwrap();
         assert_eq!(status, "trash");
