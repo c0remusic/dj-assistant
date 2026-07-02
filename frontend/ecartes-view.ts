@@ -77,7 +77,7 @@ export async function renderEcartes() {
           it,
         )}</div>${fileLine(it)}</div>${ecReason(
           it,
-        )}<button class="lk" data-ec="requeue" data-id="${it.id}" title="Restaurer — remettre en file"><i class="ti ti-arrow-back-up" style="font-size:var(--text-base);color:var(--color-text-tertiary)"></i></button><button class="lk" data-ec="trash" data-id="${it.id}" title="Envoyer à la corbeille"><i class="ti ti-trash" style="font-size:var(--text-md);color:var(--color-text-tertiary)"></i></button></div><div style="margin-top:5px;display:flex;flex-wrap:wrap;align-items:center;gap:4px"><button data-ec="slsk" data-q="${esc(
+        )}<button class="lk" data-ec="requeue" data-id="${it.id}" title="Restaurer — remettre en file" aria-label="Restaurer — remettre en file"><i class="ti ti-arrow-back-up" style="font-size:var(--text-base);color:var(--color-text-tertiary)"></i></button><button class="lk" data-ec="trash" data-id="${it.id}" title="Envoyer à la corbeille" aria-label="Envoyer à la corbeille"><i class="ti ti-trash" style="font-size:var(--text-md);color:var(--color-text-tertiary)"></i></button></div><div style="margin-top:5px;display:flex;flex-wrap:wrap;align-items:center;gap:4px"><button data-ec="slsk" data-q="${esc(
           ecSlsk(it),
         )}" title="Copier « Artiste Titre » pour chercher sur Soulseek" style="font-size:var(--text-xs);padding:2px 8px;color:var(--color-text-secondary)"><i class="ti ti-copy" style="font-size:var(--text-xs);vertical-align:-1px"></i> Copier le nom</button><span style="color:var(--color-border-secondary)">·</span>${ecStoreLinks(
           it,

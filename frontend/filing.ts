@@ -1023,7 +1023,7 @@ function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string, report:
   host.innerHTML =
     `<div class="sift-ident-head">` +
     `<span class="col-h sift-editor-title">Identification · Discogs</span>` +
-    `<button data-fil="ident-edit" class="sift-ident-edit-btn" title="Modifier manuellement"><i class="ti ti-pencil"></i></button>` +
+    `<button data-fil="ident-edit" class="sift-ident-edit-btn" title="Modifier manuellement" aria-label="Modifier manuellement"><i class="ti ti-pencil"></i></button>` +
     `</div>` +
     (identEditing
       ? `<div class="sift-editor-badge-row">${badge}</div>` +
@@ -1327,7 +1327,7 @@ function showFiledConfirm(batchId: string, bin: string, filedPath: string): void
     `<i class="ti ti-check"></i>` +
     `<span class="sift-filed-banner-label">Rangé</span>` +
     `<span class="sift-filed-banner-bin">→ ${esc(bin)}</span>` +
-    `<button data-fil="filed-close" title="Fermer" class="sift-filed-banner-close"><i class="ti ti-x"></i></button>` +
+    `<button data-fil="filed-close" title="Fermer" aria-label="Fermer" class="sift-filed-banner-close"><i class="ti ti-x"></i></button>` +
     `</div>` +
     `<div class="sift-filed-banner-name">${esc(filename)}</div>` +
     `<div class="sift-filed-banner-path">${esc(filedPath)}</div>` +

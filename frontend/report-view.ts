@@ -170,7 +170,7 @@ function playerRowHtml(name: string, path: string, closeBtn = false): string {
     `<div class="sift-player-row">` +
     playerHeaderHtml(name, path, closeBtn) +
     `<div class="sift-player-audition">` +
-    `<button class="sift-play sift-play-btn" title="Lecture / pause (espace)"><i class="ti ti-player-play"></i></button>` +
+    `<button class="sift-play sift-play-btn" title="Lecture / pause (espace)" aria-label="Lecture / pause (espace)"><i class="ti ti-player-play"></i></button>` +
     `<div class="sift-wave-wrap is-paused">` +
     `<div class="sift-wave sift-player-wave"></div>` +
     `<div class="sift-wave-hover"></div>` +

@@ -92,7 +92,7 @@ function rowHtml(e: JournalEntry): string {
 <span class="jrnl-name">${name}</span>\
 <span class="jrnl-dest">${dest ? "→ " + dest : ""}</span>\
 </div>\
-<button class="jrnl-revert" data-jact="revert" data-batch-id="${bid}" title="Annuler">&#x21A9;</button>\
+<button class="jrnl-revert" data-jact="revert" data-batch-id="${bid}" title="Annuler" aria-label="Annuler">&#x21A9;</button>\
 </div>`;
 }
 
