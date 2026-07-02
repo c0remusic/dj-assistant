@@ -174,8 +174,11 @@ function playerRowHtml(): string {
     `<div class="sift-player-row">` +
     `<div class="sift-player-audition">` +
     `<button class="sift-play sift-play-btn" title="Lecture / pause (espace)"><i class="ti ti-player-play"></i></button>` +
-    `<span class="sift-time sift-time-disp" title="Clic : écoulé ⇄ restant"><span class="sift-time-val">0:00 / 0:00</span></span>` +
+    `<div class="sift-wave-wrap">` +
     `<div class="sift-wave sift-player-wave"></div>` +
+    `<span class="sift-time-elapsed">0:00</span>` +
+    `<span class="sift-time-total">0:00</span>` +
+    `</div>` +
     `</div>` +
     `<div class="sift-player-controls">` +
     `<div class="sift-slider-block">` +
@@ -405,7 +408,6 @@ async function loadDecoded(ws: WaveSurfer, path: string): Promise<void> {
 async function mountPlayer(root: HTMLElement, path: string, peaks?: number[], duration?: number) {
   const container = requireEl<HTMLElement>(".sift-wave", "mountPlayer", root);
   const playBtn = root.querySelector<HTMLButtonElement>(".sift-play");
-  const timeEl = root.querySelector<HTMLElement>(".sift-time");
   const tempoOut = root.querySelector<HTMLElement>(".sift-tempo-out");
   const volumeTrack = root.querySelector<HTMLElement>(".sift-volume-track");
   const volumeFill = root.querySelector<HTMLElement>(".sift-volume-fill");
@@ -419,9 +421,12 @@ async function mountPlayer(root: HTMLElement, path: string, peaks?: number[], du
   const ws = WaveSurfer.create({
     container,
     height: 46,
-    waveColor: "rgba(142,204,232,.45)",
-    progressColor: "#8ecce8",
-    cursorColor: "#FFdc82",
+    barWidth: 2,
+    barGap: 1,
+    barRadius: 1,
+    cursorWidth: 0,
+    waveColor: "rgba(255,255,255,.35)",
+    progressColor: "#ff5500",
     normalize: true,
     peaks: peaks?.length ? [peaks] : undefined,
     duration: duration || undefined,
@@ -505,18 +510,14 @@ async function mountPlayer(root: HTMLElement, path: string, peaks?: number[], du
       renderTempo();
     });
   }
-  const timeVal = root.querySelector<HTMLElement>(".sift-time-val");
-  let showRemaining = false;
+  // SoundCloud-style: elapsed + total shown at once, overlaid on the waveform itself — no
+  // elapsed/remaining toggle needed since both numbers are always visible together.
+  const timeElapsedEl = root.querySelector<HTMLElement>(".sift-time-elapsed");
+  const timeTotalEl = root.querySelector<HTMLElement>(".sift-time-total");
   const updateTime = () => {
-    if (!timeVal) return;
-    const cur = ws.getCurrentTime(), dur = ws.getDuration();
-    const left = showRemaining ? `-${mmss(dur - cur)}` : mmss(cur);
-    timeVal.textContent = `${left} / ${mmss(dur)}`;
+    if (timeElapsedEl) timeElapsedEl.textContent = mmss(ws.getCurrentTime());
+    if (timeTotalEl) timeTotalEl.textContent = mmss(ws.getDuration());
   };
-  timeEl?.addEventListener("click", () => {
-    showRemaining = !showRemaining;
-    updateTime();
-  });
   ws.on("ready", () => {
     applyRate();
     updateTime();

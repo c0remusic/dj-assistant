@@ -170,12 +170,13 @@ async function renderQueue(touchDetail = true) {
           verdictDot(it.verdict) +
           `<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;font-weight:500">${title}</span>` +
           (it.dup
-            ? '<span title="Possible duplicate (same name)" style="flex:none;font-size:var(--text-sm);color:var(--color-text-secondary)">⧉</span>'
+            ? '<span title="Possible duplicate (same name)" style="flex:none;display:inline-flex;align-items:center;font-size:var(--text-base);line-height:1;color:var(--color-text-warning)">⧉</span>'
             : "") +
           `</div>` +
-          (artist
-            ? `<div style="padding-left:15px;font-size:var(--text-xs);color:var(--color-text-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${artist}</div>`
-            : "") +
+          // Always render the second line (never conditionally omit it) — otherwise a
+          // not-yet-identified track (no artist) renders one line shorter than an identified
+          // one, making queue rows visibly uneven heights next to each other.
+          `<div style="padding-left:15px;font-size:var(--text-xs);color:var(--color-text-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${artist || "&nbsp;"}</div>` +
           `</div>` +
           `<span style="flex:none;font-size:var(--text-xs);color:${wordColor}">${word}</span>` +
           `</div>`

@@ -480,7 +480,7 @@ export function defaultTarget(rail: string): Target {
 }
 
 export const TARGET_LABEL: Record<Target, string> = {
-  mp3_320: "MP3 320",
+  mp3_320: "MP3",
   aiff_16_44: "AIFF",
   wav_16_44: "WAV",
 };
