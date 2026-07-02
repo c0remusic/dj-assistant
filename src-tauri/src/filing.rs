@@ -153,8 +153,50 @@ fn sift_trash_dir() -> Result<PathBuf, FilingError> {
     Ok(base.join("Sift").join("Trash"))
 }
 
+/// Copy `source` to `dest`, verify the copy's size matches, then delete `source`. Cross-disk
+/// safe (no rename). On any failure the partial `dest` is cleaned up (best-effort) and `source`
+/// is left untouched.
+fn copy_verify_delete(source: &str, dest: &Path) -> Result<(), FilingError> {
+    let src_len = std::fs::metadata(source)
+        .map_err(|e| FilingError::Io(format!("stat source: {e}")))?
+        .len();
+
+    std::fs::copy(source, dest).map_err(|e| FilingError::Io(format!("copy: {e}")))?;
+
+    let dst_len = match std::fs::metadata(dest) {
+        Ok(m) => m.len(),
+        Err(e) => {
+            let _ = std::fs::remove_file(dest);
+            return Err(FilingError::Io(format!("stat copy: {e}")));
+        }
+    };
+
+    if dst_len != src_len {
+        let _ = std::fs::remove_file(dest);
+        return Err(FilingError::Io(format!(
+            "copy size mismatch (src {src_len} != dst {dst_len})"
+        )));
+    }
+
+    std::fs::remove_file(source).map_err(|e| FilingError::Io(format!("remove source after copy: {e}")))
+}
+
+/// FIX-10: move `source` to `dest`, trying `rename` first (fast, same-device) and falling back
+/// to `copy_verify_delete` only on a genuine cross-device error (Windows os error 17
+/// `ERROR_NOT_SAME_DEVICE`, Unix os error 18 `EXDEV`) — a conformant filing or a rollback can
+/// cross from the source's disk to the library's (or back), where a plain rename hard-fails.
+fn move_cross_disk_safe(source: &str, dest: &Path) -> Result<(), FilingError> {
+    match std::fs::rename(source, dest) {
+        Ok(()) => Ok(()),
+        Err(e) if matches!(e.raw_os_error(), Some(17) | Some(18)) => copy_verify_delete(source, dest),
+        Err(e) => Err(FilingError::Io(e.to_string())),
+    }
+}
+
 /// FS-only: copy `source` into `<Documents>/Sift/Trash/<track_id>__<name>` (collision-free),
-/// verify the copy size, then delete the source. Cross-disk safe (no rename).
+/// verify the copy size, then delete the source. Cross-disk safe (no rename) — the trash dir is
+/// virtually always on a different disk than the library, so skip straight to copy_verify_delete
+/// instead of trying (and failing) rename first every time.
 /// Returns the trash path. No DB — journaling is the caller's job.
 /// FIX-6: no `root` param — the trash dir is centralized under Documents, never under the
 /// library root, so a `root` argument was resolved and threaded through 3 callers for nothing.
@@ -162,31 +204,7 @@ fn trash_file_fs(track_id: i64, source: &str) -> Result<String, FilingError> {
     let trash_dir = sift_trash_dir()?;
     std::fs::create_dir_all(&trash_dir).map_err(|e| FilingError::Io(e.to_string()))?;
     let dest = library::ensure_unique(&trash_dir.join(format!("{track_id}__{}", file_name_of(source))), None);
-
-    let src_len = std::fs::metadata(source)
-        .map_err(|e| FilingError::Io(format!("stat source: {e}")))?
-        .len();
-
-    std::fs::copy(source, &dest).map_err(|e| FilingError::Io(format!("copy to trash: {e}")))?;
-
-    let dst_len = match std::fs::metadata(&dest) {
-        Ok(m) => m.len(),
-        Err(e) => {
-            let _ = std::fs::remove_file(&dest);
-            return Err(FilingError::Io(format!("stat trash copy: {e}")));
-        }
-    };
-
-    if dst_len != src_len {
-        let _ = std::fs::remove_file(&dest);
-        return Err(FilingError::Io(format!(
-            "trash copy size mismatch (src {src_len} != dst {dst_len})"
-        )));
-    }
-
-    std::fs::remove_file(source)
-        .map_err(|e| FilingError::Io(format!("remove source after trash: {e}")))?;
-
+    copy_verify_delete(source, &dest)?;
     Ok(dest.to_string_lossy().to_string())
 }
 
@@ -393,7 +411,7 @@ pub fn execute_file(plan: &FilePlan) -> Result<Vec<FsLog>, FilingError> {
             plan.extras.label.as_deref(), plan.extras.year, &plan.extras.genres,
             plan.extras.cover_path.as_deref(),
         ).map_err(FilingError::Tag)?;
-        std::fs::rename(&plan.source, &plan.dest).map_err(|e| FilingError::Io(e.to_string()))?;
+        move_cross_disk_safe(&plan.source, Path::new(&plan.dest))?;
         log.push(FsLog { kind: "move", from: plan.source.clone(), to: plan.dest.clone(), meta: None });
     } else {
         // transcode into the bin, tag the result, then trash the original (mono-location)
@@ -425,8 +443,10 @@ pub fn execute_file(plan: &FilePlan) -> Result<Vec<FsLog>, FilingError> {
 fn rollback_fs(log: &[FsLog]) {
     for fs in log.iter().rev() {
         match fs.kind {
+            // FIX-10: same cross-disk-safe fallback as the forward move — a rollback of the
+            // conformant path's rename can cross disks too.
             "move" | "trash" => {
-                let _ = std::fs::rename(&fs.to, &fs.from);
+                let _ = move_cross_disk_safe(&fs.to, Path::new(&fs.from));
             }
             "convert" => {
                 let _ = std::fs::remove_file(&fs.to);
