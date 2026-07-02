@@ -20,7 +20,9 @@ function ecReason(it: EcarteItem): string {
     return '<span class="sift-vchip" style="background:var(--color-background-warning);color:var(--color-text-warning);flex:none"><i class="ti ti-cut" style="font-size:var(--text-2xs)"></i> tronqué</span>';
   if (it.verdict === "fake")
     return '<span class="sift-vchip" style="background:var(--color-background-danger);color:var(--color-text-danger);flex:none"><i class="ti ti-alert-triangle" style="font-size:var(--text-2xs)"></i> faux</span>';
-  return '<span class="sift-vchip" style="background:var(--color-background-danger);color:var(--color-text-danger);flex:none"><i class="ti ti-alert-circle" style="font-size:var(--text-2xs)"></i> à re-sourcer</span>';
+  // FIX-8: neutral tone, not danger — "à re-sourcer" is a routine outcome (source missing/
+  // low-quality), not an anomaly detection like "faux" above.
+  return '<span class="sift-vchip" style="background:var(--overlay-selected);color:var(--color-text-secondary);flex:none"><i class="ti ti-alert-circle" style="font-size:var(--text-2xs)"></i> à re-sourcer</span>';
 }
 
 /** The "Artiste Titre" string to paste into Soulseek (single space; no dash). */
@@ -71,13 +73,13 @@ export async function renderEcartes() {
   const resRows = res
     .map(
       (it) =>
-        `<div style="padding:7px 4px;border-bottom:0.5px solid var(--color-border-tertiary)"><div style="display:flex;align-items:center;gap:7px"><div style="flex:1;min-width:0"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--text-md);font-weight:500">${name(
+        `<div style="padding:8px 4px;border-bottom:0.5px solid var(--color-border-tertiary)"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;min-width:0"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--text-md);font-weight:500">${name(
           it,
         )}</div>${fileLine(it)}</div>${ecReason(
           it,
         )}<button class="lk" data-ec="requeue" data-id="${it.id}" title="Restaurer — remettre en file"><i class="ti ti-arrow-back-up" style="font-size:var(--text-base);color:var(--color-text-tertiary)"></i></button><button class="lk" data-ec="trash" data-id="${it.id}" title="Envoyer à la corbeille"><i class="ti ti-trash" style="font-size:var(--text-md);color:var(--color-text-tertiary)"></i></button></div><div style="margin-top:5px;display:flex;flex-wrap:wrap;align-items:center;gap:4px"><button data-ec="slsk" data-q="${esc(
           ecSlsk(it),
-        )}" title="Copier « Artiste Titre » pour chercher sur Soulseek" style="font-size:var(--text-xs);padding:2px 7px;color:var(--color-text-secondary)"><i class="ti ti-copy" style="font-size:var(--text-xs);vertical-align:-1px"></i> Copier le nom</button><span style="color:var(--color-border-secondary)">·</span>${ecStoreLinks(
+        )}" title="Copier « Artiste Titre » pour chercher sur Soulseek" style="font-size:var(--text-xs);padding:2px 8px;color:var(--color-text-secondary)"><i class="ti ti-copy" style="font-size:var(--text-xs);vertical-align:-1px"></i> Copier le nom</button><span style="color:var(--color-border-secondary)">·</span>${ecStoreLinks(
           it,
         )}</div></div>`,
     )
@@ -86,7 +88,7 @@ export async function renderEcartes() {
   const trashRows = trash
     .map(
       (it) =>
-        `<div style="display:flex;align-items:center;gap:7px;padding:7px 4px;border-bottom:0.5px solid var(--color-border-tertiary)"><div style="flex:1;min-width:0"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--text-md)">${name(
+        `<div style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:0.5px solid var(--color-border-tertiary)"><div style="flex:1;min-width:0"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--text-md)">${name(
           it,
         )}</div>${fileLine(it)}</div><button data-ec="restore" data-id="${it.id}" title="Restaurer — remettre en file" style="font-size:var(--text-xs);padding:2px 8px;color:var(--color-text-info)">Restaurer</button></div>`,
     )
@@ -100,8 +102,8 @@ export async function renderEcartes() {
           note: "Les pistes que tu écartes depuis Revue apparaissent ici, avec possibilité de les restaurer.",
           backToRevue: true,
         })
-      : '<div style="display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap;align-items:center">' +
-        `<span class="pill" style="background:var(--color-background-danger);color:var(--color-text-danger)"><i class="ti ti-alert-circle" style="font-size:var(--text-xs)"></i> ${res.length} à re-sourcer</span>` +
+      : '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">' +
+        `<span class="pill" style="background:var(--overlay-selected);color:var(--color-text-secondary)"><i class="ti ti-alert-circle" style="font-size:var(--text-xs)"></i> ${res.length} à re-sourcer</span>` +
         `<span class="pill"><i class="ti ti-trash" style="font-size:var(--text-xs)"></i> ${trash.length} en corbeille</span>` +
         (trash.length
           ? `<button data-ec="purge" title="Purger — suppression définitive" style="font-size:var(--text-xs);padding:2px 8px;color:var(--color-text-danger)">Purger la corbeille (${trash.length})</button>`
