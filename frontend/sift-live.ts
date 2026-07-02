@@ -88,6 +88,12 @@ let batchSelInit = false;
 // Fakes ticked for DISCARD (never filed — Sift never ranges a fake lossless). Kept separate from
 // batchSel (fileables → File) so the rail action button can be adaptive (File n / Discard n / both).
 const batchFakeSel = new Set<number>();
+// Per-group collapse (Prêts/À vérifier/En analyse). Reintroduced 2026-07-02 on explicit request —
+// a prior pass removed this because it wasn't in the maquette, but that was written for
+// reasonably-sized batches; with thousands of "Prêts" rows the fixed DOM order (ready → fake →
+// pending) buries the other two groups thousands of rows down, making them unreachable in
+// practice. Collapsing "Prêts" solves that without reordering the groups. Default: all expanded.
+const batchCollapsed = new Set<"file" | "fake" | "readonly">();
 // Batch "file in place" toggle (FILE_IN_PLACE). Kept apart from batchBin so the picked folder is
 // remembered while in-place is on. Effective destination = batchInPlace ? FILE_IN_PLACE : batchBin.
 let batchInPlace = false;
@@ -427,11 +433,7 @@ function renderBatch() {
       `<div class="bx-row" data-sift="batchpick" data-id="${it.id}" style="display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:var(--border-radius-md);cursor:pointer;${
         on ? "background:var(--overlay-hover)" : ""
       }">` +
-      `<span class="bx-ck" style="flex:none;width:15px;height:15px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid ${
-        on ? "var(--color-text-success)" : "var(--color-border-secondary)"
-      };background:${on ? "var(--color-text-success)" : "transparent"}">${
-        on ? '<i class="ti ti-check" style="font-size:var(--text-xs);color:#1a1a18"></i>' : ""
-      }</span>` +
+      `<input type="checkbox" class="sift-batch-ck" ${on ? "checked" : ""} tabindex="-1">` +
       verdictDot(it.verdict) +
       nameCell(it) +
       (it.dup
@@ -463,11 +465,7 @@ function renderBatch() {
       `<div class="bx-row" data-sift="batchpickfake" data-id="${it.id}" style="display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:var(--border-radius-md);cursor:pointer;${
         on ? "background:var(--overlay-hover)" : ""
       }">` +
-      `<span class="bx-ck" style="flex:none;width:15px;height:15px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid ${
-        on ? "var(--color-text-danger)" : "var(--color-border-secondary)"
-      };background:${on ? "var(--color-background-danger)" : "transparent"}">${
-        on ? '<i class="ti ti-check" style="font-size:var(--text-xs);color:var(--color-text-danger)"></i>' : ""
-      }</span>` +
+      `<input type="checkbox" class="sift-batch-ck" ${on ? "checked" : ""} tabindex="-1">` +
       verdictDot(it.verdict) +
       nameCell(it, true) +
       '<span style="flex:none;font-size:var(--text-2xs);font-weight:600;letter-spacing:.03em;padding:2px 7px;border-radius:999px;background:var(--color-background-danger);color:var(--color-text-danger)">FAKE</span>' +
@@ -496,8 +494,14 @@ function renderBatch() {
           ? '<span class="sift-bgrp-box partial"><i class="ti ti-minus"></i></span>'
           : '<span class="sift-bgrp-box"></span>';
     const clickable = sel ? ` data-sift="batchgroup" data-kind="${kind}" style="cursor:pointer"` : "";
+    const collapsed = batchCollapsed.has(kind);
+    const caret =
+      `<span data-sift="batchcollapse" data-kind="${kind}" style="flex:none;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;cursor:pointer;transform:rotate(${
+        collapsed ? "0deg" : "90deg"
+      });transition:transform .12s"><i class="ti ti-chevron-right" style="font-size:var(--text-xs);color:var(--color-text-tertiary)"></i></span>`;
     return (
       `<div class="sift-bgrp-head"${clickable}>` +
+      caret +
       box +
       `<span style="width:6px;height:6px;border-radius:999px;background:${dotColor};flex:none"></span>` +
       `<span class="col-h" style="margin:0">${esc(label)} · ${ids.length}</span>` +
@@ -513,19 +517,19 @@ function renderBatch() {
     (ready.length
       ? `<div style="margin:2px 0 16px">` +
         groupHead("file", "var(--color-text-success)", "Prêts · lossless", ready.map((it) => it.id)) +
-        ready.map(readyRow).join("") +
+        (batchCollapsed.has("file") ? "" : ready.map(readyRow).join("")) +
         `</div>`
       : '<div class="col-h" style="margin:0 0 6px">Prêts · lossless · 0</div><div style="font-size:var(--text-md);color:var(--color-text-tertiary);padding:4px 9px 14px">Rien à filer pour l’instant.</div>') +
     (fakes.length
       ? `<div style="margin:2px 0 16px">` +
         groupHead("fake", "var(--color-text-warning)", "À vérifier · fake", fakes.map((it) => it.id)) +
-        fakes.map(fakeRow).join("") +
+        (batchCollapsed.has("fake") ? "" : fakes.map(fakeRow).join("")) +
         `</div>`
       : "") +
     (pending.length
       ? `<div style="margin:2px 0 16px">` +
         groupHead("readonly", "var(--color-text-tertiary)", "En analyse", pending.map((it) => it.id)) +
-        pending.map(pendingRow).join("") +
+        (batchCollapsed.has("readonly") ? "" : pending.map(pendingRow).join("")) +
         `</div>`
       : "") +
     `</div></div>`;
@@ -1289,6 +1293,14 @@ export function installLiveWiring() {
       const full = ids.length > 0 && ids.every((id) => sel.has(id));
       for (const id of ids) if (full) sel.delete(id);
         else sel.add(id);
+      renderBatch();
+    } else if (act === "batchcollapse") {
+      // Group-header caret — toggles that group's row list, independent from the tri-state
+      // select-all box (its own data-sift, resolved by closest() before the parent's).
+      e.stopPropagation();
+      const kind = el.dataset.kind === "fake" ? "fake" : el.dataset.kind === "readonly" ? "readonly" : "file";
+      if (batchCollapsed.has(kind)) batchCollapsed.delete(kind);
+      else batchCollapsed.add(kind);
       renderBatch();
     } else if (act === "batchpickfake") {
       e.stopPropagation();

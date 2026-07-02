@@ -5,19 +5,22 @@
 import { listEcartes } from "./ipc";
 import type { EcarteItem } from "../shared/contracts";
 import { requireEl } from "./dom";
+import { emptyStateHtml, wireEmptyState } from "./empty-state";
 
 const esc = (s: string) =>
   s.replace(/[&<>"']/g, (c) =>
     c === "&" ? "&amp;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : c === '"' ? "&quot;" : "&#39;",
   );
 
-/** Reason pill for an écarté track (truncated → tronqué, fake → faux, else à re-sourcer). */
+/** Reason chip for an écarté track (truncated → tronqué, fake → faux, else à re-sourcer). Uses the
+ *  shared `.sift-vchip` component (Revue-Détail's evidence chips) so tone/shape stay consistent
+ *  across screens instead of ad-hoc inline styles. */
 function ecReason(it: EcarteItem): string {
   if (it.truncated)
-    return '<span class="pill" style="background:var(--color-background-warning);color:var(--color-text-warning);flex:none"><i class="ti ti-cut" style="font-size:var(--text-2xs)"></i> truncated</span>';
+    return '<span class="sift-vchip" style="background:var(--color-background-warning);color:var(--color-text-warning);flex:none"><i class="ti ti-cut" style="font-size:var(--text-2xs)"></i> tronqué</span>';
   if (it.verdict === "fake")
-    return '<span class="pill" style="background:var(--color-background-danger);color:var(--color-text-danger);flex:none"><i class="ti ti-alert-triangle" style="font-size:var(--text-2xs)"></i> fake</span>';
-  return '<span class="pill" style="background:var(--color-background-danger);color:var(--color-text-danger);flex:none"><i class="ti ti-alert-circle" style="font-size:var(--text-2xs)"></i> to re-source</span>';
+    return '<span class="sift-vchip" style="background:var(--color-background-danger);color:var(--color-text-danger);flex:none"><i class="ti ti-alert-triangle" style="font-size:var(--text-2xs)"></i> faux</span>';
+  return '<span class="sift-vchip" style="background:var(--color-background-danger);color:var(--color-text-danger);flex:none"><i class="ti ti-alert-circle" style="font-size:var(--text-2xs)"></i> à re-sourcer</span>';
 }
 
 /** The "Artiste Titre" string to paste into Soulseek (single space; no dash). */
@@ -72,9 +75,9 @@ export async function renderEcartes() {
           it,
         )}</div>${fileLine(it)}</div>${ecReason(
           it,
-        )}<button class="lk" data-ec="requeue" data-id="${it.id}" title="Put back in the queue"><i class="ti ti-arrow-back-up" style="font-size:var(--text-base);color:var(--color-text-tertiary)"></i></button><button class="lk" data-ec="trash" data-id="${it.id}" title="Send to trash"><i class="ti ti-trash" style="font-size:var(--text-md);color:var(--color-text-tertiary)"></i></button></div><div style="margin-top:5px;display:flex;flex-wrap:wrap;align-items:center;gap:4px"><button data-ec="slsk" data-q="${esc(
+        )}<button class="lk" data-ec="requeue" data-id="${it.id}" title="Restaurer — remettre en file"><i class="ti ti-arrow-back-up" style="font-size:var(--text-base);color:var(--color-text-tertiary)"></i></button><button class="lk" data-ec="trash" data-id="${it.id}" title="Envoyer à la corbeille"><i class="ti ti-trash" style="font-size:var(--text-md);color:var(--color-text-tertiary)"></i></button></div><div style="margin-top:5px;display:flex;flex-wrap:wrap;align-items:center;gap:4px"><button data-ec="slsk" data-q="${esc(
           ecSlsk(it),
-        )}" title="Copy 'Artist Title' to search on Soulseek" style="font-size:var(--text-xs);padding:2px 7px;color:var(--color-text-secondary)"><i class="ti ti-copy" style="font-size:var(--text-xs);vertical-align:-1px"></i> Copy name</button><span style="color:var(--color-border-secondary)">·</span>${ecStoreLinks(
+        )}" title="Copier « Artiste Titre » pour chercher sur Soulseek" style="font-size:var(--text-xs);padding:2px 7px;color:var(--color-text-secondary)"><i class="ti ti-copy" style="font-size:var(--text-xs);vertical-align:-1px"></i> Copier le nom</button><span style="color:var(--color-border-secondary)">·</span>${ecStoreLinks(
           it,
         )}</div></div>`,
     )
@@ -85,22 +88,26 @@ export async function renderEcartes() {
       (it) =>
         `<div style="display:flex;align-items:center;gap:7px;padding:7px 4px;border-bottom:0.5px solid var(--color-border-tertiary)"><div style="flex:1;min-width:0"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--text-md)">${name(
           it,
-        )}</div>${fileLine(it)}</div><button data-ec="restore" data-id="${it.id}" style="font-size:var(--text-xs);padding:2px 8px;color:var(--color-text-info)">restore</button></div>`,
+        )}</div>${fileLine(it)}</div><button data-ec="restore" data-id="${it.id}" title="Restaurer — remettre en file" style="font-size:var(--text-xs);padding:2px 8px;color:var(--color-text-info)">Restaurer</button></div>`,
     )
     .join("");
 
   content.innerHTML =
-    '<div class="h1">Discarded</div>' +
-    '<div style="display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap;align-items:center">' +
-    `<span class="pill" style="background:var(--color-background-danger);color:var(--color-text-danger)"><i class="ti ti-alert-circle" style="font-size:var(--text-xs)"></i> ${res.length} to re-source</span>` +
-    `<span class="pill"><i class="ti ti-trash" style="font-size:var(--text-xs)"></i> ${trash.length} in trash</span>` +
-    (trash.length
-      ? `<button data-ec="purge" style="font-size:var(--text-xs);padding:2px 8px;color:var(--color-text-danger)">Empty trash (${trash.length})</button>`
-      : "") +
-    "</div>" +
-    (res.length ? `<div class="col-h">To re-source</div>${resRows}` : "") +
-    (trash.length ? `<div class="col-h" style="margin-top:14px">Trash</div>${trashRows}` : "") +
+    '<div class="h1">Écartés</div>' +
     (items.length === 0
-      ? '<div style="font-size:var(--text-md);color:var(--color-text-tertiary)">No discarded file.</div>'
-      : "");
+      ? emptyStateHtml({
+          title: "Rien dans Écartés",
+          note: "Les pistes que tu écartes depuis Revue apparaissent ici, avec possibilité de les restaurer.",
+          backToRevue: true,
+        })
+      : '<div style="display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap;align-items:center">' +
+        `<span class="pill" style="background:var(--color-background-danger);color:var(--color-text-danger)"><i class="ti ti-alert-circle" style="font-size:var(--text-xs)"></i> ${res.length} à re-sourcer</span>` +
+        `<span class="pill"><i class="ti ti-trash" style="font-size:var(--text-xs)"></i> ${trash.length} en corbeille</span>` +
+        (trash.length
+          ? `<button data-ec="purge" title="Purger — suppression définitive" style="font-size:var(--text-xs);padding:2px 8px;color:var(--color-text-danger)">Purger la corbeille (${trash.length})</button>`
+          : "") +
+        "</div>" +
+        (res.length ? `<div class="col-h">À re-sourcer</div>${resRows}` : "") +
+        (trash.length ? `<div class="col-h" style="margin-top:14px">Corbeille</div>${trashRows}` : ""));
+  wireEmptyState(content);
 }

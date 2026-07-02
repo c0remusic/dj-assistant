@@ -324,10 +324,14 @@ export function openLibraryDetailInto(
     '<div style="display:flex;flex-direction:column;gap:10px;margin-top:10px;border-top:0.5px solid var(--color-border-tertiary);padding-top:10px">' +
     '<div class="lib-report"></div>' +
     '<div class="lib-edit"></div>' +
+    '<div class="lib-verdict"></div>' +
     "</div>";
   const reportEl = requireEl<HTMLElement>(".lib-report", "openLibraryDetailInto", host);
   const editEl = requireEl<HTMLElement>(".lib-edit", "openLibraryDetailInto", host);
+  // Verdict is the CONCLUSION — rendered last, after Identification, matching the maquette
+  // (see docs/refonte-ui-plan.md, décision du 2026-07-02).
+  const verdictEl = requireEl<HTMLElement>(".lib-verdict", "openLibraryDetailInto", host);
 
-  void openReportInto(reportEl, track.path);
+  void openReportInto(reportEl, track.path, verdictEl);
   renderEdit(editEl, st);
 }

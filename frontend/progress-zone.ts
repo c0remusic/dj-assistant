@@ -8,7 +8,7 @@
 import { requireEl } from "./dom";
 
 /** Which long task a row represents. Doubles as the Map key (one active run per kind). */
-export type TaskKind = "analyze" | "identify" | "file";
+export type TaskKind = "analyze" | "identify" | "file" | "export";
 
 /** Lifecycle of a task run. `done`/`error` are terminal; the caller decides when to clear. */
 export type TaskState = "running" | "done" | "error";
@@ -22,11 +22,12 @@ export interface TaskProgress {
   stopping?: boolean;
 }
 
-/** Tabler icon per kind (analyse = wave, identify = tag, file = move-right). */
+/** Tabler icon per kind (analyse = wave, identify = tag, file = move-right, export = USB). */
 const ICONS: Record<TaskKind, string> = {
   analyze: "ti-wave-sine",
   identify: "ti-tag",
   file: "ti-arrow-big-right-lines",
+  export: "ti-usb",
 };
 
 /** Human label shown next to the icon. */
@@ -34,6 +35,7 @@ const LABELS: Record<TaskKind, string> = {
   analyze: "Analyse",
   identify: "Identification",
   file: "Rangement",
+  export: "Export",
 };
 
 // Encapsulated state: at most one active run per kind. Insertion order = display order.

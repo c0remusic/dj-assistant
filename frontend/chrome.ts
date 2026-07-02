@@ -91,9 +91,8 @@ export function injectLeanStyle() {
   st.textContent =
     // landing/demo copy in index.html: marketing pitch, demo disclaimer, feature cards row
     ".pitch,.sub,.frow{display:none!important}" +
-    // unbuilt nav tabs (Rekordbox, Clé USB = M7) + their now-empty EXPORT group header —
-    // Accueil/Revue/Écartés/Réglages/Bibliothèque are live
-    '#nav .nv[data-view="rkb"],#nav .nv[data-view="cle"],#nav .nv-grp[data-grp="export"]{display:none!important}' +
+    // Rekordbox/Clé USB nav items: wired to a real (simulated) export task in sift-live.ts
+    // (runNavExport) as of 2026-07-02 — no longer hidden. Revue-only toggles below still are.
     // Revue: batch mode + "traités" toggle aren't wired to the real backend yet
     '[data-act="revmode"],[data-act="togglequeue"]{display:none!important}' +
     // custom frameless titlebar (decorations are off in tauri.conf — Tauri only)
@@ -106,7 +105,7 @@ export function injectLeanStyle() {
     ".sift-win:hover{background:var(--color-background-secondary);color:var(--color-text-primary)}" +
     ".sift-win-close:hover{background:#e81123;color:#fff}.sift-win i{font-size:15px}" +
     // make room for the 30px bar: shrink the app shell so nothing is clipped
-    ".wrap{height:calc(100vh - 30px)!important}";
+    "#pa{height:calc(100vh - 30px)!important}";
   document.head.appendChild(st);
 }
 

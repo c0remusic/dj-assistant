@@ -37,6 +37,10 @@ function openLink(u){window.open(u,'_blank','noopener');}
 
   function renderHome(){
     content.style.display="flex";content.style.padding="14px 18px";content.style.overflowY="auto";content.style.flexDirection="column";
+    // Live (Tauri): window.__siftHome() below replaces everything except the ".h1" title with
+    // real watched-source data (home-sources.ts) — this whole block would be a wasted mock render
+    // (fake stat cards, fake folders) immediately clobbered. Same guard as renderRevue.
+    if(!('__TAURI_INTERNALS__' in window)){
     var filed=cnt("filed"),res=cnt("resource"),tr=cnt("trash"),pend=cnt("pending");
     var fakes=T.filter(function(x){return x.status==="resource"&&x.ecartReason==="fake";}).length;
     var noMeta=T.filter(function(x){return x.status==="filed"&&!x.lbl;}).length;
@@ -66,6 +70,9 @@ function openLink(u){window.open(u,'_blank','noopener');}
       +dossiers
       +(filed?'<div class="col-h" style="margin-top:12px">Répartition par dossier</div>'+bars:'');
     content.innerHTML='<div class="home-body"><div class="home-left">'+leftHtml+'</div></div>';
+    } else {
+      content.innerHTML='<div class="home-body"><div class="home-left"><div class="h1">Accueil</div></div></div>';
+    }
     if(window.__siftHome)window.__siftHome();
   }
 
@@ -177,6 +184,10 @@ function openLink(u){window.open(u,'_blank','noopener');}
   }
 
   function renderBiblio(){block();
+    // Live (Tauri): window.__siftBiblio() below (renderBiblioLive) sets #content.innerHTML fully
+    // from real library data — this whole block (fake rows, fake dup scanner) is a wasted mock
+    // render immediately clobbered. Same guard as renderRevue/renderHome.
+    if(!('__TAURI_INTERNALS__' in window)){
     var rows=LIB.map(function(r,i){var on=i===bibPlaying;var hl=i===bibHL;return '<div class="lr"'+(on?' style="background:var(--color-background-info);border-radius:var(--border-radius-md);border-bottom:none"':hl?' style="background:var(--color-background-warning);border-radius:var(--border-radius-md);outline:1px solid var(--color-text-warning)"':'')+'><button class="pb" data-act="bplay" data-i="'+i+'" aria-label="Écouter"'+(on?' style="color:var(--color-text-info)"':'')+'><i class="ti '+(on?'ti-player-pause':'ti-player-play')+'" style="font-size:12px"></i></button><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'+(on?';color:var(--color-text-info);font-weight:500':'')+'">'+r[0]+'</span><span class="pill" style="flex:none">'+r[1]+'</span><span style="flex:none;width:28px;text-align:right;font-family:var(--font-mono);color:var(--color-text-tertiary)">'+r[2]+'</span><span style="flex:none;width:34px;text-align:right;font-family:var(--font-mono);color:var(--color-text-tertiary)">'+r[3]+'</span><button class="lk" data-act="link" data-i="'+i+'" aria-label="Fiche Discogs"><i class="ti ti-external-link" style="font-size:13px;color:var(--color-text-tertiary)"></i></button></div>';}).join('');
     var player="";if(bibPlaying>=0){var r=LIB[bibPlaying];var tot=pT(r[3]);var w="";for(var k=0;k<40;k++){var hh=18+Math.round(Math.abs(Math.sin((k+bibPlaying*3)*0.7))*60+((k*7)%15));if(hh>96)hh=96;w+='<span style="height:'+hh+'%;background:'+(k/40<=bibPos?'var(--color-text-info)':'var(--color-text-tertiary)')+'"></span>';}player='<div style="margin-top:10px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:9px 11px;display:flex;align-items:center;gap:10px"><button class="pb" data-act="bplay" data-i="'+bibPlaying+'" aria-label="Pause" style="color:var(--color-text-info)"><i class="ti ti-player-pause" style="font-size:13px"></i></button><span style="flex:none;width:116px;min-width:0;font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+r[0]+'</span><div class="bars" data-act="bseek" style="flex:1;height:30px">'+w+'</div><span style="flex:none;font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary)">'+fT(tot*bibPos)+' / '+r[3]+'</span></div>';}
 
@@ -216,6 +227,7 @@ function openLink(u){window.open(u,'_blank','noopener');}
       +scanSection
       +'<div style="display:flex;gap:14px"><div style="width:130px;flex:none"><div class="col-h">Dossiers</div>'+['House 412','Techno 318','Disco/Edits 196','Ambient 142','Breakbeat 98'].map(function(s,i){var p=s.split(' '),n=p.pop();return '<div class="fld'+(i===0?' on':'')+'" style="justify-content:space-between"><span>'+p.join(' ')+'</span><span style="font-size:11px;opacity:.7">'+n+'</span></div>';}).join('')+'</div>'
       +'<div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:13px;font-weight:500">House</span><span style="font-size:11px;color:var(--color-text-tertiary)">412 morceaux</span></div>'+rows+player+'</div></div>';
+    }
     if(window.__siftBiblio)window.__siftBiblio();
   }
 
@@ -231,6 +243,10 @@ function openLink(u){window.open(u,'_blank','noopener');}
   function renderJournal(){block();content.innerHTML='';if(window.__siftJournal)window.__siftJournal();}
 
   function renderEcarts(){block();
+    // Live (Tauri): window.__siftEcarts() below (ecartes-view.ts's renderEcartes) sets
+    // #content.innerHTML fully from real rejected/trashed tracks — this whole block is a wasted
+    // mock render immediately clobbered. Same guard as renderRevue/renderHome/renderBiblio.
+    if(!('__TAURI_INTERNALS__' in window)){
     var ecarts=T.filter(function(x){return x.status==="resource"||x.status==="trash";});
     var filterR=ecarts.filter(function(x){return x.status==="resource";});
     var filterT=ecarts.filter(function(x){return x.status==="trash";});
@@ -265,6 +281,7 @@ function openLink(u){window.open(u,'_blank','noopener');}
       +'</div>'
       +(rows||'<div style="font-size:12px;color:var(--color-text-tertiary)">Aucun fichier écarté.</div>')
       ;
+    }
     if(window.__siftEcarts)window.__siftEcarts();
   }
 
@@ -272,8 +289,17 @@ function openLink(u){window.open(u,'_blank','noopener');}
     content.innerHTML='<div class="h1">Formater la clé</div><div style="display:flex;gap:8px;align-items:flex-start;background:var(--color-background-warning);border-radius:var(--border-radius-md);padding:9px 12px;margin-bottom:14px;font-size:11px;color:var(--color-text-warning)"><i class="ti ti-alert-triangle" style="font-size:15px;flex:none"></i><span>Volumes <strong>amovibles uniquement</strong> — le formatage <strong>efface tout</strong>.</span></div><div class="col-h">Volume</div><div class="srow"><span class="v"><i class="ti ti-usb"></i> USB DJ — 28 Go <span style="color:var(--color-text-tertiary)">(FAT32)</span></span><i class="ti ti-circle-check" style="color:var(--color-text-info);font-size:16px"></i></div><div class="srow"><span class="v"><i class="ti ti-usb"></i> SSD Samsung T7 — 500 Go <span style="color:var(--color-text-tertiary)">(exFAT)</span></span><i class="ti ti-circle" style="color:var(--color-text-tertiary);font-size:16px"></i></div><div class="col-h" style="margin-top:14px">Format</div><div style="display:flex;gap:8px;margin-bottom:14px"><span class="chip on">FAT32 — compat tous CDJ</span><span class="chip">exFAT — CDJ récents</span></div><div style="display:flex;align-items:center;gap:9px"><div style="flex:1;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:6px 10px;font-size:12px;color:var(--color-text-tertiary)">tape « USB DJ » pour confirmer</div><button style="color:var(--color-text-danger);border-color:var(--color-border-danger)">Formater</button></div>';
   }
 
-  function renderReglages(){block();var rows=[['Dossiers source','2 dossiers'],['Dossiers destination','6 genres'],['Format lossless','AIFF · 16-bit / 44,1 kHz'],['Format lossy','MP3 320 (pas d\'upscale)'],['Modèle de nommage','Artiste - Titre (Mix) [Label]'],['Sensibilité anti-fake','standard'],['Identification','tags → Discogs → manuel'],['Discogs','connecté'],['Intégration Rekordbox','XML (master.db désactivé)'],['Normalisation','désactivée']];
+  function renderReglages(){block();
+    // Live (Tauri): window.__siftReglages() below (renderReglagesLive) hides every child except
+    // ".h1" and injects real cards (Discogs/Bibliothèque/Apparence) — the placeholder rows here
+    // (Dossiers source, Format lossless…) are a wasted mock render immediately hidden. Same guard
+    // as the other render* functions above.
+    if(!('__TAURI_INTERNALS__' in window)){
+    var rows=[['Dossiers source','2 dossiers'],['Dossiers destination','6 genres'],['Format lossless','AIFF · 16-bit / 44,1 kHz'],['Format lossy','MP3 320 (pas d\'upscale)'],['Modèle de nommage','Artiste - Titre (Mix) [Label]'],['Sensibilité anti-fake','standard'],['Identification','tags → Discogs → manuel'],['Discogs','connecté'],['Intégration Rekordbox','XML (master.db désactivé)'],['Normalisation','désactivée']];
     content.innerHTML='<div class="h1">Réglages</div>'+rows.map(function(r){return '<div class="srow"><span>'+r[0]+'</span><span class="v">'+r[1]+' <i class="ti ti-chevron-right" style="font-size:14px;color:var(--color-text-tertiary)"></i></span></div>';}).join('');
+    } else {
+      content.innerHTML='<div class="h1">Réglages</div>';
+    }
     if(window.__siftReglages)window.__siftReglages();
   }
 

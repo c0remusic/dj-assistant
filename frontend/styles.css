@@ -452,6 +452,7 @@ details[open]>.jrnl-cat-hd .jrnl-cat-chev{transform:rotate(90deg)}
 .sift-clear-pane{flex:1;display:flex;align-items:center;justify-content:center;color:var(--color-text-tertiary);font-size:var(--text-md);padding:20px;text-align:center}
 .sift-inplace-toggle{display:flex;align-items:center;gap:7px;margin-top:12px;font-size:var(--text-sm);color:var(--color-text-secondary);cursor:pointer}
 .sift-inplace-toggle input{cursor:pointer;flex:none}
+.sift-batch-ck{cursor:pointer;flex:none}
 .sift-inplace-note{color:var(--color-text-tertiary)}
 .sift-fil-scroll{flex:1;min-height:0;overflow:auto}
 .sift-fil-editor-margin{margin-top:8px;padding-top:8px;border-top:0.5px solid var(--color-border-tertiary)}
