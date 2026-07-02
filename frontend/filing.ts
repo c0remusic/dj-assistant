@@ -1226,6 +1226,8 @@ function setActionsDisabled(disabled: boolean): void {
 /** Ranger the current track into the selected bin. */
 async function doRanger(mid: HTMLElement): Promise<void> {
   if (!state.track || !state.canonical || acting) return;
+  const track = state.track;
+  const canonical = state.canonical;
   // "Sur place" checked → destination is the track's own source folder (sentinel), bypassing the
   // tree selection. The sentinel rides the normal binRel channel — no separate flag (single channel).
   const inPlace = fileInPlaceChecked();
@@ -1241,27 +1243,56 @@ async function doRanger(mid: HTMLElement): Promise<void> {
   if (ranger)
     ranger.innerHTML =
       '<i class="ti ti-loader-2 sift-spin sift-icon-inline-md"></i> Rangement en cours…';
+  // FIX-1: a RAIL_MISMATCH rejection means the source's extension claims lossless but its real
+  // content is lossy (e.g. an MP3 renamed .flac) — retry once with explicit confirmation instead
+  // of a plain toast. A retry loop (not recursion) so this function's own `finally` stays the
+  // single owner of `acting` — see audit/HANDOFF-FIX1-2026-07-02.md for why recursion would race it.
+  let allowRailMismatch = false;
   try {
-    const res = await fileTrack(state.track.id, dest, state.target, state.canonical);
-    // Capture the "after" facts for the rail banner BEFORE we advance (state resets on the next open).
-    const filedPath = res.path;
-    const batchId = res.batch_id;
-    const bin = inPlace ? IN_PLACE_BIN_LABEL : binLabel();
-    // Auto-advance: the filed track has left the pending list, so switching away from it here is
-    // LEGITIMATE — this is the one place allowed to switch outside syncDetail's player guard, because
-    // we KNOW the current track was just filed (never on a passive analysis refresh). Reuse the
-    // existing load path openFilingInto; fresh pending list → items[0] is the next track to file.
-    let items: QueueItem[] = [];
-    try {
-      items = await listQueue();
-    } catch (err) {
-      console.error("listQueue failed after filing", err);
+    for (;;) {
+      try {
+        const res = await fileTrack(track.id, dest, state.target, canonical, allowRailMismatch);
+        // Capture the "after" facts for the rail banner BEFORE we advance (state resets on the next open).
+        const filedPath = res.path;
+        const batchId = res.batch_id;
+        const bin = inPlace ? IN_PLACE_BIN_LABEL : binLabel();
+        // Auto-advance: the filed track has left the pending list, so switching away from it here is
+        // LEGITIMATE — this is the one place allowed to switch outside syncDetail's player guard, because
+        // we KNOW the current track was just filed (never on a passive analysis refresh). Reuse the
+        // existing load path openFilingInto; fresh pending list → items[0] is the next track to file.
+        let items: QueueItem[] = [];
+        try {
+          items = await listQueue();
+        } catch (err) {
+          console.error("listQueue failed after filing", err);
+        }
+        if (items.length) await openFilingInto(mid, items[0]);
+        else clearPane(mid, true); // no pending left → the formal empty state; the banner still shows in the rail
+        // Filed confirmation as a banner at the BOTTOM of the right rail, under the new track's controls
+        // (renderFoot, run by openFilingInto above, already wrote them; the banner is appended below them).
+        showFiledConfirm(batchId, bin, filedPath);
+        return;
+      } catch (e) {
+        const msg = String(e);
+        if (!allowRailMismatch && msg.includes("RAIL_MISMATCH")) {
+          const ext = (track.path.split(".").pop() || "").toUpperCase();
+          const proceed = window.confirm(
+            `Ce fichier est déclaré ${ext} mais son contenu réel est compressé (lossy) — ` +
+              `le convertir créerait un faux fichier lossless.\n\nRanger quand même ?`,
+          );
+          if (proceed) {
+            allowRailMismatch = true;
+            continue;
+          }
+          // Refus explicite : sortie propre, pas d'erreur, pas de toast — l'utilisateur a choisi
+          // de ne rien faire.
+          setActionsDisabled(false);
+          if (ranger && orig != null) ranger.innerHTML = orig;
+          return;
+        }
+        throw e;
+      }
     }
-    if (items.length) await openFilingInto(mid, items[0]);
-    else clearPane(mid, true); // no pending left → the formal empty state; the banner still shows in the rail
-    // Filed confirmation as a banner at the BOTTOM of the right rail, under the new track's controls
-    // (renderFoot, run by openFilingInto above, already wrote them; the banner is appended below them).
-    showFiledConfirm(batchId, bin, filedPath);
   } catch (e) {
     const msg = String(e);
     if (msg.includes("NoLibraryRoot")) toast("Aucune racine de bibliothèque configurée.", false);

@@ -211,7 +211,11 @@ pub fn apply_tags(
 }
 
 /// File one track into `bin_rel`. `target` overrides the rail default (e.g. force MP3);
-/// `edited` overrides the reconciled metadata with the user's corrections.
+/// `edited` overrides the reconciled metadata with the user's corrections. `allow_rail_mismatch`
+/// (FIX-1): when the source's declared extension claims lossless but its content is actually
+/// lossy (BUG-1 — e.g. an MP3 renamed `.flac`), filing is refused with the `"RAIL_MISMATCH"`
+/// sentinel unless this is explicitly `true` — the front shows a confirmation dialog and, if the
+/// user proceeds, retries the same call with it set.
 #[tauri::command]
 pub fn file_track(
     app: AppHandle,
@@ -220,13 +224,14 @@ pub fn file_track(
     bin_rel: String,
     target: Option<Target>,
     edited: Option<Canonical>,
+    allow_rail_mismatch: Option<bool>,
 ) -> Result<FileResult, String> {
     // Phase 1 under the lock: decide the plan (fast DB reads + guard + dest).
     let plan = {
         let conn = conn.lock().map_err(|e| e.to_string())?;
         let root = library_root(&conn)?;
         let tmpl = template(&conn);
-        filing::plan_file(&conn, &root, &tmpl, track_id, &bin_rel, target, edited)
+        filing::plan_file(&conn, &root, &tmpl, track_id, &bin_rel, target, edited, allow_rail_mismatch.unwrap_or(false))
             .map_err(|e| e.to_string())?
     };
     // Phase 2 WITHOUT the lock: the multi-second ffmpeg encode + file moves.
@@ -344,6 +349,10 @@ fn run_file_batch(
                     &bin_rel,
                     targets.as_ref().and_then(|m| m.get(&id)).copied(),
                     Some(c),
+                    // Batch never force-confirms a rail mismatch on the user's behalf — a track
+                    // with a disguised source lands in needs_validation like any other filing
+                    // error, so the user reviews and confirms it explicitly in Detail mode.
+                    false,
                 ) {
                     Ok(p) => p,
                     Err(_) => {

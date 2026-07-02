@@ -34,6 +34,14 @@ pub const EXTERNAL_DEST_PREFIX: &str = "__EXTERNAL__::";
 pub enum FilingError {
     NotFound,
     Upscale,
+    /// The source's declared rail (from its extension) diverges from what its content actually
+    /// is (lossy content behind a lossless extension — the BUG-1 scenario: e.g. an MP3 renamed
+    /// `.flac`). Distinct from `Upscale`: this is a WARN-and-confirm case (FIX-1, option B), not
+    /// a hard refusal — the caller can retry `plan_file` with `allow_rail_mismatch=true` once the
+    /// user has explicitly confirmed. Stable sentinel string (`"RAIL_MISMATCH"`, mirrors the
+    /// existing `"NoLibraryRoot"` convention) so the front can pattern-match it distinctly from
+    /// other filing errors.
+    RailMismatch,
     Encode(String),
     Tag(String),
     Io(String),
@@ -45,6 +53,7 @@ impl std::fmt::Display for FilingError {
         match self {
             FilingError::NotFound => write!(f, "track not found"),
             FilingError::Upscale => write!(f, "refused: cannot upscale lossy to lossless"),
+            FilingError::RailMismatch => write!(f, "RAIL_MISMATCH"),
             FilingError::Encode(m) => write!(f, "encode: {m}"),
             FilingError::Tag(m) => write!(f, "tag: {m}"),
             FilingError::Io(m) => write!(f, "io: {m}"),
@@ -269,6 +278,13 @@ fn target_str(target: Target) -> &'static str {
 
 /// Phase 1 (under the DB lock): resolve metadata + the collision-free destination and apply
 /// the no-upscale guard. No slow work — only fast DB reads and a `create_dir_all`.
+/// `allow_rail_mismatch`: when false (the default from IPC), a source whose extension claims
+/// lossless but whose CONTENT is actually lossy (FIX-1 / BUG-1) is refused with
+/// `FilingError::RailMismatch` instead of silently filed — the front shows a confirmation and
+/// retries with `true` if the user proceeds anyway.
+#[allow(clippy::too_many_arguments)] // each param is an independent, orthogonal input to the
+// plan (DB handle, library context, track identity, user overrides) — bundling them into a
+// struct here would just move the same 8 fields one level up without reducing real complexity.
 pub fn plan_file(
     conn: &Connection,
     root: &Path,
@@ -277,6 +293,7 @@ pub fn plan_file(
     bin_rel: &str,
     override_target: Option<Target>,
     edited: Option<Canonical>,
+    allow_rail_mismatch: bool,
 ) -> Result<FilePlan, FilingError> {
     let source = track_path(conn, track_id)?;
     let canonical = match edited {
@@ -285,6 +302,19 @@ pub fn plan_file(
     };
 
     let source_rail = crate::analysis::tags::rail_from_ext(&ext_of(&source));
+    // BUG-1 guard: the extension says lossless, but is the CONTENT actually lossy? (an MP3
+    // renamed `.flac` would otherwise sail through and get "converted" into a fabricated
+    // lossless AIFF/WAV — exactly what guard_no_upscale below exists to block, except it never
+    // sees the real codec because `source_rail` here is extension-derived, not content-derived.)
+    // Only probe content when it matters (declared lossless) — skip the extra I/O for a
+    // declared-lossy source, where a content mismatch only means an unnecessary downscale, not
+    // a fabricated-lossless risk.
+    if source_rail == crate::analysis::Rail::Lossless
+        && !allow_rail_mismatch
+        && crate::analysis::tags::rail_from_content(&source) == crate::analysis::Rail::Lossy
+    {
+        return Err(FilingError::RailMismatch);
+    }
     let target = override_target.unwrap_or_else(|| encode::target_for(source_rail));
     if encode::guard_no_upscale(source_rail, target).is_err() {
         return Err(FilingError::Upscale);
@@ -453,6 +483,7 @@ pub fn commit_file(conn: &Connection, plan: &FilePlan, log: Vec<FsLog>) -> Resul
 /// (`ipc_filing::run_file_batch`) run the phases with the lock released around it. See module docs
 /// for the ordering and the mono-location / undo contract.
 #[cfg(test)]
+#[allow(clippy::too_many_arguments)] // mirrors plan_file's shape (test-only convenience wrapper)
 pub fn file_track(
     conn: &Connection,
     root: &Path,
@@ -461,8 +492,9 @@ pub fn file_track(
     bin_rel: &str,
     override_target: Option<Target>,
     edited: Option<Canonical>,
+    allow_rail_mismatch: bool,
 ) -> Result<FileResult, FilingError> {
-    let plan = plan_file(conn, root, template, track_id, bin_rel, override_target, edited)?;
+    let plan = plan_file(conn, root, template, track_id, bin_rel, override_target, edited, allow_rail_mismatch)?;
     let log = execute_file(&plan)?;
     commit_file(conn, &plan, log)
 }
@@ -626,7 +658,7 @@ mod tests {
         let res = file_track(&conn, &root, "{artist} - {title}", id, "House", None, Some(Canonical {
             artist: "Larry Heard".into(), title: "Can You Feel It".into(), version: None,
             confidence: crate::naming::Confidence::Green,
-        })).unwrap();
+        }), false).unwrap();
 
         // moved into bin, original gone (mono-location), one move action
         assert!(std::path::Path::new(&res.path).exists());
@@ -661,7 +693,7 @@ mod tests {
         let res = file_track(&conn, &root, "{artist} - {title}", id, "House", None, Some(Canonical {
             artist: "NEW Artist".into(), title: "NEW Title".into(), version: None,
             confidence: crate::naming::Confidence::Green,
-        })).unwrap();
+        }), false).unwrap();
         // Filed: file moved into the bin, carrying the NEW tags.
         let after = crate::tagging::read_tags_full(&res.path).unwrap();
         assert_eq!(after.artist.as_deref(), Some("NEW Artist"), "filing wrote the new tags");
@@ -691,7 +723,7 @@ mod tests {
         let res = file_track(&conn, &root, "{artist} - {title}", id, "House", None, Some(Canonical {
             artist: "Theo Parrish".into(), title: "Falling Up".into(), version: None,
             confidence: crate::naming::Confidence::Green,
-        })).unwrap();
+        }), false).unwrap();
 
         // converted AIFF lands in the bin; conformant to target
         assert!(res.path.ends_with("Theo Parrish - Falling Up.aiff"));
@@ -731,7 +763,7 @@ mod tests {
         let res = file_track(&conn, &root, "{artist} - {title}", id, "House", None, Some(Canonical {
             artist: "Larry Heard".into(), title: "Can You Feel It".into(), version: None,
             confidence: crate::naming::Confidence::Green,
-        })).unwrap();
+        }), false).unwrap();
 
         // Moved keeping `.aif` — NOT forced to the 4-letter `.aiff`.
         assert!(res.path.ends_with("Larry Heard - Can You Feel It.aif"), "dest keeps .aif: {}", res.path);
@@ -757,7 +789,7 @@ mod tests {
         };
         let err = file_track(&conn, &root, "{artist} - {title}", id, "", Some(Target::Aiff1644), Some(Canonical {
             artist: "X".into(), title: "Y".into(), version: None, confidence: crate::naming::Confidence::Green,
-        }));
+        }), false);
         assert_eq!(err, Err(FilingError::Upscale));
     }
 
@@ -776,7 +808,7 @@ mod tests {
         let bin_rel = format!("{EXTERNAL_DEST_PREFIX}{}", external.to_str().unwrap());
         let plan = plan_file(&conn, &root, "{artist} - {title}", id, &bin_rel, None, Some(Canonical {
             artist: "X".into(), title: "Y".into(), version: None, confidence: crate::naming::Confidence::Green,
-        })).unwrap();
+        }), false).unwrap();
         let dest = Path::new(&plan.dest);
         assert!(dest.starts_with(&external), "dest {dest:?} should land under the external dir, not the library root");
         assert!(!dest.starts_with(&root), "dest {dest:?} must NOT be under the library root");
@@ -796,7 +828,7 @@ mod tests {
         let bin_rel = format!("{EXTERNAL_DEST_PREFIX}{}", missing.to_str().unwrap());
         let err = plan_file(&conn, &root, "{artist} - {title}", id, &bin_rel, None, Some(Canonical {
             artist: "X".into(), title: "Y".into(), version: None, confidence: crate::naming::Confidence::Green,
-        }));
+        }), false);
         assert_eq!(
             err.err(),
             Some(FilingError::Io(format!(
@@ -903,7 +935,7 @@ mod tests {
             title: "Mystery of Love".into(),
             version: None,
             confidence: crate::naming::Confidence::Green,
-        })).unwrap();
+        }), false).unwrap();
 
         use lofty::file::TaggedFileExt;
         use lofty::probe::Probe;
@@ -912,5 +944,60 @@ mod tests {
         let tag = tagged.primary_tag().unwrap();
         let genre = tag.get_string(ItemKey::Genre).unwrap_or("");
         assert!(genre.contains("Deep House"), "filed file has applied genre; got {genre:?}");
+    }
+
+    /// FIX-1 (BUG-1): an MP3 disguised with a `.flac` extension must be REFUSED by default
+    /// (`RailMismatch`, not silently converted into a fabricated lossless AIFF), and must succeed
+    /// once the caller explicitly passes `allow_rail_mismatch=true` (the confirmed-by-the-user
+    /// path). A genuine FLAC must file normally either way — no false positive.
+    #[test]
+    fn plan_file_blocks_a_disguised_lossy_source_unless_allowed() {
+        let conn = db();
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("lib");
+        std::fs::create_dir_all(&root).unwrap();
+        let Some(mp3) = fixture("real_320.mp3") else {
+            eprintln!("skip: no fixture");
+            return;
+        };
+        let disguised = dir.path().join("disguised.flac");
+        std::fs::copy(&mp3, &disguised).unwrap();
+        conn.execute(
+            "INSERT INTO tracks(path, status) VALUES(?1, 'pending')",
+            params![disguised.to_str().unwrap()],
+        )
+        .unwrap();
+        let id = conn.last_insert_rowid();
+        let canonical = Some(Canonical {
+            artist: "X".into(), title: "Y".into(), version: None, confidence: crate::naming::Confidence::Green,
+        });
+
+        // Default (allow_rail_mismatch=false): refused, nothing touched.
+        let blocked = plan_file(&conn, &root, "{artist} - {title}", id, "House", None, canonical.clone(), false);
+        assert_eq!(blocked.err(), Some(FilingError::RailMismatch));
+        assert!(disguised.exists(), "refused plan must not touch the source file");
+
+        // Explicit confirmation (allow_rail_mismatch=true): proceeds normally.
+        crate::ffmpeg::init_ffmpeg_path();
+        let allowed = plan_file(&conn, &root, "{artist} - {title}", id, "House", None, canonical, true);
+        assert!(allowed.is_ok(), "an explicitly confirmed mismatch must proceed: {:?}", allowed.err());
+    }
+
+    /// No false positive: a genuine FLAC must never trip the mismatch guard.
+    #[test]
+    fn plan_file_does_not_flag_a_genuine_lossless_source() {
+        let conn = db();
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("lib");
+        std::fs::create_dir_all(&root).unwrap();
+        let Some((id, _src)) = seed_track(&conn, dir.path(), "real_lossless.flac", "src.flac") else {
+            eprintln!("skip: no fixture");
+            return;
+        };
+        crate::ffmpeg::init_ffmpeg_path();
+        let res = plan_file(&conn, &root, "{artist} - {title}", id, "House", None, Some(Canonical {
+            artist: "X".into(), title: "Y".into(), version: None, confidence: crate::naming::Confidence::Green,
+        }), false);
+        assert!(res.is_ok(), "a genuine FLAC must not be blocked: {:?}", res.err());
     }
 }

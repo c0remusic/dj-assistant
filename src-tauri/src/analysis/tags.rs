@@ -27,6 +27,31 @@ pub fn rail_from_ext(ext: &str) -> Rail {
     }
 }
 
+/// Lossless vs lossy from the file's ACTUAL content (lofty's content-sniffing probe, magic
+/// bytes — NOT the extension). Used only where extension trust actually matters: the filing
+/// no-upscale guard (`filing.rs::plan_file`), to catch a lossy file mislabeled with a lossless
+/// extension (e.g. an MP3 renamed `.flac`) before it gets "converted" into a fabricated lossless
+/// file. The analysis pipeline itself doesn't need this — Symphonia already decodes real content
+/// regardless of extension. `Rail::Unknown` on anything not confidently identified (unreadable
+/// file, exotic/ambiguous container) — this function must never manufacture a mismatch it can't
+/// back with a confident read.
+pub fn rail_from_content(path: &str) -> Rail {
+    use lofty::file::FileType;
+    fn try_read(path: &str) -> lofty::error::Result<lofty::file::TaggedFile> {
+        Probe::open(path)?.guess_file_type()?.read()
+    }
+    match try_read(path) {
+        Ok(tagged) => match tagged.file_type() {
+            FileType::Flac | FileType::Wav | FileType::Aiff | FileType::Ape | FileType::WavPack => {
+                Rail::Lossless
+            }
+            FileType::Mpeg | FileType::Vorbis | FileType::Opus | FileType::Speex => Rail::Lossy,
+            _ => Rail::Unknown,
+        },
+        Err(_) => Rail::Unknown,
+    }
+}
+
 /// Reads tag/property info. On unreadable container, returns a conservative Unknown info
 /// (the caller still has decode results + codec_error).
 pub fn read(path: &str) -> TagInfo {
@@ -89,5 +114,38 @@ mod tests {
         assert_eq!(info.declared_rail, Rail::Lossless);
         assert_eq!(info.channels, 0);
         assert!(!info.has_cover);
+    }
+
+    fn fixture(name: &str) -> Option<String> {
+        let p = format!("fixtures/{name}");
+        std::path::Path::new(&p).exists().then_some(p)
+    }
+
+    /// The exact BUG-1 scenario: an MP3 renamed with a `.flac` extension. `rail_from_ext`
+    /// (extension only) is fooled and says Lossless; `rail_from_content` (magic bytes) must see
+    /// through the renamed extension and correctly report Lossy.
+    #[test]
+    fn rail_from_content_sees_through_a_renamed_mp3() {
+        let Some(mp3) = fixture("real_320.mp3") else {
+            eprintln!("skip: no fixture");
+            return;
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let disguised = dir.path().join("disguised.flac");
+        std::fs::copy(&mp3, &disguised).unwrap();
+        let path = disguised.to_str().unwrap();
+
+        assert_eq!(rail_from_ext("flac"), Rail::Lossless, "extension alone is fooled");
+        assert_eq!(rail_from_content(path), Rail::Lossy, "content sniffing is not fooled");
+    }
+
+    /// A genuine FLAC must not be misclassified by content sniffing (no false positive).
+    #[test]
+    fn rail_from_content_confirms_a_real_flac() {
+        let Some(flac) = fixture("real_lossless.flac") else {
+            eprintln!("skip: no fixture");
+            return;
+        };
+        assert_eq!(rail_from_content(&flac), Rail::Lossless);
     }
 }

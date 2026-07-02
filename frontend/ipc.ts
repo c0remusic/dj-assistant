@@ -82,18 +82,23 @@ export const applyTags = (trackId: number, edited: Canonical): Promise<string> =
   invoke("apply_tags", { trackId, edited });
 
 /** File one track into `binRel`. `target` overrides the rail default; `edited` overrides
- * the reconciled metadata with the user's corrections. Resolves to the filed path. */
+ * the reconciled metadata with the user's corrections. `allowRailMismatch` (FIX-1): pass `true`
+ * only after the user has explicitly confirmed a `"RAIL_MISMATCH"` warning (the source's
+ * extension claims lossless but its content is actually lossy — an MP3 renamed `.flac`).
+ * Resolves to the filed path; rejects with `"RAIL_MISMATCH"` when the mismatch isn't confirmed. */
 export const fileTrack = (
   trackId: number,
   binRel: string,
   target?: Target | null,
   edited?: Canonical | null,
+  allowRailMismatch?: boolean,
 ): Promise<FileResult> =>
   invoke("file_track", {
     trackId,
     binRel,
     target: target ?? null,
     edited: edited ?? null,
+    allowRailMismatch: allowRailMismatch ?? null,
   });
 
 /** Launch background filing of `trackIds` into `binRel`. Resolves as soon as the background task
