@@ -507,13 +507,14 @@ async function mountPlayer(root: HTMLElement, path: string, peaks?: number[], du
       renderTempo();
     });
   }
-  // SoundCloud-style: elapsed + total shown at once, overlaid on the waveform itself — no
-  // elapsed/remaining toggle needed since both numbers are always visible together.
+  // SoundCloud-style: elapsed (left) + remaining (right) shown at once, overlaid on the waveform
+  // itself — no elapsed/remaining toggle needed since both are always visible together. The
+  // right side counts DOWN (duration - elapsed), not a static total, so it actually ticks.
   const timeElapsedEl = root.querySelector<HTMLElement>(".sift-time-elapsed");
   const timeTotalEl = root.querySelector<HTMLElement>(".sift-time-total");
   const updateTime = () => {
     if (timeElapsedEl) timeElapsedEl.textContent = mmss(ws.getCurrentTime());
-    if (timeTotalEl) timeTotalEl.textContent = mmss(ws.getDuration());
+    if (timeTotalEl) timeTotalEl.textContent = `-${mmss(Math.max(0, ws.getDuration() - ws.getCurrentTime()))}`;
   };
   ws.on("ready", () => {
     applyRate();
@@ -572,6 +573,15 @@ async function mountPlayer(root: HTMLElement, path: string, peaks?: number[], du
         waveHoverEl.style.setProperty(`${prop}-repeat`, "no-repeat");
         waveHoverEl.style.setProperty(`${prop}-size`, size);
         waveHoverEl.style.setProperty(`${prop}-position`, "0 0");
+      }
+      // WaveSurfer rounds its rendered canvas down to a whole number of bar+gap units, so it's
+      // often a few pixels narrower than `.sift-wave-wrap` itself — a static `left:6px`/`right:6px`
+      // on the pills would then float past the wave's real edges. Anchor them to the canvas's
+      // own measured edges instead, so they track it exactly regardless of that rounding.
+      if (waveWrapEl) {
+        const wrapRect = waveWrapEl.getBoundingClientRect();
+        if (timeElapsedEl) timeElapsedEl.style.left = `${Math.round(rect.left - wrapRect.left) + 6}px`;
+        if (timeTotalEl) timeTotalEl.style.right = `${Math.round(wrapRect.right - rect.right) + 6}px`;
       }
     } catch {
       // getImageData/toDataURL can throw on a tainted canvas — hover preview just stays unmasked.
