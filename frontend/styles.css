@@ -309,18 +309,7 @@ details[open]>.jrnl-cat-hd .jrnl-cat-chev{transform:rotate(90deg)}
 
 /* ── Revue detail (report-view.ts) — extracted inline styles, byte-identical values ───── */
 .sift-report-scroll{flex:1;overflow:auto;padding:2px 2px 8px}
-.sift-report-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}
-.sift-report-cover-sm{width:40px;height:40px;border-radius:4px;object-fit:cover;flex:none}
-.sift-report-header-body{min-width:0;flex:1}
-.sift-report-name-sm{font-size:var(--text-base);font-weight:600;word-break:break-all;color:var(--color-text-primary)}
-.sift-report-path-sm{font-size:var(--text-xs);color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;margin-top:2px}
 .sift-report-close{flex:none;font-size:var(--text-base);padding:4px 10px}
-.sift-hero{display:flex;align-items:center;gap:14px;margin-bottom:18px}
-.sift-hero-cover{width:64px;height:64px;border-radius:var(--border-radius-lg);object-fit:cover;flex:none;background:var(--color-background-secondary)}
-.sift-hero-body{min-width:0;flex:1}
-.sift-hero-name{font-size:var(--text-hero);font-weight:600;line-height:1.15;color:var(--color-text-primary);word-break:break-word}
-.sift-hero-sub{font-size:var(--text-base);color:var(--color-text-secondary);margin-top:2px}
-.sift-hero-path{font-size:var(--text-xs);color:var(--color-text-tertiary);font-family:var(--font-mono);word-break:break-all;margin-top:5px}
 .sift-kbd-hints{margin-top:18px;font-size:var(--text-xs);letter-spacing:.03em;color:var(--color-text-tertiary);display:flex;gap:16px;flex-wrap:wrap}
 .sift-kbd-hints b{font-weight:600;color:var(--color-text-secondary)}
 .sift-player-row{display:flex;flex-direction:column;gap:14px;margin-bottom:11px;padding:12px 14px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)}
@@ -328,11 +317,18 @@ details[open]>.jrnl-cat-hd .jrnl-cat-chev{transform:rotate(90deg)}
 .sift-play-btn{flex:none;width:36px;height:36px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;padding:0;border:none;background:var(--color-text-primary)}
 .sift-play-btn i{font-size:var(--text-base);color:var(--color-background-primary)}
 .sift-play-btn:hover{filter:brightness(0.9)}
-.sift-player-mini-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-.sift-mini-cover{width:40px;height:40px;border-radius:6px;object-fit:cover;flex:none;background:var(--color-background-tertiary)}
-.sift-mini-header-body{min-width:0}
-.sift-mini-name{font-size:var(--text-base);font-weight:500;color:var(--color-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sift-mini-sub{font-size:var(--text-sm);color:var(--color-text-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sift-player-header{display:flex;align-items:center;gap:12px;margin-bottom:11px}
+/* Cover frame: real art fills it once identified (.sift-player-cover unhides, sits above the
+   ::before at z-index 1 and covers it completely). Until then the ::before pseudo-element draws
+   a minimalist vinyl disc (grooves + label + spindle hole) inset from the square sleeve edge —
+   no external asset, so a track always shows *something* here instead of empty/broken. */
+.sift-cover-frame{width:48px;height:48px;border-radius:6px;flex:none;position:relative;overflow:hidden;background:var(--color-background-tertiary)}
+.sift-cover-frame::before{content:"";position:absolute;inset:3px;border-radius:50%;background:radial-gradient(circle at 50% 50%,#111 0 9%,transparent 9.5%),repeating-radial-gradient(circle at 50% 50%,rgba(255,255,255,.12) 0 1px,transparent 1px 5px),#2c2822}
+.sift-player-cover{position:relative;z-index:1;width:100%;height:100%;object-fit:cover;display:block}
+.sift-player-header-body{min-width:0;flex:1}
+.sift-player-name{font-size:var(--text-lg);font-weight:600;color:var(--color-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sift-player-sub{font-size:var(--text-sm);color:var(--color-text-secondary);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sift-player-path{font-size:var(--text-xs);color:var(--color-text-tertiary);font-family:var(--font-mono);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sift-wave-wrap{position:relative;flex:1;min-width:0}
 .sift-player-wave{cursor:pointer;transition:opacity .15s ease}
 .sift-wave-wrap.is-paused .sift-player-wave{opacity:.55}

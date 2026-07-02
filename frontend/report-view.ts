@@ -132,32 +132,6 @@ export function row(label: string, value: string): string {
 
 // ── HTML helpers ────────────────────────────────────────────────────────────
 
-function nameHeaderHtml(name: string, path: string, closeBtn: boolean): string {
-  return (
-    `<div class="sift-report-header">` +
-    `<img class="sift-report-cover sift-report-cover-sm" hidden alt="">` +
-    `<div class="sift-report-header-body"><div class="sift-report-name sift-report-name-sm">${esc(name)}</div>` +
-    `<div class="sift-report-path-sm">${esc(path)}</div></div>` +
-    (closeBtn ? `<button class="sift-close sift-report-close">fermer</button>` : "") +
-    `</div>`
-  );
-}
-
-/** Son-first hero for the inline (#mid) detail: enlarged cover (filled on identify) + the
- *  proposed/clean name + raw path. Keeps the `.sift-report-cover` / `.sift-report-name` hooks
- *  that filing.ts writes into (cover src on identify, clean displayName on reconcile). */
-function heroHtml(name: string, path: string): string {
-  return (
-    `<div class="sift-hero">` +
-    `<img class="sift-report-cover sift-hero-cover" hidden alt="">` +
-    `<div class="sift-hero-body">` +
-    `<div class="sift-report-name sift-hero-name">${esc(name)}</div>` +
-    `<div class="sift-report-sub sift-hero-sub"></div>` +
-    `<div class="sift-hero-path">${esc(path)}</div>` +
-    `</div></div>`
-  );
-}
-
 /** Keyboard-hint row for the bottom action rail (filing.ts), matching the board's `kbd` line —
  *  the maquette anchors these to the rail, not the scrollable detail content. */
 export function keyboardHintsHtml(): string {
@@ -169,28 +143,32 @@ export function keyboardHintsHtml(): string {
   );
 }
 
-/** SoundCloud-style mini header (small cover + title + artist) inside the player card itself —
- *  duplicates the big Hero directly above it on purpose (explicit product decision, 2026-07-02):
- *  reuses the shared `.sift-report-cover`/`.sift-report-name`/`.sift-report-sub` hooks so it
- *  stays in sync automatically wherever those get updated (updateHeaderName, the cover-set call
- *  in filing.ts's onIdentityApplied) — both call sites now update EVERY matching element via
- *  querySelectorAll, not just the first (the Hero), specifically so this second copy doesn't go
- *  stale. `name` seeds the initial (pre-canonical) text, matching the Hero's own behavior. */
-function playerMiniHeaderHtml(name: string): string {
+/** Single header, folded into the player card itself (2026-07-02: the standalone Hero above the
+ *  player was pure duplication — same title/artist/path, twice). Cover (real art once identified,
+ *  a minimalist vinyl placeholder via `.sift-cover-frame`'s CSS until then) + title + artist ·
+ *  version + raw path, optionally a close button (`openReportModal`'s popup only). Keeps the
+ *  shared `.sift-report-cover`/`.sift-report-name`/`.sift-report-sub` hooks that filing.ts writes
+ *  into (cover src on identify, clean displayName on reconcile). */
+function playerHeaderHtml(name: string, path: string, closeBtn: boolean): string {
   return (
-    `<div class="sift-player-mini-header">` +
-    `<img class="sift-report-cover sift-mini-cover" hidden alt="">` +
-    `<div class="sift-mini-header-body">` +
-    `<div class="sift-report-name sift-mini-name">${esc(name)}</div>` +
-    `<div class="sift-report-sub sift-mini-sub"></div>` +
-    `</div></div>`
+    `<div class="sift-player-header">` +
+    `<div class="sift-cover-frame">` +
+    `<img class="sift-report-cover sift-player-cover" hidden alt="">` +
+    `</div>` +
+    `<div class="sift-player-header-body">` +
+    `<div class="sift-report-name sift-player-name">${esc(name)}</div>` +
+    `<div class="sift-report-sub sift-player-sub"></div>` +
+    `<div class="sift-player-path">${esc(path)}</div>` +
+    `</div>` +
+    (closeBtn ? `<button class="sift-close sift-report-close">fermer</button>` : "") +
+    `</div>`
   );
 }
 
-function playerRowHtml(name: string): string {
+function playerRowHtml(name: string, path: string, closeBtn = false): string {
   return (
     `<div class="sift-player-row">` +
-    playerMiniHeaderHtml(name) +
+    playerHeaderHtml(name, path, closeBtn) +
     `<div class="sift-player-audition">` +
     `<button class="sift-play sift-play-btn" title="Lecture / pause (espace)"><i class="ti ti-player-play"></i></button>` +
     `<div class="sift-wave-wrap is-paused">` +
@@ -311,8 +289,7 @@ function spectroAndTagsHtml(r: AnalysisReport): string {
 function reportHtml(r: AnalysisReport, closeBtn: boolean): string {
   const name = r.path.split(/[\\/]/).pop() || r.path;
   return (
-    nameHeaderHtml(name, r.path, closeBtn) +
-    playerRowHtml(name) +
+    playerRowHtml(name, r.path, closeBtn) +
     spectroAndTagsHtml(r)
   );
 }
@@ -687,16 +664,15 @@ export async function openReportInto(
   // Fire analysis IPC immediately. For already-analyzed tracks the DB round-trip takes ~20ms.
   const analysisPromise = analyzePath(path, false);
 
-  // Render the player shell. Son-first order: hero → audition band → proof (Preuves). The verdict
-  // conclusion goes LAST, above the action rail — in `verdictContainer` when the caller supplies
-  // one (filing.ts/library-detail.ts, both of which insert Identification between here and their
-  // own verdict slot), else in a `.sift-verdict-stub` kept inside this same scroll (openReportModal,
-  // which has no Identification card of its own). Filled in later (seq-guarded).
+  // Render the player shell. Son-first order: player (header+audition) → proof (Preuves). The
+  // verdict conclusion goes LAST, above the action rail — in `verdictContainer` when the caller
+  // supplies one (filing.ts/library-detail.ts, both of which insert Identification between here
+  // and their own verdict slot), else in a `.sift-verdict-stub` kept inside this same scroll
+  // (openReportModal, which has no Identification card of its own). Filled in later (seq-guarded).
   const verdictHost = () => verdictContainer ?? container.querySelector<HTMLElement>(".sift-verdict-stub");
   container.innerHTML =
     `<div class="sift-report-scroll">` +
-    heroHtml(name, path) +
-    playerRowHtml(name) +
+    playerRowHtml(name, path) +
     `<div class="sift-analysis-body" hidden></div>` +
     (verdictContainer ? "" : `<div class="sift-verdict-stub"></div>`) +
     `</div>`;
