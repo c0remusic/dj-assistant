@@ -210,8 +210,20 @@ function absPath(rel: string): string {
   return `${root}${sep}${rel.replace(/\//g, sep)}`;
 }
 
-/** Human label for the current destination selection. */
+/** The real parent directory of a file path, on disk — no library/bin concept involved, just
+ *  string surgery on the path itself (the OS separator the path already uses, not the root's). */
+function sourceFolderOf(path: string): string {
+  const i = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+  return i >= 0 ? path.slice(0, i) : path;
+}
+
+/** Human label for the current destination selection. "Sur place" checked → the CURRENT track's
+ *  own physical folder on disk (a real path, computed from state.track — never a library bin, a
+ *  root-relative name, or anything else "internal" to Sift): this is a plain filesystem
+ *  destination, not a library one, and must never look like it's borrowed from the bin tree. Only
+ *  when unchecked does the library selection (state.binRel) apply. */
 function binLabel(): string {
+  if (detailInPlace) return state.track ? sourceFolderOf(state.track.path) : "—";
   if (state.binRel === null) return "—";
   if (state.binRel === "") return rootName();
   if (state.binRel.startsWith(EXTERNAL_DEST_PREFIX)) {
@@ -349,7 +361,7 @@ export function renderBins(fldz: HTMLElement): void {
   const inPlaceAttr = binPick ? 'data-sift="inplace"' : 'data-fil="inplace"';
   const inPlaceRow = `<label class="sift-inplace-toggle"><input type="checkbox" ${inPlaceAttr}${
     inPlaceChecked ? " checked" : ""
-  }><span>Sur place <span class="sift-inplace-note">(dossier source)</span></span></label>`;
+  }><span>Sur place <span class="sift-inplace-note">(dossier du fichier)</span></span></label>`;
   // Real disk path caption (maquette: "📁 {rootPath}\"), title= carries the full path for a
   // narrow popover where the text itself gets ellipsis-truncated.
   const rootCaption = state.rootPath
@@ -364,17 +376,19 @@ export function renderBins(fldz: HTMLElement): void {
     ? `<div class="fld sift-fldz-browse" data-fil="browsecustom"><i class="ti ti-folder-open sift-icon-inline-lg"></i> Parcourir un autre dossier…</div>`
     : "";
 
+  // filterRow/rootCaption are library-picker chrome, same as the tree itself — all three grey
+  // out together under "Sur place" (only the checkbox and "Parcourir un autre dossier…", a plain
+  // filesystem action with no library concept, stay outside the greyed wrapper).
   fldz.innerHTML =
-    filterRow +
     inPlaceRow +
-    rootCaption +
-    `<div class="sift-fldz-tree">${body}${newRow}</div>` +
+    `<div class="sift-fldz-tree">${filterRow}${rootCaption}${body}${newRow}</div>` +
     browseRow;
 
   if (!binPick) {
     fldz.querySelector<HTMLInputElement>('[data-fil="inplace"]')?.addEventListener("change", (e) => {
       detailInPlace = (e.target as HTMLInputElement).checked;
       renderBins(fldz); // re-render so the tree-wrap greying below picks up the new state
+      refreshFootButton(); // Destination/Ranger labels must switch to the file's own folder too
     });
   }
 
