@@ -705,6 +705,9 @@ async function runBatchFile() {
   fileNote(
     '<i class="ti ti-loader sift-spin" style="font-size:var(--text-md);vertical-align:-1px"></i> Rangement en arrière-plan…',
   );
+  // FIX-7: show 0/N in the global progress zone immediately at the click, same instant signal the
+  // per-track tracklist above already gets — don't wait for the first file:progress event.
+  setTask("file", { done: 0, total: ids.length, state: "running" });
   // Single format applied to every submitted id (maquette's one segmented control for the batch).
   const targets: Record<number, Target> = {};
   for (const id of ids) targets[id] = batchFormat;
