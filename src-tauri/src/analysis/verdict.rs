@@ -30,6 +30,20 @@ pub fn min_cutoff_hz_for_bitrate(kbps: u32) -> f32 {
     }
 }
 
+/// Equivalent lossy bitrate for a measured cutoff, read off the SAME tiers `verdict()` uses to
+/// call a bitrate over-encoded (FIX-11: this used to be duplicated in report-view.ts with a
+/// shifted table — e.g. a cutoff the verdict logic scored against the 192kbps band showed as
+/// "≈256 kbps" in the UI). Rust is the single source of truth; the front just displays this.
+pub fn estimate_kbps(cutoff_hz: f32) -> u32 {
+    const TIERS: [u32; 5] = [320, 256, 192, 160, 128];
+    for b in TIERS {
+        if cutoff_hz >= min_cutoff_hz_for_bitrate(b) {
+            return b;
+        }
+    }
+    128
+}
+
 /// Maps cutoff + declared rail + declared bitrate to a verdict.
 pub fn verdict(cutoff_hz: f32, declared: Rail, declared_bitrate: Option<u32>) -> Verdict {
     match declared {

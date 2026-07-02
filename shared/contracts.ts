@@ -80,6 +80,9 @@ export interface AnalysisReport {
   declared_rail: "lossless" | "lossy" | "unknown";
   cutoff_hz: number;
   verdict: "ok" | "fake" | "grey";
+  /** Equivalent lossy bitrate estimated from cutoff_hz (FIX-11: computed in Rust, single
+   *  source of truth shared with the verdict logic — don't recompute this in TS). */
+  est_kbps: number;
   peaks: number[];
   spectrogram: Spectrogram;
   clip_runs: number;
