@@ -169,9 +169,28 @@ export function keyboardHintsHtml(): string {
   );
 }
 
-function playerRowHtml(): string {
+/** SoundCloud-style mini header (small cover + title + artist) inside the player card itself —
+ *  duplicates the big Hero directly above it on purpose (explicit product decision, 2026-07-02):
+ *  reuses the shared `.sift-report-cover`/`.sift-report-name`/`.sift-report-sub` hooks so it
+ *  stays in sync automatically wherever those get updated (updateHeaderName, the cover-set call
+ *  in filing.ts's onIdentityApplied) — both call sites now update EVERY matching element via
+ *  querySelectorAll, not just the first (the Hero), specifically so this second copy doesn't go
+ *  stale. `name` seeds the initial (pre-canonical) text, matching the Hero's own behavior. */
+function playerMiniHeaderHtml(name: string): string {
+  return (
+    `<div class="sift-player-mini-header">` +
+    `<img class="sift-report-cover sift-mini-cover" hidden alt="">` +
+    `<div class="sift-mini-header-body">` +
+    `<div class="sift-report-name sift-mini-name">${esc(name)}</div>` +
+    `<div class="sift-report-sub sift-mini-sub"></div>` +
+    `</div></div>`
+  );
+}
+
+function playerRowHtml(name: string): string {
   return (
     `<div class="sift-player-row">` +
+    playerMiniHeaderHtml(name) +
     `<div class="sift-player-audition">` +
     `<button class="sift-play sift-play-btn" title="Lecture / pause (espace)"><i class="ti ti-player-play"></i></button>` +
     `<div class="sift-wave-wrap">` +
@@ -292,7 +311,7 @@ function reportHtml(r: AnalysisReport, closeBtn: boolean): string {
   const name = r.path.split(/[\\/]/).pop() || r.path;
   return (
     nameHeaderHtml(name, r.path, closeBtn) +
-    playerRowHtml() +
+    playerRowHtml(name) +
     spectroAndTagsHtml(r)
   );
 }
@@ -649,7 +668,7 @@ export async function openReportInto(
   container.innerHTML =
     `<div class="sift-report-scroll">` +
     heroHtml(name, path) +
-    playerRowHtml() +
+    playerRowHtml(name) +
     `<div class="sift-analysis-body" hidden></div>` +
     (verdictContainer ? "" : `<div class="sift-verdict-stub"></div>`) +
     `</div>`;

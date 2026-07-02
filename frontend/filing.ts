@@ -515,17 +515,19 @@ function displayName(): string {
 function updateHeaderName(mid: HTMLElement): void {
   const c = state.canonical;
   if (!c) return; // before reconcile: keep the filename the report set
-  // "Is the report pane still mounted?" is a normal question (mid may have been replaced after an
-  // await / a navigation) → probe non-throw and bail, like renderQueue's `if (!ql) return`.
-  const nameEl = mid.querySelector<HTMLElement>(".sift-report-name");
-  if (!nameEl) return;
-  // Board hero: big TITLE on top, "artist · version" subtitle below (not the full filename).
-  nameEl.textContent = c.title || displayName();
-  const subEl = mid.querySelector<HTMLElement>(".sift-report-sub");
-  if (subEl) {
-    const ver = c.version && c.version.trim() ? c.version.trim() : "";
-    subEl.textContent = [c.artist, ver].filter(Boolean).join(" · ");
-  }
+  // Two copies live in the DOM at once now (the big Hero + the player's mini header, same
+  // classes) — update every match, not just the first, so the second copy doesn't go stale.
+  // "Any matches at all?" is still a normal question (mid may have been replaced after an
+  // await / a navigation) → probe non-throw and no-op on an empty NodeList, like renderQueue's
+  // `if (!ql) return`.
+  const ver = c.version && c.version.trim() ? c.version.trim() : "";
+  mid.querySelectorAll<HTMLElement>(".sift-report-name").forEach((el) => {
+    // Board hero: big TITLE on top, "artist · version" subtitle below (not the full filename).
+    el.textContent = c.title || displayName();
+  });
+  mid.querySelectorAll<HTMLElement>(".sift-report-sub").forEach((el) => {
+    el.textContent = [c.artist, ver].filter(Boolean).join(" · ");
+  });
 }
 
 /** Re-render the bin label wherever it's shown in the rail — the File button AND the Destination
@@ -686,14 +688,15 @@ function onIdentityApplied(
     }
   }
 
-  // Show the cover if we have a local path. Probe non-throw — the report pane may be gone after the
-  // identify await / a navigation.
+  // Show the cover if we have a local path. Every match, not just the first — the Hero and the
+  // player's mini header both carry this class now. Probe non-throw — the report pane may be
+  // gone after the identify await / a navigation.
   if (applied.cover_path) {
-    const covEl = mid.querySelector<HTMLImageElement>(".sift-report-cover");
-    if (covEl) {
-      covEl.src = convertFileSrc(applied.cover_path);
+    const src = convertFileSrc(applied.cover_path);
+    mid.querySelectorAll<HTMLImageElement>(".sift-report-cover").forEach((covEl) => {
+      covEl.src = src;
       covEl.hidden = false;
-    }
+    });
   }
 
   // [m11] Genres: store the would-write list (single source) and render the chips. The list also
