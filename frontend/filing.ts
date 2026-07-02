@@ -117,7 +117,9 @@ async function loadBins(): Promise<void> {
     state.rootPath = root ?? null;
     state.rootSet = !!(root && root.trim());
     state.bins = state.rootSet ? await listBins() : [];
-    if (state.rootSet) expanded.add(""); // root open by default
+    // Root starts COLLAPSED (no forced expanded.add("") here) — this used to re-force it open on
+    // every loadBins() call (incl. background refreshes unrelated to the tree), so a user who
+    // collapsed it would see it silently reopen. `expanded` persists the user's own toggles now.
     // Drop a stale selection (a real bin that vanished); "" (root) is always valid, and an
     // external destination (outside root, never listed in `state.bins`) is its own kind of
     // valid — only a REAL bin path that no longer matches any loaded bin counts as stale here.
@@ -351,7 +353,7 @@ export function renderBins(fldz: HTMLElement): void {
   // Real disk path caption (maquette: "📁 {rootPath}\"), title= carries the full path for a
   // narrow popover where the text itself gets ellipsis-truncated.
   const rootCaption = state.rootPath
-    ? `<div class="sift-fldz-rootpath" title="${esc(state.rootPath)}"><i class="ti ti-folder sift-icon-inline-sm"></i> ${esc(state.rootPath)}\\</div>`
+    ? `<div class="sift-fldz-rootpath" title="${esc(state.rootPath)}"><i class="ti ti-folder"></i><span>${esc(state.rootPath)}\\</span></div>`
     : "";
   // "Parcourir un autre dossier…" — opens the native OS directory picker and sets the result as
   // an EXTERNAL_DEST_PREFIX-prefixed destination (see plan_file's handling in filing.rs). Kept
@@ -372,17 +374,18 @@ export function renderBins(fldz: HTMLElement): void {
   if (!binPick) {
     fldz.querySelector<HTMLInputElement>('[data-fil="inplace"]')?.addEventListener("change", (e) => {
       detailInPlace = (e.target as HTMLInputElement).checked;
+      renderBins(fldz); // re-render so the tree-wrap greying below picks up the new state
     });
   }
 
-  // Batch in-place greys the TREE ONLY (never the checkbox that controls it). Re-assert on every
-  // render, unconditionally (not just when binPick.inert is true) — this makes renderBins
-  // self-consistent across mode switches with no external reset needed (previously an explicit
-  // cleanup in setReviewMode's "leave batch" branch was required because this only ever SET
-  // opacity, never cleared it, when binPick was null).
+  // In-place greys the TREE ONLY (never the checkbox that controls it) — detail's own
+  // detailInPlace, or batch's binPick.inert. Re-assert on every render, unconditionally (not just
+  // when the flag is true) — this makes renderBins self-consistent across mode switches with no
+  // external reset needed (previously an explicit cleanup in setReviewMode's "leave batch" branch
+  // was required because this only ever SET opacity, never cleared it, when binPick was null).
   const treeWrap = fldz.querySelector<HTMLElement>(".sift-fldz-tree");
   if (treeWrap) {
-    const inert = !!binPick?.inert;
+    const inert = binPick ? binPick.inert : detailInPlace;
     treeWrap.style.opacity = inert ? ".4" : "1";
     treeWrap.style.pointerEvents = inert ? "none" : "auto";
   }
