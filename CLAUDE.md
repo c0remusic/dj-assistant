@@ -116,6 +116,8 @@ Prime sur toute impulsion à agir directement sans passer par la skill correspon
 - `progress-zone.ts` — zone de progression encodage
 - `library-detail.ts` — écran Bibliothèque (M6b)
 - `identify-shared.ts` — UI partagée identification Discogs
+- `theme.ts` — mode sombre (prefers-color-scheme + override + persistance)
+- `empty-state.ts` — composant partagé état vide (titre, note, lien retour)
 - `dom.ts` — helpers DOM partagés
 - `ipc.ts` — wrappers IPC Tauri typés
 - `selftest.ts` — smoke tests IPC au démarrage
