@@ -187,6 +187,7 @@ function onIdentityApplied(
   state.identified = true;
   refreshRebuyLink();
 
+  refreshReleaseFacts(editor);
   // La liste SE REFERME au choix d'une release — retour d'Antoine (2026-09-06, vraie fenêtre),
   // qui remplace le fork F (« liste ouverte, candidat marqué aria-selected, permuter = cliquer un
   // autre item ») : une liste qui reste après le choix se lit comme une action inachevée. Le
@@ -376,6 +377,13 @@ export function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string):
     // persiste metadata.label). Rempli en place par onIdentityApplied. Placeholder "—" quand vide.
     `<div class="sift-attr"><span class="sift-attr-k">Label</span><input data-fil="label" placeholder="—" value="${esc(c.label ?? "")}" class="sift-attr-input" aria-label="Label"></div>` +
     `<div class="sift-attr"><span class="sift-attr-k">Genres</span><span class="sift-genres"></span></div>` +
+    // Faits de la release choisie (année · pays · format), LECTURE SEULE — la release
+    // sélectionnée n'avait plus aucun porteur depuis que la liste se referme au choix
+    // (retour d'Antoine, 2026-09-06 : « tu n'affiches pas la release sélectionnée ») : l'ex-ligne
+    // « Identifié » était partie avec le fork F, et la fermeture a retiré le marquage dans la
+    // liste. Rangée masquée tant qu'aucune release ; peinte par refreshReleaseFacts (render
+    // initial via le seed de filing.ts, puis onIdentityApplied). Le label a déjà son input.
+    `<div class="sift-attr sift-attr-release" hidden><span class="sift-attr-k">Édition</span><span class="sift-release-facts"></span></div>` +
     `</div>` +
     // Résultats Discogs — vide au repos, rempli le temps d'une recherche (doIdentify). Ils
     // vivaient AU-DESSUS des attributs (« le choix d'une release précède l'édition ») ; descendus
@@ -520,6 +528,22 @@ export function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string):
 
 
   refreshRebuyLink(); // rebuy-on-Beatport link when the open track is fake AND already identified
+  refreshReleaseFacts(host); // rangée « Édition » depuis l'état seedé par filing.ts avant ce render
+}
+
+/** Peint la rangée « Édition » (année · pays · format de la release choisie) depuis l'état, et la
+ *  masque quand rien n'est connu. Label exclu : il a son input. Appelée au render (état seedé par
+ *  filing.ts — cache session pour pays/format, table metadata pour l'année) et au choix d'une
+ *  release (onIdentityApplied). */
+function refreshReleaseFacts(editor: HTMLElement): void {
+  const row = editor.querySelector<HTMLElement>(".sift-attr-release");
+  const val = row?.querySelector<HTMLElement>(".sift-release-facts");
+  if (!row || !val) return;
+  const txt = [state.year, state.releaseCountry, state.releaseFormat]
+    .filter(Boolean)
+    .join(" · ");
+  val.textContent = txt;
+  row.hidden = txt === "";
 }
 
 /** Beatport search URL for the open track's identified artist + title. A search page (not an API):

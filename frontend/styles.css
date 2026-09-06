@@ -3061,6 +3061,12 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
    margin-bottom 16 = l'écart fiche → Diagnostic du groupe-fiche. */
 .sift-attr-list{display:flex;flex-direction:column;gap:var(--space-8);margin-bottom:var(--space-16)}
 .sift-attr{display:flex;align-items:center;gap:var(--space-12)}
+/* Rangée « Édition » (faits de la release choisie, 2026-09-06) : lecture seule, encre secondaire —
+   une donnée Discogs constatée, pas un champ à éditer. `:not` requis : la règle du dessus pose
+   `display:flex`, qui battrait le `[hidden]` UA (piège du 2026-07-20). */
+.sift-attr-release:not([hidden]){display:flex}
+.sift-attr-release[hidden]{display:none}
+.sift-release-facts{font-size:var(--text-base);color:var(--color-text-secondary)}
 /* Colonne de label à largeur FIXE : les champs (les « barres » d'édition) démarrent tous au même x
    à gauche, quel que soit le label — sans quoi chacun commence après son propre label et ils se
    décalent (Antoine 2026-08-21). Patron inspecteur : colonne label | colonne valeur. */
