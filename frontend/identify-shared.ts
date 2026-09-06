@@ -32,6 +32,30 @@ function candRowHtml(c: Candidate, idx: number, opt?: { selected: boolean }): st
   );
 }
 
+/** La release CHOISIE, rendue SEULE après la fermeture de la liste (retours d'Antoine des
+ *  2026-09-06/07 : une liste qui reste ouverte après le choix se lit comme inachevée, mais la
+ *  release choisie, elle, doit rester visible). Même anatomie qu'une ligne candidate — pochette,
+ *  « artiste — titre », sous-ligne — mais un <div> inerte : cliquer ne fait rien, permuter =
+ *  re-cliquer Ré-identifier. `coverSrc` : URL Discogs (choix frais) ou fichier local converti
+ *  (réopen). */
+export function chosenRowHtml(r: {
+  artist: string;
+  title: string;
+  sub: string;
+  coverSrc: string | null;
+}): string {
+  const cover = r.coverSrc
+    ? `<img src="${esc(r.coverSrc)}" alt="" class="sift-cand-noart">`
+    : '<span class="sift-cand-noart"><i class="ti ti-vinyl" style="font-size:var(--text-xl);color:var(--color-text-tertiary)"></i></span>';
+  return (
+    `<div class="sift-cand sift-cand-chosen">` +
+    cover +
+    `<span class="sift-cand-meta"><span>${esc(r.artist)} — ${esc(r.title)}</span>` +
+    (r.sub ? `<small>${esc(r.sub)}</small>` : "") +
+    `</span></div>`
+  );
+}
+
 /** Render candidates into `host`. Two layouts :
  *  - Revue (fork F, `opts.open`) : une LISTE OUVERTE (listbox) — tous les candidats visibles, le
  *    meilleur (`opts.selectedIdx`, défaut 0) pré-sélectionné (aria-selected). La décision centrale

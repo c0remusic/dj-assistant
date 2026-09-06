@@ -1,7 +1,7 @@
 import { identify, applyIdentity, applyTags, trackFileTags, openUrl, revertBatch } from "./ipc";
 import type { Candidate, AppliedIdentity } from "./ipc";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { identifyErrorHtml, renderCandidates } from "./identify-shared";
+import { chosenRowHtml, identifyErrorHtml, renderCandidates } from "./identify-shared";
 import { requireEl, esc } from "./dom";
 import { state, openState } from "./filing-state";
 import { toast } from "./filing-toast";
@@ -187,15 +187,20 @@ function onIdentityApplied(
   state.identified = true;
   refreshRebuyLink();
 
-  refreshReleaseFacts(editor);
-  // La liste SE REFERME au choix d'une release — retour d'Antoine (2026-09-06, vraie fenêtre),
-  // qui remplace le fork F (« liste ouverte, candidat marqué aria-selected, permuter = cliquer un
-  // autre item ») : une liste qui reste après le choix se lit comme une action inachevée. Le
-  // feedback du choix est déjà porté par les attributs remplis, la pochette et les genres juste
-  // au-dessus. Permuter = re-cliquer Ré-identifier (juste sous la liste depuis la décision 1b).
-  // Vidée en plus d'être masquée : doIdentify refait la recherche de toute façon.
-  host.hidden = true;
-  host.innerHTML = "";
+  // La liste SE REFERME SUR LA LIGNE CHOISIE, qui reste seule — retours d'Antoine des
+  // 2026-09-06/07 (remplacent le fork F « liste ouverte » PUIS la fermeture sèche du 06 : une
+  // liste ouverte après le choix se lit comme inachevée, mais une fermeture qui n'affiche plus la
+  // release choisie perd l'information du choix). Ligne inerte ; permuter = re-cliquer
+  // Ré-identifier, juste en dessous depuis la décision 1b.
+  host.hidden = false;
+  host.innerHTML = chosenRowHtml({
+    artist: applied.canonical.artist,
+    title: applied.canonical.title,
+    sub: [applied.label, applied.year != null ? String(applied.year) : null, chosen.country, chosen.format]
+      .filter(Boolean)
+      .join(" · "),
+    coverSrc: applied.cover_path ? convertFileSrc(applied.cover_path) : chosen.cover_url,
+  });
   // Read-only unidentified card (sift-ident-idle): the idle note ("Aucune correspondance…") is now
   // false — drop it, keeping the search button (relabelled Ré-identifier below).
   editor.querySelector(".sift-ident-idle-note")?.remove();
@@ -377,13 +382,6 @@ export function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string):
     // persiste metadata.label). Rempli en place par onIdentityApplied. Placeholder "—" quand vide.
     `<div class="sift-attr"><span class="sift-attr-k">Label</span><input data-fil="label" placeholder="—" value="${esc(c.label ?? "")}" class="sift-attr-input" aria-label="Label"></div>` +
     `<div class="sift-attr"><span class="sift-attr-k">Genres</span><span class="sift-genres"></span></div>` +
-    // Faits de la release choisie (année · pays · format), LECTURE SEULE — la release
-    // sélectionnée n'avait plus aucun porteur depuis que la liste se referme au choix
-    // (retour d'Antoine, 2026-09-06 : « tu n'affiches pas la release sélectionnée ») : l'ex-ligne
-    // « Identifié » était partie avec le fork F, et la fermeture a retiré le marquage dans la
-    // liste. Rangée masquée tant qu'aucune release ; peinte par refreshReleaseFacts (render
-    // initial via le seed de filing.ts, puis onIdentityApplied). Le label a déjà son input.
-    `<div class="sift-attr sift-attr-release" hidden><span class="sift-attr-k">Édition</span><span class="sift-release-facts"></span></div>` +
     `</div>` +
     // Résultats Discogs — vide au repos, rempli le temps d'une recherche (doIdentify). Ils
     // vivaient AU-DESSUS des attributs (« le choix d'une release précède l'édition ») ; descendus
@@ -528,22 +526,26 @@ export function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string):
 
 
   refreshRebuyLink(); // rebuy-on-Beatport link when the open track is fake AND already identified
-  refreshReleaseFacts(host); // rangée « Édition » depuis l'état seedé par filing.ts avant ce render
-}
-
-/** Peint la rangée « Édition » (année · pays · format de la release choisie) depuis l'état, et la
- *  masque quand rien n'est connu. Label exclu : il a son input. Appelée au render (état seedé par
- *  filing.ts — cache session pour pays/format, table metadata pour l'année) et au choix d'une
- *  release (onIdentityApplied). */
-function refreshReleaseFacts(editor: HTMLElement): void {
-  const row = editor.querySelector<HTMLElement>(".sift-attr-release");
-  const val = row?.querySelector<HTMLElement>(".sift-release-facts");
-  if (!row || !val) return;
-  const txt = [state.year, state.releaseCountry, state.releaseFormat]
-    .filter(Boolean)
-    .join(" · ");
-  val.textContent = txt;
-  row.hidden = txt === "";
+  // La release choisie SURVIT au réopen (retour d'Antoine, 2026-09-07 : « elle devrait rester ») :
+  // la ligne se reconstruit depuis l'état seedé par filing.ts AVANT ce render — identité depuis
+  // canonical, label/année depuis la table metadata, pochette locale, pays/format depuis le cache
+  // session quand il les a encore. Pas de colonne backend pour pays/format, et pas de migration :
+  // « je me fiche de l'édition » (même jour) — la ligne se contente de ce qui est là.
+  const chosenHost = host.querySelector<HTMLElement>(".sift-cands-host");
+  if (chosenHost && state.identified && state.canonical) {
+    const t = state.canonical.version
+      ? `${state.canonical.title} (${state.canonical.version})`
+      : state.canonical.title;
+    chosenHost.innerHTML = chosenRowHtml({
+      artist: state.canonical.artist,
+      title: t,
+      sub: [state.label, state.year != null ? String(state.year) : null, state.releaseCountry, state.releaseFormat]
+        .filter(Boolean)
+        .join(" · "),
+      coverSrc: state.coverPath ? convertFileSrc(state.coverPath) : null,
+    });
+    chosenHost.hidden = false;
+  }
 }
 
 /** Beatport search URL for the open track's identified artist + title. A search page (not an API):
