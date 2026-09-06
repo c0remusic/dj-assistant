@@ -2020,7 +2020,10 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
 .lib-edit-actions{display:flex;gap:8px}
 .lib-edit-actions [data-lib="save"]{flex:1}
 /* M6a — Discogs candidate picker */
-.sift-cands{margin-top:8px;display:flex;flex-direction:column;gap:4px}
+/* margin-top 12 et non 8 (retour d'Antoine, 2026-09-06 « ça écrase la case du dessus ») : depuis
+   que la liste vit SOUS les attributs, son premier item — fond surligné pleine largeur — se colle
+   visuellement à la rangée Genres ; 8px disparaissaient sous le fond plein. */
+.sift-cands{margin-top:var(--space-12);display:flex;flex-direction:column;gap:4px}
 .sift-cands[hidden]{display:none}
 .sift-cands-msg{font-size:12px;color:var(--color-text-tertiary);padding:var(--space-4) var(--space-4)}
 /* [m10] error state: warning colour + icon (set in JS as .sift-cands-error) */
