@@ -1027,7 +1027,11 @@ function ensureQueueReanalyzeAllButton(qcol: HTMLElement, unanalyzedCount: numbe
     go.hidden = true;
     return;
   }
-  count.textContent = `${unanalyzedCount.toLocaleString("fr-FR")} non analysée${unanalyzedCount > 1 ? "s" : ""}`;
+  // « N pistes non analysées », jamais « N non analysées » — l'accord portait sur un nom absent
+  // (retour d'Antoine, 2026-09-06). « pistes » = le mot de la barre (« 3372 pistes ») et de la
+  // spec ; la confirmation du lot dit encore « morceaux », écart préexistant non traité ici.
+  const s = unanalyzedCount > 1 ? "s" : "";
+  count.textContent = `${unanalyzedCount.toLocaleString("fr-FR")} piste${s} non analysée${s}`;
   track.hidden = true;
   go.hidden = false;
   // State-driven, not a mid-flight eager re-enable: the button is disabled iff a bulk retry is
