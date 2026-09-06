@@ -99,14 +99,12 @@ export function refreshDiscrepancy(): void {
   mark(".sift-genres", d.genres);
 }
 
-/** Apply an identity result to the editing fields + filename preview. Liste ouverte (fork F) :
- *  `host` + `chosenIdx` servent à MARQUER le candidat appliqué (aria-selected) dans la liste qui
- *  reste ouverte, sans la replier. `write` grave l'ID3 tout de suite (clic sur un match, décision
- *  F.2) ; l'auto-apply du meilleur match passe `write=false` — il PRÉ-REMPLIT sans graver (fork A). */
+/** Apply an identity result to the editing fields + filename preview. `host` sert à REFERMER la
+ *  liste de candidats au choix (retour d'Antoine 2026-09-06, remplace le fork F « liste
+ *  ouverte ») ; `write` grave l'ID3 tout de suite (clic sur un match, décision F.2). */
 function onIdentityApplied(
   applied: AppliedIdentity,
   chosen: Candidate,
-  chosenIdx: number,
   editor: HTMLElement,
   mid: HTMLElement,
   host: HTMLElement,
@@ -189,22 +187,14 @@ function onIdentityApplied(
   state.identified = true;
   refreshRebuyLink();
 
-  // Liste ouverte (fork F) : au lieu de replier en ligne « Identifié », on MARQUE le candidat appliqué
-  // (aria-selected) dans la liste qui reste visible, et on le flashe brièvement. Permuter = cliquer un
-  // autre item. Plus d'identifiedLineHtml ni de bouton « changer ».
-  host.hidden = false;
-  host.querySelectorAll<HTMLElement>("[data-cand]").forEach((el) => {
-    el.setAttribute("aria-selected", String(Number(el.dataset.cand) === chosenIdx));
-    el.style.opacity = "";
-    el.style.pointerEvents = "";
-  });
-  const selEl = host.querySelector<HTMLElement>(`[data-cand="${chosenIdx}"]`);
-  if (selEl) {
-    selEl.classList.add("sift-identified-flash");
-    selEl.addEventListener("animationend", () => selEl.classList.remove("sift-identified-flash"), {
-      once: true,
-    });
-  }
+  // La liste SE REFERME au choix d'une release — retour d'Antoine (2026-09-06, vraie fenêtre),
+  // qui remplace le fork F (« liste ouverte, candidat marqué aria-selected, permuter = cliquer un
+  // autre item ») : une liste qui reste après le choix se lit comme une action inachevée. Le
+  // feedback du choix est déjà porté par les attributs remplis, la pochette et les genres juste
+  // au-dessus. Permuter = re-cliquer Ré-identifier (juste sous la liste depuis la décision 1b).
+  // Vidée en plus d'être masquée : doIdentify refait la recherche de toute façon.
+  host.hidden = true;
+  host.innerHTML = "";
   // Read-only unidentified card (sift-ident-idle): the idle note ("Aucune correspondance…") is now
   // false — drop it, keeping the search button (relabelled Ré-identifier below).
   editor.querySelector(".sift-ident-idle-note")?.remove();
@@ -265,7 +255,7 @@ function wireCandidateClicks(
       void applyIdentity(state.track.id, c)
         .then((applied) => {
           if (myseq !== openState.openSeq) return; // a newer open started while we awaited — drop this result
-          onIdentityApplied(applied, c, idx, editor, mid, host, idBtn);
+          onIdentityApplied(applied, c, editor, mid, host, idBtn);
         })
         .catch((e) => {
           if (myseq !== openState.openSeq) return;

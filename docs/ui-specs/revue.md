@@ -380,8 +380,12 @@ Ordre vertical, et il est le parcours de décision :
    « Identifier » lance la recherche Discogs et remplit ces
    mêmes champs, **sans changer de mode** (plus de formulaire à entrer). Quand **plusieurs
    éditions** matchent, elles s'affichent en **liste ouverte inline** (patron Spotlight « Top
-   Hit ») : le meilleur match est **pré-appliqué**, les alternatives se permutent d'un clic
-   (navigables ↑↓), sans popover ni changement de mode. Le clic sur un match **écrit l'ID3
+   Hit »), navigables ↑↓, sans popover ni changement de mode — la liste vit **sous les
+   attributs**, juste au-dessus du bouton qui la lance (2026-09-06, suite de la décision 1b :
+   des résultats surgissant à l'opposé du geste se lisaient comme une anomalie). **La liste se
+   referme au choix d'une release** — retour d'Antoine du 2026-09-06, qui remplace le fork F
+   (« liste ouverte, permuter = cliquer un autre item ») : le feedback du choix est porté par
+   les attributs remplis, la pochette et les genres ; permuter = re-cliquer Ré-identifier. Le clic sur un match **écrit l'ID3
    immédiatement** (décision datée 2026-08-21, « Entrée = graver »), avec un filet
    **« Rétablir »** inline (+ `Échap`) pour défaire. **La ligne
    « Tags ID3 » est supprimée** (tautologique : « Tags ID3 : ID3 »). Le critère CDJ reste
