@@ -205,6 +205,11 @@ function clearBarSlots(): void {
  *  `.h1` dans leur contenu — le titre a quitté le contenu pour la fenêtre. */
 function syncNav(view: ViewId): void {
   const nav = requireEl<HTMLElement>("#nav", "syncNav");
+  // Marqueur de vue sur <body> — consommateur : la règle « l'analyse s'affiche à UN endroit »
+  // (retour d'Antoine, 2026-09-06). Sur Revue, le pied de la colonne de file porte « Analyse —
+  // x/y » (queue-panel.ts) et la ligne analyze du rail se masque (styles.css, .sift-pz-analyze) ;
+  // partout ailleurs le rail reste le seul porteur du signal.
+  document.body.dataset.view = view;
   const viewTitle = document.getElementById("sift-view-title");
   const barTitle = document.getElementById("sift-tb-title");
   // `[data-view]` EST le filtre, pas un ornement (issue #42). Le rail porte deux familles de `.nv` :

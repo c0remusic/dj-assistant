@@ -371,10 +371,6 @@ export function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string):
     `<span class="sift-meta-title">Métadonnées</span>` +
     `</div>` +
     `<div class="sift-meta-body">` +
-    // Résultats Discogs — vide au repos, rempli le temps d'une recherche (doIdentify), au-dessus des
-    // attributs pour que le choix d'une release précède l'édition. onIdentityApplied remplit ensuite
-    // les inputs data-fil ci-dessous en place, sans re-render.
-    `<div class="sift-cands sift-cands-host" hidden></div>` +
     // Liste d'attributs éditable en place : la valeur EST un input (data-fil écouté par `upd` à la
     // saisie et par onIdentityApplied au remplissage), stylé comme du texte tant qu'on ne le touche
     // pas. Labels persistants — annotation "on ne sait pas à quoi correspondent les champs".
@@ -391,6 +387,13 @@ export function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string):
     `<div class="sift-attr"><span class="sift-attr-k">Label</span><input data-fil="label" placeholder="—" value="${esc(c.label ?? "")}" class="sift-attr-input" aria-label="Label"></div>` +
     `<div class="sift-attr"><span class="sift-attr-k">Genres</span><span class="sift-genres"></span></div>` +
     `</div>` +
+    // Résultats Discogs — vide au repos, rempli le temps d'une recherche (doIdentify). Ils
+    // vivaient AU-DESSUS des attributs (« le choix d'une release précède l'édition ») ; descendus
+    // ici le 2026-09-06, retour d'Antoine sur la vraie fenêtre : depuis la décision 1b le bouton
+    // qui les lance vit en bas — des résultats qui surgissent à l'opposé du geste se lisent comme
+    // une anomalie. Proximité cause-effet : les candidats apparaissent juste au-dessus du bouton.
+    // onIdentityApplied remplit les inputs data-fil ci-dessus en place, sans re-render.
+    `<div class="sift-cands sift-cands-host" hidden></div>` +
     // Bouton Identifier SOUS les attributs, aligné au bord gauche des valeurs — décision 1b
     // d'Antoine (2026-09-06, wireframe avant/après) : l'ordre de lecture est l'ordre d'usage — on
     // lit les valeurs, elles clochent, l'action est là. Il vivait au bord droit de l'en-tête,

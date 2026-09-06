@@ -78,14 +78,25 @@ pub fn select_pending(conn: &Connection) -> rusqlite::Result<Vec<i64>> {
 
 /// (done, total): total = current pending; done = pending already analysed.
 pub fn progress(conn: &Connection) -> rusqlite::Result<(i64, i64)> {
+    // « done » = le complément EXACT de la clause de `refill` (ci-dessus) : une piste est faite
+    // quand le pool n'a plus rien à lui faire. Jusqu'au 2026-09-06, done ne regardait que
+    // `analyzed_at IS NOT NULL` — les re-analyses que refill sélectionne pourtant
+    // (`report_json` nul, `verdict_ver` périmée après un bump de VERDICT_CACHE_VERSION, comme la
+    // masse post-#52) étaient invisibles du signal : `analysis_progress` disait « repos » pendant
+    // que le pool tournait sur des centaines de pistes, et la zone de progression comme la rangée
+    // du pied de file affichaient un compte inerte au lieu d'une progression (observé par Antoine
+    // sur la vraie fenêtre, 846 « non analysées » décroissantes avec progress à 3372/3372).
     let total: i64 = conn.query_row(
         "SELECT count(*) FROM tracks WHERE status='pending'",
         [],
         |r| r.get(0),
     )?;
     let done: i64 = conn.query_row(
-        "SELECT count(*) FROM tracks WHERE status='pending' AND analyzed_at IS NOT NULL",
-        [],
+        "SELECT count(*) FROM tracks \
+         WHERE status='pending' \
+           AND NOT (analyzed_at IS NULL OR typeof(report_json)='null' \
+                    OR (verdict IS NOT NULL AND verdict_ver IS NOT ?1))",
+        rusqlite::params![crate::analysis::verdict::VERDICT_CACHE_VERSION],
         |r| r.get(0),
     )?;
     Ok((done, total))
@@ -663,5 +674,28 @@ pub(crate) mod tests {
         let r = fake_report();
         persist_report(&conn, b, &r, &serde_json::to_string(&r).unwrap()).unwrap();
         assert_eq!(progress(&conn).unwrap(), (1, 2));
+    }
+
+    /// « done » est le complément exact de la clause de `refill` : une piste que le pool va
+    /// re-traiter (verdict_ver périmée après un bump de VERDICT_CACHE_VERSION) ne compte PAS
+    /// comme faite — jusqu'au 2026-09-06 elle comptait, et `analysis_progress` disait « repos »
+    /// pendant une re-analyse de masse (celle du 3e signal MDCT, #52, observée sur 846 pistes).
+    #[test]
+    fn progress_counts_a_stale_verdict_ver_as_not_done() {
+        let conn = db();
+        let a = add_pending(&conn, "a.flac");
+        let r = fake_report();
+        persist_report(&conn, a, &r, &serde_json::to_string(&r).unwrap()).unwrap();
+        assert_eq!(progress(&conn).unwrap(), (1, 1), "fraîche = faite");
+        conn.execute(
+            "UPDATE tracks SET verdict_ver = verdict_ver - 1 WHERE id=?1",
+            rusqlite::params![a],
+        )
+        .unwrap();
+        assert_eq!(
+            progress(&conn).unwrap(),
+            (0, 1),
+            "verdict_ver périmée = le pool va la reprendre, elle n'est pas faite"
+        );
     }
 }

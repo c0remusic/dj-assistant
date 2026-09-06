@@ -103,8 +103,11 @@ function rowSig(kind: TaskKind, p: TaskProgress): string {
 }
 
 /** Outer class for a row (only the error modifier varies). */
-function rowClassOf(p: TaskProgress): string {
-  return p.state === "error" ? "sift-pz-row error" : "sift-pz-row";
+function rowClassOf(kind: TaskKind, p: TaskProgress): string {
+  // `sift-pz-<kind>` : cible CSS par tâche. Consommateur : la règle « un endroit à la fois » de
+  // l'analyse — sur l'écran Revue, le pied de la colonne de file porte déjà « Analyse — x/y »
+  // (queue-panel.ts, 2026-09-06), la ligne du rail s'y masque (body[data-view="revue"], router).
+  return `sift-pz-row sift-pz-${kind}${p.state === "error" ? " error" : ""}`;
 }
 
 /** INNER HTML of a row (head + track) — the outer `.sift-pz-row` is the cached rowEl. Built ONCE on
@@ -170,7 +173,7 @@ function render(): void {
     if (!cached) {
       // New row: build the outer element + structure ONCE, append at the end (insertion order).
       const rowEl = document.createElement("div");
-      rowEl.className = rowClassOf(p);
+      rowEl.className = rowClassOf(kind, p);
       rowEl.innerHTML = rowInner(kind, p);
       zone.appendChild(rowEl);
       rowCache.set(kind, {
@@ -183,7 +186,7 @@ function render(): void {
     } else if (cached.sig !== sig) {
       // Structure/label/button changed (start, Stop click, done) → rebuild THIS row's content only;
       // the rowEl node stays in place, so order and the zone's delegated listener are untouched.
-      cached.rowEl.className = rowClassOf(p);
+      cached.rowEl.className = rowClassOf(kind, p);
       cached.rowEl.innerHTML = rowInner(kind, p);
       cached.countEl = requireEl<HTMLElement>(".sift-pz-count", "progress-zone row", cached.rowEl);
       cached.fillEl = requireEl<HTMLElement>(".sift-pz-fill", "progress-zone row", cached.rowEl);
@@ -208,4 +211,12 @@ export function setTask(kind: TaskKind, p: TaskProgress): void {
 /** Remove the run for `kind` (e.g. after it finished) and redraw. No-op if absent. */
 export function clearTask(kind: TaskKind): void {
   if (tasks.delete(kind)) render();
+}
+
+/** Lecture seule de l'état d'une tâche pour un consommateur EXTERNE — le pied de la colonne de
+ *  file s'en sert pour basculer sa rangée « N non analysées » en barre de progression pendant
+ *  qu'une analyse tourne (demande d'Antoine, 2026-09-06). L'état reste encapsulé ici : le
+ *  consommateur lit, il n'écrit jamais. */
+export function taskOf(kind: TaskKind): TaskProgress | null {
+  return tasks.get(kind) ?? null;
 }

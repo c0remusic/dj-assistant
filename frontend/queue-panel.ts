@@ -11,7 +11,7 @@
 import { listQueue, reanalyzeTracks, revealTrack } from "./ipc";
 import { openFilingInto, syncDetail } from "./filing";
 import { refreshBins, clearBinPick } from "./filing-bins";
-import { homeProgressZone } from "./progress-zone";
+import { homeProgressZone, taskOf } from "./progress-zone";
 import { MAX_ANALYSIS_ATTEMPTS, type QueueItem } from "../shared/contracts";
 import { confirmAction } from "./confirm-modal";
 import { requireEl, esc } from "./dom";
@@ -969,8 +969,13 @@ function ensureQueueReanalyzeAllButton(qcol: HTMLElement, unanalyzedCount: numbe
     el = document.createElement("div");
     el.id = "sift-qreanalyze-all";
     el.className = "sift-qfoot-stat";
+    // La piste de progression est un enfant PERMANENT, masquée au repos : pendant une analyse
+    // (`taskOf("analyze")`, demande d'Antoine 2026-09-06 — « N non analysées » mentait alors,
+    // ces pistes partent toutes seules), la rangée devient « Analyse — x/y » + barre, bouton
+    // masqué. Mode Utilitaire de disque : progression in-place, là où le compte vivait.
     el.innerHTML =
       `<span class="sift-qfoot-count"></span>` +
+      `<div class="sift-qfoot-track" hidden><div class="sift-qfoot-fill"></div></div>` +
       `<button class="sift-qfoot-go" type="button"></button>`;
     el.querySelector("button")?.addEventListener("click", async () => {
       if (bulkReanalyzing) return; // already running — ignore re-clicks
@@ -1005,17 +1010,41 @@ function ensureQueueReanalyzeAllButton(qcol: HTMLElement, unanalyzedCount: numbe
     });
     placeInQueueColumn(qcol, el, "#sift-qreanalyze-all");
   }
-  el.hidden = unanalyzedCount === 0;
   const count = el.querySelector<HTMLElement>(".sift-qfoot-count");
+  const track = el.querySelector<HTMLElement>(".sift-qfoot-track");
+  const fill = el.querySelector<HTMLElement>(".sift-qfoot-fill");
   const go = el.querySelector<HTMLButtonElement>(".sift-qfoot-go");
-  if (!count || !go) return;
-  // `textContent` sur des nœuds persistants — jamais d'innerHTML ici, ce chemin tourne en rafale.
+  if (!count || !track || !fill || !go) return;
+  const an = taskOf("analyze");
+  const analyzing = an?.state === "running" && an.total > 0;
+  el.hidden = unanalyzedCount === 0 && !analyzing;
+  // `textContent`/`transform` sur des nœuds persistants — jamais d'innerHTML ici, ce chemin
+  // tourne en rafale (poll 300 ms, queue:changed, task:progress relayé par sift-live).
+  if (analyzing) {
+    count.textContent = `Analyse — ${an.done.toLocaleString("fr-FR")}/${an.total.toLocaleString("fr-FR")}`;
+    fill.style.transform = `scaleX(${an.done / an.total})`;
+    track.hidden = false;
+    go.hidden = true;
+    return;
+  }
   count.textContent = `${unanalyzedCount.toLocaleString("fr-FR")} non analysée${unanalyzedCount > 1 ? "s" : ""}`;
+  track.hidden = true;
+  go.hidden = false;
   // State-driven, not a mid-flight eager re-enable: the button is disabled iff a bulk retry is
   // actually running (bulkReanalyzing), so a queue:changed re-render during the retry can't flip it
   // back to enabled under the in-flight handler (review-caught double-submit race).
   go.disabled = bulkReanalyzing;
   go.textContent = bulkReanalyzing ? "Relance…" : "Réanalyser";
+}
+
+/** Resynchronise la rangée de statut du pied depuis l'état de tâche COURANT — appelée par
+ *  sift-live à chaque `task:progress` d'analyse, pour que la barre avance à la cadence des
+ *  événements et non à celle des re-rendus de file. No-op tant que la rangée n'est pas montée. */
+export function refreshQueueFootStat(): void {
+  const el = document.getElementById("sift-qreanalyze-all");
+  const qcol = el?.closest<HTMLElement>("#qcol");
+  if (!el || !qcol) return;
+  ensureQueueReanalyzeAllButton(qcol, unanalyzedItems().length);
 }
 
 /** Live filter bar for the queue rail (annotation: "on veut une barre de recherche en bas" —

@@ -65,6 +65,7 @@ import {
   handleQueueItemClick,
   installQueueNavKeys,
   reanalyzeTrack,
+  refreshQueueFootStat,
 } from "./queue-panel";
 import {
   renderBatch,
@@ -105,6 +106,9 @@ async function pushAnalyzeProgress() {
     } else {
       clearTask("analyze");
     }
+    // La rangée de statut du pied de file rend cet état aussi (« Analyse — x/y » + barre,
+    // queue-panel.ts) : la resynchroniser à la cadence de CE poll, pas à celle des re-rendus.
+    refreshQueueFootStat();
   } catch (e) {
     console.error("analysisProgress failed", e);
   }
