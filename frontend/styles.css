@@ -1011,6 +1011,15 @@ body[data-view="revue"] .sift-pz-row.sift-pz-analyze{display:none}
 .sift-qfoot-fill{height:100%;width:100%;border-radius:var(--border-radius-pill);background:var(--color-text-info);transform-origin:left;transition:transform var(--duration-slow)}
 .sift-qfoot-go{flex:none;white-space:nowrap;background:var(--color-surface-raised);color:var(--color-text-secondary);border:0;padding:var(--space-4) var(--space-12);font-size:var(--text-sm);border-radius:var(--border-radius-sm)}
 .sift-qfoot-go:hover{background:var(--color-surface-raised);filter:brightness(0.97)}
+/* En mode analyse le bouton est masqué — mais s'il quittait le flux, la rangée perdait sa
+   hauteur et « semblait écrasée » (retour d'Antoine, 2026-09-06) au premier basculement.
+   Il garde donc sa BOÎTE VERTICALE (padding + ligne) à largeur nulle : la hauteur de la rangée
+   est la même dans les deux modes, dérivée du bouton lui-même — aucune constante à entretenir.
+   Le `display` posé ici bat volontairement le `[hidden]` UA (piège documenté du 2026-07-20) :
+   c'est précisément l'effet voulu, et `visibility:hidden` le retire du rendu et du focus.
+   La marge négative annule le `gap` de la rangée que la boîte fantôme déclencherait encore :
+   sans elle, la barre s'arrêtait 8px avant le bord droit calé sur les rangées. */
+.sift-qfoot-go[hidden]{display:inline-block;visibility:hidden;width:0;padding-left:0;padding-right:0;overflow:hidden;margin-left:calc(-1*var(--space-8))}
 /* RANGÉE DE FILTRE de la colonne file (ex-en-tête « File », Lane 2 #47). Depuis le 2026-08-25
    (wireframe « Poste de décision » §§ 09-10, spec `docs/ui-specs/revue.md` § Zone B′) elle ne porte
    plus de TITRE : le libellé « File » est retiré — la barre unifiée nomme déjà l'écran — et la
