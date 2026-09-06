@@ -267,9 +267,14 @@ L'ordre réel de la colonne, depuis le 2026-08-26 : **rangée de filtre** en tê
 dans la barre, et le compte l'y a suivi (§ Zone A). Il n'y a **plus** de segmenté Détail / Lot, ni
 d'icône de barre — le mode Batch s'arme par le bouton texte de cette rangée.
 
-Au **pied** de la colonne il ne reste qu'un contrôle, **« Réanalyser (N) »** ; la bascule
-« Non analysés uniquement » qui l'accompagnait est retirée (voir § Décisions postérieures et la
-perte de fonction qu'elle emporte).
+Au **pied** de la colonne il ne reste qu'un contrôle : la **rangée de statut des non
+analysées** — compte à gauche (« 1 398 non analysées », `fr-FR`, patron barre de statut du
+Finder), bouton **Réanalyser** à droite (grammaire du bouton secondaire, mêmes tokens que
+Ré-identifier), filet haut qui borne, rangée entière masquée à zéro. **Refaite le 2026-09-06**
+(audit œil-Apple, wireframe validé par Antoine) : la forme précédente était un lien souligné
+centré « Réanalyser (N) » — idiome web sans équivalent système, où compte et action étaient
+soudés. La bascule « Non analysés uniquement » qui l'accompagnait est retirée (voir
+§ Décisions postérieures et la perte de fonction qu'elle emporte).
 
 Une ligne de file porte, dans cet ordre : **pastille de verdict** (`DESIGN.md` § 16,
 même rendu qu'en Bibliothèque) · nom de fichier · artiste — titre · **pastille
@@ -364,9 +369,13 @@ Ordre vertical, et il est le parcours de décision :
    (*text field inline* : texte au repos, champ + anneau d'accent au focus ; patron
    inspecteur Finder « Lire les informations »). Artiste / Titre / Version éditables ;
    Label en lecture seule ; **genres en texte + icône tag** (glyphe *tag* du kit, § 01
-   Icons — « Electronic, Synth-pop », **pas de chips** ; décision F, 2026-08-24). L'en-tête
-   de section porte, à droite du titre « Métadonnées », le **seul** bouton
-   **« Identifier »** : le badge **« Prêt CDJ »** qui l'y précédait a été **retiré le
+   Icons — « Electronic, Synth-pop », **pas de chips** ; décision F, 2026-08-24). Le **seul** bouton **« Identifier »** vit **SOUS la liste
+   d'attributs, aligné au bord gauche** (`.sift-meta-actions`) — **décision 1b d'Antoine,
+   2026-09-06**, wireframe avant/après : l'ordre de lecture est l'ordre d'usage (on lit les
+   valeurs, elles clochent, l'action est là ; patron formulaire de Réglages Système). Il vivait
+   au bord droit de l'en-tête, que la largeur du panneau envoyait à ~1300 px du titre. Coût
+   assumé : pendant une recherche, les candidats s'insèrent au-dessus des attributs, loin du
+   bouton. Le badge **« Prêt CDJ »** qui accompagnait l'ancien emplacement a été **retiré le
    2026-08-25** (demande d'Antoine ; le helper `paintCdjBadge` est supprimé du code).
    « Identifier » lance la recherche Discogs et remplit ces
    mêmes champs, **sans changer de mode** (plus de formulaire à entrer). Quand **plusieurs

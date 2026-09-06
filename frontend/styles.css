@@ -984,10 +984,17 @@ body.sift-rail-collapsed .nav-sep{width:20px;margin-left:auto;margin-right:auto}
    scrollbar-gutter:stable reserves exactly the scrollbar's own 6px width, no breathing room beyond
    it, so a selected row's highlighted background butted directly against the track/thumb. */
 #ql{flex:1;min-height:0;overflow-y:scroll;scrollbar-gutter:stable;padding-right:var(--space-8)}
-/* Bouton de PIED de la colonne file. Il s'appelait `.sift-qdone-toggle` et servait la bascule
-   « Non analysés uniquement » ; celle-ci est retirée le 2026-08-26 et le pied ne porte plus que
-   « Réanalyser (N) », d'où le nom neutre — voir `ensureQueueReanalyzeAllButton`. */
-.sift-qfoot-btn{display:block;flex:none;font-size:var(--text-xs);color:var(--color-text-tertiary);cursor:pointer;text-decoration:underline;padding:var(--space-4) var(--space-4) 0;background:transparent;border:none;border-radius:0;font-family:inherit}
+/* RANGÉE DE STATUT du pied de la colonne file (ex-lien souligné `.sift-qfoot-btn` « Réanalyser
+   (N) », refait le 2026-09-06 — audit œil-Apple, wireframe validé) : un lien souligné est un
+   idiome web sans équivalent système. Compte à gauche (patron barre de statut du Finder,
+   « 17 éléments » en pied), bouton à droite (grammaire du bouton secondaire, mêmes tokens que
+   `.sift-meta-ident-btn`). Le filet haut borne la rangée. `hidden` piloté par queue-panel.ts —
+   le `[hidden]` explicite reste obligatoire, la règle pose `display:flex` (piège du 2026-07-20). */
+.sift-qfoot-stat{display:flex;flex:none;align-items:center;justify-content:space-between;gap:var(--space-8);border-top:1px solid var(--color-border-tertiary);margin-top:var(--space-4);padding:var(--space-8) var(--space-4) 0}
+.sift-qfoot-stat[hidden]{display:none}
+.sift-qfoot-count{font-size:var(--text-xs);color:var(--color-text-tertiary)}
+.sift-qfoot-go{flex:none;white-space:nowrap;background:var(--color-surface-raised);color:var(--color-text-secondary);border:0;padding:var(--space-4) var(--space-12);font-size:var(--text-sm);border-radius:var(--border-radius-sm)}
+.sift-qfoot-go:hover{background:var(--color-surface-raised);filter:brightness(0.97)}
 /* RANGÉE DE FILTRE de la colonne file (ex-en-tête « File », Lane 2 #47). Depuis le 2026-08-25
    (wireframe « Poste de décision » §§ 09-10, spec `docs/ui-specs/revue.md` § Zone B′) elle ne porte
    plus de TITRE : le libellé « File » est retiré — la barre unifiée nomme déjà l'écran — et la
@@ -1109,12 +1116,8 @@ body.sift-rail-collapsed .nav-sep{width:20px;margin-left:auto;margin-right:auto}
    (0,2,0) et gagne — même geste, et même raison, que `.sift-qfacet-btn:hover` plus haut. */
 .sift-qfacet-reset{display:flex;align-items:center;gap:var(--space-8);min-height:16px;margin:3px 2px;padding:0 var(--space-8);border:0;border-radius:var(--border-radius-sm);background:transparent;font-family:inherit;font-size:var(--text-sm);color:var(--color-text-info);text-align:left;cursor:pointer}
 .sift-qfacet-reset:hover{background:var(--overlay-hover);filter:none}
-/* The class's own `display:block` above out-specifies the UA [hidden]{display:none} rule, so
-   the `.hidden = true` toggling in queue-panel.ts silently did nothing visually — bug report
-   2026-07-20, "Non analysés uniquement (0)" stayed visible with the count at zero. */
-.sift-qfoot-btn[hidden]{display:none}
-.sift-qfoot-btn:hover{background:transparent}
-.sift-qfoot-btn:hover{color:var(--color-text-secondary)}
+/* `.sift-qfoot-btn` et ses règles compagnes sont parties le 2026-09-06 avec le lien souligné —
+   remplacées par la rangée `.sift-qfoot-stat` déclarée plus haut, `[hidden]` compris. */
 /* Drag handle between #qcol and .sift-inspector (Revue) — resizes the queue column so long
    track names stay readable (audit 2026-07-05, annotation #8). Sits INSIDE .sift-revue-row's own
    gap as a real flex child spanning it, rather than a 5px hit-zone stitched to its neighbours via
@@ -3004,7 +3007,9 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
    le pas inter-sections de la maquette. Un padding ici referait 48. */
 .sift-meta-header{display:flex;align-items:center;justify-content:space-between;gap:var(--space-8);margin-bottom:var(--space-8)}
 .sift-meta-title{font-size:var(--text-md);color:var(--color-text-secondary)}
-.sift-meta-header-right{display:flex;align-items:center;gap:var(--space-8);flex:none}
+/* `.sift-meta-header-right` retiré le 2026-09-06 avec le déménagement du bouton Identifier SOUS
+   les attributs (décision 1b d'Antoine, wireframe avant/après) — le span ne contenait que lui. */
+.sift-meta-actions{margin-top:var(--space-8)}
 .sift-meta-ident-btn{flex:none;white-space:nowrap;background:var(--color-surface-raised);color:var(--color-text-secondary);border:0;padding:var(--space-4) var(--space-12);font-size:var(--text-sm);border-radius:var(--border-radius-sm)}
 .sift-meta-ident-btn:hover{background:var(--color-surface-raised);filter:brightness(0.97)}
 /* Liste d'attributs éditable en place (direction B) : ligne label/valeur, la valeur EST un input

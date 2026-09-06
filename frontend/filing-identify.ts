@@ -369,14 +369,7 @@ export function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string):
     // autorité. Le critère backend, lui, est bien recâblé (#46, 2026-09-01).
     `<div class="sift-meta-header">` +
     `<span class="sift-meta-title">Métadonnées</span>` +
-    `<span class="sift-meta-header-right">` +
-    // Loupe retirée le 2026-08-26 : `CLAUDE.md` § Front — un CTA à label descriptif se dit en
-    // TEXTE SEUL, et « Identifier » dit déjà ce que la loupe redisait. `docs/ui-specs/revue.md`
-    // § Métadonnées ne demande pas d'icône non plus, il nomme « le seul bouton "Identifier" ».
-    // Le badge `I` RESTE, et ce n'est pas un ornement : il porte le raccourci clavier, une
-    // information que le libellé ne donne pas — exactement le cas que la règle réserve.
-    `<button data-fil="identifier" class="sift-meta-ident-btn" title="Rechercher les métadonnées sur Discogs (pochette, label, année, genres)">${c.artist && c.title ? "Ré-identifier" : "Identifier"} <span class="kbd sift-kbd-hint-id">I</span></button>` +
-    `</span></div>` +
+    `</div>` +
     `<div class="sift-meta-body">` +
     // Résultats Discogs — vide au repos, rempli le temps d'une recherche (doIdentify), au-dessus des
     // attributs pour que le choix d'une release précède l'édition. onIdentityApplied remplit ensuite
@@ -397,6 +390,17 @@ export function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string):
     // persiste metadata.label). Rempli en place par onIdentityApplied. Placeholder "—" quand vide.
     `<div class="sift-attr"><span class="sift-attr-k">Label</span><input data-fil="label" placeholder="—" value="${esc(c.label ?? "")}" class="sift-attr-input" aria-label="Label"></div>` +
     `<div class="sift-attr"><span class="sift-attr-k">Genres</span><span class="sift-genres"></span></div>` +
+    `</div>` +
+    // Bouton Identifier SOUS les attributs, aligné au bord gauche des valeurs — décision 1b
+    // d'Antoine (2026-09-06, wireframe avant/après) : l'ordre de lecture est l'ordre d'usage — on
+    // lit les valeurs, elles clochent, l'action est là. Il vivait au bord droit de l'en-tête,
+    // que la largeur du panneau envoyait à ~1300px du titre. Patron formulaire (action en pied,
+    // sous les champs — Réglages Système). Coût assumé au wireframe : pendant une recherche, les
+    // candidats s'insèrent au-dessus des attributs, loin de ce bouton.
+    // Loupe retirée le 2026-08-26 (CTA à label descriptif = texte seul) ; le badge `I` RESTE — il
+    // porte le raccourci clavier, une information que le libellé ne donne pas.
+    `<div class="sift-meta-actions">` +
+    `<button data-fil="identifier" class="sift-meta-ident-btn" title="Rechercher les métadonnées sur Discogs (pochette, label, année, genres)">${c.artist && c.title ? "Ré-identifier" : "Identifier"} <span class="kbd sift-kbd-hint-id">I</span></button>` +
     `</div>` +
     // Plus de bouton « Appliquer » (retour Antoine 2026-08-25) : les tags ID3 se gravent
     // AUTOMATIQUEMENT quand on finit d'éditer un champ (blur/Entrée) ou qu'on choisit un match

@@ -953,16 +953,26 @@ export function endReanalyze(ids: number[]): void {
   rerenderQueueWindow();
 }
 
-/** "Réanalyser (N)" — retries every currently-unanalysed track in one click, regardless of
- * whether the "Non analysés uniquement" filter is on. Sibling of the filter toggle, same
- * hidden-when-nothing-to-act-on rule. */
+/** Rangée de statut « N non analysées · [Réanalyser] » — retries every currently-unanalysed
+ * track in one click, regardless of whether the "Non analysés uniquement" filter is on. Sibling
+ * of the filter toggle, same hidden-when-nothing-to-act-on rule.
+ *
+ * Le lien souligné « Réanalyser (N) » est refait en RANGÉE le 2026-09-06 (audit œil-Apple,
+ * wireframe validé par Antoine) : un lien souligné est un idiome web sans équivalent système —
+ * Apple dit un compte en pied (barre de statut du Finder, « 17 éléments ») et une action en
+ * bouton. Compte à gauche (lisible sans cliquer, formaté fr-FR), bouton à droite (grammaire du
+ * bouton secondaire, même famille que Ré-identifier). Create-once, muté ensuite — ce chemin est
+ * appelé par les re-rendus de file (poll 300 ms, queue:changed). */
 function ensureQueueReanalyzeAllButton(qcol: HTMLElement, unanalyzedCount: number): void {
-  let el = document.getElementById("sift-qreanalyze-all") as HTMLButtonElement | null;
+  let el = document.getElementById("sift-qreanalyze-all");
   if (!el) {
-    el = document.createElement("button");
+    el = document.createElement("div");
     el.id = "sift-qreanalyze-all";
-    el.className = "sift-qfoot-btn";
-    el.addEventListener("click", async () => {
+    el.className = "sift-qfoot-stat";
+    el.innerHTML =
+      `<span class="sift-qfoot-count"></span>` +
+      `<button class="sift-qfoot-go" type="button"></button>`;
+    el.querySelector("button")?.addEventListener("click", async () => {
       if (bulkReanalyzing) return; // already running — ignore re-clicks
       const ids = unanalyzedItems().map((it) => it.id);
       if (!ids.length) return;
@@ -996,11 +1006,16 @@ function ensureQueueReanalyzeAllButton(qcol: HTMLElement, unanalyzedCount: numbe
     placeInQueueColumn(qcol, el, "#sift-qreanalyze-all");
   }
   el.hidden = unanalyzedCount === 0;
+  const count = el.querySelector<HTMLElement>(".sift-qfoot-count");
+  const go = el.querySelector<HTMLButtonElement>(".sift-qfoot-go");
+  if (!count || !go) return;
+  // `textContent` sur des nœuds persistants — jamais d'innerHTML ici, ce chemin tourne en rafale.
+  count.textContent = `${unanalyzedCount.toLocaleString("fr-FR")} non analysée${unanalyzedCount > 1 ? "s" : ""}`;
   // State-driven, not a mid-flight eager re-enable: the button is disabled iff a bulk retry is
   // actually running (bulkReanalyzing), so a queue:changed re-render during the retry can't flip it
   // back to enabled under the in-flight handler (review-caught double-submit race).
-  el.disabled = bulkReanalyzing;
-  el.textContent = bulkReanalyzing ? "Relance…" : `Réanalyser (${unanalyzedCount})`;
+  go.disabled = bulkReanalyzing;
+  go.textContent = bulkReanalyzing ? "Relance…" : "Réanalyser";
 }
 
 /** Live filter bar for the queue rail (annotation: "on veut une barre de recherche en bas" —
