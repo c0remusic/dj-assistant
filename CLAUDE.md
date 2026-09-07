@@ -63,6 +63,8 @@ npm run lint:tokens              # couleurs/z-index/spacing en dur qui contourne
                                  # un +N délibéré se grave par `node scripts/lint-tokens.mjs --write-baseline`
 npm run lint:accents             # blocs de commentaire FR écrits sans accent (bug #43) —
                                  # ratchet à baseline (scripts/lint-accents-baseline.json)
+npm run lint:css-comments        # `*/` orphelin dans styles.css : texte hors /* */ = sélecteur
+                                 # invalide, la règle suivante meurt en silence (payé 2x, 09-06/07)
 npm run check:security           # scope asset et CSP — refuse le retour du wildcard (aussi en CI)
 npm run storybook                # doc visuelle des états UI (port 6006), stories = frontend/*.stories.ts
 
