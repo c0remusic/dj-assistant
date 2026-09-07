@@ -2665,9 +2665,14 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
 /* Toggle de zone partagé (Diagnostic ET Métadonnées) — un seul style pour les deux disclosures,
    pour qu'elles lisent comme le même composant (retour utilisateur 2026-07-05 : elles avaient
    deux styles différents et une seule des deux zones avait un fond teinté). */
+/* Direction T (décision d'Antoine, 2026-09-07, wireframe hiérarchie zone C) : les TITRES DE
+   FICHE montent à --text-lg/600/encre primaire — trois étages nets, fiche > groupe (10 caps
+   tertiaire) > rangée. Patron Réglages Système : le titre de panneau domine, les rangées se
+   taisent. Même cran que l'ex-.nav-brand (15/600), un barreau existant de l'échelle. */
 .sift-zone-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;
   background:none;border:none;cursor:pointer;text-align:left;padding:var(--space-8) 0;
-  font-size:var(--text-sm);color:var(--color-text-secondary);font-family:inherit;
+  font-size:var(--text-lg);font-weight:600;letter-spacing:var(--tracking-normal);
+  color:var(--color-text-primary);font-family:inherit;
   border-radius:var(--border-radius-md)}
 /* Texte-seul au survol (même convention que .sift-seg-opt, 2026-07-08) — pas de case qui se
    superpose, juste le label qui highlight. background:none réaffirmé ici : le générique
@@ -2802,7 +2807,7 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
    4.5rem de `.sift-attr-k` et c'est assumé au wireframe : « Canaux · échantillonnage »
    l'exige — même grammaire, deux largeurs de rail. 150px : MESURE, plus long libellé rendu
    144px (CDP, 2026-09-07) + marge. */
-.sift-spectro-rows{padding:var(--space-8) var(--space-16);display:grid;grid-template-columns:1fr;font-size:var(--text-md)}
+.sift-spectro-rows{padding:var(--space-8) var(--space-16);display:grid;grid-template-columns:1fr;font-size:var(--text-md);border-top:1px solid var(--color-border-tertiary);margin-top:var(--space-8)}
 .sift-row{display:flex;justify-content:flex-start;gap:var(--space-12);padding:var(--space-4) 0}
 /* `.sift-row-wide` retirée le 2026-09-07 avec `rowWide` (synthèse Détails techniques) : la
    référence des densités tient sur la ligne (`.sift-row-ref`), plus de rangée pleine largeur. */
@@ -2827,11 +2832,11 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
    comprises — le panneau ouvert ne garde que le spectrogramme (la preuve) et les deux pastilles
    `.sift-spectro-pills`. La phrase d'origine disait « verdict/coupure/durée stay always visible
    above » : c'est faux depuis, et le verdict n'est plus dit ici du tout. */
-.sift-spectro-tech{border-top:1px solid var(--color-border-tertiary);margin-top:var(--space-4)}
-.sift-spectro-tech-summary{list-style:none;cursor:pointer;padding:var(--space-8) var(--space-16);font-size:var(--text-sm);color:var(--color-text-tertiary);user-select:none}
-.sift-spectro-tech-summary::-webkit-details-marker{display:none}
-.sift-spectro-tech-summary::before{content:"▸ ";display:inline-block}
-.sift-spectro-tech[open] .sift-spectro-tech-summary::before{content:"▾ "}
+/* Le disclosure « Détails techniques » est PARTI le 2026-09-07 (direction T, bonus validé :
+   « pas besoin d'ouvrir s'il n'y a rien à charger » — contrairement au Diagnostic, dont
+   l'ouverture recalcule le spectrogramme ~631 ms, ces rangées sont déjà dans le rapport). Les
+   mesures suivent directement les pastilles ; le filet haut (porté par .sift-spectro-rows,
+   déclaré à sa région) borne la zone comme avant. */
 .sift-tags-box{margin-bottom:4px}
 .sift-tags-title{font-size:var(--text-xs);letter-spacing:var(--tracking-wider);text-transform:uppercase;color:var(--color-text-tertiary);margin-bottom:var(--space-4)}
 .sift-codec-error{margin-top:12px;font-size:var(--text-sm);color:var(--color-text-warning)}
@@ -3048,7 +3053,9 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
    scroll de rapport, 8 + 8, qui ne collapsent pas en flex) — MESURÉ 32 dans la vraie fenêtre,
    le pas inter-sections de la maquette. Un padding ici referait 48. */
 .sift-meta-header{display:flex;align-items:center;justify-content:space-between;gap:var(--space-8);margin-bottom:var(--space-8)}
-.sift-meta-title{font-size:var(--text-md);color:var(--color-text-secondary)}
+/* Direction T (2026-09-07) : même cran que le toggle Diagnostic — les deux fiches de la zone C
+   portent le même étage de titre. */
+.sift-meta-title{font-size:var(--text-lg);font-weight:600;letter-spacing:var(--tracking-normal);color:var(--color-text-primary)}
 /* `.sift-meta-header-right` retiré le 2026-09-06 avec le déménagement du bouton Identifier SOUS
    les attributs (décision 1b d'Antoine, wireframe avant/après) — le span ne contenait que lui. */
 .sift-meta-actions{margin-top:var(--space-8)}

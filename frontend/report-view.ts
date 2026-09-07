@@ -736,8 +736,11 @@ function spectroAndTagsHtml(r: AnalysisReport): string {
     // ⚠️ Depuis le 2026-08-25, coupure / densité de l'aigu / durée ont REJOINT ce disclosure : le
     // panneau ouvert ne montrait plus la preuve, il montrait un tableau. Aucun de ces textes n'est
     // reformulé au passage — hfDensityText et durationText sont appelés à l'identique.
-    `<details class="sift-spectro-tech">` +
-    `<summary class="sift-spectro-tech-summary">Détails techniques</summary>` +
+    // Le disclosure « Détails techniques » est parti le 2026-09-07 (direction T, bonus validé :
+    // « pas besoin d'ouvrir s'il n'y a rien à charger » — ces rangées sont déjà dans le rapport,
+    // contrairement au spectrogramme que l'ouverture du Diagnostic recalcule). Les groupes
+    // Spectre/Signal/Forme/Intégrité structurent seuls ; l'audit finding #5 (2026-07-10) voulait
+    // le jargon derrière UN étage — le Diagnostic replié par défaut le reste.
     `<div class="sift-spectro-rows">` +
     // SYNTHÈSE du 2026-09-07 (wireframe validé par Antoine, sourcing Utilitaire de disque +
     // Fakin' The Funk) : quatre groupes — Spectre, Signal, Forme, Intégrité — et la paire
@@ -771,7 +774,7 @@ function spectroAndTagsHtml(r: AnalysisReport): string {
     (decodedShortfallText(r.duration_sec, r.decoded_duration_sec, fmt) != null
       ? row("Durée décodée", decodedShortfallText(r.duration_sec, r.decoded_duration_sec, fmt) as string)
       : "") +
-    `</div></details></div></div>` +
+    `</div></div></div>` +
     // Tags CDJ OK / Version ID3 moved to the Identification card (filing.ts, alongside Label/
     // Année/Genre) — Pochette dropped entirely (redondant avec la pochette déjà visible dans le
     // hero). Nothing meaningful was left in the old "Tags" box, so it's gone too; codec_error is

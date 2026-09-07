@@ -404,8 +404,15 @@ Ordre vertical, et il est le parcours de décision :
    macOS = chevron + titre, rien d'autre). Ouvert : le **spectrogramme domine** (toute la
    largeur disponible jusqu'à sa borne `--measure-data`, la preuve du verdict) ; sous lui,
    **deux pastilles compactes**
-   (format · lecture du spectro, ex. `FLAC` · `Pleine bande · 22 kHz`) ; puis **« Détails
-   techniques »**, restructurés le **2026-09-07** (synthèse validée sur wireframe, sourcing
+   (format · lecture du spectro, ex. `FLAC` · `Pleine bande · 22 kHz`) ; puis **les mesures,
+   directement** — le disclosure « Détails techniques » est **retiré le 2026-09-07** (direction
+   T, bonus validé : « pas besoin d'ouvrir s'il n'y a rien à charger » — ces rangées sont déjà
+   dans le rapport, contrairement au spectrogramme que l'ouverture du Diagnostic recalcule ;
+   l'audit finding #5 voulait le jargon derrière UN étage, le Diagnostic replié par défaut le
+   reste). Et — **direction T, même décision** — les titres de fiche de la zone C
+   (« Métadonnées », « Diagnostic audio ») montent à `--text-lg`/600/encre primaire : trois
+   étages nets, fiche › groupe (10 caps tertiaire) › rangée, patron Réglages Système. Mesures
+   restructurées le **2026-09-07** (synthèse validée sur wireframe, sourcing
    Utilitaire de disque + Fakin' The Funk) en **quatre groupes** — Spectre · Signal · Forme ·
    Intégrité, en-têtes petites capitales tertiaires, « serré dedans aéré entre », et — décision
    H1 du même jour — **la grammaire de la fiche Métadonnées voisine** : une colonne, label
