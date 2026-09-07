@@ -367,6 +367,25 @@ export function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string):
     `<span class="sift-meta-title">Métadonnées</span>` +
     `</div>` +
     `<div class="sift-meta-body">` +
+    // L'IDENTIFICATION DISCOGS EN TÊTE de fiche — « je voudrais mettre l'identification Discogs
+    // au-dessus » (Antoine, 2026-09-07, le soir même du passage du Diagnostic en zone D). Ordre :
+    // release choisie / candidats, puis le bouton qui les lance, puis les attributs que le choix
+    // remplit. Renverse la décision 1b du 2026-09-06 (bouton et résultats SOUS les attributs) :
+    // l'ordre de lecture redevient l'ordre de CAUSE — on choisit la release, les champs en
+    // découlent. Les deux blocs (résultats + bouton) déménagent ENSEMBLE, la proximité
+    // cause-effet du 06 (candidats collés au bouton) tient toujours.
+    // Résultats Discogs — la release choisie au repos (chosenRowHtml, reconstruite au réopen
+    // depuis l'état seedé par filing.ts), la liste ouverte le temps d'une recherche (doIdentify),
+    // vide et masqué sinon. onIdentityApplied remplit les inputs data-fil ci-dessous en place,
+    // sans re-render.
+    `<div class="sift-cands sift-cands-host" hidden></div>` +
+    // Bouton Identifier — aligné au bord gauche, juste sous ses résultats et AU-DESSUS des
+    // attributs depuis le 2026-09-07 (voir le bloc du dessus). Loupe retirée le 2026-08-26 (CTA à
+    // label descriptif = texte seul) ; le badge `I` RESTE — il porte le raccourci clavier, une
+    // information que le libellé ne donne pas.
+    `<div class="sift-meta-actions">` +
+    `<button data-fil="identifier" class="sift-meta-ident-btn" title="Rechercher les métadonnées sur Discogs (pochette, label, année, genres)">${c.artist && c.title ? "Ré-identifier" : "Identifier"} <span class="kbd sift-kbd-hint-id">I</span></button>` +
+    `</div>` +
     // Liste d'attributs éditable en place : la valeur EST un input (data-fil écouté par `upd` à la
     // saisie et par onIdentityApplied au remplissage), stylé comme du texte tant qu'on ne le touche
     // pas. Labels persistants — annotation "on ne sait pas à quoi correspondent les champs".
@@ -383,24 +402,11 @@ export function renderEditor(host: HTMLElement, mid: HTMLElement, rail: string):
     `<div class="sift-attr"><span class="sift-attr-k">Label</span><input data-fil="label" placeholder="—" value="${esc(c.label ?? "")}" class="sift-attr-input" aria-label="Label"></div>` +
     `<div class="sift-attr"><span class="sift-attr-k">Genres</span><span class="sift-genres"></span></div>` +
     `</div>` +
-    // Résultats Discogs — vide au repos, rempli le temps d'une recherche (doIdentify). Ils
-    // vivaient AU-DESSUS des attributs (« le choix d'une release précède l'édition ») ; descendus
-    // ici le 2026-09-06, retour d'Antoine sur la vraie fenêtre : depuis la décision 1b le bouton
-    // qui les lance vit en bas — des résultats qui surgissent à l'opposé du geste se lisent comme
-    // une anomalie. Proximité cause-effet : les candidats apparaissent juste au-dessus du bouton.
-    // onIdentityApplied remplit les inputs data-fil ci-dessus en place, sans re-render.
-    `<div class="sift-cands sift-cands-host" hidden></div>` +
-    // Bouton Identifier SOUS les attributs, aligné au bord gauche des valeurs — décision 1b
-    // d'Antoine (2026-09-06, wireframe avant/après) : l'ordre de lecture est l'ordre d'usage — on
-    // lit les valeurs, elles clochent, l'action est là. Il vivait au bord droit de l'en-tête,
-    // que la largeur du panneau envoyait à ~1300px du titre. Patron formulaire (action en pied,
-    // sous les champs — Réglages Système). Coût assumé au wireframe : pendant une recherche, les
-    // candidats s'insèrent au-dessus des attributs, loin de ce bouton.
-    // Loupe retirée le 2026-08-26 (CTA à label descriptif = texte seul) ; le badge `I` RESTE — il
-    // porte le raccourci clavier, une information que le libellé ne donne pas.
-    `<div class="sift-meta-actions">` +
-    `<button data-fil="identifier" class="sift-meta-ident-btn" title="Rechercher les métadonnées sur Discogs (pochette, label, année, genres)">${c.artist && c.title ? "Ré-identifier" : "Identifier"} <span class="kbd sift-kbd-hint-id">I</span></button>` +
-    `</div>` +
+    // Historique de l'emplacement des résultats et du bouton (tous deux en tête de fiche
+    // aujourd'hui, voir plus haut) : bouton au bord droit de l'en-tête jusqu'au 2026-09-06 (à
+    // ~1300px du titre en panneau large) → décision 1b, bouton SOUS les attributs, résultats
+    // descendus avec lui le même jour (des résultats surgissant à l'opposé du geste se lisaient
+    // comme une anomalie) → 2026-09-07, les deux remontent ensemble au-dessus des attributs.
     // Plus de bouton « Appliquer » (retour Antoine 2026-08-25) : les tags ID3 se gravent
     // AUTOMATIQUEMENT quand on finit d'éditer un champ (blur/Entrée) ou qu'on choisit un match
     // Discogs — voir doApplyTags, déclenché depuis le wiring des inputs et onIdentityApplied.

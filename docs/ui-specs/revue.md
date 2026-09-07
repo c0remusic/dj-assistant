@@ -416,20 +416,27 @@ Ordre vertical, et il est le parcours de décision :
    (*text field inline* : texte au repos, champ + anneau d'accent au focus ; patron
    inspecteur Finder « Lire les informations »). Artiste / Titre / Version éditables ;
    Label en lecture seule ; **genres en texte + icône tag** (glyphe *tag* du kit, § 01
-   Icons — « Electronic, Synth-pop », **pas de chips** ; décision F, 2026-08-24). Le **seul** bouton **« Identifier »** vit **SOUS la liste
-   d'attributs, aligné au bord gauche** (`.sift-meta-actions`) — **décision 1b d'Antoine,
-   2026-09-06**, wireframe avant/après : l'ordre de lecture est l'ordre d'usage (on lit les
-   valeurs, elles clochent, l'action est là ; patron formulaire de Réglages Système). Il vivait
-   au bord droit de l'en-tête, que la largeur du panneau envoyait à ~1300 px du titre. Coût
-   assumé : pendant une recherche, les candidats s'insèrent au-dessus des attributs, loin du
-   bouton. Le badge **« Prêt CDJ »** qui accompagnait l'ancien emplacement a été **retiré le
+   Icons — « Electronic, Synth-pop », **pas de chips** ; décision F, 2026-08-24).
+   **L'identification Discogs ouvre la fiche depuis le 2026-09-07** (« je voudrais mettre
+   l'identification Discogs au-dessus », Antoine, le soir du passage du Diagnostic en zone D) :
+   sous le titre « Métadonnées » viennent **la release choisie** (ou la liste des candidats
+   pendant une recherche), **le bouton « Identifier » / « Ré-identifier »** aligné au bord
+   gauche (`.sift-meta-actions`), **puis la liste d'attributs**. L'ordre de lecture est l'ordre
+   de cause : on choisit la release, les champs en découlent. Renverse ~~la **décision 1b
+   d'Antoine, 2026-09-06** : bouton **SOUS la liste d'attributs** (l'ordre de lecture est l'ordre
+   d'usage — on lit les valeurs, elles clochent, l'action est là ; patron formulaire de Réglages
+   Système)~~ ; résultats et bouton déménagent **ensemble**, leur proximité cause-effet du 06 tient.
+   Avant 1b, le bouton vivait au bord droit de l'en-tête, que la largeur du panneau envoyait à
+   ~1300 px du titre. Le badge **« Prêt CDJ »** qui accompagnait cet ancien emplacement a été **retiré le
    2026-08-25** (demande d'Antoine ; le helper `paintCdjBadge` est supprimé du code).
    « Identifier » lance la recherche Discogs et remplit ces
    mêmes champs, **sans changer de mode** (plus de formulaire à entrer). Quand **plusieurs
    éditions** matchent, elles s'affichent en **liste ouverte inline** (patron Spotlight « Top
-   Hit »), navigables ↑↓, sans popover ni changement de mode — la liste vit **sous les
-   attributs**, juste au-dessus du bouton qui la lance (2026-09-06, suite de la décision 1b :
-   des résultats surgissant à l'opposé du geste se lisaient comme une anomalie). **La liste se
+   Hit »), navigables ↑↓, sans popover ni changement de mode — la liste vit **en tête de
+   fiche, juste au-dessus du bouton qui la lance** (2026-09-07 ; du 06 au 07 elle vivait sous
+   les attributs, au-dessus du même bouton — la contrainte qui tient depuis le 06 est la
+   proximité au bouton : des résultats surgissant à l'opposé du geste se lisaient comme une
+   anomalie). **La liste se
    referme SUR la ligne du candidat choisi, qui reste seule** (`chosenRowHtml`,
    `identify-shared.ts`) — inerte, fond de sélection, reconstruite au réopen depuis metadata +
    cache session (pays/format sans colonne backend, migration refusée : « je me fiche de
@@ -617,6 +624,13 @@ rayons (ci-dessous).
   blanc (`--color-accent-ink`).
 - **Écarter** = *push button* **secondaire = gris rempli** (fond `--overlay-selected`, texte
   encre). Le kit **ne connaît pas** le ghost à bordure — à ne pas réintroduire.
+  ⚠️ **CSS aligné le 2026-09-07 seulement** : `.sift-secondary-trash` portait depuis le
+  2026-08-19 une **encre danger** (et Re-source une encre warning), antérieure à cette ligne et
+  jamais recalée — « le bouton Convertir et Écarter n'ont pas le même langage » (Antoine). Dans
+  le pied de boîte les deux secondaires passent à l'encre primaire, graisse 500 comme le
+  primaire ; fond `--color-surface-raised` (l'aplat gris réel, pas `--overlay-selected` à 6 %,
+  écart de token non tranché), hover teinté conservé (transition, pas état). « Supprimer » de
+  Bibliothèque garde son encre danger : corbeille réelle.
 - **Recherche** = *search field* : loupe + placeholder + clear `×` + anneau d'accent au
   focus. ~~**En tête** de la colonne file (décision E)~~ → **sous la rangée de filtre**, 2026-08-26.
 - **Segmented** (**Format** seul ; le Détail/Lot est **retiré**) = pill blanc **surélevé**

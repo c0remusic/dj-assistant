@@ -1564,6 +1564,18 @@ body[data-view="revue"] .sift-pz-row.sift-pz-analyze{display:none}
    ligne vivante se lit comme deux intentions concurrentes à la prochaine édition. Fusionnées le
    2026-08-19, sans changer ce qui est peint : fond `--color-background-danger` + assombrissement. */
 .sift-secondary-trash:hover{background:var(--color-background-danger);filter:brightness(0.95)}
+/* Dans le PIED DE BOÎTE de Revue, Écarter (et Re-source, même slot quand le verdict est fake)
+   est le secondaire du kit tel que la spec l'écrit depuis le 2026-08-24 (revue.md § Composants :
+   « gris rempli, texte encre ») : « le contraste primaire / secondaire porte SEUL la distinction
+   entre les deux issues, comme macOS ». L'encre danger/warning posée ici le 08-19 est antérieure
+   à cette spec et n'a jamais été alignée — « le bouton Convertir et Écarter n'ont pas le même
+   langage » (Antoine, 2026-09-07) : un secondaire teinté à côté d'un primaire d'accent, ce sont
+   deux grammaires. Encre primaire + le 500 du primaire (même graisse que .sift-baction) ; fond,
+   géométrie et hover inchangés — le hover garde sa teinte danger, c'est une TRANSITION, pas un
+   état permanent (CLAUDE.md § Front). Portée = le pied seul : « Supprimer » de Bibliothèque
+   (library-detail.ts, corbeille réelle) garde son encre danger. */
+.sift-filbox-foot .sift-secondary-trash,
+.sift-filbox-foot .sift-secondary-resource{color:var(--color-text-primary);font-weight:500}
 /* État disabled du rail par TOKEN, pas par opacité (DESIGN.md:262) — même patron que
    .sift-applytags-btn:disabled. opacity:1 annule le générique button:disabled (laissé intact : c'est
    l'exception :disabled documentée du fichier) ; encre secondaire neutre pour les trois boutons ; le
@@ -3078,7 +3090,11 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
 .sift-diag-title{margin-bottom:var(--space-8)}
 /* `.sift-meta-header-right` retiré le 2026-09-06 avec le déménagement du bouton Identifier SOUS
    les attributs (décision 1b d'Antoine, wireframe avant/après) — le span ne contenait que lui. */
-.sift-meta-actions{margin-top:var(--space-8)}
+/* Le bloc d'action précède les attributs depuis le 2026-09-07 (identification Discogs en tête de
+   fiche — filing-identify.ts) : il porte donc l'écart vers eux, le même --space-16 que
+   .sift-attr-list donne au bloc qui la suit. Le margin-top reste — au repos (résultats masqués)
+   il fait l'écart depuis l'en-tête, en recherche celui depuis la liste. */
+.sift-meta-actions{margin-top:var(--space-8);margin-bottom:var(--space-16)}
 .sift-meta-ident-btn{flex:none;white-space:nowrap;background:var(--color-surface-raised);color:var(--color-text-secondary);border:0;padding:var(--space-4) var(--space-12);font-size:var(--text-sm);border-radius:var(--border-radius-sm)}
 .sift-meta-ident-btn:hover{background:var(--color-surface-raised);filter:brightness(0.97)}
 /* Liste d'attributs éditable en place (direction B) : ligne label/valeur, la valeur EST un input
