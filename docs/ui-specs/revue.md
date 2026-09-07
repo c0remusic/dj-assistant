@@ -383,9 +383,15 @@ Ordre vertical, et il est le parcours de décision :
    Hit »), navigables ↑↓, sans popover ni changement de mode — la liste vit **sous les
    attributs**, juste au-dessus du bouton qui la lance (2026-09-06, suite de la décision 1b :
    des résultats surgissant à l'opposé du geste se lisaient comme une anomalie). **La liste se
-   referme au choix d'une release** — retour d'Antoine du 2026-09-06, qui remplace le fork F
-   (« liste ouverte, permuter = cliquer un autre item ») : le feedback du choix est porté par
-   les attributs remplis, la pochette et les genres ; permuter = re-cliquer Ré-identifier. Le clic sur un match **écrit l'ID3
+   referme SUR la ligne du candidat choisi, qui reste seule** (`chosenRowHtml`,
+   `identify-shared.ts`) — inerte, fond de sélection, reconstruite au réopen depuis metadata +
+   cache session (pays/format sans colonne backend, migration refusée : « je me fiche de
+   l'édition »). Trajectoire datée : fork F « liste ouverte » → fermeture sèche (2026-09-06)
+   → ligne persistante (2026-09-07), **confirmée le même jour contre le comparatif Apple
+   A/B/C** (orthodoxie iTunes « les champs suffisent » et popover HIG montrés et écartés) :
+   deux pressages d'une même release remplissent les champs à l'identique — seule la ligne
+   dit lequel est lié, une information DJ qu'aucun champ ne porte. Permuter = re-cliquer
+   Ré-identifier. Le clic sur un match **écrit l'ID3
    immédiatement** (décision datée 2026-08-21, « Entrée = graver »), avec un filet
    **« Rétablir »** inline (+ `Échap`) pour défaire. **La ligne
    « Tags ID3 » est supprimée** (tautologique : « Tags ID3 : ID3 »). Le critère CDJ reste
