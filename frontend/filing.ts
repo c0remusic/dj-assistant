@@ -38,6 +38,10 @@ import {
 } from "./filing-bins";
 import { state, openState, isFilingInFlight } from "./filing-state";
 import { toast, registerClearPaneHook } from "./filing-toast";
+// Zone D du shell — l'inspecteur. Depuis le 2026-09-07 (« ok pour l'inspecteur », Antoine, sur
+// wireframe combiné) le Diagnostic audio y vit, hors de #mid. `toolbar.ts` est une feuille (dom,
+// seg-thumb) : aucun cycle.
+import { openAside, closeAside } from "./toolbar";
 import {
   TARGET_LABEL,
   titleCase,
@@ -326,6 +330,9 @@ function clearPane(mid: HTMLElement, emptyQueue = false): void {
   // Non-throw : clearPane tourne depuis des callbacks async (revert/undo/secondary) qui peuvent
   // partir alors qu'on a quitté Revue.
   hidePanelFoot();
+  // Plus de piste ouverte → plus de Diagnostic : la zone D se referme (une colonne vide de 320 px
+  // à côté d'un état vide se lirait comme un bug). `closeAside` est non-throw lui aussi.
+  closeAside();
 }
 
 /** Banner HTML for a duplicate match (filed = already in library, pending = dupe in queue;
@@ -374,11 +381,6 @@ export async function openFilingInto(
     '<div class="sift-fil-scroll">' +
     '<div class="sift-fil-report"></div>' +
     '<div class="sift-fil-editor sift-fil-editor-margin"></div>' +
-    // Diagnostic SOUS les Métadonnées (wireframe § 06, fix 4) : on identifie plus souvent qu'on
-    // n'inspecte, donc les détails techniques finissent le volet — patron inspecteur. Le
-    // conteneur est rempli par openReportInto (5ᵉ argument) ; il reste vide si l'analyse échoue,
-    // ce qui est le même état qu'avant la scission (le corps d'analyse ne s'affichait pas non plus).
-    '<div class="sift-fil-diag sift-fil-editor-margin"></div>' +
     '<div class="sift-fil-verdict sift-fil-editor-margin"></div>' +
     '</div>' +
     '<div class="sift-fil-dup"></div>' +
@@ -387,8 +389,16 @@ export async function openFilingInto(
   // Verdict is the CONCLUSION — rendered last, after Identification, matching the maquette
   // (see docs/superpowers/plans/2026-07-02-refonte-ui-plan.md, décision du 2026-07-02). Passed to openReportInto below.
   const verdictEl = requireEl<HTMLElement>(".sift-fil-verdict", "openFilingInto", mid);
-  // Hôte du Diagnostic, entre les Métadonnées et le verdict (voir le markup ci-dessus).
-  const diagEl = requireEl<HTMLElement>(".sift-fil-diag", "openFilingInto", mid);
+  // Hôte du Diagnostic : la ZONE D du shell (`#sift-aside`, l'inspecteur — DESIGN.md § 14), plus
+  // un slot de #mid. Décision d'Antoine du 2026-09-07 (« ok pour l'inspecteur », wireframe
+  // combiné) après « ça fait vraiment bordel » sur la fiche empilée sous les Métadonnées : la
+  // zone C ne porte plus que ce qu'on ÉDITE (lecteur, réglages, identité), la preuve technique a
+  // sa colonne — patron Finder, contenu au centre, informations à droite. Le slot est rempli par
+  // openReportInto (5ᵉ argument) exactement comme l'ancien `.sift-fil-diag` ; seule l'adresse
+  // change. Un shell sans zone D n'est pas un état de repos possible : index.html la porte, et la
+  // taire laisserait le Diagnostic disparaître en silence.
+  const diagEl = openAside();
+  if (!diagEl) throw new Error("openFilingInto: #sift-aside absent du shell");
   // Plus de résolution du pied ici : depuis la décision V2b (2026-08-30) les contrôles de rangement
   // vivent dans la boîte de lecture, dont les slots n'existent qu'une fois le rapport peint. Ils se
   // résolvent donc dans `renderFoot`, appelé plus bas — après le `await` du rapport.
@@ -453,6 +463,11 @@ export async function openFilingInto(
     }),
   ]);
   if (myseq !== openState.openSeq) return; // a newer open started while we awaited — don't paint this track
+  // Analyse en échec (fichier parti, codec, IPC) : le corps d'analyse reste vide et caché — en
+  // zone D ce serait une colonne de 320 px sans rien dedans, là où l'ancien slot de #mid se
+  // contentait d'un div vide dans le flux. On referme la colonne ; l'erreur, elle, est déjà
+  // portée par le slot verdict (`showAnalysisFailure`) ou par la chaîne « fichier parti » dessous.
+  if (!report) closeAside();
   if (fileGone) {
     // The file is confirmed gone from disk, so nothing in this pane is actionable (can't play,
     // can't file, can't retry). CORRECTION (caught in review): `analyze_path` itself does NOT

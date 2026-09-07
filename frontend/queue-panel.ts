@@ -15,6 +15,7 @@ import { homeProgressZone, taskOf } from "./progress-zone";
 import { MAX_ANALYSIS_ATTEMPTS, type QueueItem } from "../shared/contracts";
 import { confirmAction } from "./confirm-modal";
 import { requireEl, esc } from "./dom";
+import { closeAside } from "./toolbar";
 import { toast } from "./filing-toast";
 import { humanizeError } from "./errors";
 import { filingFailure, isFilingInFlight, onFilingOutcome } from "./filing-state";
@@ -1480,6 +1481,11 @@ export function enterDetailMode(): void {
 export function enterBatchMode(): void {
   requireEl("#fldz", "enterBatchMode");
   setReviewModeRaw("batch");
+  // Le Diagnostic de la piste ouverte vit en zone D depuis le 2026-09-07 (filing.ts
+  // `openFilingInto`). Le mode Lot n'a pas de piste ouverte — sa zone C est le résumé de
+  // sélection — donc la colonne se referme ici, à la porte. Le retour en Détail la rouvre par
+  // `syncDetail` → `openFilingInto` (le #mid réécrit par le Lot n'est plus « le nôtre »).
+  closeAside();
   initQueueBatchSel(currentItems);
   // Pas d'appel optionnel `batchRenderer?.()` ici : à ce point du programme un renderer absent
   // n'est pas un état de repos possible, c'est `installLiveWiring` qui n'a pas tourné. Le taire

@@ -564,6 +564,23 @@ body:has(#sift-titlebar){border-radius:var(--border-radius-sm);overflow:hidden}
 #sift-aside .sift-player-path{flex-wrap:wrap}
 #sift-aside .sift-player-path-seg{white-space:normal;overflow-wrap:anywhere}
 #sift-aside .sift-spectro-rows{grid-template-columns:1fr;gap:0}
+/* Le Diagnostic audio de REVUE vit ici depuis le 2026-09-07 (décision d'Antoine, « ok pour
+   l'inspecteur », wireframe combiné ; filing.ts `openFilingInto`) — enfant DIRECT de la zone D, ce
+   que le rapport de Bibliothèque (openLibraryDetailInto, corps dans .sift-report-scroll) n'est
+   jamais : le sélecteur `>` ne touche donc que Revue. Dans la surface large les pastilles, le
+   toggle, le canevas et les rangées portent chacun leur inset --space-16 pour lire comme une
+   colonne à l'intérieur de la boîte ; en zone D l'inset est déjà celui de la colonne
+   (padding --space-16 de #sift-aside) et le titre `.sift-diag-title` n'en porte aucun — garder
+   les leurs décalerait tout le corps de 16 px à droite du titre. Zéro horizontal, vertical intact. */
+#sift-aside>.sift-analysis-body .sift-spectro-pills,
+#sift-aside>.sift-analysis-body .sift-spectro-rows,
+#sift-aside>.sift-analysis-body .sift-zone-toggle.sift-spectro-toggle{padding-left:0;padding-right:0}
+#sift-aside>.sift-analysis-body .sift-spectro-canvas-wrap{margin-left:0;margin-right:0}
+/* Rail de label 150 px + valeur dans 288 px de colonne : la valeur d'une densité avec sa
+   référence (« -3.5 dB · plage -6…0 ») passe à la ligne sous elle-même, pas sous le label.
+   Le rail est une MESURE du plus long libellé (« Canaux · échantillonnage », 144 px), il ne se
+   rogne pas ; c'est la valeur qui accepte de plier. */
+#sift-aside>.sift-analysis-body .sift-row-value{min-width:0;overflow-wrap:anywhere}
 #sift-aside .lib-edit-meta{flex-direction:column;align-items:stretch}
 #sift-aside .lib-edit-meta .sift-editor-input{width:100%}
 #sift-aside .sift-editor-fields{grid-template-columns:1fr}

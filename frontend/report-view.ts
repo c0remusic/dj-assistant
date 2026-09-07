@@ -1297,11 +1297,12 @@ export async function openReportInto(
   // and their own verdict slot), else in a `.sift-verdict-stub` kept inside this same scroll
   // (openReportModal, which has no Identification card of its own). Filled in later (seq-guarded).
   const verdictHost = () => verdictContainer ?? container.querySelector<HTMLElement>(".sift-verdict-stub");
-  // Le Diagnostic descend SOUS les Métadonnées quand l'appelant fournit `diagContainer` (Revue,
-  // wireframe § 06 fix 4 : « on identifie plus souvent qu'on n'inspecte », patron inspecteur qui
-  // met les détails techniques en fin de volet). Le corps d'analyse est déjà un slot rempli plus
-  // tard — il change seulement d'hôte, aucun autre chemin ne bouge. Sans `diagContainer`
-  // (openReportModal, library-detail) il reste dans le scroll du rapport, comme avant.
+  // Le Diagnostic part chez l'appelant quand il fournit `diagContainer` : d'abord SOUS les
+  // Métadonnées (2026-08-25, wireframe § 06 fix 4 : « on identifie plus souvent qu'on n'inspecte »),
+  // puis en ZONE D — l'inspecteur `#sift-aside` — depuis le 2026-09-07 (« ok pour l'inspecteur »,
+  // filing.ts `openFilingInto`). Le corps d'analyse est déjà un slot rempli plus tard — il change
+  // seulement d'hôte, aucun autre chemin ne bouge. Sans `diagContainer` (openReportModal,
+  // library-detail) il reste dans le scroll du rapport, comme avant.
   const bodyHost = diagContainer ?? container;
   container.innerHTML =
     `<div class="sift-report-scroll">` +

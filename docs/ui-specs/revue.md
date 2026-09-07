@@ -196,14 +196,61 @@ décidée. L'état « analyse en cours » (squelette) continue de ne pas prendre
 le mode Détail — il reste exact pour le contenu des contrôles (pulldown Destination, formats,
 nom final, boutons), seul leur EMPLACEMENT change.
 
+## Décision — 2026-09-07 : le Diagnostic audio passe en zone D (l'inspecteur)
+
+**Contexte.** Après la direction T (titres de fiche à `--text-lg`, disclosure Détails retiré)
+puis la fiche non repliable, Antoine : « ça fait vraiment bordel ». Deux retouches visuelles
+d'affilée sur la même surface sans accord = l'accord global n'avait jamais eu lieu (règle du
+dépôt). Diagnostic de la capture : un **mur continu** — aide clavier, deux fiches, pastilles,
+pli, quatre tableaux — sur ~1200 px de large, 60 % de vide à droite de chaque valeur, six
+espèces d'objets empilées sans borne. Wireframe global de zone C : quatre directions (B deux
+colonnes · C rouleau borné + carte · D inspecteur · E proportionnel au doute), puis un
+wireframe **combiné** (D + E + C, B absorbé par D), en deux états (piste saine, piste FAKE).
+
+**Tranché : « ok pour l'inspecteur » — D, seule.** Le Diagnostic audio entier (titre
+statique, pastilles, disclosure Spectrogramme, quatre groupes de mesures) **déménage dans
+`#sift-aside`**, la zone D du shell (DESIGN.md § 14) que Bibliothèque et Journal emploient
+déjà et que Revue n'employait pas. La zone C ne porte plus que ce qu'on **édite** : path bar,
+en-tête, boîte de lecture (réglages + engagement, V2b), Métadonnées + Ré-identifier. La preuve
+technique a sa colonne permanente, étroite, verticale — patron **Finder** (contenu au centre,
+« Lire les informations » à droite). Ce qui était « le vide de droite » devient une colonne.
+
+- **Plomberie** : `openFilingInto` (filing.ts) passe `openAside()` comme 5ᵉ argument
+  d'`openReportInto` à la place de l'ancien slot `.sift-fil-diag` de `#mid` — le corps
+  d'analyse change d'hôte, aucun autre chemin ne bouge. La colonne se referme quand il n'y a
+  plus de piste (`clearPane`), quand l'analyse échoue (colonne vide sinon) et à l'entrée du
+  mode **Lot** (`enterBatchMode`, queue-panel.ts) ; le retour en Détail la rouvre par
+  `syncDetail`. Le routeur la fermait déjà à chaque changement d'écran.
+- **Insets** : en zone D le corps est enfant direct de `#sift-aside` (jamais le cas en
+  Bibliothèque), et ses insets internes `--space-16` tombent à zéro horizontalement — le padding
+  de la colonne fait l'inset, le titre et les rangées s'alignent (`styles.css`, bloc zone D).
+  La valeur d'une rangée plie sous elle-même, jamais sous le rail de label (150 px, mesure).
+- **Spectrogramme** : il reste dans la fiche, donc en zone D, à **288 px** de large — comme le
+  rapport de Bibliothèque le rend déjà dans la même colonne. ⚠️ Sa borne `--measure-data`
+  (1200 px = `MAX_COLS`) est technique : à 288 px le canevas de 720 est **réduit**, pas étiré,
+  donc lisible mais dense. Le wireframe combiné proposait de l'ouvrir en zone C sous le lecteur,
+  à sa largeur, toggle partagé — **non tranché**, à décider sur la vraie fenêtre.
+- **E (proportionnel au doute) et C (fiche bornée ~520 px)** : montrés dans le wireframe
+  combiné, **pas tranchés** — l'accord porte sur l'inspecteur seul. La fiche en zone D montre
+  donc encore ses quatre groupes à toute piste ; la phrase de constat et l'ouverture automatique
+  des rangées fondatrices restent une suite possible.
+- **Fenêtre étroite** : non traité. La zone D est fixe (320) comme la file ; en dessous de
+  ~1100 px la zone C se comprime. Repli automatique de l'inspecteur = suite possible.
+
+Le § Zone C point 5 plus bas garde le contenu de la fiche (pastilles, groupes, grammaire H1),
+son **emplacement** est celui-ci.
+
 ## Contexte dans le shell
 
 Patron macOS : **Finder** pour la file et la sélection · **Utilitaire de disque** pour
 le mode Lot (cible → action → progression → rapport).
 
-Trois zones : rail (`--rail-w`, fixe) · **file** (`--pane-w`, fixe, redimensionnable
-220–480 px, valeur persistée) · **surface de travail** (flexe). Pas d'inspecteur droit :
-la surface de travail *est* l'inspecteur, agrandi.
+Quatre zones depuis le 2026-09-07 : rail (`--rail-w`, fixe) · **file** (`--pane-w`, fixe,
+redimensionnable 220–480 px, valeur persistée) · **surface de travail** (flexe) ·
+**inspecteur** (`#sift-aside`, `--aside-w` 320 px, zone D du shell — DESIGN.md § 14). ~~Pas
+d'inspecteur droit : la surface de travail *est* l'inspecteur, agrandi.~~ **Renversé le
+2026-09-07** — voir § Décision 2026-09-07 ci-dessous : le Diagnostic audio vit en zone D, la
+surface de travail ne porte plus que ce qu'on édite.
 
 **Pourquoi cette zone flexe et pas la file.** La surface porte le spectrogramme, borné
 par `--measure-data` (1200 px) et **dupliqué côté Rust** dans
@@ -398,8 +445,10 @@ Ordre vertical, et il est le parcours de décision :
    défini (`docs/cdj-metadata-formats.md`, WAV exclu) et son recâblage reste ouvert
    ([#46](https://github.com/c0remusic/sift/issues/46)) — il n'a simplement **plus de porteur
    visuel** sur cet écran depuis le retrait du badge.
-5. **Diagnostic audio** — **placé sous les Métadonnées** (on identifie plus souvent qu'on
-   n'inspecte ; les détails techniques vont en bas du volet). **Plus repliable depuis le
+5. **Diagnostic audio** — **en zone D, l'inspecteur, depuis le 2026-09-07** (§ Décision
+   2026-09-07 plus haut) ; ~~placé sous les Métadonnées~~ du 2026-08-25 au 2026-09-07 (on
+   identifie plus souvent qu'on n'inspecte ; les détails techniques allaient en bas du volet).
+   Le contenu ci-dessous est inchangé, seul l'hôte a changé. **Plus repliable depuis le
    2026-09-07** (« ben non, tu l'as laissé collapsable » — la règle « pas besoin d'ouvrir
    s'il n'y a rien à charger » vaut pour toute la fiche) : **titre statique**
    « Diagnostic audio » (`.sift-diag-title`, même étage que « Métadonnées », direction T),
