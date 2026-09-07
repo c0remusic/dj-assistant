@@ -48,6 +48,11 @@ run "tokens (lint:tokens)" npm run -s lint:tokens
 # relecture humaine ne voit pas : un commentaire français désaccentué se lit sans qu'on le
 # remarque (issues #43/#44). Ratchet à baseline, comme lint:tokens.
 run "accents (lint:accents)" npm run -s lint:accents
+# `*/` orphelin dans styles.css : payé DEUX FOIS les 2026-09-06/07 — le navigateur lit le texte
+# hors /* */ comme un sélecteur invalide et ignore EN SILENCE la règle suivante ; aucune autre
+# gate ne le voit (le CSS reste syntaxiquement parsable). Attrapé les deux fois par une mesure
+# CDP qui contredisait la feuille — d'où cette gate, mesurée en mutation à sa création.
+run "css-comments (lint:css-comments)" npm run -s lint:css-comments
 
 # `cargo fmt --check` : ajouté le 2026-08-26 après un raté qu'aucune gate locale
 # ne pouvait voir. `34e7f12` a livré trois emplacements de `ipc_filing.rs` non

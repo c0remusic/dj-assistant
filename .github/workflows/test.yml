@@ -101,6 +101,13 @@ jobs:
       - name: Lint accents (ratchet — bloque un bloc de commentaire français neuf écrit sans accent)
         run: npm run lint:accents
 
+      # Ajoutée le 2026-09-07 après le MÊME raté payé deux fois en deux jours : un `*/` orphelin
+      # laisse du texte de commentaire hors /* */, que le navigateur lit comme un sélecteur
+      # invalide — la règle suivante meurt en silence, et le CSS reste syntaxiquement parsable
+      # pour tout le reste de la chaîne. Zéro compilation, comme ses voisines.
+      - name: Lint css-comments (un */ orphelin éteint en silence la règle CSS suivante)
+        run: npm run lint:css-comments
+
       - name: Type-check frontend
         run: npx tsc --noEmit
 
