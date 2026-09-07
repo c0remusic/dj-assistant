@@ -404,10 +404,19 @@ Ordre vertical, et il est le parcours de décision :
    macOS = chevron + titre, rien d'autre). Ouvert : le **spectrogramme domine** (toute la
    largeur disponible jusqu'à sa borne `--measure-data`, la preuve du verdict) ; sous lui,
    **deux pastilles compactes**
-   (format · lecture du spectro, ex. `FLAC` · `Pleine bande · 22 kHz`) ; puis **« Détails »**
-   qui replie **toutes** les mesures chiffrées (coupure, densité de l'aigu, durée,
-   true-peak, phase, écrêtage, canaux, silence…). Le verdict n'est **pas** répété ici, ni
-   le format déjà en en-tête. Fermé au repos parce que la grille se recalcule à l'ouverture
+   (format · lecture du spectro, ex. `FLAC` · `Pleine bande · 22 kHz`) ; puis **« Détails
+   techniques »**, restructurés le **2026-09-07** (synthèse validée sur wireframe, sourcing
+   Utilitaire de disque + Fakin' The Funk) en **quatre groupes** — Spectre · Signal · Forme ·
+   Intégrité, en-têtes petites capitales tertiaires, « serré dedans aéré entre » : la paire
+   **Déclaré / Mesuré** ouvre Spectre dans la grammaire clé-valeur commune (jamais une flèche
+   de dashboard — patron « État : Vérifié » d'Utilitaire de disque, « Bitrate / Actual
+   Bitrate » de FTF) ; les densités portent leur référence **en tertiaire sur la ligne**
+   (`rowRef`, plus de rangée pleine largeur) ; fusions Silence début / fin et Canaux ·
+   échantillonnage ; « Conteneur : conforme » et « Fin de fichier : complète » (plus de
+   « OK oui / Tronqué non »). **Retirés** : « Durée » (le lecteur l'affiche — un compte, un
+   endroit ; seule la durée décodée DIVERGENTE survit, sous Intégrité) et « Pics
+   (couverture) » (couverture interne de l'analyse, sa place serait un log). Le verdict n'est
+   **pas** répété ici, ni le format déjà en en-tête. Fermé au repos parce que la grille se recalcule à l'ouverture
    (~631 ms mesurées) et n'est plus stockée : le pas de piste en piste (↑↓) reste
    instantané.
 

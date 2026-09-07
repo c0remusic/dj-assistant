@@ -7,13 +7,13 @@ import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import WaveSurfer from "wavesurfer.js";
 import type { AnalysisReport } from "../shared/contracts";
 import { requireEl, esc } from "./dom";
-import { durationText, hfDensityText, hfTopDensityText } from "./report-figures";
+import { decodedShortfallText, hfDensityParts, hfTopDensityParts } from "./report-figures";
+import { railFromExtension } from "./rails";
 import { VOL_KNOB, playerAuditionHtml, volumeCentreCss, volumeIconClass } from "./player-audition";
 
 /** Fallback step, only for a report predating `peaks_step` (mirrors analysis::PEAKS_WINDOW and
  *  analysis::default_peaks_step). Never use it when the report carries its own step: the envelope
  *  is max-pooled above analysis::MAX_PEAKS points, so the real step is a multiple of this. */
-const PEAKS_WINDOW_FALLBACK = 512;
 
 // L'ex-volume capsule (SVG du kit inliné, 2026-08-25) est REMPLACÉ le 2026-08-27 (Antoine :
 // « couleur, taille et style vraiment goofy » dans la rangée du lecteur fin) : le volume est
@@ -343,16 +343,9 @@ function drawSpectrogram(canvas: HTMLCanvasElement, r: AnalysisReport) {
   drawSpectroLegend(ctx, w, h, nyquist);
 }
 
-function peaksCoverage(r: AnalysisReport): string {
-  const sr = r.sample_rate || 44100;
-  // The step comes from the report, never from the constant: above analysis::MAX_PEAKS the
-  // backend max-pools the envelope, so one point can stand for several thousand samples. Using
-  // 512 there would claim a fraction of the real coverage and read as a truncated analysis.
-  const step = r.peaks_step || PEAKS_WINDOW_FALLBACK;
-  const covered = (r.peaks.length * step) / sr;
-  const pct = r.duration_sec > 0 ? (covered / r.duration_sec) * 100 : 0;
-  return `${r.peaks.length} pts ≈ ${covered.toFixed(1)}s / ${r.duration_sec.toFixed(1)}s (${pct.toFixed(0)}%)`;
-}
+// `peaksCoverage` (« 3961 pts ≈ 229.9s / 229.9s (100%) ») retiré le 2026-09-07 avec la rangée
+// « Pics (couverture) » : couverture interne de l'analyse, pas une mesure du fichier — sa place
+// serait un log. Synthèse Détails techniques, décision d'Antoine.
 
 // mono=false for a categorical word (e.g. the verdict "ok"/"fake"/"grey") rather than a numeric
 // reading (Hz, dBTP, %, runs) — .sift-row-value's monospace treatment fits digits/units, but reads
@@ -363,11 +356,34 @@ function peaksCoverage(r: AnalysisReport): string {
 // L'opt-out est gardé parce que sa règle CSS (`.sift-row-value-plain`) existe toujours ; les deux
 // se retirent ensemble ou pas du tout, sinon il reste une règle inerte (mode de défaillance déjà
 // documenté sur `.sift-spectro-box`, styles.css).
-/** Une ligne de mesure sur les DEUX colonnes de la grille. Pour celles qui portent une référence
- *  en plus de leur valeur : mesuré dans la vraie fenêtre, « Densité de l'aigu » cassait libellé et
- *  valeur sur deux lignes chacun dans une demi-colonne. */
-export function rowWide(label: string, value: string): string {
-  return `<div class="sift-row sift-row-wide"><span class="sift-row-label">${label}</span><span class="sift-row-value">${value}</span></div>`;
+/** Une ligne de mesure dont la valeur porte une RÉFÉRENCE d'encre tertiaire (les densités :
+ *  « -3.5 dB (dans la plage des masters …) »). Remplace `rowWide` (synthèse du 2026-09-07) : la
+ *  rangée pleine largeur cassait la grille et répétait sa phrase — la référence tient désormais
+ *  sur la ligne, dans la grammaire commune. */
+export function rowRef(label: string, value: string, ref: string): string {
+  return `<div class="sift-row"><span class="sift-row-label">${label}</span><span class="sift-row-value">${value} <span class="sift-row-ref">${ref}</span></span></div>`;
+}
+
+/** En-tête de groupe des Détails techniques (Spectre · Signal · Forme · Intégrité — synthèse du
+ *  2026-09-07, patron Informations système : « serré dedans, aéré entre »). Pleine largeur de la
+ *  grille à deux colonnes ; les rangées de son groupe coulent dessous. */
+export function grpRow(label: string): string {
+  return `<div class="sift-row-grp">${label}</div>`;
+}
+
+/** Sucre : `rowRef` depuis la paire {value, ref} des fonctions de report-figures. */
+function rowRefParts(label: string, p: { value: string; ref: string }): string {
+  return rowRef(label, p.value, p.ref);
+}
+
+/** « AIFF · lossless » — ce que le fichier PRÉTEND être, la moitié gauche de la paire
+ *  Déclaré/Mesuré (synthèse 2026-09-07). Le rail vient du miroir unique `rails.ts` ; `unknown`
+ *  ne s'affiche pas — le format seul suffit alors. */
+function declaredText(r: AnalysisReport): string {
+  const fmt2 = (r.declared_format ?? "").toUpperCase();
+  const rail = railFromExtension(r.declared_format ?? "");
+  const railWord = rail === "unknown" ? "" : ` · ${rail}`;
+  return fmt2 ? `${fmt2}${railWord}` : "—";
 }
 
 export function row(label: string, value: string, mono = true): string {
@@ -672,7 +688,6 @@ function sizeCoverToBody(root: HTMLElement): void {
 }
 
 function spectroAndTagsHtml(r: AnalysisReport): string {
-  const yn = (b: boolean) => (b ? "oui" : "non");
   return (
     `<div class="sift-spectro-box">` +
     zoneToggleHtml({
@@ -723,32 +738,38 @@ function spectroAndTagsHtml(r: AnalysisReport): string {
     `<details class="sift-spectro-tech">` +
     `<summary class="sift-spectro-tech-summary">Détails techniques</summary>` +
     `<div class="sift-spectro-rows">` +
-    // Coupure et durée en tête, appariées sur la grille à deux colonnes ; les deux mesures de
-    // densité les suivent, chacune sur toute la largeur (rowWide — elles portent leur référence
-    // en plus de leur valeur). Absentes des rapports d'avant leur mise en place : `null` veut dire
-    // « pas mesuré », jamais zéro, donc la ligne ne se rend pas du tout.
-    row("Coupure", fmt(r.cutoff_hz, 0) + " Hz") +
-    row("Durée", durationText(r.duration_sec, r.decoded_duration_sec, fmt)) +
-    (r.hf_flatness_db != null ? rowWide("Densité de l'aigu", hfDensityText(r.hf_flatness_db, fmt)) : "") +
+    // SYNTHÈSE du 2026-09-07 (wireframe validé par Antoine, sourcing Utilitaire de disque +
+    // Fakin' The Funk) : quatre groupes — Spectre, Signal, Forme, Intégrité — et la paire
+    // discriminante Déclaré/Mesuré en tête, dans la grammaire commune (« État : Vérifié » chez
+    // Apple, « Bitrate / Actual Bitrate » chez FTF), jamais une flèche de dashboard. Retirés :
+    // « Durée » (le lecteur l'affiche — un compte, un endroit ; seul le cas divergent survit,
+    // sous Intégrité) et « Pics (couverture) » (couverture interne de l'analyse, pas une mesure
+    // du fichier). Densités : `null` veut dire « pas mesuré », jamais zéro — la ligne ne se rend
+    // pas du tout.
+    grpRow("Spectre") +
+    row("Déclaré", declaredText(r)) +
+    row("Mesuré", `${spectroBandReading(r.verdict, r.container_mismatch)} · coupure ${fmt(r.cutoff_hz, 0)} Hz`) +
+    (r.hf_flatness_db != null ? rowRefParts("Densité de l'aigu", hfDensityParts(r.hf_flatness_db, fmt)) : "") +
     // Seconde bande de platitude, APRÈS celle du dessus et jamais avant : sa référence ne s'appuie
     // que sur 20 fichiers contre 44, et la faire lire en premier noierait celle qui porte la mesure
-    // la mieux étayée. Elle reste indispensable : c'est la SEULE qui voit Opus. (L'ordre est tout
-    // ce qui reste de cette précaution — les deux vivent dans le même disclosure depuis que les
-    // lignes principales ont disparu, 2026-08-25.)
+    // la mieux étayée. Elle reste indispensable : c'est la SEULE qui voit Opus.
     (r.hf_flatness_top_db != null
-      ? rowWide("Densité du haut du spectre", hfTopDensityText(r.hf_flatness_top_db, fmt))
+      ? rowRefParts("Densité du haut", hfTopDensityParts(r.hf_flatness_top_db, fmt))
       : "") +
-    row("Canaux", String(r.channels) + (r.dual_mono ? " (dual-mono)" : "")) +
+    grpRow("Signal") +
     row("True-peak", fmt(r.true_peak_dbtp, 2) + " dBTP") +
-    row("DC offset", fmt(r.dc_offset, 5)) +
-    row("Écrêtage", r.clip_runs + " runs / " + fmt(r.clip_pct, 2) + "%") +
+    row("Écrêtage", r.clip_runs + " runs · " + fmt(r.clip_pct, 2) + "%") +
     row("Corrélation de phase", fmt(r.phase_correlation, 3)) +
-    row("Silence début", r.silence_head_ms + " ms") +
-    row("Silence fin", r.silence_tail_ms + " ms") +
-    row("Tronqué", yn(r.truncated)) +
-    row("Conteneur OK", yn(r.container_ok)) +
-    row("Fréquence d'échantillonnage", r.sample_rate + " Hz") +
-    row("Pics (couverture)", peaksCoverage(r)) +
+    row("DC offset", fmt(r.dc_offset, 5)) +
+    grpRow("Forme") +
+    row("Silence début / fin", r.silence_head_ms + " ms · " + r.silence_tail_ms + " ms") +
+    row("Canaux · échantillonnage", String(r.channels) + (r.dual_mono ? " (dual-mono)" : "") + " · " + r.sample_rate + " Hz") +
+    grpRow("Intégrité") +
+    row("Conteneur", r.container_ok ? "conforme" : "non conforme") +
+    row("Fin de fichier", r.truncated ? "tronquée" : "complète") +
+    (decodedShortfallText(r.duration_sec, r.decoded_duration_sec, fmt) != null
+      ? row("Durée décodée", decodedShortfallText(r.duration_sec, r.decoded_duration_sec, fmt) as string)
+      : "") +
     `</div></details></div></div>` +
     // Tags CDJ OK / Version ID3 moved to the Identification card (filing.ts, alongside Label/
     // Année/Genre) — Pochette dropped entirely (redondant avec la pochette déjà visible dans le

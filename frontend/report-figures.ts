@@ -61,28 +61,36 @@ export const DURATION_MISMATCH_SEC = 1.0;
  *  déduit pas de cette mesure — un master volontairement sombre donne la même valeur. Le mot
  *  « densité » décrit ce qui est mesuré (à quel point la bande haute est remplie) là où
  *  « platitude » est du jargon et « clairsemé » est déjà un jugement. */
-export function hfDensityText(db: number, fmt: (v: number, d: number) => string): string {
+export function hfDensityParts(
+  db: number,
+  fmt: (v: number, d: number) => string,
+): { value: string; ref: string } {
   const situe = db >= HF_REF_LO ? "dans" : "sous";
-  return `${fmt(db, 1)} dB — ${situe} la plage des masters mesurés (${fmt(HF_REF_LO, 1)} à ${fmt(HF_REF_HI, 1)})`;
+  return {
+    value: `${fmt(db, 1)} dB`,
+    ref: `${situe} la plage des masters (${fmt(HF_REF_LO, 1)} à ${fmt(HF_REF_HI, 1)})`,
+  };
 }
 
-/** La durée : celle de l'en-tête, et celle réellement décodée QUAND ELLES DIVERGENT.
+/** La durée décodée QUAND elle diverge de l'en-tête — `null` sinon, et la rangée ne se rend pas.
  *
  *  Le désaccord est l'information ; l'accord n'en est pas une. C'est aussi la seule mesure que
- *  Fakin' The Funk fait et que Sift ne faisait pas — sa classe CORROMPU en sort.
+ *  Fakin' The Funk fait et que Sift ne faisait pas — sa classe CORROMPU en sort. La rangée
+ *  « Durée » permanente est partie le 2026-09-07 (synthèse Détails techniques, décision
+ *  d'Antoine : le lecteur affiche déjà la durée — un compte, un endroit) ; seul le cas divergent
+ *  survit, rangé sous Intégrité où il parle.
  *
  *  `decodedSec <= 0` = pas mesuré (rapport antérieur à la mise en place, `#[serde(default)]` côté
- *  Rust) : on n'affiche alors que la durée déclarée, jamais « 0 s réellement décodée ». */
-export function durationText(
+ *  Rust) : jamais « 0 s réellement décodée ». */
+export function decodedShortfallText(
   declaredSec: number,
   decodedSec: number,
   fmt: (v: number, d: number) => string,
-): string {
-  const declared = `${fmt(declaredSec, 1)} s`;
+): string | null {
   if (!(decodedSec > 0) || Math.abs(declaredSec - decodedSec) <= DURATION_MISMATCH_SEC) {
-    return declared;
+    return null;
   }
-  return `${declared} annoncée — ${fmt(decodedSec, 1)} s réellement décodée`;
+  return `${fmt(decodedSec, 1)} s sur ${fmt(declaredSec, 1)} s annoncées`;
 }
 
 /** Bornes des masters authentiques sur la bande RELATIVE au Nyquist, en dB.
@@ -114,7 +122,13 @@ export const HF_TOP_REF_HI = -2.5;
  *  ⚠️ Ce commentaire annonçait « 10/10 » pour Opus — le chiffre d'avant la correction de seuil du
  *  2026-08-18, resté ici alors que le bloc dix lignes plus haut le corrigeait déjà. Deux chiffres
  *  contradictoires dans le même fichier. */
-export function hfTopDensityText(db: number, fmt: (v: number, d: number) => string): string {
+export function hfTopDensityParts(
+  db: number,
+  fmt: (v: number, d: number) => string,
+): { value: string; ref: string } {
   const situe = db >= HF_TOP_REF_LO ? "dans" : "sous";
-  return `${fmt(db, 1)} dB — ${situe} la plage des masters mesurés (${fmt(HF_TOP_REF_LO, 1)} à ${fmt(HF_TOP_REF_HI, 1)})`;
+  return {
+    value: `${fmt(db, 1)} dB`,
+    ref: `${situe} la plage des masters (${fmt(HF_TOP_REF_LO, 1)} à ${fmt(HF_TOP_REF_HI, 1)})`,
+  };
 }
