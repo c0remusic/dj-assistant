@@ -365,8 +365,9 @@ export function rowRef(label: string, value: string, ref: string): string {
 }
 
 /** En-tête de groupe des Détails techniques (Spectre · Signal · Forme · Intégrité — synthèse du
- *  2026-09-07, patron Informations système : « serré dedans, aéré entre »). Pleine largeur de la
- *  grille à deux colonnes ; les rangées de son groupe coulent dessous. */
+ *  2026-09-07, patron Informations système : « serré dedans, aéré entre »). Les rangées de son
+ *  groupe coulent dessous — une colonne depuis H1 (même jour) : la grammaire de la fiche
+ *  Métadonnées voisine. */
 export function grpRow(label: string): string {
   return `<div class="sift-row-grp">${label}</div>`;
 }

@@ -407,7 +407,11 @@ Ordre vertical, et il est le parcours de décision :
    (format · lecture du spectro, ex. `FLAC` · `Pleine bande · 22 kHz`) ; puis **« Détails
    techniques »**, restructurés le **2026-09-07** (synthèse validée sur wireframe, sourcing
    Utilitaire de disque + Fakin' The Funk) en **quatre groupes** — Spectre · Signal · Forme ·
-   Intégrité, en-têtes petites capitales tertiaires, « serré dedans aéré entre » : la paire
+   Intégrité, en-têtes petites capitales tertiaires, « serré dedans aéré entre », et — décision
+   H1 du même jour — **la grammaire de la fiche Métadonnées voisine** : une colonne, label
+   tertiaire sur rail fixe (150 px, mesuré au plus long libellé), valeur à GAUCHE collée après,
+   l'espace sépare (plus de filets par rangée) — deux fiches voisines ne parlent plus deux
+   langues (patron Finder « Lire les informations ») : la paire
    **Déclaré / Mesuré** ouvre Spectre dans la grammaire clé-valeur commune (jamais une flèche
    de dashboard — patron « État : Vérifié » d'Utilitaire de disque, « Bitrate / Actual
    Bitrate » de FTF) ; les densités portent leur référence **en tertiaire sur la ligne**

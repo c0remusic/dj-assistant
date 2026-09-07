@@ -2795,25 +2795,25 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
    passe sous celle du format au lieu de déborder du cadre. */
 .sift-spectro-pills{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-8);
   padding:var(--space-8) var(--space-16)}
-.sift-spectro-rows{padding:var(--space-8) var(--space-16);display:grid;grid-template-columns:1fr 1fr;gap:0 var(--space-32);font-size:var(--text-md)}
-.sift-row{display:flex;justify-content:space-between;gap:16px;padding:var(--space-4) 0;border-bottom:1px solid var(--color-border-tertiary)}
-/* Une ligne de mesure qui porte sa RÉFÉRENCE en plus de sa valeur ne tient pas dans une demi-
-   colonne : mesurée dans la vraie fenêtre, « Densité de l'aigu » y cassait son libellé ET sa
-   valeur sur deux lignes chacun, doublant sa hauteur au milieu de lignes courtes. Elle prend donc
-   les deux colonnes. Pas de nouveau token : seule la portée de grille change. */
+/* H1 (décision d'Antoine, 2026-09-07) : les Détails adoptent la GRAMMAIRE de la fiche
+   Métadonnées voisine — une colonne, label tertiaire sur rail fixe, valeur à GAUCHE collée
+   après, l'espace sépare (plus de filets par rangée). Deux fiches voisines ne parlent plus
+   deux langues ; patron Finder « Lire les informations ». Le rail est plus large que le
+   4.5rem de `.sift-attr-k` et c'est assumé au wireframe : « Canaux · échantillonnage »
+   l'exige — même grammaire, deux largeurs de rail. 150px : MESURE, plus long libellé rendu
+   144px (CDP, 2026-09-07) + marge. */
+.sift-spectro-rows{padding:var(--space-8) var(--space-16);display:grid;grid-template-columns:1fr;font-size:var(--text-md)}
+.sift-row{display:flex;justify-content:flex-start;gap:var(--space-12);padding:var(--space-4) 0}
 /* `.sift-row-wide` retirée le 2026-09-07 avec `rowWide` (synthèse Détails techniques) : la
    référence des densités tient sur la ligne (`.sift-row-ref`), plus de rangée pleine largeur. */
 /* En-têtes de groupe (Spectre · Signal · Forme · Intégrité — synthèse 2026-09-07, patron
-   Informations système). Pleine largeur de la grille à deux colonnes ; petites capitales
+   Informations système). Une colonne depuis H1 (même jour) ; petites capitales
    tertiaires, la grammaire des .nv-grp/.sift-rail-flabel. */
 .sift-row-grp{grid-column:1/-1;font-size:var(--text-xs);font-weight:600;letter-spacing:var(--tracking-wider);text-transform:uppercase;color:var(--color-text-tertiary);padding:var(--space-12) 0 var(--space-4);border-bottom:0}
 .sift-spectro-rows>.sift-row-grp:first-child{padding-top:0}
 .sift-row-ref{color:var(--color-text-tertiary);font-size:var(--text-xs)}
-/* Last visual row (2-col grid, row() called an even number of times below) sits flush against
-   .sift-spectro-box's own border — its border-bottom just doubled that edge as a second line. */
-.sift-spectro-rows .sift-row:nth-last-child(-n+2){border-bottom:none}
-.sift-row-label{color:var(--color-text-tertiary)}
-.sift-row-value{font-family:var(--font-mono);text-align:right;color:var(--color-text-secondary)}
+.sift-row-label{flex:none;width:150px;color:var(--color-text-tertiary)}
+.sift-row-value{font-family:var(--font-mono);text-align:left;color:var(--color-text-secondary)}
 /* Opt-out for a categorical word value (row(..., false)) — mono reads as a mismatch on plain text,
    fitting only for the numeric/unit rows around it (annotation: "j'aime le texte de verdict mais
    celui de ok pas fan"). */
