@@ -691,12 +691,28 @@ function sizeCoverToBody(root: HTMLElement): void {
 function spectroAndTagsHtml(r: AnalysisReport): string {
   return (
     `<div class="sift-spectro-box">` +
+    // « Ben non, tu l'as laissé collapsable » (Antoine, 2026-09-07) : la règle « pas besoin
+    // d'ouvrir s'il n'y a rien à charger » s'applique à TOUTE la fiche, pas qu'aux ex-Détails
+    // techniques. Le Diagnostic n'est plus un disclosure : titre STATIQUE (même étage que
+    // « Métadonnées », direction T), pastilles et mesures toujours visibles — seul le
+    // SPECTROGRAMME reste repliable, parce que lui seul charge (recalcul ~631 ms à l'ouverture,
+    // wireSpectrogram). L'audit finding #5 (le jargon derrière un étage) est porté par la
+    // position (fin de fiche) et les groupes, plus par un pli.
+    `<div class="sift-diag-title">Diagnostic audio</div>` +
+    // DEUX pastilles compactes, et deux seulement : le format, et la lecture du spectre. La
+    // pastille de spectre porte la coupure ARRONDIE au kHz — la lecture, pas la mesure ; le hertz
+    // exact reste une ligne là-dessous. `.pill` est la pastille générique du dépôt. Format
+    // absent = pas de pastille vide : `formatSummary` se garde déjà pareil.
+    `<div class="sift-spectro-pills">` +
+    (r.declared_format ? `<span class="pill">${esc(r.declared_format.toUpperCase())}</span>` : "") +
+    `<span class="pill" title="${spectroCaption(r.verdict, r.container_mismatch)}">` +
+    `${spectroBandReading(r.verdict, r.container_mismatch)} · ${fmt(r.cutoff_hz / 1000, 0)} kHz</span>` +
+    `</div>` +
     zoneToggleHtml({
-      label: "Diagnostic audio",
-      // No verdict badge on this header anymore: the verdict is said ONCE, in the promoted
-      // landing block above (spec revue.md § Zone C, 2026-08-21). The badge span stays (hidden by
-      // default) so the shared zoneToggle markup is unchanged; only the hint span is still used
-      // here, for wireSpectrogram's transient "calcul…"/"échec" text.
+      // Le toggle ne porte plus la fiche, seulement sa pièce coûteuse. Le badge span reste
+      // (masqué) pour que le markup partagé de zoneToggle soit inchangé ; le hint sert toujours
+      // au « calcul… »/« échec » transitoire de wireSpectrogram.
+      label: "Spectrogramme",
       badgeId: "sift-quality-badge",
       toggleExtraClass: "sift-sg-toggle sift-spectro-toggle",
       caretExtraClass: "sift-sg-caret sift-spectro-caret",
@@ -704,12 +720,6 @@ function spectroAndTagsHtml(r: AnalysisReport): string {
     }) +
     `<div class="sift-sg-body sift-spectro-body">` +
     `<div class="sift-spectro-body-inner">` +
-    // Le spectrogramme d'ABORD, et seul en haut du panneau : c'est la preuve du verdict, et la
-    // prose qui le précédait la repoussait sous le pli (wireframe « Poste de décision » § 06,
-    // fix 5 ; spec `docs/ui-specs/revue.md` § Zone C, point 5). La ligne
-    // `.sift-spectro-declared` qui vivait ici — « Déclaré <format> <rail> · coupure N Hz — … » —
-    // est retirée le 2026-08-25 : le format déclaré est déjà dit par `formatSummary` dans
-    // l'en-tête de piste, et la coupure descend aux Détails techniques avec les autres mesures.
     `<div class="sift-spectro-canvas-wrap">` +
     `<canvas class="sift-sg sift-spectro-canvas" width="720" height="180" role="img" aria-label="Spectrogramme audio"></canvas>` +
     // Canvas transparent superposé — ne dessine QUE le réticule au survol (wireSpectroHover),
@@ -717,30 +727,8 @@ function spectroAndTagsHtml(r: AnalysisReport): string {
     // un mousemove ne doit jamais redéclencher la boucle pixel-par-pixel de drawSpectrogram.
     `<canvas class="sift-spectro-overlay" width="720" height="180"></canvas>` +
     `</div>` +
-    // DEUX pastilles compactes sous l'image, et deux seulement : le format, et la lecture du
-    // spectre. Tout ce qui se chiffre est aux Détails techniques. La pastille de spectre porte la
-    // coupure ARRONDIE au kHz — la lecture, pas la mesure ; le hertz exact reste une ligne
-    // là-dessous. `.pill` est la pastille générique du dépôt (styles.css), réutilisée telle
-    // quelle. Format absent = pas de pastille vide : `formatSummary` se garde déjà pareil.
-    `<div class="sift-spectro-pills">` +
-    (r.declared_format ? `<span class="pill">${esc(r.declared_format.toUpperCase())}</span>` : "") +
-    `<span class="pill" title="${spectroCaption(r.verdict, r.container_mismatch)}">` +
-    `${spectroBandReading(r.verdict, r.container_mismatch)} · ${fmt(r.cutoff_hz / 1000, 0)} kHz</span>` +
     `</div>` +
-    // Non-technical users open "Diagnostic audio" to understand a verdict, not to read raw
-    // engineering measurements — the spectrogram plus the two pills above answer that; every
-    // FIGURE (true-peak, DC offset, écrêtage, corrélation de phase…) is jargon with no
-    // vulgarization, so it sits behind a second, nested disclosure (audit finding #5,
-    // 2026-07-10). Native <details> — no new JS wiring needed, doesn't touch wireSpectrogram's
-    // querySelector-based toggle for the OUTER "Diagnostic audio" panel.
-    // ⚠️ Depuis le 2026-08-25, coupure / densité de l'aigu / durée ont REJOINT ce disclosure : le
-    // panneau ouvert ne montrait plus la preuve, il montrait un tableau. Aucun de ces textes n'est
-    // reformulé au passage — hfDensityText et durationText sont appelés à l'identique.
-    // Le disclosure « Détails techniques » est parti le 2026-09-07 (direction T, bonus validé :
-    // « pas besoin d'ouvrir s'il n'y a rien à charger » — ces rangées sont déjà dans le rapport,
-    // contrairement au spectrogramme que l'ouverture du Diagnostic recalcule). Les groupes
-    // Spectre/Signal/Forme/Intégrité structurent seuls ; l'audit finding #5 (2026-07-10) voulait
-    // le jargon derrière UN étage — le Diagnostic replié par défaut le reste.
+    `</div>` +
     `<div class="sift-spectro-rows">` +
     // SYNTHÈSE du 2026-09-07 (wireframe validé par Antoine, sourcing Utilitaire de disque +
     // Fakin' The Funk) : quatre groupes — Spectre, Signal, Forme, Intégrité — et la paire
@@ -774,7 +762,7 @@ function spectroAndTagsHtml(r: AnalysisReport): string {
     (decodedShortfallText(r.duration_sec, r.decoded_duration_sec, fmt) != null
       ? row("Durée décodée", decodedShortfallText(r.duration_sec, r.decoded_duration_sec, fmt) as string)
       : "") +
-    `</div></div></div>` +
+    `</div></div>` +
     // Tags CDJ OK / Version ID3 moved to the Identification card (filing.ts, alongside Label/
     // Année/Genre) — Pochette dropped entirely (redondant avec la pochette déjà visible dans le
     // hero). Nothing meaningful was left in the old "Tags" box, so it's gone too; codec_error is

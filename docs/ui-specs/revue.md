@@ -399,11 +399,14 @@ Ordre vertical, et il est le parcours de décision :
    ([#46](https://github.com/c0remusic/sift/issues/46)) — il n'a simplement **plus de porteur
    visuel** sur cet écran depuis le retrait du badge.
 5. **Diagnostic audio** — **placé sous les Métadonnées** (on identifie plus souvent qu'on
-   n'inspecte ; les détails techniques vont en bas du volet). Repliable, **fermé par
-   défaut**, en-tête **nu** : « ▸ Diagnostic audio », **sans sous-texte** (un disclosure
-   macOS = chevron + titre, rien d'autre). Ouvert : le **spectrogramme domine** (toute la
-   largeur disponible jusqu'à sa borne `--measure-data`, la preuve du verdict) ; sous lui,
-   **deux pastilles compactes**
+   n'inspecte ; les détails techniques vont en bas du volet). **Plus repliable depuis le
+   2026-09-07** (« ben non, tu l'as laissé collapsable » — la règle « pas besoin d'ouvrir
+   s'il n'y a rien à charger » vaut pour toute la fiche) : **titre statique**
+   « Diagnostic audio » (`.sift-diag-title`, même étage que « Métadonnées », direction T),
+   pastilles et mesures **toujours visibles**. Seul le **spectrogramme** reste derrière un
+   disclosure « ▸ Spectrogramme » (étage discret) : lui seul charge — la grille se recalcule
+   à l'ouverture (~631 ms) et n'est plus stockée, le pas de piste en piste (↑↓) reste
+   instantané. D'abord **deux pastilles compactes**
    (format · lecture du spectro, ex. `FLAC` · `Pleine bande · 22 kHz`) ; puis **les mesures,
    directement** — le disclosure « Détails techniques » est **retiré le 2026-09-07** (direction
    T, bonus validé : « pas besoin d'ouvrir s'il n'y a rien à charger » — ces rangées sont déjà
@@ -427,9 +430,8 @@ Ordre vertical, et il est le parcours de décision :
    « OK oui / Tronqué non »). **Retirés** : « Durée » (le lecteur l'affiche — un compte, un
    endroit ; seule la durée décodée DIVERGENTE survit, sous Intégrité) et « Pics
    (couverture) » (couverture interne de l'analyse, sa place serait un log). Le verdict n'est
-   **pas** répété ici, ni le format déjà en en-tête. Fermé au repos parce que la grille se recalcule à l'ouverture
-   (~631 ms mesurées) et n'est plus stockée : le pas de piste en piste (↑↓) reste
-   instantané.
+   **pas** répété ici, ni le format déjà en en-tête. (Le repli au repos ne concerne plus que
+   le spectrogramme — voir le début de ce point, décision du 2026-09-07.)
 
 ### Zone C, pied — rail d'action
 
