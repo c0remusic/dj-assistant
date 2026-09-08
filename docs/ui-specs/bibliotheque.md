@@ -282,11 +282,28 @@ en deux temps :
   Écart au wireframe, assumé : le verdict se lit entre le titre et l'artiste (la rangée de titre
   de Revue le porte, l'artiste est un frère de cette rangée — pas de réordonnancement CSS
   possible sans toucher au markup partagé).
-- **Reste (3 du wireframe)** : la fiche Métadonnées de Revue (release choisie + Ré-identifier
-  + attributs en place, gravés au blur) à la place de l'éditeur de `library-detail.ts` (champs
-  bordés, « Enregistrer », « Supprimer » → clic droit, « changer » → clic droit). Coût : la
-  fiche vit dans `filing-identify.ts`, couplée à `RevueState` — extraction en module pur avec
-  injection (`register*`, motif du dépôt), chantier à part.
+- **Livré le 2026-09-08 aussi (3 du wireframe, « point 3 puis les autres écrans »)** : la
+  fiche Métadonnées de Revue dans la colonne, à sa place — en-tête · audition · **Métadonnées**
+  · Diagnostic (le Diagnostic prend un slot à lui, `.lib-diag`, 5ᵉ argument d'`openReportInto`,
+  même mécanisme que la zone D de Revue). Même grammaire, mêmes classes (`.sift-meta-*`,
+  `.sift-attr-*`, `.sift-cands-host`, `chosenRowHtml`) : titre « Métadonnées », release choisie
+  en ligne inerte (label · année — pays et format n'existent pas sur `LibraryTrack`), bouton
+  Identifier / Ré-identifier (liste ouverte, fork F ; sans badge « I », le raccourci est celui
+  de Revue), attributs en place Artiste · Titre · Label · Année · Genres — **gravés au blur /
+  Entrée, Échap annule** (`update_metadata`, toast « Enregistré » annulable). Partis : champs
+  bordés, « Enregistrer », « Voir la release » (clic droit « Fiche Discogs »), « Supprimer »
+  (clic droit « Envoyer à la corbeille »), « changer » sur la pochette (clic droit **« Changer la
+  pochette… »**, nouvelle entrée, active sur la piste dont la fiche est ouverte, gravée aussitôt).
+  La pochette monte dans l'en-tête à l'ouverture et à l'identification (`.sift-report-cover`,
+  comme Revue). Ce qui est partagé avec Revue : le rendu des candidats et de la ligne choisie,
+  le rapport, les classes CSS ; le câblage reste propre à chaque écran (Revue lit `RevueState`
+  et grave par `write_tags_full`, ici un `LibraryTrack` par `update_metadata`) — partager le
+  markup par des classes et non par une fonction commune est un choix, expliqué en tête de
+  `library-detail.ts`. Mesuré : audition 237–278, fiche 314–619, Diagnostic 631–1351 ; 5 champs
+  sans bordure ni fond au repos, rail de libellé 72 px, ligne choisie « Groove Armada — … ·
+  Ragbull · 2004 », 0 carte, pochette d'en-tête 56 px peinte à l'ouverture, aucun débordement
+  horizontal. Genres restent éditables ici (Revue les montre en lecture seule, décision F) ;
+  l'autocomplétion sur les genres connus est conservée.
 
 - **Zone D redimensionnable** (« il faut aussi pouvoir redimensionner le panneau », même nuit) :
   la poignée de la file de Revue (`.sift-qresize`, 16 px de prise à cheval sur le filet) posée sur

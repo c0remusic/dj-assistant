@@ -41,7 +41,7 @@ import {
   LIBRARY_GRID_PROBE_HTML,
   type LibrarySortState,
 } from "./library-views";
-import { openLibraryDetailInto } from "./library-detail";
+import { openLibraryDetailInto, changeCoverForOpenTrack } from "./library-detail";
 
 // Bibliothèque browser state: active filter, which facet column (folder/genre) is shown,
 // and the last fetched track list (so a row-click can recover the track's path).
@@ -414,6 +414,14 @@ export function openBiblioContextMenu(x: number, y: number, id: number): void {
     {
       label: "Fiche Discogs",
       onPick: one && rid ? () => void openUrl(`https://www.discogs.com/release/${rid}`) : undefined,
+    },
+    // Depuis le 2026-09-08 la fiche de la zone D est celle de Revue et n'a plus de bouton « changer »
+    // sur la pochette : le geste vit ici, sur la piste dont la fiche est OUVERTE (la seule dont on
+    // sait dans quel en-tête poser l'image) — sinon l'entrée est présente et désactivée, comme les
+    // autres entrées à une piste.
+    {
+      label: "Changer la pochette…",
+      onPick: detailOpen ? () => void changeCoverForOpenTrack() : undefined,
     },
     { label: `Réanalyser${suffix}`, separated: true, onPick: () => void bulkReanalyze(ids) },
     // « Écarter » n'est PAS `danger`, et ce n'est pas un oubli : `DESIGN.md` § 4 réserve le rouge au

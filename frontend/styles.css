@@ -568,23 +568,22 @@ body:has(#sift-titlebar){border-radius:var(--border-radius-sm);overflow:hidden}
 #sift-aside .sift-spectro-rows{grid-template-columns:1fr;gap:0}
 /* Le Diagnostic audio de REVUE vit ici depuis le 2026-09-07 (décision d'Antoine, « ok pour
    l'inspecteur », wireframe combiné ; filing.ts `openFilingInto`) — enfant DIRECT de la zone D, ce
-   que le rapport de Bibliothèque (openLibraryDetailInto, corps dans .sift-report-scroll) n'est
-   jamais : le sélecteur `>` ne touche donc que Revue. Dans la surface large les pastilles, le
+   et, depuis le 2026-09-08, de la pile de Rangés (`.lib-diag`, slot `diagContainer` de
+   openLibraryDetailInto) — plus jamais dans un `.sift-report-scroll` en colonne, donc le
+   sélecteur peut être un descendant simple. Dans la surface large les pastilles, le
    toggle, le canevas et les rangées portent chacun leur inset --space-16 pour lire comme une
    colonne à l'intérieur de la boîte ; en zone D l'inset est déjà celui de la colonne
    (padding --space-16 de #sift-aside) et le titre `.sift-diag-title` n'en porte aucun — garder
    les leurs décalerait tout le corps de 16 px à droite du titre. Zéro horizontal, vertical intact. */
-#sift-aside>.sift-analysis-body .sift-spectro-pills,
-#sift-aside>.sift-analysis-body .sift-spectro-rows,
-#sift-aside>.sift-analysis-body .sift-zone-toggle.sift-spectro-toggle{padding-left:0;padding-right:0}
-#sift-aside>.sift-analysis-body .sift-spectro-canvas-wrap{margin-left:0;margin-right:0}
+#sift-aside .sift-analysis-body .sift-spectro-pills,
+#sift-aside .sift-analysis-body .sift-spectro-rows,
+#sift-aside .sift-analysis-body .sift-zone-toggle.sift-spectro-toggle{padding-left:0;padding-right:0}
+#sift-aside .sift-analysis-body .sift-spectro-canvas-wrap{margin-left:0;margin-right:0}
 /* Rail de label 150 px + valeur dans 288 px de colonne : la valeur d'une densité avec sa
    référence (« -3.5 dB · plage -6…0 ») passe à la ligne sous elle-même, pas sous le label.
    Le rail est une MESURE du plus long libellé (« Canaux · échantillonnage », 144 px), il ne se
    rogne pas ; c'est la valeur qui accepte de plier. */
-#sift-aside>.sift-analysis-body .sift-row-value{min-width:0;overflow-wrap:anywhere}
-#sift-aside .lib-edit-meta{flex-direction:column;align-items:stretch}
-#sift-aside .lib-edit-meta .sift-editor-input{width:100%}
+#sift-aside .sift-analysis-body .sift-row-value{min-width:0;overflow-wrap:anywhere}
 #sift-aside .sift-editor-fields{grid-template-columns:1fr}
 /* Deux débordements survivaient au premier tour (mesure du 2026-08-19, après passage à 320px :
    9 éléments → 3). Un enfant de flex ne rétrécit pas sous son contenu sans min-width:0, et un
@@ -639,7 +638,6 @@ body:has(#sift-titlebar){border-radius:var(--border-radius-sm);overflow:hidden}
 #sift-aside .sift-row{flex-direction:column;gap:0;padding:var(--space-4) 0}
 #sift-aside .sift-row-label{width:auto;font-size:var(--text-sm)}
 #sift-aside .sift-editor-input{width:100%}
-#sift-aside .lib-edit-pair{grid-template-columns:1fr}
 /* Titre de page accessible, invisible à l'œil. Mesuré le 2026-08-05 : l'application ne
    contenait AUCUN `<h1>`–`<h6>`, ni dans `index.html`, ni dans `app.js`, ni dans un seul `.ts`,
    et aucun repli `role="heading"`/`aria-level` — un lecteur d'écran n'avait donc aucun plan de
@@ -2078,27 +2076,11 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
 .sift-ec-sections{display:flex;flex-direction:column;gap:12px}
 .sift-ec-section{display:flex;flex-direction:column;gap:var(--space-12)}
 .lib-detail-stack{display:flex;flex-direction:column;gap:var(--space-12);margin-top:12px;padding-top:12px;border-top:1px solid var(--color-border-tertiary)}
-.lib-detail-head{display:flex;align-items:center;justify-content:space-between;gap:var(--space-12)}
-.lib-detail-head-main{min-width:0;display:flex;flex-direction:column;gap:var(--space-4)}
-.lib-detail-head-title{font-size:var(--text-base);font-weight:500;color:var(--color-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-/* `background` retiré de la transition le 2026-08-19 (DESIGN.md § 6) ; `opacity` reste, elle porte
-   le passage de .72 à 1 au survol et au focus. */
-.lib-detail-close{width:28px;height:28px;padding:0;display:inline-flex;align-items:center;justify-content:center;flex:none;opacity:.72;transition:opacity var(--duration-fast) ease}
-.lib-detail-close:hover,.lib-detail-close:focus-visible{opacity:1;background:var(--color-surface-raised)}
-.lib-detail-close i{font-size:var(--text-base);color:var(--color-text-tertiary)}
+/* `.lib-detail-head*`, `.lib-detail-close`, `.lib-edit-meta`, `.lib-edit-pair`, `.lib-edit-labelled` et
+   `.lib-edit-actions` sont partis le 2026-09-08 avec l'ancien éditeur de la zone D (library-detail.ts) :
+   la fiche est celle de Revue (`.sift-meta-*`, `.sift-attr-*`), sans carte « Piste ouverte », sans
+   « Enregistrer » ni « Supprimer ». `.lib-edit` reste : c'est l'hôte de la fiche dans la pile. */
 .lib-edit{display:flex;flex-direction:column;gap:var(--space-12)}
-/* Override to --color-surface-raised removed (2026-07-10) — .lib-edit is a .sift-ui-card, same
-   --color-background-queue family as the Revue metadata editor; it needs the same recessed
-   .sift-editor-input default now, not the lightest token in the system floating on top of it. */
-.lib-edit-meta{display:flex;align-items:center;gap:var(--space-8);flex-wrap:wrap}
-/* Les deux grilles de l'éditeur de piste. Elles étaient en style inline (library-detail.ts), donc
-   hors de portée du scope #sift-aside qui replie la colonne — et un style inline gagne de toute
-   façon contre une règle d'auteur. Nommées ici pour que la zone D puisse les replier à une
-   colonne, et pour que leur gap cesse d'être un 6px hors échelle. */
-.lib-edit-pair{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-8)}
-.lib-edit-labelled{display:grid;grid-template-columns:90px 1fr;gap:var(--space-8)}
-.lib-edit-actions{display:flex;gap:8px}
-.lib-edit-actions [data-lib="save"]{flex:1}
 /* M6a — Discogs candidate picker */
 /* margin-top 12 et non 8 (retour d'Antoine, 2026-09-06 « ça écrase la case du dessus ») : depuis
    que la liste vit SOUS les attributs, son premier item — fond surligné pleine largeur — se colle
