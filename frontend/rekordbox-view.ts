@@ -37,6 +37,8 @@ import { isStaleViewRender, viewEpoch } from "./view-epoch";
 import { toast } from "./filing-toast";
 import { emptyStateHtml, wireEmptyState } from "./empty-state";
 import { confirmAction } from "./confirm-modal";
+import { mountBarActions } from "./toolbar";
+import { sessionLabel } from "./session-label";
 
 // M8 Tier 1 repairs section state — module-level, NOT reset on every render. Filtered against
 // the live pending/ambiguous rows each render so a stale id (one that got applied/dismissed
@@ -135,7 +137,10 @@ function sessionGroupHtml<T extends { id: number; session_id: string | null }>(
   rowHtml: (r: T) => string,
 ): string {
   const isOpen = expanded.has(sessionKey);
-  const label = sessionKey === SESSION_GROUP_NONE ? "Antérieur" : sessionKey;
+  // Le nom du Journal (« Session du 08/09/2026 01h24 »), pas l'identifiant brut — une session porte
+  // un seul nom dans l'app (décision du 2026-09-08). « Antérieur » = lignes d'avant le schéma v8,
+  // sans session : ce n'est pas le « Hors session » du Journal, qui date d'une session absente.
+  const label = sessionKey === SESSION_GROUP_NONE ? "Antérieur" : sessionLabel(sessionKey, true);
   const allSelected = rows.length > 0 && rows.every((r) => sel.has(r.id));
   return (
     `<div class="rb-session-group">` +
@@ -186,48 +191,64 @@ function sectionErrorHtml(): string {
   );
 }
 
-/** Shared card grammar for the 4 "Synchroniser avec Rekordbox" sections (M8 Tier 1/2/3) — same
- * shape (title, count badge, body) for all 4 instead of each rolling its own `col-h` + raw rows,
- * so the screen reads as one queue. `body` is "" when there's nothing pending/ambiguous: the card
- * still renders (faded, "à jour") instead of disappearing, so the 4 sections never pop in/out of
- * the layout as their counts change — decision from the 2026-07-11 grill-me session. */
+/** Grammaire de FICHE des quatre sections (Fichiers, Métadonnées, Pochettes, Playlists) — celle des
+ *  fiches de Revue (`.sift-meta-header` / `.sift-meta-title`, direction T), SANS cadre : la
+ *  référence (Utilitaire de disque, guide Apple) pose sous la cible une grille d'informations, pas
+ *  des boîtes (décision du 2026-09-08, déclinaison #24, maquette v2 validée). À droite : le compte,
+ *  ou l'état. Une seule forme pour les quatre, pour que l'écran se lise comme une file.
+ *  `body` vaut "" quand rien n'est en attente : la fiche reste (atténuée, « à jour ») au lieu de
+ *  disparaître, donc les quatre sections n'apparaissent ni ne disparaissent au gré des comptes —
+ *  décision du 2026-07-11, inchangée. */
 function syncCardHtml(title: string, count: number, body: string, unavailable: boolean): string {
   const idle = body === "";
-  const idleLabel = unavailable ? "indisponible" : "à jour";
-  const header =
-    `<div style="display:flex;justify-content:space-between;align-items:center;${idle ? "" : "margin-bottom:6px"}">` +
-    `<span style="font-size:var(--text-base);font-weight:500">${esc(title)}</span>` +
-    (idle
-      ? `<span style="font-size:var(--text-xs);color:var(--color-text-tertiary)">${idleLabel}</span>`
-      : `<span style="font-size:var(--text-xs);background:var(--color-background-secondary);color:var(--color-text-secondary);padding:2px 7px;border-radius:var(--border-radius-pill)">${count}</span>`) +
-    `</div>`;
+  const right = idle
+    ? `<span class="rb-fiche-state">${unavailable ? "indisponible" : "à jour"}</span>`
+    : `<span class="rb-fiche-count">${count}</span>`;
   return (
-    `<div class="rb-row${idle ? " rb-row--idle" : ""}">` +
-    header +
+    `<div class="rb-fiche${idle ? " rb-fiche--idle" : ""}">` +
+    `<div class="sift-meta-header"><span class="sift-meta-title">${esc(title)}</span>${right}</div>` +
     body +
     `</div>`
   );
 }
 
-/** Rekordbox link-status card, the Rekordbox page's centerpiece (moved out of Bibliothèque, audit
- * 2026-07-05 — see docs/superpowers/specs/2026-07-05-rekordbox-integration-page-design.md). Same
- * visual family as the M6b stat cards (border+radius token, no accent stripe per the CSS ban on
- * border-left/-right accents). Only called for `s.linked === true` — the not-linked case is a
- * full empty-state (see renderRekordboxLive). */
-function rekordboxCardHtml(s: RekordboxLinkStatus): string {
-  const body = s.error
-    ? `<div style="font-size:var(--text-md);color:var(--color-text-danger)">XML Rekordbox illisible — relie un fichier.</div>`
-    : `<div style="font-size:var(--text-md)">${esc(s.path || "")}</div>` +
-      `<div style="font-size:var(--text-sm);color:var(--color-text-tertiary)">${s.playlist_count} playlists · ${s.track_count} pistes</div>`;
-  // No "Réexporter" while the linked file is unreadable — the backend already refuses the export
-  // in that case (export_rekordbox_xml_inner reads the same path before merging).
-  const reexport = s.error
-    ? ""
-    : `<button data-sift="rkbreexport" class="sift-ranger-btn" style="flex:none">Réexporter maintenant</button>`;
+/** Ce que le badge de la cible affiche — trois états et non deux (2026-08-17) : « à jour » n'est
+ *  dit que quand les quatre sections ont RÉPONDU et qu'aucune n'a rien en attente. Zéro sur un
+ *  écran cassé n'est pas zéro, c'est une absence de réponse (impasses A13 et A14, issue #15). */
+interface TargetBadge {
+  n: string;
+  caption: string;
+  warn: boolean;
+}
+
+/** Tête de zone C = la CIBLE, grammaire d'Utilitaire de disque (guide Apple, zone centrale : nom en
+ *  grand, deux sous-lignes, badge chiffré à droite et sa légende en capitales — « 2 TB · SHARED BY
+ *  8 VOLUMES »). Ici la cible est le XML lié et le badge porte l'état de synchronisation ; le
+ *  compte quitte la barre, la référence le met sur la cible. Les deux actions (Réexporter, Changer
+ *  de XML) vivent dans la barre unifiée — la toolbar d'Utilitaire de disque (`mountBarActions`,
+ *  renderRekordboxLive). Décision du 2026-09-08 ; c'était une carte bordée au-dessus de tout, avec
+ *  ses deux boutons dedans. Appelée seulement pour `s.linked === true`. */
+function targetHeadHtml(s: RekordboxLinkStatus, badge: TargetBadge): string {
+  const path = s.path || "";
+  const file = path.split(/[\\/]/).pop() || "XML Rekordbox";
+  const sub = s.error
+    ? `<div class="rkb-target-sub rkb-target-sub--danger">XML Rekordbox illisible — relie un fichier.</div>`
+    : `<div class="rkb-target-sub">XML Rekordbox lié · ${s.playlist_count} playlists · ${s.track_count} pistes</div>`;
+  // Cause connue de l'indisponibilité (master.db absent…) : nommée sous la cible, une fois, en
+  // warning — plutôt que répétée dans chaque fiche.
+  const note = s.masterdb_error ? `<div class="rkb-target-note">${esc(s.masterdb_error)}</div>` : "";
   return (
-    `<div class="rb-row rb-row--split rb-row--last">` +
-    `<div style="min-width:0">${body}</div>` +
-    `<div style="display:flex;gap:8px;flex:none">${reexport}<button data-bib="rkblink" style="flex:none">Changer de XML lié</button></div>` +
+    `<div class="rkb-target">` +
+    `<div class="rkb-target-body">` +
+    `<div class="rkb-target-name">${esc(file)}</div>` +
+    sub +
+    `<div class="rkb-target-path">${esc(path)}</div>` +
+    note +
+    `</div>` +
+    `<div class="rkb-badge${badge.warn ? " rkb-badge--warn" : ""}">` +
+    `<div class="rkb-badge-n">${esc(badge.n)}</div>` +
+    `<div class="rkb-badge-cap">${esc(badge.caption)}</div>` +
+    `</div>` +
     `</div>`
   );
 }
@@ -573,6 +594,14 @@ export async function renderRekordboxLive(): Promise<void> {
   // tous : CINQ allers-retours IPC séquentiels avant sa première écriture complète, chacun bloqué
   // par le `Mutex<Connection>` que le scan tient en rafale.
   const token = viewEpoch();
+  // Squelette statique au premier passage (DESIGN.md § 6) : cinq IPC séquentiels avant la
+  // première peinture complète, et un `#content` vide pendant ce temps se lit « rien ». Un
+  // re-rendu (après une action) garde l'écran précédent en place jusqu'à l'écriture.
+  if (!content.querySelector(".sift-rkb-layout, .sift-empty-state")) {
+    content.innerHTML =
+      `<div class="sift-rkb-layout"><nav class="sift-rkb-side"></nav>` +
+      `<div class="sift-rkb-main"><span class="sift-skel sift-skel-line"></span></div></div>`;
+  }
   let status: RekordboxLinkStatus;
   try {
     status = await rekordboxStatus();
@@ -580,6 +609,7 @@ export async function renderRekordboxLive(): Promise<void> {
   } catch (e) {
     console.error("rekordbox_status failed", e);
     if (isStaleViewRender(token)) return;
+    mountBarActions("");
     content.innerHTML =
       `<div style="font-size:var(--text-md);color:var(--color-text-tertiary)">Statut Rekordbox indisponible.</div>`;
     return;
@@ -587,22 +617,34 @@ export async function renderRekordboxLive(): Promise<void> {
 
   if (isStaleViewRender(token)) return;
 
-  const intro =
-    `<div style="font-size:var(--text-md);color:var(--color-text-tertiary);margin-bottom:12px">` +
-    `Sift convertit tes morceaux → l'export fusionne les nouveaux dans le XML lié → réimporte-le dans Rekordbox pour les voir apparaître.` +
-    `</div>`;
-
   if (!status.linked) {
-    content.innerHTML =
-      intro +
-      emptyStateHtml({
-        title: "Aucun XML Rekordbox lié",
-        note: "Relie le fichier XML exporté depuis Rekordbox pour commencer à synchroniser tes conversions.",
-        actionHtml: `<button data-bib="rkblink">Lier un fichier XML Rekordbox</button>`,
-      });
+    // Pas de rappel de procédure ici : il ne vaut que pour un XML lié (spec § Zone A).
+    mountBarActions("");
+    content.innerHTML = emptyStateHtml({
+      title: "Aucun XML Rekordbox lié",
+      note: "Relie le fichier XML exporté depuis Rekordbox pour commencer à synchroniser tes conversions.",
+      actionHtml: `<button data-bib="rkblink">Lier un fichier XML Rekordbox</button>`,
+    });
     wireEmptyState(content);
     return;
   }
+
+  // Barre unifiée = la toolbar d'Utilitaire de disque : les deux actions sur la cible, en texte
+  // seul (CLAUDE.md § Front). Montée dès que le statut est connu, avant les quatre IPC des
+  // sections. Pas de « Réexporter » tant que le fichier lié est illisible — le backend refuse
+  // déjà l'export dans ce cas (export_rekordbox_xml_inner relit le même chemin avant de fusionner).
+  mountBarActions(
+    (status.error
+      ? ""
+      : `<button data-sift="rkbreexport" class="sift-ranger-btn sift-bar-btn">Réexporter maintenant</button>`) +
+      `<button data-bib="rkblink" class="sift-bar-btn">Changer de XML lié</button>`,
+  );
+
+  // Rappel de procédure, sous la cible — pas un titre (spec § Zone A).
+  const intro =
+    `<div class="rkb-intro">` +
+    `Sift convertit tes morceaux → l'export fusionne les nouveaux dans le XML lié → réimporte-le dans Rekordbox pour les voir apparaître.` +
+    `</div>`;
 
   // Copy from the 2026-07-11 grill-me session: name the workflow explicitly (close Rekordbox
   // before touching the link — the same rule Tier 1/2/3 already enforce server-side via
@@ -669,26 +711,22 @@ export async function renderRekordboxLive(): Promise<void> {
     artworkSyncSection = `<div id="sift-rkb-mas-section">${sectionErrorHtml()}</div>`;
   }
 
-  // Umbrella line above the 4 M8 cards — total pending count across Tiers 1/2/3, so the whole
-  // "synchroniser avec Rekordbox" queue reads as one thing even though each tier is a separate
-  // card underneath (grill-me session, 2026-07-11).
+  // Le badge de la cible porte le total en attente des Tiers 1/2/3 — c'est lui qui fait lire les
+  // quatre fiches comme UNE file (session grill-me du 2026-07-11) ; la sur-ligne « Synchroniser
+  // avec Rekordbox » qui tenait ce rôle est partie avec la carte (2026-09-08).
   //
   // Trois états et non deux depuis le 2026-08-17 : « à jour » n'est dit que quand les quatre
   // sections ont RÉPONDU et qu'aucune n'a rien en attente. Zéro sur un écran cassé n'est pas
-  // zéro — c'est une absence de réponse (impasses A13 et A14, issue #15).
+  // zéro — c'est une absence de réponse (impasses A13 et A14, issue #15). La cause connue
+  // (`masterdb_error`) se lit sous la cible (targetHeadHtml), pas dans le badge.
   const totalPending = lastPendingRepairs.length + lastScannedDuplicateGroups.length + lastPendingMetadataSyncs.length + lastPendingArtworkSyncs.length;
-  const syncState = syncUnavailable()
-    ? esc(lastLinkStatus?.masterdb_error ?? "synchronisation indisponible")
+  const badge: TargetBadge = syncUnavailable()
+    ? { n: "—", caption: "synchronisation indisponible", warn: true }
     : failedSections > 0
-      ? `état inconnu — ${failedSections} section${failedSections > 1 ? "s" : ""} n'a pas répondu`
+      ? { n: "?", caption: `${failedSections} section${failedSections > 1 ? "s" : ""} sans réponse`, warn: true }
       : totalPending > 0
-        ? `${totalPending} piste${totalPending > 1 ? "s" : ""} en attente de synchronisation`
-        : "à jour";
-  const syncOverline =
-    `<div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px 2px">` +
-    `<span style="font-size:var(--text-sm);color:var(--color-text-secondary)">Synchroniser avec Rekordbox</span>` +
-    `<span style="font-size:var(--text-sm);color:var(--color-text-${syncUnavailable() || failedSections > 0 ? "warning" : "secondary"})">${syncState}</span>` +
-    `</div>`;
+        ? { n: String(totalPending), caption: "en attente de synchronisation", warn: false }
+        : { n: "0", caption: "à jour", warn: false };
 
   // QUATRE ENTRÉES, plus « Tout » — étape 10 (DESIGN.md § 17, spec `docs/ui-specs/rekordbox.md`).
   //
@@ -709,12 +747,14 @@ export async function renderRekordboxLive(): Promise<void> {
   if (!sections.some((x) => x.key === activeRkbSection) && activeRkbSection !== "all") activeRkbSection = "all";
 
   const entry = (key: string, label: string, count: number | null): string =>
-    `<div class="fld${activeRkbSection === key ? " on" : ""}" data-rkb="section" data-sec="${key}" tabindex="0" role="button" style="justify-content:space-between">` +
+    `<div class="fld${activeRkbSection === key ? " on" : ""}" data-rkb="section" data-sec="${key}" tabindex="0" role="button">` +
     `<span>${esc(label)}</span>` +
-    `<span style="font-size:var(--text-sm);opacity:.7">${count == null ? "—" : count}</span></div>`;
+    `<span class="rkb-entry-count">${count == null ? "—" : count}</span></div>`;
 
+  // La colonne des sections est la sidebar d'Utilitaire de disque : au PLAN DE LA FILE de Revue
+  // (`--color-background-queue`, bord à bord), plus une carte — Antoine, 2026-09-08.
   const side =
-    `<nav class="sift-rkb-side sift-ui-card-soft sift-ui-card-soft-pad" aria-label="Sections de synchronisation">` +
+    `<nav class="sift-rkb-side" aria-label="Sections de synchronisation">` +
     `<div class="col-h">Synchroniser</div>` +
     entry("all", "Tout", totalPending) +
     sections.map((x) => entry(x.key, x.label, x.count)).join("") +
@@ -726,11 +766,12 @@ export async function renderRekordboxLive(): Promise<void> {
       : (sections.find((x) => x.key === activeRkbSection)?.html ?? "");
 
   if (isStaleViewRender(token)) return;
+  // Zone C, de haut en bas : le bandeau de dérive (spec § États, en tête, jamais tronqué), la
+  // cible, le rappel de procédure, puis les fiches de la section choisie.
   content.innerHTML =
-    intro +
-    driftBanner +
-    rekordboxCardHtml(status) +
-    `<div class="sift-rkb-layout">${side}<div class="sift-rkb-main">${syncOverline}${body}</div></div>`;
+    `<div class="sift-rkb-layout">${side}` +
+    `<div class="sift-rkb-main">${driftBanner}${targetHeadHtml(status, badge)}${intro}${body}</div>` +
+    `</div>`;
 }
 
 /** Section affichée. Au niveau module, comme les quatre tableaux d'état au-dessus : l'écran se

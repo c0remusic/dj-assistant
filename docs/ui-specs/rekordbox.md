@@ -109,6 +109,63 @@ Cet écran écrit dans un système **live** — la base d'un autre logiciel.
   indépendamment.
 - La confirmation est in-app, armée et horodatée. Jamais `window.confirm()`.
 
+## Décision — 2026-09-08 : lu contre Utilitaire de disque (déclinaison #24, cinquième écran)
+
+Référence nommée par cette spec et `DESIGN.md` § 15 : **Utilitaire de disque**. Aucune capture
+dans `docs/design-refs/` — deux captures officielles prises sur le guide Apple (macOS Tahoe,
+support.apple.com) : la zone centrale d'un volume, et la sheet de confirmation. Elles ne montrent
+ni la sidebar ni la toolbar, donc rien n'est affirmé sur celles-ci au-delà de ce qui précède.
+Maquette faite dans la vraie fenêtre avec les composants de l'app (v1 réfutée par la référence,
+v2 validée par Antoine — artefact « Rekordbox — contre Utilitaire de disque »).
+
+**Ce que la référence dit.** La *cible* (icône, nom en grand, deux sous-lignes) est **en tête de
+la zone centrale**, avec à droite un **badge chiffré et sa légende en capitales** (« 2 TB ·
+SHARED BY 8 VOLUMES ») ; dessous, la grille d'informations. La sidebar liste les cibles ; la zone
+centrale porte l'identité de celle qui est choisie. Ici la seule cible est le XML lié, et ses
+sections sont ses « volumes ».
+
+Cinq écarts mesurés dans la vraie fenêtre (CDP 9333), corrigés le jour même :
+
+- **La cible en tête de zone C** (`.rkb-target`) : nom du fichier à `--text-xl`/600, sous-ligne
+  « XML Rekordbox lié · N playlists · N pistes » (ou « illisible » en danger), chemin en mono ;
+  à droite le badge (`.rkb-badge-n` bordé, `--text-xl`/500) et sa légende en capitales
+  (`--text-xs`, `--tracking-wider`). C'était une carte bordée au-dessus de tout, avec ses deux
+  boutons dedans.
+- **Le badge porte l'état de synchronisation**, trois valeurs et non deux (2026-08-17, impasses
+  A13/A14) : `N` + « en attente de synchronisation » · `0` + « à jour » · `?` + « N sections sans
+  réponse » (warning) · `—` + « synchronisation indisponible » (warning, la cause nommée sous la
+  cible en `.rkb-target-note`). **Le compte quitte la barre** : la référence le met sur la cible.
+  La sur-ligne « Synchroniser avec Rekordbox » part avec la carte.
+- **Barre = la toolbar d'Utilitaire de disque** : « Réexporter maintenant » (primaire,
+  absent tant que le XML est illisible) · « Changer de XML lié », texte seul, géométrie
+  `.sift-bar-btn` (`--h-control`, 6/8 — partagée avec « Vider la corbeille »). Le « Synchroniser »
+  de la § Zone A ci-dessus appartient à la table des candidats, chantier à part.
+- **Colonne B′ au plan de la file** de Revue (`--color-background-queue`, bord à bord, pleine
+  hauteur, `.sift-rkb-side`), plus une carte `.sift-ui-card-soft` ; compte par entrée en
+  `--text-sm` tertiaire, jamais en opacité. La zone principale défile chez elle (§ 14).
+- **Les sections en fiches** (`.rb-fiche`, en-tête `.sift-meta-header` / `.sift-meta-title`
+  15/600 comme les fiches de Revue), **sans cadre** : la référence pose une grille d'informations
+  sous la cible, pas des boîtes. À droite, le compte ou l'état (« à jour » / « indisponible »,
+  atténué par l'encre du titre). **Sessions nommées** comme au Journal — « Session du 29/08/2026
+  17h16 » via `session-label.ts`, module pur partagé — à la place de l'identifiant brut.
+
+Tient : le rappel de procédure (sous la cible, seulement lié), le bandeau de dérive en tête,
+l'état vide « Aucun XML Rekordbox lié » (sans rappel de procédure), les cinq entrées de B′ et leur
+compte, les quatre `data-sift` de dispatch, les lignes `.rb-row` des candidats ambigus et des
+doublons de playlist, les confirmations in-app.
+
+**Vérifié dans la vraie fenêtre le 2026-09-08 (CDP 9333)** : plan de la colonne 0.2939 contre
+0.2273 du sol ; layout 893 px = `#content` 893 px, aucun défilement de page ; boutons de barre
+28 px ; badge « 2 » / « en attente de synchronisation » 10 px capitales ; fiches 15 px/600 sans
+bordure ; sessions « Session du 29/08/2026 17h16 » ; plancher typographique 10 px tenu. **Non
+exercé** : état non lié, XML illisible, sections en erreur, `masterdb_error` (aucun de ces états
+sur la machine de vérification).
+
+**Reste, chantier nommé — pas cette passe** : la § Zone C ci-dessus (table des candidats Case ·
+Section · Piste · Écart · État à la place des quatre rendus de section), la § Zone D (inspecteur
+du candidat, action de masse), le clic droit. Quatre DTO à ramener à une ligne commune, sur un
+écran qui écrit dans une base tierce (§ Sécurité). Ticket à ouvrir.
+
 ## Hors périmètre / questions ouvertes
 
 - **Vérification dans le vrai Rekordbox** — manuelle, hors de cette spec.

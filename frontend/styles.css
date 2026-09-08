@@ -652,10 +652,13 @@ body:has(#sift-titlebar){border-radius:var(--border-radius-sm);overflow:hidden}
 .sift-ec-stores .sift-row{padding:var(--space-4) 0}
 .sift-ec-stores .sift-meta-ident-btn{align-self:flex-start;margin-top:var(--space-4)}
 .sift-ec-actions{display:flex;gap:var(--space-8);flex-wrap:wrap}
-/* « Vider la corbeille » dans la barre : la géométrie du kit (--h-control, 6/8), même règle que
-   les quatre boutons du pied de boîte — un bouton hors de ces ancres retombe sur le reset. */
-.sift-ec-purge{height:var(--h-control);padding:var(--space-6) var(--space-8)}
-.sift-ec-skel{display:block;width:40%;height:var(--space-16);margin:var(--space-12) 0}
+/* Bouton poussoir de la barre unifiée : la géométrie du kit (--h-control, 6/8), même règle que
+   les quatre boutons du pied de boîte — un bouton hors de ces ancres retombe sur le reset. Né pour
+   « Vider la corbeille » (Écartés, `.sift-ec-purge`), partagé depuis le 2026-09-08 avec Réexporter /
+   Changer de XML lié (Rekordbox) : une seule géométrie pour ce que la barre porte. */
+.sift-bar-btn{height:var(--h-control);padding:var(--space-6) var(--space-8)}
+/* Ligne de squelette d'un écran qui attend son IPC (Écartés, Rekordbox) — ex-`.sift-ec-skel`. */
+.sift-skel-line{display:block;width:40%;height:var(--space-16);margin:var(--space-12) 0}
 .sift-ec-fail{color:var(--color-text-danger);font-size:var(--text-md);display:flex;gap:var(--space-8);align-items:center;flex-wrap:wrap;padding:var(--space-12) 0}
 #sift-aside .sift-editor-input{width:100%}
 /* Titre de page accessible, invisible à l'œil. Mesuré le 2026-08-05 : l'application ne
@@ -2065,19 +2068,11 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
    Elle devient `.rb-row` ci-dessous, avec un padding pris dans l'échelle. Il reste DEUX niveaux :
    `.sift-ui-card` (contenu, fond sans bordure) et `.sift-ui-card-soft` (chrome doux, fond +
    bordure). Une boîte est une décision, pas une décoration. */
-/* La ligne de Rekordbox. Un écart nommé : sa marge basse et sa disposition varient selon la
-   section, donc trois modificateurs plutôt que trois styles inline répétés. */
+/* La ligne de Rekordbox — depuis le 2026-09-08 seulement la ligne d'un CANDIDAT (ambigu, doublon
+   de playlist, erreur de chargement) ; les quatre sections elles-mêmes sont des fiches sans cadre
+   (`.rb-fiche`, plus bas avec `.sift-rkb-*`) et la carte du XML lié est devenue la cible en tête
+   de zone C (`.rkb-target`). `--idle`, `--last` et `--split` sont partis avec elles. */
 .rb-row{border:1px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:var(--space-8) var(--space-12);margin-bottom:var(--space-8)}
-/* « À jour » / « indisponible » : une section qui n'a rien en attente s'atténue par son ENCRE, pas
-   par l'opacité (DESIGN.md § 4 — aucune valeur d'opacité ne franchit le seuil de lisibilité avant
-   ~0,92, où l'atténuation ne se voit plus). Le fond et le filet de la ligne ne bougent pas : la
-   carte reste une carte, seul son texte recule d'un cran d'encre. Une `.rb-row--idle` ne contient
-   QUE son en-tête (`idle` ⇔ body vide, rekordbox-view.ts:194), dont le titre hérite sa couleur et
-   dont le libellé d'état est déjà en tertiary — un `color` sur la ligne suffit, sans sélecteur
-   descendant qui écraserait une encre sémantique d'enfant. */
-.rb-row--idle{color:var(--color-text-tertiary)}
-.rb-row--last{margin-bottom:var(--space-12)}
-.rb-row--split{display:flex;justify-content:space-between;align-items:center;gap:var(--space-12)}
 .rb-row--inline{display:flex;align-items:center;gap:var(--space-8)}
 .sift-ui-kicker{font-size:var(--text-xs);letter-spacing:.09em;text-transform:uppercase;color:var(--color-text-tertiary);margin-bottom:var(--space-8)}
 .sift-ui-card-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -2373,7 +2368,7 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
 .jrnl-group-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .jrnl-group-count{margin-left:auto;flex:none;font-weight:400;letter-spacing:normal;text-transform:none;color:var(--color-text-quaternary)}
 /* ÉTATS (spec § États). Aucun ne passe par l'opacité — DESIGN.md § 4 l'interdit ; c'est l'ENCRE
-   qui porte l'état, le geste du correctif `.rb-row--idle`. */
+   qui porte l'état, le geste du correctif `.rb-row--idle` (aujourd'hui `.rb-fiche--idle`). */
 /* En cours : transitoire, donc il a le droit de se colorer. La ligne reste utilisable, et le reste
    de la table aussi — rien n'est désactivé au-delà du bouton de l'inspecteur. */
 .jrnl-row--pending .jrnl-c-state{color:var(--color-text-info)}
@@ -3477,11 +3472,43 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
    de l'app, et elle colle en haut pendant que le panneau défile. */
 .sift-settings-stack{max-width:560px}
 .sift-settings-layout{display:flex;align-items:flex-start;gap:var(--space-16)}
-/* Rekordbox : même grammaire à deux colonnes que Réglages et Bibliothèque. Trois écrans, une
-   seule façon de poser une zone fixe à gauche — c'est le point du shell. */
-.sift-rkb-layout{display:flex;align-items:flex-start;gap:var(--space-16);margin-top:var(--space-12)}
-.sift-rkb-side{width:var(--pane-w);flex:none;position:sticky;top:0}
-.sift-rkb-main{flex:1;min-width:0}
+/* Rekordbox lu contre Utilitaire de disque (2026-09-08, déclinaison #24, cinquième écran —
+   maquette v2 faite dans la vraie fenêtre, validée par Antoine). La colonne des sections est la
+   sidebar de la référence : au PLAN DE LA FILE de Revue (--color-background-queue, mesuré 0.2939
+   en sombre), bord à bord et pleine hauteur, plus une carte .sift-ui-card-soft. Les marges
+   négatives annulent l'inset de #content (--space-24) pour que le plan touche la barre, le rail et
+   le bas, comme la file ; la zone principale remet l'inset de son côté et DÉFILE CHEZ ELLE
+   (DESIGN.md § 14 : la page ne défile jamais). height et non min-height : c'est ce qui donne à la
+   zone principale une hauteur à laquelle borner son défilement. */
+.sift-rkb-layout{display:flex;align-items:stretch;gap:var(--space-24);margin:calc(-1*var(--space-24)) 0 calc(-1*var(--space-24)) calc(-1*var(--space-24));height:calc(100% + 2*var(--space-24))}
+.sift-rkb-side{width:var(--pane-w);flex:none;overflow-y:auto;padding:var(--space-12) var(--space-8);background:var(--color-background-queue)}
+.sift-rkb-side .fld{justify-content:space-between}
+/* Compte par entrée : un cran d'encre, pas une opacité (DESIGN.md § 4). */
+.rkb-entry-count{font-size:var(--text-sm);color:var(--color-text-tertiary);font-variant-numeric:tabular-nums}
+.sift-rkb-main{flex:1;min-width:0;overflow-y:auto;padding:var(--space-24) 0}
+/* La CIBLE en tête de zone C — grammaire de la zone centrale d'Utilitaire de disque (guide Apple,
+   macOS Tahoe) : nom en grand, deux sous-lignes, et à droite le badge chiffré avec sa légende en
+   capitales (« 2 TB · SHARED BY 8 VOLUMES »). Le badge porte l'état de synchronisation ; le compte
+   a quitté la barre pour ce badge. Le filet sous la cible sépare l'identité de la grille qui suit. */
+.rkb-target{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-24);padding-bottom:var(--space-16);border-bottom:1px solid var(--color-border-tertiary);margin-bottom:var(--space-16)}
+.rkb-target-body{min-width:0}
+.rkb-target-name{font-size:var(--text-xl);font-weight:600;line-height:1.2;overflow-wrap:anywhere}
+.rkb-target-sub{font-size:var(--text-md);color:var(--color-text-secondary);margin-top:var(--space-4)}
+.rkb-target-sub--danger{color:var(--color-text-danger)}
+.rkb-target-path{font-family:var(--font-mono);font-size:var(--text-sm);color:var(--color-text-tertiary);margin-top:var(--space-4);overflow-wrap:anywhere}
+.rkb-target-note{font-size:var(--text-sm);color:var(--color-text-warning);margin-top:var(--space-4)}
+.rkb-badge{flex:none;text-align:center}
+.rkb-badge-n{font-size:var(--text-xl);font-weight:500;padding:var(--space-8) var(--space-24);border:1px solid var(--color-border-secondary);border-radius:var(--border-radius-md);color:var(--color-text-secondary);font-variant-numeric:tabular-nums}
+.rkb-badge--warn .rkb-badge-n{color:var(--color-text-warning)}
+.rkb-badge-cap{font-size:var(--text-xs);letter-spacing:var(--tracking-wider);text-transform:uppercase;color:var(--color-text-tertiary);margin-top:var(--space-4)}
+.rkb-intro{font-size:var(--text-md);color:var(--color-text-tertiary);margin-bottom:var(--space-16)}
+/* Les quatre sections en FICHES (grammaire de Revue, .sift-meta-header/.sift-meta-title), sans
+   cadre : la référence pose une grille d'informations sous la cible, pas des boîtes. « À jour » /
+   « indisponible » s'atténue par l'encre du titre (DESIGN.md § 4), jamais par l'opacité. */
+.rb-fiche{margin-bottom:var(--space-24)}
+.rb-fiche--idle .sift-meta-title{color:var(--color-text-tertiary)}
+.rb-fiche-state{font-size:var(--text-sm);color:var(--color-text-tertiary)}
+.rb-fiche-count{font-size:var(--text-sm);color:var(--color-text-secondary);font-variant-numeric:tabular-nums}
 /* MENU CONTEXTUEL (étape 5). Surface surélevée, au-dessus des popovers et sous les modales — un
    menu contextuel ne doit jamais passer devant une confirmation destructive.
    Largeur bornée et non fixe : les libellés varient d'un écran à l'autre, et une largeur fixe

@@ -38,6 +38,7 @@ import { openContextMenu } from "./context-menu";
 import { mountBarSearch, mountBarSegmented, openAside, closeAside } from "./toolbar";
 import { toast, copyToClipboard } from "./filing-toast";
 import { bibState } from "./bibliotheque-view";
+import { sessionLabel } from "./session-label";
 
 // ---------------------------------------------------------------------------
 // État de l'écran
@@ -179,25 +180,8 @@ function dayLabel(ts: string): string {
   return DAY_FMT.format(d);
 }
 
-// `session_id` backend = "{millis}-{pid}" (`lib.rs`). On dérive un libellé lisible depuis la partie
-// millis ; format inattendu → l'ID brut plutôt qu'un plantage.
-function sessionStart(sessionId: string): Date | null {
-  const millis = Number(sessionId.split("-")[0]);
-  if (!Number.isFinite(millis) || millis <= 0) return null;
-  const d = new Date(millis);
-  return Number.isNaN(d.getTime()) ? null : d;
-}
-
-function sessionLabel(sessionId: string | null, withDate: boolean): string {
-  if (sessionId == null) return "Hors session";
-  const d = sessionStart(sessionId);
-  if (!d) return sessionId;
-  const hh = `${String(d.getHours()).padStart(2, "0")}h${String(d.getMinutes()).padStart(2, "0")}`;
-  if (!withDate) return `Session de ${hh}`;
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  return `Session du ${dd}/${mm}/${d.getFullYear()} ${hh}`;
-}
+// `sessionStart` / `sessionLabel` vivaient ici — partagés avec Rekordbox depuis le 2026-09-08
+// (`session-label.ts`, module pur) : une session porte un seul nom dans toute l'app.
 
 /** Vocabulaire d'action de la spec.
  *

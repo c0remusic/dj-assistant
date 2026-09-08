@@ -264,7 +264,7 @@ export async function renderEcartes(k?: EcartesKind): Promise<void> {
   const alreadyRendered = !!content.querySelector(".sift-library-main, .sift-empty-state");
   if (!alreadyRendered) {
     // Squelette statique (DESIGN.md § 6) plutôt qu'un spinner nu.
-    content.innerHTML = `<div class="sift-library-main"><span class="sift-skel sift-ec-skel"></span></div>`;
+    content.innerHTML = `<div class="sift-library-main"><span class="sift-skel sift-skel-line"></span></div>`;
   }
 
   let all: EcarteItem[] = [];
@@ -291,7 +291,7 @@ export async function renderEcartes(k?: EcartesKind): Promise<void> {
   if (countEl) countEl.textContent = `${currentItems.length} piste${currentItems.length > 1 ? "s" : ""}`;
   mountBarActions(
     kind === "trash" && currentItems.length
-      ? `<button data-ec="purge" class="sift-secondary-trash sift-ec-purge">Vider la corbeille</button>`
+      ? `<button data-ec="purge" class="sift-secondary-trash sift-bar-btn">Vider la corbeille</button>`
       : "",
   );
 
