@@ -288,6 +288,17 @@ en deux temps :
   fiche vit dans `filing-identify.ts`, couplée à `RevueState` — extraction en module pur avec
   injection (`register*`, motif du dépôt), chantier à part.
 
+- **Zone D redimensionnable** (« il faut aussi pouvoir redimensionner le panneau », même nuit) :
+  la poignée de la file de Revue (`.sift-qresize`, 16 px de prise à cheval sur le filet) posée sur
+  le bord gauche de l'inspecteur (`#sift-aside-resize`, index.html ; `toolbar.ts::
+  installAsideResize`, câblée une fois au boot). Tirer vers la gauche élargit. Bornes **280–480**
+  (280 = la colonne mesurée avec son padding, sous quoi l'onde n'a plus de place ; 480 = le
+  plafond de la file), persistée en `localStorage` `sift-aside-w` comme `sift-qcol-w`, réappliquée
+  à chaque `openAside`, poignée masquée avec la colonne. Vaut pour tous les écrans qui ouvrent la
+  zone D. HIG Split views (« dividers… support dragging to resize »). ⚠️ DESIGN.md § 14 écrit
+  encore « D fixe » — en retard. Mesuré : 320 → 420 au glisser de 100 px, bornes 280 / 480
+  atteintes, valeur relue à la réouverture, poignée cachée avec le panneau.
+
 Décision S (dossiers dans le rail, canon HIG) écartée ce jour au profit de F + barre.
 « Doublons » reste un chip du segmenté de filtres alors que c'est une action (spec § Zone A) :
 à sortir. Gap de 24 px entre la barre et l'en-tête figé (padding-top de `#content`) : Finder

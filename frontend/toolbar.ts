@@ -216,11 +216,70 @@ export function focusBarSearch(): boolean {
 // (`./dom`, `./seg-thumb`), donc il est en dessous de tout le monde.
 // ---------------------------------------------------------------------------
 
-/** Ouvre la zone D et rend son hôte, ou `null` si le shell n'en a pas. */
+// Largeur de la zone D — redimensionnable depuis le 2026-09-08 (« il faut aussi pouvoir
+// redimensionner le panneau », Antoine, audit Rangés). Même mécanique et mêmes règles que la file
+// de Revue (`router.ts::installQueueResize`, `sift-qcol-w`) : état d'affichage de la fenêtre, donc
+// `localStorage` avec try/catch, jamais `settings`. Bornes : 280 = la colonne de 287 px mesurée
+// avec son padding, en dessous l'audition n'a plus de place pour l'onde (plancher 64 + capsule 56) ;
+// 480 = le plafond de la file, une colonne plus large qu'une file n'est plus une colonne.
+// HIG Split views : « a split view includes dividers between panes that can support dragging to
+// resize them ». DESIGN.md § 14 écrit encore « D fixe » — en retard de cette décision.
+const ASIDE_MIN = 280;
+const ASIDE_MAX = 480;
+const ASIDE_DEFAULT = 320; // miroir de --aside-w (styles.css)
+const ASIDE_KEY = "sift-aside-w";
+
+function asideWidth(): number {
+  try {
+    const v = parseInt(localStorage.getItem(ASIDE_KEY) ?? "", 10);
+    if (v >= ASIDE_MIN && v <= ASIDE_MAX) return v;
+  } catch {
+    // stockage refusé : la largeur par défaut, jamais une colonne cassée
+  }
+  return ASIDE_DEFAULT;
+}
+
+/** Installe le glisser sur la poignée `#sift-aside-resize` (index.html). À appeler une fois au
+ *  boot (main.ts) : la poignée est un nœud du shell, jamais réécrit par une vue. La largeur croît
+ *  quand on tire vers la GAUCHE — c'est le bord gauche d'un panneau de droite. */
+export function installAsideResize(): void {
+  const aside = document.getElementById("sift-aside");
+  const handle = document.getElementById("sift-aside-resize");
+  if (!aside || !handle) return;
+  handle.addEventListener("mousedown", (e: MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = aside.getBoundingClientRect().width;
+    handle.classList.add("sift-qresize--active");
+    const onMove = (ev: MouseEvent) => {
+      const w = Math.max(ASIDE_MIN, Math.min(ASIDE_MAX, startW - (ev.clientX - startX)));
+      aside.style.width = `${w}px`;
+    };
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      handle.classList.remove("sift-qresize--active");
+      try {
+        localStorage.setItem(ASIDE_KEY, String(parseInt(aside.style.width, 10)));
+      } catch {
+        // ne pas casser un redimensionnement pour un stockage refusé
+      }
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  });
+}
+
+/** Ouvre la zone D et rend son hôte, ou `null` si le shell n'en a pas. La poignée suit, et la
+ *  largeur mémorisée se réapplique à chaque ouverture (le nœud est persistant, mais `closeAside`
+ *  n'efface pas le style — c'est une réaffirmation, pas un rattrapage). */
 export function openAside(): HTMLElement | null {
   const aside = document.getElementById("sift-aside");
   if (!aside) return null;
   aside.hidden = false;
+  aside.style.width = `${asideWidth()}px`;
+  const handle = document.getElementById("sift-aside-resize");
+  if (handle) handle.hidden = false;
   return aside;
 }
 
@@ -231,6 +290,8 @@ export function closeAside(): void {
   if (!aside) return;
   aside.hidden = true;
   aside.textContent = "";
+  const handle = document.getElementById("sift-aside-resize");
+  if (handle) handle.hidden = true;
 }
 
 // La porte de premier réglage (`renderRootGate` / `dismissRootGateBanner`, bandeau `#sift-gate`)

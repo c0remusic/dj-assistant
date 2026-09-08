@@ -44,6 +44,7 @@ import { appInfo, dbHealth, ffmpegVersion } from "./ipc";
 import { installLiveWiring } from "./sift-live";
 import { installRouter } from "./router";
 import { installUpdateBanner } from "./updater";
+import { installAsideResize } from "./toolbar";
 
 // Only exercise the IPC layer inside the Tauri app. In a plain browser (e.g. the
 // Vercel web demo) there is no Tauri runtime — skip it so the UI renders cleanly.
@@ -62,6 +63,8 @@ if (!inTauri) void import("./app.js");
 if (inTauri) {
   installLiveWiring();
   installRouter();
+  // Poignée de la zone D : un nœud du shell (index.html), câblé une fois — 2026-09-08.
+  installAsideResize();
   // Pas de vérification de mise à jour en dev : `plugins.updater` n'existe que dans la config de
   // release signée, donc le plugin ne s'enregistre jamais ici (lib.rs, `is_missing_updater_config`)
   // et `check()` échouait à CHAQUE lancement en « update check failed plugin updater not found » —

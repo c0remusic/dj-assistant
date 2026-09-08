@@ -58,6 +58,10 @@
        raison même qui le rend nécessaire — un détail rendu DANS la zone qui défile part hors
        écran dès qu'on ouvre une ligne loin dans la liste. Masqué tant qu'aucune vue ne le
        remplit ; une vue qui le remplit retire son [hidden]. -->
+  <!-- Poignée de redimensionnement de la zone D (« il faut aussi pouvoir redimensionner le panneau »,
+       Antoine, 2026-09-08) : la même que celle de la file de Revue (.sift-qresize, router.ts), posée
+       sur le bord gauche de l'inspecteur. Suit son [hidden] — toolbar.ts openAside/closeAside. -->
+  <div class="sift-qresize sift-aside-resize" id="sift-aside-resize" title="Redimensionner l'inspecteur" hidden></div>
   <div id="sift-aside" hidden></div>
 </div>
 <script type="module" src="/frontend/main.ts"></script>
