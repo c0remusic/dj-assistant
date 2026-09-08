@@ -27,9 +27,11 @@ import { renderRekordboxLive } from "./rekordbox-view";
 import { renderUsbLive } from "./usb-view";
 import { bumpViewEpoch } from "./view-epoch";
 
-export type ViewId = "revue" | "ecarts" | "journal" | "biblio" | "rkb" | "cle" | "reglages";
+// `ecarts` est devenu `resourcing` + `trash` le 2026-09-08 : deux destinations du rail (index.html),
+// une corbeille chez Apple étant toujours un item de sidebar, jamais un filtre.
+export type ViewId = "revue" | "resourcing" | "trash" | "journal" | "biblio" | "rkb" | "cle" | "reglages";
 
-const VIEWS: readonly ViewId[] = ["revue", "ecarts", "journal", "biblio", "rkb", "cle", "reglages"];
+const VIEWS: readonly ViewId[] = ["revue", "resourcing", "trash", "journal", "biblio", "rkb", "cle", "reglages"];
 
 function isViewId(v: string | undefined): v is ViewId {
   return !!v && (VIEWS as readonly string[]).includes(v);
@@ -257,9 +259,10 @@ export function render(): void {
       blockShell(content);
       void renderBiblioLive();
       return;
-    case "ecarts":
+    case "resourcing":
+    case "trash":
       blockShell(content);
-      void renderEcartes();
+      void renderEcartes(currentView);
       return;
     case "journal":
       blockShell(content);

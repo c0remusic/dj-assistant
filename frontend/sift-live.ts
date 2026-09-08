@@ -305,21 +305,21 @@ export function installLiveWiring() {
         copyToClipboard(ec.dataset.q || "", "Recherche copiée");
       } else if (act === "trash") {
         void trashTrack(id)
-          .then(renderEcartes)
+          .then(() => renderEcartes())
           .catch((err) => {
             console.error("trash failed", err);
             toast("Échec : impossible d'envoyer à la corbeille");
           });
       } else if (act === "restore") {
         void restoreTrack(id)
-          .then(renderEcartes)
+          .then(() => renderEcartes())
           .catch((err) => {
             console.error("restore failed", err);
             toast("Échec : restauration impossible");
           });
       } else if (act === "requeue") {
         void requeueTrack(id)
-          .then(renderEcartes)
+          .then(() => renderEcartes())
           .catch((err) => {
             console.error("requeue failed", err);
             toast("Échec : remise en file impossible");

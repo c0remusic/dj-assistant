@@ -637,6 +637,30 @@ body:has(#sift-titlebar){border-radius:var(--border-radius-sm);overflow:hidden}
    zone D de Revue comme pour l'inspecteur de Rangés : même composant, même colonne. */
 #sift-aside .sift-row{flex-direction:column;gap:0;padding:var(--space-4) 0}
 #sift-aside .sift-row-label{width:auto;font-size:var(--text-sm)}
+/* ---- Écartés, refonte du 2026-09-08 (deux destinations du rail, grammaire de Rangés) ---- */
+/* La colonne Fichier est un nom de fichier : mono, tronqué au MILIEU comme un path control (le
+   début et l'extension sont ce qui identifie), jamais à la fin. */
+/* En-tête non triable (Raison) : le même rendu que les en-têtes-boutons voisins, dont le reset
+   `button{}` neutralise le `text-transform:uppercase` de `.sift-lib-thead` — mesuré 2026-09-08,
+   « RAISON » en capitales à côté de « Artiste ». */
+.sift-lib-colhead-static{text-transform:none}
+.sift-ec-file{font-family:var(--font-mono);font-size:var(--text-sm);color:var(--color-text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sift-ec-detail-file{margin-top:var(--space-4);color:var(--color-text-tertiary)}
+/* Fiches de l'inspecteur : même titre que « Métadonnées » (direction T), même pas entre fiches
+   que la zone C de Revue (--space-16). */
+.sift-ec-fiche{margin-top:var(--space-16)}
+.sift-ec-sentence,.sift-ec-rule{font-size:var(--text-md);color:var(--color-text-secondary)}
+.sift-ec-rule{margin-top:var(--space-16)}
+/* Une rangée par boutique : la grammaire des rangées de mesure en colonne (libellé au-dessus,
+   `#sift-aside .sift-row`), la valeur est le bouton d'ouverture. */
+.sift-ec-stores .sift-row{padding:var(--space-4) 0}
+.sift-ec-stores .sift-meta-ident-btn{align-self:flex-start;margin-top:var(--space-4)}
+.sift-ec-actions{display:flex;gap:var(--space-8);flex-wrap:wrap}
+/* « Vider la corbeille » dans la barre : la géométrie du kit (--h-control, 6/8), même règle que
+   les quatre boutons du pied de boîte — un bouton hors de ces ancres retombe sur le reset. */
+.sift-ec-purge{height:var(--h-control);padding:var(--space-6) var(--space-8)}
+.sift-ec-skel{display:block;width:40%;height:var(--space-16);margin:var(--space-12) 0}
+.sift-ec-fail{color:var(--color-text-danger);font-size:var(--text-md);display:flex;gap:var(--space-8);align-items:center;flex-wrap:wrap;padding:var(--space-12) 0}
 #sift-aside .sift-editor-input{width:100%}
 /* Titre de page accessible, invisible à l'œil. Mesuré le 2026-08-05 : l'application ne
    contenait AUCUN `<h1>`–`<h6>`, ni dans `index.html`, ni dans `app.js`, ni dans un seul `.ts`,
@@ -1646,10 +1670,6 @@ body[data-view="revue"] .sift-pz-row.sift-pz-analyze{display:none}
 .pill{display:inline-flex;align-items:center;gap:4px;background:var(--color-background-secondary);color:var(--color-text-secondary);padding:var(--space-4) var(--space-8);border-radius:var(--border-radius-md);font-size:11px}
 /* Écartés: the 6 store links only reveal on hover/keyboard-focus of their row — with dozens of
    rows, always-open links were a wall of ~6 links each (audit UI/UX 2026-07-03, fix 6). */
-.sift-ec-stores{visibility:hidden}
-.sift-ec-row:hover .sift-ec-stores,.sift-ec-row:focus-within .sift-ec-stores{visibility:visible}
-.sift-ec-stores-hint{font-size:var(--text-xs);color:var(--color-text-tertiary);letter-spacing:.05em}
-.sift-ec-row:hover .sift-ec-stores-hint,.sift-ec-row:focus-within .sift-ec-stores-hint{display:none}
 .fld{display:flex;align-items:center;gap:var(--space-8);padding:var(--space-8) var(--space-8);border-radius:var(--border-radius-md);color:var(--color-text-secondary);cursor:pointer;font-size:12px}
 /* Hover added 2026-07-08: was clickable (cursor:pointer) with zero visual feedback — same bug
    already fixed on .chip 2026-07-03 ("cliquable sans retour visuel"). */
@@ -2013,7 +2033,6 @@ button:hover{background:var(--color-surface-raised);filter:brightness(0.95)}butt
 /* Audit-ref E1 (Écartés, 2026-07-09) : liens boutique (ecStoreLinks), <button> transparent
    converti depuis <a> sans href (non focusable) — réaffirme transparent au survol par prudence,
    même si le style inline devrait déjà l'emporter sur button:hover par spec (non mesuré ici). */
-.sift-ec-store-link:hover{background:transparent}
 /* Même correction que les cases/radios juste au-dessus : `accent-color` prend l'aplat d'accent de
    l'app, pas le token d'ENCRE info (qui résout en blanc cassé sur le thème sombre). */
 input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill)}
@@ -2073,8 +2092,6 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
    secondaire, aplat `--color-text-success` sur une case cochée) : elles ont été retirées plutôt que
    corrigées, parce qu'on ne repeint pas un composant qui n'existe plus.
    `git log -- frontend/styles.css` les ramène si l'écran Accueil renaît. */
-.sift-ec-sections{display:flex;flex-direction:column;gap:12px}
-.sift-ec-section{display:flex;flex-direction:column;gap:var(--space-12)}
 .lib-detail-stack{display:flex;flex-direction:column;gap:var(--space-12);margin-top:12px;padding-top:12px;border-top:1px solid var(--color-border-tertiary)}
 /* `.lib-detail-head*`, `.lib-detail-close`, `.lib-edit-meta`, `.lib-edit-pair`, `.lib-edit-labelled` et
    `.lib-edit-actions` sont partis le 2026-09-08 avec l'ancien éditeur de la zone D (library-detail.ts) :
