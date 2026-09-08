@@ -664,6 +664,8 @@ function fillVerdictLanding(root: HTMLElement, r: AnalysisReport): void {
 }
 
 let coverObserver: ResizeObserver | null = null;
+/** Plafond de la pochette d'en-tête, en px — voir `sizeCoverToBody` pour la mesure et la racine. */
+const COVER_MAX_PX = 96;
 /** La pochette (carrée) prend la hauteur du bloc texte de l'en-tête (en-tête B, Antoine 2026-08-21).
  *  Un ResizeObserver la garde synchrone quel que soit le moment où cette hauteur se stabilise :
  *  chargement d'Outfit (police système d'abord, mesuré 81→100px), pose du verdict, mise à jour tardive
@@ -691,16 +693,26 @@ function sizeCoverToBody(root: HTMLElement): void {
     cover.style.width = s;
     cover.style.height = s;
   };
+  // BORNE, mesurée le 2026-09-08 dans la zone D de Rangés (library-detail, colonne de 287 px) :
+  // là, la rangée de titre est une PILE (`#sift-aside .sift-player-title-row`, styles.css), donc
+  // la largeur du corps dépend de la largeur de la pochette — élargir la pochette fait replier le
+  // titre, le corps grandit, la pochette suit… jusqu'à 1915 px de haut pour un corps de 73 en
+  // surface large, et un inspecteur qui défile sur 3292 px. Dans Revue (zone C, 647 px de corps)
+  // la hauteur converge à 73. Racine de la borne — proposition, sans source Apple : le corps de
+  // l'en-tête fait trois lignes (nom --text-lg, artiste, format) et vaut 73 px mesurés ; 96 laisse
+  // la marge d'une police de secours plus haute sans laisser la rétroaction de la colonne courir.
+  // Un corps plus haut que ça n'est plus un en-tête, c'est un titre replié — la pochette s'arrête.
+  const size = (h: number) => `${Math.min(h, COVER_MAX_PX)}px`;
   let pending = 0;
   const apply = () => {
-    const s = `${body.offsetHeight}px`;
+    const s = size(body.offsetHeight);
     if (pending) cancelAnimationFrame(pending);
     pending = requestAnimationFrame(() => {
       pending = 0;
       write(s);
     });
   };
-  write(`${body.offsetHeight}px`);
+  write(size(body.offsetHeight));
   if ("ResizeObserver" in window) {
     coverObserver = new ResizeObserver(apply);
     coverObserver.observe(body);
