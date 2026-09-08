@@ -22,14 +22,11 @@
 // le repli du rail. L'argument « `settings` survit à un changement de machine » qui avait ouvert la
 // question était faux : la base vit dans `app_data_dir()` (`src-tauri/src/lib.rs:222`).
 
-export type LibraryColumnField =
-  | "verdict"
-  | "artist"
-  | "title"
-  | "bpm"
-  | "duration"
-  | "genre"
-  | "year";
+// `verdict` et `bpm` sont SORTIS de la liste le 2026-09-08 (audit Rangés, #24, décision d'Antoine :
+// « pas besoin de mettre le verdict ») — le verdict se lit dans l'inspecteur à l'ouverture, et BPM
+// n'a aucun écrivain côté Rust (colonne `metadata.bpm` lue, jamais remplie : « aucune colonne
+// fantôme pour du vide », DESIGN.md § 16). Un stockage qui les porte encore est filtré au chargement.
+export type LibraryColumnField = "artist" | "title" | "duration" | "genre" | "year";
 
 export interface LibraryColumn {
   field: LibraryColumnField;
@@ -43,16 +40,11 @@ export interface LibraryColumn {
 /** Ordre et libellés d'origine — `DESIGN.md` § 16. Le tableau sert aussi de validation : une entrée
  *  mémorisée qui ne s'y trouve pas est jetée au chargement. */
 const DEFAULT_COLUMNS: readonly LibraryColumn[] = [
-  // Colonne 1 (`DESIGN.md` § 16). Elle entre dans le SYSTÈME de colonnes et non dans les espaceurs
-  // d'en-tête (`.sift-lib-thead-cov` / `-tail`) : c'est ce qui la rend triable, redimensionnable,
-  // déplaçable et réinitialisable comme les six autres. Conséquence assumée : elle se peint APRÈS
-  // le bouton lecture et la pochette, qui ne sont pas des colonnes mais des affordances de ligne
-  // (§ 16, « Reste dans la ligne : le bouton lecture, et lui seul »). Elle est donc la première
-  // colonne de DONNÉE, pas le premier pixel de la ligne.
-  { field: "verdict", label: "Verdict", cls: "sift-lib-col-verdict" },
+  // La colonne Verdict (colonne 1 de `DESIGN.md` § 16, entrée le 2026-08-19 dans le système de
+  // colonnes pour être triable et déplaçable comme les autres) est retirée le 2026-09-08 — voir
+  // le commentaire de `LibraryColumnField`. BPM part le même jour, pour n'avoir jamais été écrit.
   { field: "artist", label: "Artiste", cls: "sift-lib-col-artist" },
   { field: "title", label: "Titre", cls: "sift-lib-col-title" },
-  { field: "bpm", label: "BPM", cls: "sift-lib-col-num" },
   { field: "duration", label: "Durée", cls: "sift-lib-col-num" },
   { field: "genre", label: "Genre", cls: "sift-lib-col-genre" },
   { field: "year", label: "Année", cls: "sift-lib-col-year" },

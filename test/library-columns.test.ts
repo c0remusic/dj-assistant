@@ -9,10 +9,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // Le module lit `localStorage` AU CHARGEMENT, donc chaque cas doit poser son stub avant l'import :
 // d'où `vi.resetModules()` + `await import()` plutôt qu'un import statique en tête de fichier.
 
-// `verdict` a rejoint la liste le 2026-08-19 (colonne 1 de `DESIGN.md` § 16). Elle est en TÊTE, et
-// ce fichier est le seul endroit qui gèle cet ordre : une entrée déplacée ici sans l'être dans
-// `DEFAULT_COLUMNS` ne casserait rien à l'écran, juste le contrat que ce test défend.
-const FIELDS = ["verdict", "artist", "title", "bpm", "duration", "genre", "year"];
+// `verdict` (colonne 1 de `DESIGN.md` § 16, entrée le 2026-08-19) et `bpm` sont SORTIS le 2026-09-08
+// (audit Rangés, #24 : le verdict se lit dans l'inspecteur, BPM n'a jamais été écrit). Ce fichier
+// est le seul endroit qui gèle l'ordre : une entrée déplacée ici sans l'être dans `DEFAULT_COLUMNS`
+// ne casserait rien à l'écran, juste le contrat que ce test défend.
+const FIELDS = ["artist", "title", "duration", "genre", "year"];
 
 function fakeStorage(initial: Record<string, string> = {}) {
   const map = new Map(Object.entries(initial));
@@ -39,19 +40,19 @@ beforeEach(() => {
 });
 
 describe("library-columns — chargement", () => {
-  it("rend les sept colonnes de DESIGN.md § 16 dans l'ordre quand rien n'est mémorisé", async () => {
+  it("rend les cinq colonnes dans l'ordre quand rien n'est mémorisé", async () => {
     const { mod } = await load();
     expect(mod.libraryColumns().map((c) => c.field)).toEqual(FIELDS);
     expect(mod.columnsAreCustomized()).toBe(false);
   });
 
   it("applique un ordre mémorisé", async () => {
-    // Ordre COMPLET (7 champs) : un ordre où il en manque relève du cas « colonne nouvelle »
+    // Ordre COMPLET (5 champs) : un ordre où il en manque relève du cas « colonne nouvelle »
     // testé plus bas, où la manquante reprend son index par défaut plutôt que la fin.
     const { mod } = await load({
-      order: ["bpm", "verdict", "artist", "title", "duration", "genre", "year"],
+      order: ["duration", "artist", "title", "genre", "year"],
     });
-    expect(mod.libraryColumns()[0].field).toBe("bpm");
+    expect(mod.libraryColumns()[0].field).toBe("duration");
     expect(mod.columnsAreCustomized()).toBe(true);
   });
 
@@ -71,15 +72,21 @@ describe("library-columns — chargement", () => {
     expect([...fields].sort()).toEqual([...FIELDS].sort());
   });
 
-  // Le cas RÉEL derrière la complétion : un stockage écrit avant le 2026-08-19 porte les six
-  // anciennes colonnes, et Verdict — colonne 1 de DESIGN.md § 16 — doit arriver à SA place, pas en
-  // queue. Une colonne nouvelle prend son index par défaut : l'utilisateur n'a jamais exprimé de
-  // préférence à son sujet, la disposition mémorisée n'exprime la sienne que sur celles qu'il
-  // connaissait.
+  // Le cas RÉEL derrière le filtre ET la complétion, dans les deux sens : un stockage écrit entre le
+  // 2026-08-19 et le 2026-09-08 porte Verdict et BPM, retirées depuis — elles sont JETÉES, pas
+  // peintes vides ; et un stockage d'avant une colonne nouvelle la reçoit à son index par défaut :
+  // l'utilisateur n'a jamais exprimé de préférence à son sujet, la disposition mémorisée n'exprime
+  // la sienne que sur celles qu'il connaissait.
+  it("jette Verdict et BPM d'un stockage d'avant leur retrait, sans toucher au reste", async () => {
+    const stale = ["verdict", "artist", "title", "bpm", "duration", "genre", "year"];
+    const { mod } = await load({ order: stale, width: { verdict: 141, bpm: 74, genre: 139 } });
+    expect(mod.libraryColumns().map((c) => c.field)).toEqual(FIELDS);
+    expect(mod.libraryColumns().find((c) => c.field === "genre")?.width).toBe(139);
+  });
   it("insère une colonne nouvelle à son index par défaut dans un stockage d'avant elle", async () => {
-    const legacy = ["artist", "title", "bpm", "duration", "genre", "year"];
+    const legacy = ["artist", "title", "genre", "year"];
     const { mod } = await load({ order: legacy });
-    expect(mod.libraryColumns().map((c) => c.field)).toEqual(["verdict", ...legacy]);
+    expect(mod.libraryColumns().map((c) => c.field)).toEqual(["artist", "title", "duration", "genre", "year"]);
   });
 
   it("ignore un doublon dans l'ordre mémorisé", async () => {
@@ -123,8 +130,8 @@ describe("library-columns — largeurs", () => {
 
   it("fige la colonne en px une fois redimensionnée", async () => {
     const { mod } = await load();
-    mod.setColumnWidth("bpm", 120);
-    const col = mod.libraryColumns().find((c) => c.field === "bpm");
+    mod.setColumnWidth("duration", 120);
+    const col = mod.libraryColumns().find((c) => c.field === "duration");
     expect(col && mod.columnStyle(col)).toBe(' style="flex:none;width:120px"');
   });
 });
@@ -151,37 +158,20 @@ describe("library-columns — déplacement", () => {
   it("insère avant la colonne visée", async () => {
     const { mod } = await load();
     mod.moveColumn("year", "title");
-    expect(mod.libraryColumns().map((c) => c.field)).toEqual([
-      "verdict",
-      "artist",
-      "year",
-      "title",
-      "bpm",
-      "duration",
-      "genre",
-    ]);
+    expect(mod.libraryColumns().map((c) => c.field)).toEqual(["artist", "year", "title", "duration", "genre"]);
   });
 
   it("place en fin quand la cible est nulle", async () => {
     const { mod } = await load();
     mod.moveColumn("artist", null);
-    expect(mod.libraryColumns().map((c) => c.field)).toEqual([
-      "verdict",
-      "title",
-      "bpm",
-      "duration",
-      "genre",
-      "year",
-      "artist",
-    ]);
+    expect(mod.libraryColumns().map((c) => c.field)).toEqual(["title", "duration", "genre", "year", "artist"]);
   });
 
   it("persiste l'ordre et le rétablit à la réinitialisation", async () => {
     const { mod, store } = await load();
     mod.moveColumn("year", "artist");
-    // Année passe DEVANT Artiste, pas en tête de liste : Verdict garde la première place tant que
-    // rien ne la déplace. Assertion sur la position relative plutôt que sur l'index 0, qui ne
-    // parlait de l'ordre persisté que par la coïncidence d'un défaut.
+    // Assertion sur la position relative plutôt que sur l'index 0, qui ne parlait de l'ordre
+    // persisté que par la coïncidence d'un défaut.
     const order: string[] = JSON.parse(store.dump()["sift-libcols-v1"]).order;
     expect(order.indexOf("year")).toBeLessThan(order.indexOf("artist"));
     mod.resetColumns();

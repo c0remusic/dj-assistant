@@ -109,25 +109,25 @@
 - L1252 — Pattern d'erreur/échec (`.sift-*-error`/`-fail`/`-warn`, 9 sites) — déjà cohérent, documenté ici (gap = défaut de doc, pas de code, audit 2026-07-19).
 - L1311 — Écran Écartés — chargement + bouton "Réessayer" (07-24).
 - L1322 — Écran Bibliothèque — chargement, tri en vue Grille, "Réinitialiser les filtres" corrigé (07-24).
-- L1345 — Table Bibliothèque, colonne Verdict — les 5 rendus de `verdictView()`, pastille + libellé, `verdictBadge` retiré (08-19).
-- L1419 — Bibliothèque éditeur — suppression confirmée, borne Année, autocomplétion Genres (07-24).
-- L1427 — Page Rekordbox — état d'erreur visible sur les 4 sections M8, boutons "en cours", CTA en `.sift-ranger-btn` (07-24).
-- L1442 — Accueil — confirmation "Retirer", swatches `aria-pressed` (07-24).
-- L1449 — Journal — titres de section datés lisibles (07-24).
-- L1464 — Revue — bannières `role="status" aria-live="polite"`, légende "écarter" (07-24).
-- L1472 — Lot — lignes de sélection accessibles au clavier, bouton "Annuler" sur confirmation armée (07-24).
-- L1480 — `styles.css` — tokens `--color-text-warning`/`-success` clair recalibrés, hover réaffirmé (07-24).
-- L1493 — Historique des corrections (chronologique, par date de session).
-- L1675 — Conventions de cohérence (sémantique couleur, hiérarchie de poids, discipline classe partagée) — à consulter AVANT tout nouveau composant (07-24).
-- L1745 — Ligne disque amovible (écran Clé USB) — trois états, rendu `usbRowHtml()` (07-31).
-- L1780 — Teintes pleines `-solid` — neuf tokens pour les surfaces de donnée (08-01), dix depuis 08-27 (`red`, pastille de verdict).
-- L1816 — Modale de formatage USB — états, trois corrections d'usage réel (08-02).
-- L1850 — Menu contextuel `.sift-ctx-menu` — états catalogués + rangée de pastilles couleur de source (08-20).
-- L1876 — Ligne de source du rail `.sift-rail-src` — teintes du cycle, `--error`, suspendue, « 0 audio » (#55), cadran de dépôt `.sift-rail-drop` (#56) ; story + module pur `rail-source-entry.ts` (08-20, 09-03).
-- L1931 — Lecteur simple de Revue — rangée d'audition : slider kit, play 28, temps unique, volume fin ; module pur + story (08-27).
-- L1982 — Pastille de verdict de file `verdictDot()` — teintes système pleines, 5 cas / 4 rendus ; module pur + story (08-27).
-- L2007 — Surfaces de Revue — trois plans : rail en retrait, file bord à bord, cadre de lecture, pied en surface (08-27).
-- L2050 — Carte de racine manquante du rail `.sift-railwarn` — remplace le bandeau `#sift-gate` supprimé ; états, survol en voile par-dessus l'ambre, rail replié ; module pur + story + vecteurs (09-02).
+- L1345 — Table Bibliothèque, colonne Verdict — RETIRÉE 09-08 (verdict dans l'inspecteur) ; 5 rendus de `verdictView()` 08-19.
+- L1361 — Bibliothèque éditeur — suppression confirmée, borne Année, autocomplétion Genres (07-24).
+- L1369 — Page Rekordbox — état d'erreur visible sur les 4 sections M8, boutons "en cours", CTA en `.sift-ranger-btn` (07-24).
+- L1384 — Accueil — confirmation "Retirer", swatches `aria-pressed` (07-24).
+- L1391 — Journal — titres de section datés lisibles (07-24).
+- L1406 — Revue — bannières `role="status" aria-live="polite"`, légende "écarter" (07-24).
+- L1414 — Lot — lignes de sélection accessibles au clavier, bouton "Annuler" sur confirmation armée (07-24).
+- L1422 — `styles.css` — tokens `--color-text-warning`/`-success` clair recalibrés, hover réaffirmé (07-24).
+- L1435 — Historique des corrections (chronologique, par date de session).
+- L1617 — Conventions de cohérence (sémantique couleur, hiérarchie de poids, discipline classe partagée) — à consulter AVANT tout nouveau composant (07-24).
+- L1687 — Ligne disque amovible (écran Clé USB) — trois états, rendu `usbRowHtml()` (07-31).
+- L1722 — Teintes pleines `-solid` — neuf tokens pour les surfaces de donnée (08-01), dix depuis 08-27 (`red`, pastille de verdict).
+- L1758 — Modale de formatage USB — états, trois corrections d'usage réel (08-02).
+- L1792 — Menu contextuel `.sift-ctx-menu` — états catalogués + rangée de pastilles couleur de source (08-20).
+- L1818 — Ligne de source du rail `.sift-rail-src` — teintes du cycle, `--error`, suspendue, « 0 audio » (#55), cadran de dépôt `.sift-rail-drop` (#56) ; story + module pur `rail-source-entry.ts` (08-20, 09-03).
+- L1874 — Lecteur simple de Revue — rangée d'audition : slider kit, play 28, temps unique, volume fin ; module pur + story (08-27).
+- L1925 — Pastille de verdict de file `verdictDot()` — teintes système pleines, 5 cas / 4 rendus ; module pur + story (08-27).
+- L1950 — Surfaces de Revue — trois plans : rail en retrait, file bord à bord, cadre de lecture, pied en surface (08-27).
+- L1993 — Carte de racine manquante du rail `.sift-railwarn` — remplace le bandeau `#sift-gate` supprimé ; états, survol en voile par-dessus l'ambre, rail replié ; module pur + story + vecteurs (09-02).
 
 ## Ligne de queue — `.qi` (`styles.css:1127-1214`, revérifié au grep le 2026-08-27)
 
@@ -1342,79 +1342,21 @@ résultat pour ce filtre" (`data-bib="stat" data-stat="all"`,
 recherche et facette comprises — avant ce fix il ne couvrait que
 `quality`/`verdict`.
 
-## Table Bibliothèque — colonne Verdict (2026-08-19) — `library-views.ts`
+## Table Bibliothèque — colonne Verdict (2026-08-19) — RETIRÉE le 2026-09-08 — `library-views.ts`
 
-Colonne 1 de la table (`DESIGN.md` § 16) : **pastille pleine + libellé**, une
-seule forme partout. Le libellé n'est pas décoratif — c'est lui qui rattrape la
-couleur pour un lecteur daltonien, donc il ne s'atténue jamais et ne descend
-jamais sous `--text-xs`.
+Colonne 1 de la table du 2026-08-19 au 2026-09-08 : pastille pleine + libellé (LOSSLESS /
+AUTHENTIQUE / FAKE / À VÉRIFIER / —), tranchée contre les littéraux réels `ok` / `fake` /
+`grey` / NULL de `worker.rs::verdict_str`, triable par rang catégoriel, entrée dans le
+système de colonnes (`library-columns.ts`).
 
-⚠️ **`verdictBadge` n'existe plus** : l'ancienne puce de FIN de ligne (« fake » /
-« ? », en minuscules, et sans libellé du tout pour `grey`) est partie dans le
-même geste — deux marques pour un même état dans la même ligne. Les espaceurs
-d'en-tête ne bougent pas pour autant : `.sift-lib-thead-tail` mesure la pastille
-de qualité et l'icône Discogs, jamais cette puce, qui n'était peinte que sur
-deux verdicts sur quatre.
-
-Les cinq rendus de `verdictView()` (`library-views.ts:49`) :
-
-| `tracks.verdict` | Condition supplémentaire | Libellé | Classe | Encre | Rang de tri |
-|---|---|---|---|---|---|
-| `"ok"` | `format` ∈ flac/wav/aif/aiff/alac | `LOSSLESS` | `.sift-lib-v-ok` | `--color-text-success` | 4 |
-| `"ok"` | tout autre format | `AUTHENTIQUE` | `.sift-lib-v-ok` | `--color-text-success` | 3 |
-| `"fake"` | — | `FAKE` | `.sift-lib-v-fake` | `--color-text-danger` | 0 |
-| `"grey"` | — | `À VÉRIFIER` | `.sift-lib-v-check` | `--color-text-warning` | 1 |
-| `NULL` | non analysé | `—` (tiret cadratin) | `.sift-lib-v-none` | `--color-text-tertiary` | 2 |
-
-Il n'y a **pas de sixième rendu**. `DUPLICATE`, que le § 16 nomme, n'est
-atteignable par aucune valeur de ce champ — un doublon sort du scan de
-dédoublonnage (`scan_library_duplicates`), pas de `tracks.verdict`, et se rend
-dans le mode Lot et dans la Revue. Les trois seuls littéraux que le backend
-écrive sont `ok`/`fake`/`grey` (`worker.rs::verdict_str`). `LOSSLESS` demande
-les DEUX faits (verdict sain **et** rail lossless), comme `qualityChipTone` en
-Revue : `format` est le format que Sift a réellement écrit en rangeant, donc il
-EST le rail du fichier sur le disque, et écrire `LOSSLESS` sur un MP3
-authentique serait faux.
-
-⚠️ **La liste d'extensions de la première ligne a été corrigée le 2026-08-20** :
-elle se lisait aiff/wav/flac/alac, parce que `library-views.ts` portait sa
-propre copie (`LOSSLESS_EXT`) de la table de `analysis::tags::rail_from_ext` et
-qu'il y manquait `aif` — un `.aif` authentique rendait AUTHENTIQUE. La copie est
-supprimée : le rail se lit désormais par `railFromExt()` (`frontend/rails.ts`),
-seule copie frontend de la table Rust.
-
-Structure et géométrie :
-
-- Cellule `<span class="sift-lib-col sift-lib-col-verdict {teinte}" data-col="verdict">`
-  contenant `<span class="sift-lib-verdict-dot" aria-hidden="true">` puis le
-  libellé. La pastille est un `<span>` vide, jamais un caractère « ● » : un rond
-  typographique change de taille et de calage avec la police, et serait lu à voix
-  haute par-dessus le libellé qui dit déjà l'état.
-- La pastille prend `currentColor` — **une seule classe de teinte** peint le
-  point ET le libellé, il devient impossible de les désaccorder.
-- La teinte est posée sur la CELLULE, donc elle gagne sur le fond que `.lr.cur`
-  met sur la ligne : un verdict ne change pas quand on ouvre sa piste.
-- Largeur **fixe** 92px (`AUTHENTIQUE`, le plus long libellé atteignable, mesuré
-  à 81,67px dans la vraie fenêtre + 6 de pastille + 4 de gap, arrondi au cran de
-  4). Une colonne de verdict qui respire ferait bouger tout ce qui la suit à
-  chaque filtre. La géométrie (largeur, gap) est partagée avec l'en-tête — c'est
-  elle qui tient l'alignement des deux lignes — mais pas la typographie :
-  l'en-tête garde `--text-xs` en capitales espacées.
-- Tri **catégoriel** par `rank`, jamais sur la chaîne du champ : ascendant = ce
-  qui demande une décision d'abord. Trier sur `tracks.verdict` marcherait par
-  accident aujourd'hui (fake < grey < ok en alphabétique) et se retournerait au
-  premier littéral renommé côté Rust, sans rien casser de visible.
-- La colonne entre dans le SYSTÈME de colonnes (`library-columns.ts`) : triable,
-  redimensionnable, déplaçable, réinitialisable comme les six autres. Elle se
-  peint donc APRÈS le bouton lecture et la pochette, qui sont des affordances de
-  ligne et non des colonnes — première colonne de DONNÉE, pas premier pixel.
-- Le libellé ouvre le nom composite de la ligne (`aria-label`), à la place qu'il
-  occupe à l'écran.
-
-Stories : `frontend/library-verdict.stories.ts` (« Bibliothèque — colonne
-Verdict »), qui rend les cinq cas par la vraie `libraryTableRowHtml()` — elles
-exécutent `verdictView()` au lieu de la recopier, donc elles ne peuvent pas en
-diverger.
+**Retirée le 2026-09-08** — audit de Rangés contre Revue (#24), décision d'Antoine : « pas
+besoin de mettre le verdict ». Le verdict se lit dans l'inspecteur à l'ouverture
+(`report-view.ts::verdictWordTone`, même paire de faits : verdict sain ET rail lossless) ; le
+filtre Lossless / MP3 de la barre reste le seul geste de qualité sur la table. `verdictView()`,
+`verdictRank()` et la story `library-verdict.stories.ts` sont supprimées avec elle ; un
+stockage `sift-libcols-v1` qui la porte encore est filtré (`test/library-columns.test.ts`).
+Spec : `docs/ui-specs/bibliotheque.md` § Décision 2026-09-08. Historique du rendu :
+`git show 5a8a9ed:frontend/library-views.ts` (dernier commit qui la porte).
 
 ## Bibliothèque éditeur — confirmation suppression + bornes Année + autocomplétion Genres (2026-07-24) — `library-detail.ts`
 

@@ -855,7 +855,21 @@ export async function renderBiblioLive() {
   // leur place change aujourd'hui d'un écran à l'autre. La recherche y gagne en plus de survivre
   // au rendu : dans `#content` elle était détruite par le rebuild `innerHTML` que sa PROPRE frappe
   // déclenchait, donc le focus tombait à chaque recherche (voir `toolbar.ts`).
+  // Le bouton de facette (pop-up « Dossiers · Tous ⌄ ») monte dans la barre le 2026-09-08 — « F
+  // avec la barre de M » (Antoine, audit #24, wireframe sur la grille de Revue). Précédent Apple :
+  // Photos met son pop-up « Days / Months / Years » au centre de la toolbar (docs/design-refs/
+  // 02-photos.png) ; HIG Toolbars, « center area : common, useful controls ». Le popover
+  // `#sift-facet-pop` reste dans `#content` et s'ancre sur ce bouton par `[data-bib="facetpop"]`,
+  // donc son placement (`showFacetPopover`) n'a pas bougé. En mode doublons, la porte de sortie
+  // nommée prend SA place : ce qui pilote la zone C reste au même endroit d'un mode à l'autre.
+  const pilot = bibDup.shown
+    ? `<button data-bib="dupscan" class="sift-bib-back"><i class="ti ti-chevron-left" aria-hidden="true"></i> Retour à la table</button>`
+    : `<button data-bib="facetpop" class="sift-bib-facet-btn" aria-haspopup="true" aria-expanded="false">` +
+      `<span class="sift-bib-facet-kind">${esc(facetLabel)}</span>` +
+      `<span class="sift-bib-facet-val">${esc(activeFacetVal || "Tous")}</span>` +
+      `<i class="ti ti-chevron-down" aria-hidden="true"></i></button>`;
   const barActionsHtml =
+    pilot +
     chips +
     `<div class="sift-seg sift-seg-thumbed" id="sift-bib-viewmode-seg">` +
     `<div class="sift-seg-thumb"></div>` +
@@ -873,22 +887,20 @@ export async function renderBiblioLive() {
         note: "Les pistes que tu convertis depuis Revue apparaissent ici, prêtes à exporter vers Rekordbox ou une clé USB.",
         backToRevue: true,
       })
-    : `<div class="sift-library-main sift-ui-card sift-ui-card-pad">` +
+    : // Plus de carte ni de rangée de tête depuis le 2026-09-08 (audit Rangés, #24, « F avec la barre
+      // de M » — Antoine) : la table est AU SOL, même fond que la zone C de Revue (patterns.md, « une
+      // surface de contenu ne peint rien », appliqué à Revue le 08-14 et ici ce jour-là), et tout ce
+      // qui la pilote — facette, compte, retour du mode doublons — vit dans la barre unifiée
+      // (`barActionsHtml`, `#sift-tb-count`). Mesuré avant : zone C de Rangés peinte de la couleur de
+      // la file de Revue (0.2939) sur le sol (0.2273), plus un cran pour l'en-tête — trois plans là
+      // où Revue en a deux.
+      `<div class="sift-library-main">` +
       (bibDup.shown
-        ? // MODE SCAN. La table cède la place, et le retour est une porte nommée : sans elle, on
-          // sort d'un résultat en devinant quel contrôle le referme.
-          `<div class="sift-bib-headline">` +
-          `<button data-bib="dupscan" class="sift-bib-back"><i class="ti ti-chevron-left" aria-hidden="true"></i> Retour à la table</button>` +
-          `<span class="sift-bib-count">Doublons — toute la bibliothèque</span>` +
-          `</div>` +
+        ? // MODE SCAN. La table cède la place ; la porte de sortie nommée (« Retour à la table ») est
+          // dans la barre, à l'emplacement du bouton de facette — ce qui pilote la zone C reste au
+          // même endroit d'un mode à l'autre.
           dupSection
-        : `<div class="sift-bib-headline">` +
-          `<button data-bib="facetpop" class="sift-bib-facet-btn" aria-haspopup="true" aria-expanded="false">` +
-          `<span class="sift-bib-facet-kind">${esc(facetLabel)}</span>` +
-          `<span class="sift-bib-facet-val">${esc(activeFacetVal || "Tous")}</span>` +
-          `<i class="ti ti-chevron-down" aria-hidden="true"></i></button>` +
-          `<span class="sift-bib-count">${bibState.tracks.length} piste${bibState.tracks.length > 1 ? "s" : ""}</span>` +
-          `</div>${tableHead}` +
+        : tableHead +
           // « Aucun résultat » reste SOUS l'en-tête de colonnes, il ne le remplace pas.
           // Référence : shadcn `data-table-demo`, dont l'état vide est une ligne du corps
           // (`colSpan`, texte centré) et non un bloc à la place de la table. Le motif tient
@@ -923,11 +935,22 @@ export async function renderBiblioLive() {
     // Bibliothèque vide : pas de filtre à offrir, donc rien dans la barre. C'est une impasse
     // assumée (DESIGN.md § 8) — le rail et le titre restent, les contrôles non.
     mountBarActions("");
+    const emptyCount = document.getElementById("sift-tb-count");
+    if (emptyCount) emptyCount.textContent = "";
     return;
   }
 
   mountBarActions(barActionsHtml);
   positionViewModeThumb(); // le nœud vient d'être (re)créé dans la barre — le placer après montage
+  // Le compte vit dans la barre, à côté du titre, depuis le 2026-09-08 — comme la file de Revue
+  // (`queue-panel.ts`, même slot `#sift-tb-count`, spec revue.md § Zone A). Il dit ce que la table
+  // MONTRE (filtre compris), jamais un total global ; en mode doublons il nomme la portée du scan.
+  const countEl = document.getElementById("sift-tb-count");
+  if (countEl) {
+    countEl.textContent = bibDup.shown
+      ? "Doublons — toute la bibliothèque"
+      : `${bibState.tracks.length} piste${bibState.tracks.length > 1 ? "s" : ""}`;
+  }
 
   // La recherche est le seul contrôle frappé pendant que son écran se re-rend : `mountBarSearch`
   // réutilise le champ existant et ne pousse la valeur que si elle diffère, sinon le curseur

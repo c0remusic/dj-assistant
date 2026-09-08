@@ -1696,17 +1696,20 @@ body[data-view="revue"] .sift-pz-row.sift-pz-analyze{display:none}
 .lr:focus-within{background:var(--color-row-active)}
 .lr.cur{background:var(--color-background-info);color:var(--color-text-primary)}
 .lr.cur .bib-name{font-weight:500}
-.lr.cur .lk-icon,.lr.cur .pb{background:var(--color-surface-raised)}
+.lr.cur .lk-icon{background:var(--color-surface-raised)}
 .lr:hover .lk-icon,.lr.cur .lk-icon{color:var(--color-text-primary)}
-/* `background` et `color` retirés (2026-08-19, DESIGN.md § 6). `opacity` RESTE, et c'est la seule
-   propriété que ce bouton avait besoin d'animer : elle porte son apparition au survol de la ligne
-   (voir la note deux lignes plus bas), et `opacity` est l'une des deux propriétés que § 6 autorise. */
-.lr .pb{width:22px;height:22px;border-radius:var(--border-radius-pill);flex:none;padding:0;display:inline-flex;align-items:center;justify-content:center;opacity:.72;transition:opacity var(--duration-fast) ease}
-.lr:hover .pb,.lr:focus-within .pb{background:var(--color-surface-raised)}
-/* `.lk-icon` a quitté cette règle le 2026-08-19 : il ne s'atténue plus à l'opacité, donc il n'a
-   plus rien à restaurer. `.pb` (bouton lecture) la garde -- il se révèle au survol de la ligne,
-   ce qui est une apparition, pas une atténuation d'état. */
-.lr:hover .pb,.lr:focus-within .pb,.lr.cur .pb{opacity:1}
+/* La POCHETTE est le bouton de lecture depuis le 2026-09-08 (audit Rangés #24, patron Musique : le
+   triangle apparaît au survol de la vignette, la ligne au repos ne montre que la donnée). Le bouton
+   fait exactement la pochette — 24 px, rayon de la vignette — et ne peint rien de lui-même : la
+   vignette (ou son repli vinyle) est son contenu. Le triangle `.sift-lib-play` est un calque
+   par-dessus, voile sombre + glyphe blanc, à opacité 0 au repos ; `opacity` est l'une des deux
+   propriétés que DESIGN.md § 6 autorise à animer. Il se révèle au survol de la LIGNE (pas du seul
+   bouton : la cible est la ligne entière, le geste « écouter » se cherche à gauche), au focus
+   clavier dans la ligne, et reste visible sur la piste ouverte — c'est celle qu'on écoute. */
+.lr .pb{position:relative;width:24px;height:24px;border-radius:var(--border-radius-sm);flex:none;padding:0;display:inline-flex;align-items:center;justify-content:center;background:none;overflow:hidden}
+.lr .pb:hover{background:none}
+.lr .sift-lib-play{position:absolute;inset:0;display:grid;place-items:center;font-size:var(--text-md);color:var(--color-accent-ink);background:var(--overlay-scrim);opacity:0;transition:opacity var(--duration-fast) ease;pointer-events:none}
+.lr:hover .sift-lib-play,.lr:focus-within .sift-lib-play,.lr.cur .sift-lib-play{opacity:1}
 /* Icon-only 22x22 buttons (Discogs link, Identifier, Écartés requeue/trash) — NOT for text
    buttons. `.lk` used to double as a generic "minimal button" class for text content too, which
    forced long labels ("Réexporter maintenant", "Lier un fichier XML Rekordbox"...) to wrap inside
@@ -1735,7 +1738,13 @@ body[data-view="revue"] .sift-pz-row.sift-pz-analyze{display:none}
    translucide et les deux textes se superposent. Il reprend le ton de la surface qui le porte.
    Ni shadcn ni ui-thing n'exposent de composant d'en-tête figé (recherché le 2026-08-19, zéro
    résultat des deux côtés) — la référence ici est le mécanisme CSS, pas un composant. */
-.sift-lib-thead{position:sticky;top:0;z-index:1;background:var(--color-background-secondary);display:flex;align-items:center;gap:var(--space-8);padding:var(--space-4) var(--space-8);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-tertiary);border-bottom:1px solid var(--color-border-tertiary)}
+/* Fond de l'en-tête figé = le SOL (`--color-background-primary`, le fond de `.pa`) depuis le
+   2026-09-08 : la table de Rangés est au sol comme la zone C de Revue (audit #24, carte retirée),
+   et un en-tête sticky doit être opaque de la couleur de ce qui défile dessous — sinon les lignes
+   passent visiblement sous lui. Il valait `--color-background-secondary` (0.3492) quand la table
+   vivait dans une carte `--color-background-queue` (0.2939) : un cran au-dessus de la carte, qui
+   était elle-même un cran au-dessus du sol. Trois plans pour deux, mesurés dans la vraie fenêtre. */
+.sift-lib-thead{position:sticky;top:0;z-index:1;background:var(--color-background-primary);display:flex;align-items:center;gap:var(--space-8);padding:var(--space-4) var(--space-8);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-tertiary);border-bottom:1px solid var(--color-border-tertiary)}
 /* COLONNES DE LA TABLE (DESIGN.md § 16). Les largeurs vivent ici et non en style inline sur
    chaque cellule : l'en-tête et la ligne doivent s'aligner, et deux listes de flex inline écrites
    à deux endroits divergent au premier ajout de colonne — ce qui est arrivé, l'en-tête ayant
@@ -1828,8 +1837,13 @@ body[data-view="revue"] .sift-pz-row.sift-pz-analyze{display:none}
 /* Espaceurs d'alignement de l'en-tête. 54 = bouton lecture 22 + gap 8 + pochette 24 ; le gap de
    l'en-tête lui-même fournit le 8 restant. 69 = pastille de qualité (la plus large, « LOSSLESS »)
    + gap + icône Discogs. Mesures du 2026-08-19 dans la vraie fenêtre. */
-.sift-lib-thead-cov{width:54px;flex:none}
-.sift-lib-thead-tail{width:69px;flex:none}
+/* Espaceurs d'en-tête = ce que la ligne porte hors colonnes, depuis le 2026-09-08 : la pochette
+   seule en tête (24, le bouton lecture séparé de 22 + gap est parti, le triangle vit au survol de
+   la pochette) et la pastille de format seule en queue (40 mesurés « AIFF », l'icône Discogs /
+   loupe de 22 + gap est partie au clic droit). Avant : 54 et 69, mêmes additions avec les deux
+   objets retirés. */
+.sift-lib-thead-cov{width:24px;flex:none}
+.sift-lib-thead-tail{width:40px;flex:none}
 .sift-lib-thead button{padding:0;border:0;background:none;font:inherit;color:inherit;cursor:pointer;text-align:left}
 .sift-lib-thead button:hover{color:var(--color-text-primary)}
 /* Colonnes redimensionnables et réordonnables (library-columns.ts, 2026-08-19). Source Apple pour
@@ -3675,12 +3689,16 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
    Dans Finder la liste occupe la fenêtre ; les LIGNES s'arrêtent, la surface non.
    `box-sizing` est déjà global, donc les 100% incluent le padding de la carte et rien ne déborde
    du `#content` qui la porte (hauteur explicite, `overflow-y:auto`). */
-.sift-library-main{flex:1;min-width:0;min-height:100%}
-/* Une seule ligne au-dessus de la table : facette · valeur active · compte. Elle remplace un
-   bandeau de cartes de statistiques (~118px) + un graphique d'occupation (~180px), tous deux
-   montés dans la zone D — mesuré le 2026-08-19, la première ligne de la table commençait à 396px
-   du haut de la fenêtre. */
-.sift-bib-headline{display:flex;align-items:center;justify-content:space-between;gap:var(--space-8);margin-bottom:var(--space-8)}
+/* AU SOL depuis le 2026-09-08 (audit Rangés #24, « F avec la barre de M ») : plus de
+   `.sift-ui-card.sift-ui-card-pad` sur ce nœud — la table repose sur le fond de `.pa`, même plan que
+   la zone C de Revue. L'inset horizontal reprend celui de la zone C de Revue (`.mid`, padding 16) ;
+   rien en haut : l'en-tête figé colle à la barre, comme la liste de Finder colle à sa toolbar, et
+   un padding-top laisserait une bande de sol au-dessus d'un en-tête sticky à `top:0`. */
+.sift-library-main{flex:1;min-width:0;min-height:100%;padding:0 var(--space-16)}
+/* `.sift-bib-headline` (facette · valeur · compte au-dessus de la table, 2026-08-19) est partie le
+   2026-09-08 : la facette et le compte vivent dans la barre unifiée, le retour du mode doublons
+   aussi. Le bouton de facette et le bouton de retour gardent leurs règles ci-dessous, ils ont
+   seulement changé d'hôte. */
 /* Bouton de facette : le libellé du TYPE en encre secondaire, la valeur active en encre primaire.
    C'est la hiérarchie d'un chemin de Finder — on lit d'abord où on est, le type ne fait que
    qualifier. Pas de bordure au repos : l'affordance vient du chevron, comme un menu contextuel de

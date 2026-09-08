@@ -210,6 +210,63 @@ Changement de facette et de tri : instantané, aucune animation sur les lignes.
 Le pouce du contrôle segmenté glisse en `--duration-slow`.
 Aucune animation sur le défilement ni sur le tri.
 
+## Décision — 2026-09-08 : Rangés lu contre Revue — la table au sol, la barre pilote
+
+**Contexte.** Déclinaison de la direction retenue sur Revue (#24), premier écran : Rangés.
+Méthode : vraie fenêtre (1561 × 941), zones mesurées contre celles de Revue, sept constats
+sourcés, trois directions dessinées sur la grille et les **plans mesurés** de Revue — barre,
+rail, zone C et inspecteur partagent UN fond (`--color-background-primary`, 0.2273 en
+sombre), la file de Revue est la seule zone levée (0.2939). Rangés peignait sa zone C de la
+couleur de cette file (carte `.sift-ui-card`) plus un cran pour l'en-tête (0.3492) : trois
+plans là où Revue en a deux. Sources motif : `docs/design-refs/03-mail.png` (filtre en tête
+de liste), `02-photos.png` (pop-up de portée au centre de la toolbar), `finder-window.png`
+(contenu bord à bord) ; règles : HIG Toolbars (trois emplacements, trois groupes maximum,
+bord arrière = recherche + bouton d'inspecteur), Sidebars (collections dans la sidebar),
+Split views (volet tertiaire repliable par plusieurs chemins).
+
+**Tranché par Antoine : « F mais avec la barre haute de M », tête de liste supprimée.**
+
+- **Zone C au sol.** `.sift-library-main` perd `sift-ui-card sift-ui-card-pad` ; inset
+  horizontal `--space-16` comme la zone C de Revue, rien en haut. L'en-tête figé prend le fond
+  du sol (`--color-background-primary`), opaque parce que sticky.
+- **La barre pilote tout.** Bouton de facette « Dossiers · Tous ⌄ » (pop-up button, popover
+  inchangé, ancré sur `[data-bib="facetpop"]`) en tête des actions ; **compte dans
+  `#sift-tb-count`** à côté du titre, comme la file de Revue ; en mode doublons, « ← Retour
+  à la table » prend la place du bouton de facette (ce qui pilote la zone C reste au même
+  endroit) et le compte dit « Doublons — toute la bibliothèque ». La rangée
+  `.sift-bib-headline` disparaît.
+- **Colonnes : Artiste · Titre · Durée · Genre · Année.** **Verdict retirée** (« pas besoin de
+  mettre le verdict ») — le verdict se lit dans l'inspecteur à l'ouverture ; le tri par rang
+  catégoriel part avec elle, `verdictView` et la story `library-verdict.stories.ts` aussi.
+  **BPM retirée** : aucun écrivain côté Rust (`metadata.bpm` lue, jamais remplie — grep du
+  2026-09-08) ; elle reviendra avec l'analyse qui l'écrira. Un stockage `sift-libcols-v1` qui
+  porte encore ces deux champs est filtré (gelé par `test/library-columns.test.ts`).
+  ⚠️ DESIGN.md § 16 (« colonne 1 = Verdict », « BPM… en base et n'atteint pas l'écran ») est
+  **en retard** de cette décision et faux sur BPM : à recaler.
+- **Ligne : pochette = bouton de lecture** (patron Musique) — le triangle apparaît au survol
+  de la ligne par-dessus la vignette (`.sift-lib-play`, voile `--overlay-scrim`), au focus, et
+  sur la piste ouverte. Le bouton lecture séparé (22 px) et l'**icône Discogs / loupe** de fin
+  de ligne sont retirés (DESIGN § 16 : les actions secondaires vivent au clic droit et dans
+  l'inspecteur). Espaceurs d'en-tête : 24 et 40.
+- **Inspecteur idle inchangé** (« ▶ Voir le détail complet » est un disclosure, pas un CTA à
+  icône).
+
+Vérifié dans la vraie fenêtre (CDP) : `.sift-library-main` sans carte, padding `0 16px`,
+fond transparent sur `.pa` 0.2273, en-tête 0.2273 ; barre « Dossiers Tous · Tous Lossless MP3
+Doublons · vues · recherche », compte « 15 pistes » ; en-têtes 24 / 269 / 269 / 52 / 192 / 52 /
+40 = cellules ; 0 `.lk-icon`, 15 glyphes de lecture ; survol réel : triangle sur la pochette ;
+popover de facette ancré sous son bouton dans la barre ; mode doublons : « Retour à la table »
+dans la barre, compte renommé, retour = 15 lignes et bouton de facette de retour.
+
+**Suite, non livrée.** L'inspecteur à l'ouverture d'une piste parle encore l'ancienne
+grammaire (trois cartes `.sift-ui-card-soft`, champs bordés, « Enregistrer », icônes dans les
+CTA, « Supprimer ») : à refaire avec les composants de Revue empilés en colonne — en-tête
+(pochette bornée 96, titre, artiste, format, pastille verdict), lecteur simple, Métadonnées
+(release choisie + Ré-identifier + attributs en place), Diagnostic. Décision S (dossiers dans le
+rail, canon HIG) écartée ce jour au profit de F + barre. « Doublons » reste un chip du
+segmenté de filtres alors que c'est une action (spec § Zone A) : à sortir. Gap de 24 px entre
+la barre et l'en-tête figé (padding-top de `#content`) : Finder n'en a pas, à mesurer.
+
 ## Décisions du 2026-08-19
 
 Les trois questions ouvertes de cette spec sont tranchées ci-dessous, chacune par une

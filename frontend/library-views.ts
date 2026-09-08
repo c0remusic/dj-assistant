@@ -5,7 +5,6 @@
 import type { LibraryTrack } from "../shared/contracts";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { esc } from "./dom";
-import { railFromExt } from "./rails";
 import { libraryColumns, columnStyle, type LibraryColumn, type LibraryColumnField } from "./library-columns";
 
 function qualPill(t: LibraryTrack): string {
@@ -13,72 +12,12 @@ function qualPill(t: LibraryTrack): string {
   return `<span class="pill" style="flex:none">${esc(f)}</span>`;
 }
 
-/** Le SIGNAL de compatibilité de la colonne 1 (`DESIGN.md` § 16) : pastille pleine + libellé, une
- *  seule forme partout. Le libellé n'est pas décoratif — c'est lui qui rattrape la couleur pour un
- *  lecteur daltonien, donc il ne s'atténue jamais et ne descend jamais sous `--text-xs`.
- *
- *  ⚠️ Les valeurs RÉELLES du champ sont `ok` / `fake` / `grey` / NULL — `worker.rs::verdict_str`,
- *  les trois seuls littéraux que le backend écrive dans `tracks.verdict`. Deux écarts avec le
- *  tableau de `DESIGN.md` § 16, tous deux constatés le 2026-08-19 et NON improvisés ici :
- *
- *  1. **`DUPLICATE` n'est atteignable par aucune valeur de ce champ.** Un doublon n'est pas un
- *     verdict de piste : il sort du scan de dédoublonnage (`scan_library_duplicates` → `DupGroup`)
- *     et se rend dans le mode Lot (`batch-panel.ts:356`) et dans la Revue (`filing.ts:559`). La
- *     ligne « Doublon | warning | DUPLICATE » du § 16 n'a donc pas de source ici. Rien n'est peint
- *     pour elle plutôt qu'inventer une donnée.
- *  2. **`grey` n'a pas de ligne dans le § 16**, et `ok` sur un fichier LOSSY non plus. Le § 4 donne
- *     pourtant la teinte du premier (ambre = « doute, décision attendue »), et le vocabulaire des
- *     deux existe déjà dans l'app : « à vérifier » (`report-view.ts::verdictWordTone` — c'était
- *     aussi `queue-panel.ts::verdictWord`, retiré le 2026-08-26 avec le mot de la ligne de file,
- *     `report-view.ts:94`) et « authentique » (`queue-panel.ts` VERDICT_DOT, `report-view.ts:85`
- *     « qualité authentique »). Ce sont ces mots-là qui sont repris, aucun n'est neuf.
- *
- *  `LOSSLESS` demande les DEUX faits, comme `verdictWordTone` (`report-view.ts`) : verdict sain
- *  ET rail lossless. `LibraryTrack` n'a pas de `declared_rail`, mais son `format` est le format que
- *  Sift a réellement ÉCRIT en rangeant (`library.rs`, `target_format` → `Target::ext()`), donc il
- *  EST le rail du fichier sur le disque. Écrire `LOSSLESS` sur un MP3 authentique serait faux, et
- *  la bibliothèque de test en contient un (piste 60, `verdict:"ok"`, `format:"mp3"`).
- *
- *  ⚠️ La table d'extensions est celle de `rails.ts`, seule copie frontend de
- *  `analysis::tags::rail_from_ext`. Ce module en portait une SECONDE (`LOSSLESS_EXT`, écrite de
- *  mémoire) où `aif` manquait : un `.aif` authentique — extension que l'autorité Rust reconnaît
- *  depuis toujours — lisait AUTHENTIQUE au lieu de LOSSLESS. Corrigé le 2026-08-20 en supprimant la
- *  copie, pas en y ajoutant l'entrée manquante. */
-interface VerdictView {
-  /** Classe de teinte, jamais une couleur en dur — la pastille hérite de `currentColor`. */
-  cls: string;
-  label: string;
-  /** Rang de tri : ce qui demande une décision d'abord, ce qui est sain en dernier. */
-  rank: number;
-}
-
-/** Le rang SEUL, sans construire la vue. C'est lui le branchement sur la piste — la présentation
- *  s'en dérive ci-dessous plutôt que de rebrancher une seconde fois sur `t.verdict`, deux
- *  branchements sur le même fait finissant toujours par diverger. Sans allocation : le comparateur
- *  de `sortTracks` l'appelle deux fois par comparaison, soit O(n log n) objets jetés pour un
- *  nombre. */
-function verdictRank(t: LibraryTrack): number {
-  return t.verdict === "fake"
-    ? 0
-    : t.verdict === "grey"
-      ? 1
-      : t.verdict !== "ok"
-        ? 2 // non analysé
-        : railFromExt(t.format ?? "") === "lossless"
-          ? 4
-          : 3;
-}
-
-function verdictView(t: LibraryTrack): VerdictView {
-  const rank = verdictRank(t);
-  if (rank === 0) return { cls: "sift-lib-v-fake", label: "FAKE", rank };
-  if (rank === 1) return { cls: "sift-lib-v-check", label: "À VÉRIFIER", rank };
-  // Non analysé — neutre, et un tiret cadratin plutôt qu'une cellule vide : une cellule vide se lit
-  // comme un défaut de rendu, un tiret dit « rien à ce sujet ».
-  if (rank === 2) return { cls: "sift-lib-v-none", label: "—", rank };
-  // Sain : même encre pour les deux rails, seul le mot change.
-  return { cls: "sift-lib-v-ok", label: rank === 4 ? "LOSSLESS" : "AUTHENTIQUE", rank };
-}
+// La vue de verdict de la ligne (`VerdictView`, `verdictRank`, `verdictView` — pastille + libellé,
+// LOSSLESS / AUTHENTIQUE / FAKE / À VÉRIFIER / —, tranchée le 2026-08-19 contre les littéraux réels
+// `ok` / `fake` / `grey` / NULL de `worker.rs::verdict_str`) est partie le 2026-09-08 avec la
+// colonne Verdict de Rangés (décision d'Antoine, audit #24 : « pas besoin de mettre le verdict »).
+// Le mot de verdict se lit dans l'inspecteur à l'ouverture (`report-view.ts::verdictWordTone`,
+// même paire de faits : verdict sain ET rail lossless). Historique : `git log -S verdictView`.
 
 /** Display name for a library row (artist — title, else filename). */
 export function bibName(t: LibraryTrack): string {
@@ -97,17 +36,14 @@ export function sortTracks(tracks: readonly LibraryTrack[], sort: LibrarySortSta
   const mul = sort.dir === "asc" ? 1 : -1;
   const sorted = [...tracks];
   sorted.sort((a, b) => {
-    // Le verdict est CATÉGORIEL (`DESIGN.md` § 16) : il se trie par rang, jamais sur la chaîne du
-    // champ. Trier sur `tracks.verdict` marcherait par accident aujourd'hui — « fake » < « grey » <
-    // « ok » en ordre alphabétique — et se retournerait au premier littéral renommé côté Rust, sans
-    // rien casser de visible. Ascendant = ce qui demande une décision d'abord ; « l'échec est
-    // l'information qu'on n'a pas le droit d'estomper » (§ 4), donc il ne se cache pas en queue.
-    if (sort.field === "verdict") return (verdictRank(a) - verdictRank(b)) * mul;
-    // Les trois champs NUMÉRIQUES se comparent en nombres, pas en chaînes : un tri lexical
-    // classerait un BPM de 100 avant 92, et une durée de 7:48 avant 12:03. `-Infinity` place les
-    // valeurs manquantes en tête en ascendant, donc en queue en descendant — c'est le bon défaut
-    // pour un DJ qui trie par tempo : ce qui n'a pas de BPM est ce qu'il reste à analyser.
-    if (sort.field === "year" || sort.field === "bpm" || sort.field === "duration") {
+    // Plus de tri par verdict depuis le 2026-09-08 : la colonne a quitté Rangés (décision d'Antoine,
+    // audit #24 — le verdict se lit dans l'inspecteur à l'ouverture). Le tri par RANG catégoriel
+    // qu'elle portait (fake, à vérifier, non analysé, sain) est parti avec elle ; le filtre
+    // Lossless / MP3 de la barre reste le seul geste sur la qualité.
+    // Les deux champs NUMÉRIQUES se comparent en nombres, pas en chaînes : un tri lexical classerait
+    // une durée de 7:48 avant 12:03. `-Infinity` place les valeurs manquantes en tête en ascendant,
+    // donc en queue en descendant.
+    if (sort.field === "year" || sort.field === "duration") {
       const av = a[sort.field] ?? -Infinity,
         bv = b[sort.field] ?? -Infinity;
       return (av - bv) * mul;
@@ -123,10 +59,10 @@ export function sortTracks(tracks: readonly LibraryTrack[], sort: LibrarySortSta
 // elles sont devenues un ÉTAT (réordonnable, redimensionnable, mémorisé), et un état ne se déclare
 // pas dans le module qui le peint.
 //
-// BPM et Durée sont des AJOUTS du 2026-08-19, et ce sont les deux plus importants. Les deux champs
-// existent depuis toujours dans le contrat (`shared/contracts.ts`, `bpm` et `duration`) et
-// n'atteignaient pas l'écran : la table triait sur Artiste, Titre, Genre, Année. Un DJ trie sa
-// bibliothèque par tempo.
+// Durée est un AJOUT du 2026-08-19 : le champ existait dans le contrat (`shared/contracts.ts`) et
+// n'atteignait pas l'écran. BPM était entré le même jour et ressort le 2026-09-08 : `metadata.bpm`
+// n'a aucun écrivain côté Rust (vérifié par grep, audit #24) — une colonne de tirets sur toute
+// bibliothèque. Elle reviendra avec l'analyse qui l'écrira, pas avant.
 //
 // Ni tonalité ni énergie : vérifié le 2026-08-19, aucun des deux n'existe dans `contracts.ts` ni
 // dans `db.rs`. Aucune colonne fantôme n'est déclarée pour du vide — les ajouter est un chantier
@@ -142,29 +78,17 @@ function fmtDuration(sec: number | null): string {
   return `${m}:${String(r).padStart(2, "0")}`;
 }
 
-/** BPM entier. Le backend en rend un flottant ; afficher « 121,97 » dans une colonne de 44px
- *  n'aide personne à mixer, et un DJ raisonne au BPM entier. */
-function fmtBpm(bpm: number | null): string {
-  return bpm == null || !Number.isFinite(bpm) ? "—" : String(Math.round(bpm));
-}
-
-/** Contenu texte d'une cellule, par champ. Les six branches sont exhaustives sur
+/** Contenu texte d'une cellule, par champ. Les cinq branches sont exhaustives sur
  *  `LibraryColumnField` : ajouter une colonne sans son rendu casse la compilation, ce qui est le
- *  seul moment où l'oubli est rattrapable — une cellule vide, elle, se lit comme une donnée absente. */
+ *  seul moment où l'oubli est rattrapable — une cellule vide, elle, se lit comme une donnée absente.
+ *  `verdict` (pastille + libellé) et `bpm` (entier, jamais écrit côté Rust) sont parties le
+ *  2026-09-08 avec leurs colonnes — voir `library-columns.ts`. */
 function cellText(field: LibraryColumnField, t: LibraryTrack): string {
   switch (field) {
-    case "verdict":
-      // Le TEXTE seul, la pastille étant ajoutée par `cellHtml`. Ses deux consommateurs réels — la
-      // cellule et le nom composite de la ligne — lisent le libellé de la vue calculée UNE fois par
-      // ligne, donc cette branche n'est plus atteinte par eux ; elle reste parce que c'est elle qui
-      // garde le `switch` exhaustif, ce qui est tout l'intérêt de cette fonction.
-      return verdictView(t).label;
     case "artist":
       return esc(t.artist || "—");
     case "title":
       return esc(t.title || "—");
-    case "bpm":
-      return fmtBpm(t.bpm);
     case "duration":
       return fmtDuration(t.duration);
     case "genre":
@@ -178,24 +102,9 @@ function cellText(field: LibraryColumnField, t: LibraryTrack): string {
  *  c'est lui qui permet d'écrire une largeur sur les lignes déjà montées sans re-rendre la liste.
  *
  *  UN SEUL gabarit d'enrobage, quelle que soit la colonne : la classe, le `data-col` et la largeur
- *  sont ce qui fait qu'une cellule s'aligne sur son en-tête, et deux `return` les écrivaient deux
- *  fois — une correction de géométrie appliquée à l'un des deux seulement se serait vue comme un
- *  désalignement de la seule colonne Verdict. Seuls la classe de teinte et le contenu varient.
- *
- *  `v` est la vue de verdict de la LIGNE, calculée une fois par `libraryTableRowHtml` : la cellule
- *  Verdict et le nom composite de la ligne disent le même mot, ils lisent donc le même objet. */
-function cellHtml(col: LibraryColumn, t: LibraryTrack, v: VerdictView): string {
-  const isVerdict = col.field === "verdict";
-  // Seule cellule à deux nœuds : la pastille pleine et son libellé. La pastille est un `<span>` vide
-  // et non un caractère « ● » — un rond typographique change de taille et de calage avec la police,
-  // et il serait lu à voix haute par-dessus le libellé qui dit déjà l'état.
-  const inner = isVerdict
-    ? `<span class="sift-lib-verdict-dot" aria-hidden="true"></span>${esc(v.label)}`
-    : cellText(col.field, t);
-  return (
-    `<span class="sift-lib-col ${col.cls}${isVerdict ? ` ${v.cls}` : ""}"` +
-    ` data-col="${col.field}"${columnStyle(col)}>${inner}</span>`
-  );
+ *  sont ce qui fait qu'une cellule s'aligne sur son en-tête. Seul le contenu varie. */
+function cellHtml(col: LibraryColumn, t: LibraryTrack): string {
+  return `<span class="sift-lib-col ${col.cls}" data-col="${col.field}"${columnStyle(col)}>${cellText(col.field, t)}</span>`;
 }
 
 /** Sortable column header row — each header is a real <button> (native keyboard support),
@@ -242,42 +151,39 @@ export function libraryTableHeaderHtml(sort: LibrarySortState): string {
 /** One table row — play button + cover thumbnail + the sortable columns of `libraryColumns()` +
  * the quality pill and the Discogs affordance.
  *
- * L'ancienne pastille de verdict de fin de ligne (`verdictBadge`, une puce « fake » / « ? » posée
- * après les colonnes) est partie le 2026-08-19 avec l'arrivée de la colonne Verdict : deux marques
- * pour un même état dans la même ligne, dont l'une en minuscules et sans libellé pour `grey`.
- * `DESIGN.md` § 16 en veut UNE, « identique dans les cinq tables ». Les espaceurs d'en-tête ne
- * bougent pas pour autant : `.sift-lib-thead-tail` mesure la pastille de qualité et l'icône
- * Discogs, jamais cette puce-là, qui n'était peinte que sur deux verdicts sur quatre. */
+ * Anatomie depuis le 2026-09-08 (audit Rangés, #24) : pochette-bouton de lecture · colonnes ·
+ * pastille de format. Sont partis ce jour-là le bouton lecture séparé (le triangle vit au survol
+ * de la pochette), la colonne Verdict (lue dans l'inspecteur) et l'icône Discogs / loupe de fin de
+ * ligne (clic droit, inspecteur). Les espaceurs d'en-tête suivent : `.sift-lib-thead-cov` mesure
+ * la pochette seule, `.sift-lib-thead-tail` la pastille seule. */
 export function libraryTableRowHtml(t: LibraryTrack, curId: number | null, selected = false): string {
-  // UNE fois par ligne, pour ses deux lecteurs : la cellule Verdict et le nom composite ci-dessous.
-  // Ils disent le même mot — le calculer deux fois, c'est autoriser deux mots.
-  const v = verdictView(t);
   const cur = (t.id === curId ? " cur" : "") + (selected ? " sel" : "");
   const cov = t.cover_path
     ? `<img src="${esc(convertFileSrc(t.cover_path))}" alt="" class="sift-lib-cov">`
     : `<i class="ti ti-vinyl sift-lib-cov-fallback"></i>`;
-  const link = t.discogs_release_id
-    ? `<button class="lk-icon" data-bib="link" data-rid="${esc(t.discogs_release_id)}" aria-label="Page Discogs"><i class="ti ti-external-link" style="font-size:var(--text-base);color:var(--color-text-tertiary)"></i></button>`
-    : `<button class="lk-icon" data-bib="identify" data-id="${t.id}" aria-label="Identifier"><i class="ti ti-search" style="font-size:var(--text-md);color:var(--color-text-tertiary)"></i></button>`;
+  // Plus d'icône Discogs / loupe en fin de ligne depuis le 2026-09-08 (audit #24) : DESIGN.md § 16,
+  // « chaque action secondaire est un bouton dans la ligne… mange de la largeur sur 15 k lignes pour
+  // servir sur une ». Les deux actions vivent au clic droit et dans l'inspecteur.
   // Composite name so a screen reader announces the sortable columns for this row instead of
   // just "button" — role="button" alone loses the artist/title/genre/year association a table
-  // reading mode would otherwise give. Le verdict ouvre la phrase depuis le 2026-08-19, à la place
-  // qu'il occupe à l'écran : la colonne 1 est le premier mot lu comme elle est le premier regard.
-  const rowLabel = `${v.label}, ${t.artist || "Artiste inconnu"} — ${t.title || "Titre inconnu"}, ${fmtBpm(t.bpm)} BPM, ${fmtDuration(t.duration)}, ${t.genres[0] || "genre inconnu"}, ${t.year != null ? t.year : "année inconnue"}`;
+  // reading mode would otherwise give. Le verdict n'ouvre plus la phrase depuis le 2026-09-08 : il
+  // n'est plus à l'écran, et annoncer ce qu'on ne montre pas serait un second écran pour l'oreille.
+  const rowLabel = `${t.artist || "Artiste inconnu"} — ${t.title || "Titre inconnu"}, ${fmtDuration(t.duration)}, ${t.genres[0] || "genre inconnu"}, ${t.year != null ? t.year : "année inconnue"}`;
   return (
     `<div class="lr${cur}" data-bib="row" data-id="${t.id}" tabindex="0" role="option" aria-selected="${selected}" aria-label="${esc(rowLabel)}">` +
-    `<button class="pb" data-bib="play" data-id="${t.id}" aria-label="Écouter"><i class="ti ti-player-play" style="font-size:var(--text-md)"></i></button>` +
-    cov +
-    libraryColumns().map((col) => cellHtml(col, t, v)).join("") +
+    // La POCHETTE est le bouton de lecture (patron Musique, 2026-09-08) : au repos la ligne ne montre
+    // que la donnée, le triangle apparaît au survol de la ligne, par-dessus la vignette. Un objet de
+    // moins en tête de ligne (22 px + gap), et le geste reste là où l'œil cherche « écouter ».
+    `<button class="pb" data-bib="play" data-id="${t.id}" aria-label="Écouter">${cov}<i class="ti ti-player-play sift-lib-play" aria-hidden="true"></i></button>` +
+    libraryColumns().map((col) => cellHtml(col, t)).join("") +
     qualPill(t) +
-    link +
     `</div>`
   );
 }
 
 export const LIBRARY_TABLE_PROBE_HTML =
-  `<div class="lr"><button class="pb"><i class="ti ti-player-play" style="font-size:var(--text-md)"></i></button>` +
-  `<i class="ti ti-vinyl sift-lib-cov-fallback"></i><span class="sift-lib-col">probe</span></div>`;
+  `<div class="lr"><button class="pb"><i class="ti ti-vinyl sift-lib-cov-fallback"></i><i class="ti ti-player-play sift-lib-play" aria-hidden="true"></i></button>` +
+  `<span class="sift-lib-col">probe</span></div>`;
 
 /** How many tiles sit in one virtualized "row" — the grid is chunked into rows of this many
  * tiles so createVirtualList (one fixed-height row at a time) can still window a cover grid
