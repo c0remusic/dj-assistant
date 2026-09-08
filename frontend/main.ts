@@ -62,7 +62,13 @@ if (!inTauri) void import("./app.js");
 if (inTauri) {
   installLiveWiring();
   installRouter();
-  void installUpdateBanner();
+  // Pas de vérification de mise à jour en dev : `plugins.updater` n'existe que dans la config de
+  // release signée, donc le plugin ne s'enregistre jamais ici (lib.rs, `is_missing_updater_config`)
+  // et `check()` échouait à CHAQUE lancement en « update check failed plugin updater not found » —
+  // un console.error de bruit pur, relayé par le client Vite dans le terminal (Antoine, 2026-09-07).
+  // Éliminé du build de prod par Vite, comme selftest/dev-inspector plus bas ; la release garde
+  // son unique vérification au lancement.
+  if (!import.meta.env.DEV) void installUpdateBanner();
   (async () => {
     try {
       const info = await appInfo();

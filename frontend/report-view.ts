@@ -676,12 +676,31 @@ function sizeCoverToBody(root: HTMLElement): void {
   const body = root.querySelector<HTMLElement>(".sift-player-header-body");
   const cover = root.querySelector<HTMLElement>(".sift-cover-frame");
   if (!body || !cover) return;
-  const apply = () => {
-    const s = `${body.offsetHeight}px`;
+  // La pochette est la sœur flex du corps observé : poser sa largeur change la largeur disponible
+  // du corps, le texte re-wrap, la hauteur du corps bouge, et l'observer se redéclenche DANS LA
+  // MÊME FRAME — le navigateur coupe la boucle et le dit (« ResizeObserver loop completed with
+  // undelivered notifications », une fois par ouverture de piste dans le terminal de Vite,
+  // 2026-09-07). Rendu final juste, avertissement de trop. Deux gardes, MESURÉES dans la vraie
+  // fenêtre : ne rien écrire à valeur égale (seule, elle laissait encore 1 avertissement sur 3
+  // ouvertures — la hauteur change réellement à la première passe), et différer l'écriture issue
+  // de l'observer à la frame suivante (`requestAnimationFrame`) : l'écriture ne tombe plus
+  // pendant la livraison des notifications, donc plus rien de « non livré ». La première pose
+  // reste synchrone : pas de frame sans pochette dimensionnée.
+  const write = (s: string) => {
+    if (cover.style.width === s && cover.style.height === s) return;
     cover.style.width = s;
     cover.style.height = s;
   };
-  apply();
+  let pending = 0;
+  const apply = () => {
+    const s = `${body.offsetHeight}px`;
+    if (pending) cancelAnimationFrame(pending);
+    pending = requestAnimationFrame(() => {
+      pending = 0;
+      write(s);
+    });
+  };
+  write(`${body.offsetHeight}px`);
   if ("ResizeObserver" in window) {
     coverObserver = new ResizeObserver(apply);
     coverObserver.observe(body);
