@@ -609,6 +609,15 @@ async function loadAndPaint(): Promise<void> {
 
   paintTable(content);
   installJournalHandlers();
+  // Le compte à côté du titre, comme Revue, Rangés et Écartés (2026-09-08, déclinaison #24) : ce
+  // que la table MONTRE — le mode et le filtre compris —, jamais un total global. Le résumé de
+  // l'inspecteur garde le sien : l'un situe l'écran, l'autre décrit la sélection.
+  const countEl = document.getElementById("sift-tb-count");
+  if (countEl) {
+    const q = jrnlState.q.trim().toLowerCase();
+    const n = jrnlState.entries.filter((e) => matchesQuery(e, q)).length;
+    countEl.textContent = n ? plural(n, "action") : "";
+  }
   // Rien du tout : l'écran est une impasse assumée, et un inspecteur qui annonce « 0 action » à
   // côté n'ajoute rien. Même geste que `renderBiblioLive`, qui ne monte pas sa zone D sur une
   // bibliothèque vide.
@@ -681,7 +690,7 @@ function mountBar(): void {
     onPick: (id) => switchMode(id === "all" ? "all" : "session"),
   });
   mountBarSearch({
-    placeholder: "Filtrer…",
+    placeholder: "Rechercher…",
     ariaLabel: "Filtrer le journal par nom de fichier ou destination",
     value: jrnlState.q,
     onInput: (value) => {

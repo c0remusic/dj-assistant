@@ -108,7 +108,7 @@ function headHtml(): string {
     `<div class="sift-lib-thead" role="row">` +
     // Raison n'est pas triable : catégorielle, quatre valeurs — le tri d'une liste courte par
     // artiste ou fichier est ce qu'on cherche ici.
-    `<span class="sift-lib-col-verdict sift-lib-colhead" role="columnheader"><span class="sift-lib-colhead-static">Raison</span></span>` +
+    `<span class="sift-lib-col-verdict sift-lib-colhead" role="columnheader">Raison</span>` +
     col("artist", "Artiste", "sift-lib-col-artist") +
     col("title", "Titre", "sift-lib-col-title") +
     col("file", "Fichier", "sift-lib-col-genre") +

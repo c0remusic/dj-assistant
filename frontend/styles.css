@@ -640,10 +640,6 @@ body:has(#sift-titlebar){border-radius:var(--border-radius-sm);overflow:hidden}
 /* ---- Écartés, refonte du 2026-09-08 (deux destinations du rail, grammaire de Rangés) ---- */
 /* La colonne Fichier est un nom de fichier : mono, tronqué au MILIEU comme un path control (le
    début et l'extension sont ce qui identifie), jamais à la fin. */
-/* En-tête non triable (Raison) : le même rendu que les en-têtes-boutons voisins, dont le reset
-   `button{}` neutralise le `text-transform:uppercase` de `.sift-lib-thead` — mesuré 2026-09-08,
-   « RAISON » en capitales à côté de « Artiste ». */
-.sift-lib-colhead-static{text-transform:none}
 .sift-ec-file{font-family:var(--font-mono);font-size:var(--text-sm);color:var(--color-text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sift-ec-detail-file{margin-top:var(--space-4);color:var(--color-text-tertiary)}
 /* Fiches de l'inspecteur : même titre que « Métadonnées » (direction T), même pas entre fiches
@@ -1792,7 +1788,15 @@ body[data-view="revue"] .sift-pz-row.sift-pz-analyze{display:none}
    passent visiblement sous lui. Il valait `--color-background-secondary` (0.3492) quand la table
    vivait dans une carte `--color-background-queue` (0.2939) : un cran au-dessus de la carte, qui
    était elle-même un cran au-dessus du sol. Trois plans pour deux, mesurés dans la vraie fenêtre. */
-.sift-lib-thead{position:sticky;top:0;z-index:1;background:var(--color-background-primary);display:flex;align-items:center;gap:var(--space-8);padding:var(--space-4) var(--space-8);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-tertiary);border-bottom:1px solid var(--color-border-tertiary)}
+/* UNE grammaire d'en-tête de colonne pour toutes les tables (Rangés, À re-sourcer, Corbeille,
+   Journal) depuis le 2026-09-08 : casse MIXTE, --text-sm, encre tertiaire, sans tracking — les
+   en-têtes de liste du Finder. Les capitales espacées à --text-xs restent la grammaire des
+   ÉTIQUETTES DE GROUPE (SPECTRE, sessions du Journal, sections du rail) : deux objets, deux
+   formes. Mesuré avant : `.sift-lib-thead` déclarait les capitales mais ses en-têtes sont des
+   <button>, dont la feuille UA remet `text-transform:none` — Rangés se lisait en casse mixte par
+   accident, Journal (spans) en capitales par intention, Raison d'Écartés en capitales à côté
+   d'« Artiste ». Une seule forme, écrite. */
+.sift-lib-thead{position:sticky;top:0;z-index:1;background:var(--color-background-primary);display:flex;align-items:center;gap:var(--space-8);padding:var(--space-4) var(--space-8);font-size:var(--text-sm);color:var(--color-text-tertiary);border-bottom:1px solid var(--color-border-tertiary)}
 /* COLONNES DE LA TABLE (DESIGN.md § 16). Les largeurs vivent ici et non en style inline sur
    chaque cellule : l'en-tête et la ligne doivent s'aligner, et deux listes de flex inline écrites
    à deux endroits divergent au premier ajout de colonne — ce qui est arrivé, l'en-tête ayant
@@ -2326,7 +2330,10 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
 /* En-tête de colonnes, collant en haut de la zone C. Même matériau que `.sift-lib-thead`, classe
    distincte et non réutilisée : le clic droit sur `.sift-lib-thead` ouvre les réglages de COLONNES
    de la Bibliothèque (`sift-live.ts`), que le Journal n'a pas — ni tri, ni redimensionnement. */
-.jrnl-thead{position:sticky;top:0;z-index:1;background:var(--color-background-secondary);display:flex;align-items:center;gap:var(--space-8);padding:var(--space-4) var(--space-8);font-size:var(--text-xs);text-transform:uppercase;letter-spacing:var(--tracking-widest);color:var(--color-text-tertiary);border-bottom:1px solid var(--color-border-tertiary)}
+/* Même grammaire que `.sift-lib-thead` (casse mixte, --text-sm, 2026-09-08) et même fond que le
+   sol : `--color-background-secondary` était un plan au-dessus de la zone, le même écart que
+   Rangés a corrigé la veille. */
+.jrnl-thead{position:sticky;top:0;z-index:1;background:var(--color-background-primary);display:flex;align-items:center;gap:var(--space-8);padding:var(--space-4) var(--space-8);font-size:var(--text-sm);color:var(--color-text-tertiary);border-bottom:1px solid var(--color-border-tertiary)}
 /* Colonnes. Aucun zébrage : la séparation vient du filet de `.lr` et de l'espace (DESIGN.md § 16). */
 .jrnl-c{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .jrnl-c-time{flex:none;width:var(--jrnl-col-time)}

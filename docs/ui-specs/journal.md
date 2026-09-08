@@ -48,6 +48,31 @@ permanence pour un usage rare.
 - **Plusieurs entrées** — compte par type d'action et **Annuler la sélection**, avec le
   nombre exact d'actions concernées dans le libellé.
 
+### Décision — 2026-09-08 : lu contre Revue et Rangés (déclinaison #24, quatrième écran)
+
+Le Journal était déjà dans la grammaire (sol, barre à segmenté + recherche, groupes, inspecteur
+au repos). Trois écarts mesurés dans la vraie fenêtre, corrigés le jour même :
+
+- **En-tête de colonne : UNE grammaire pour toutes les tables.** `.jrnl-thead` déclarait des
+  capitales espacées à `--text-xs` ; `.sift-lib-thead` (Rangés, Écartés) déclarait la même
+  chose mais ses en-têtes sont des `<button>`, dont la feuille UA remet `text-transform:none` —
+  Rangés se lisait en casse mixte par accident, Journal en capitales par intention. Tranché
+  sur Finder (en-têtes de liste en casse mixte) : **casse mixte, `--text-sm`, encre tertiaire,
+  sans tracking**, pour les trois tables. Les capitales espacées restent la grammaire des
+  **étiquettes de groupe** (SPECTRE, sessions et jours du Journal, sections du rail) — deux
+  objets, deux formes. Mesuré après : 11 px / `none` / `normal` sur Journal, Rangés, Écartés.
+- **Fond de l'en-tête figé = le sol** (`--color-background-primary`) : il valait
+  `--color-background-secondary`, un plan au-dessus de la zone — le même écart que Rangés a
+  corrigé la veille.
+- **Compte dans la barre** (`#sift-tb-count`, « 13 actions ») : ce que la table montre, mode
+  et filtre compris, comme Revue, Rangés et Écartés. Le résumé de l'inspecteur garde le sien.
+- **Placeholder « Rechercher… »** au lieu de « Filtrer… » : un mot pour toute l'app.
+
+Tient, ne pas toucher : groupes par jour puis session (chevron, compte à droite), colonnes,
+« Appliqué » en état neutre permanent, inspecteur (résumé au repos, entrée ouverte avec
+horodatage, format, état, source, destination, « Annuler cette action »), clic droit
+(Annuler · Ouvrir l'emplacement · Copier le chemin · Voir la piste dans Bibliothèque).
+
 ## États
 
 | État | Rendu |
