@@ -269,8 +269,12 @@ en deux temps :
   `.sift-report-sub` (plus le nom de fichier en 15/600 sur trois lignes), pochette **fixe 56**
   en colonne (`COVER_COLUMN_PX`, la piste « pochette fixe 56px » de la spec Revue que l'en-tête
   B avait écartée en surface large), verdict qui passe à la ligne au lieu de se couper ;
-  **lecteur simple de l'app sur deux rangées** (grille à zones : play · onde · temps, puis
-  haut-parleur · capsule — dans 245 px l'onde tombait à 0) ; **plus aucune carte** — la boîte
+  **lecteur simple de l'app, sa rangée telle quelle, mise à l'échelle de la colonne** — « réutilise
+  les composants déjà utilisés, scale-les à la taille de la fenêtre » (Antoine) : gaps à
+  `--space-12`, capsule compressible (90 au repos, 56 au plancher), onde à plancher 64 ; dans
+  245 px l'onde tombait à 0 (une version à deux rangées, capsule étirée à 225, a vécu une heure
+  et n'était plus le bouton de volume de l'app). Mesuré après : play 28 · onde 65 · temps 24 ·
+  haut-parleur 22 · capsule 90 dans 277 ; **plus aucune carte** — la boîte
   de lecture ne peint rien en colonne, la carte « Piste ouverte » et son chevron sont partis
   (fermer = re-cliquer la ligne), l'éditeur perd son cadre. Mesuré après : pochette 56 × 56,
   titre deux lignes, sous-titre = artiste, onde 177 × 24, capsule 225, rangées en colonne de

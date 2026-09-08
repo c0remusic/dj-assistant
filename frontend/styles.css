@@ -617,16 +617,17 @@ body:has(#sift-titlebar){border-radius:var(--border-radius-sm);overflow:hidden}
    --color-background-queue sur le sol faisait la seule carte de la colonne. Patron Finder « Lire les
    informations » : un plan, aucune carte. */
 #sift-aside .sift-player-row{background:none;padding:0;border-radius:0}
-/* Audition sur DEUX rangées. Mesuré : dans 245 px, play 28 + temps 24 + haut-parleur 22 + capsule 90
-   + gaps laissaient 0 px à l'onde (`.sift-progress` mesurée à 0, le pouce seul visible). Grille à
-   zones plutôt que `flex-wrap` : un wrap dépend de la largeur au pixel près et casserait la paire
-   haut-parleur / capsule ; ici l'onde a toute la première rangée, la capsule toute la seconde. */
-#sift-aside .sift-player-audition{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"play wave time" "mute vol vol";align-items:center}
-#sift-aside .sift-player-audition .sift-play{grid-area:play}
-#sift-aside .sift-player-audition .sift-progress{grid-area:wave;width:100%}
-#sift-aside .sift-player-audition .sift-time{grid-area:time}
-#sift-aside .sift-player-audition .sift-volume-mute{grid-area:mute}
-#sift-aside .sift-player-audition .sift-volume{grid-area:vol;width:100%}
+/* Audition : LA MÊME RANGÉE que Revue, mise à l'échelle de la colonne — « réutilise les composants
+   déjà utilisés, scale-les à la taille de la fenêtre » (Antoine, 2026-09-08 ; une version à deux
+   rangées, capsule étirée à 225 px, a vécu une heure et n'était plus le bouton de volume de l'app).
+   Mesuré dans 245 px : play 28 + temps 24 + haut-parleur 22 + capsule 90 + quatre gaps de 24 = 260,
+   l'onde tombait à 0. Deux ressorts, aucun composant touché : les gaps passent à --space-12, et la
+   capsule devient COMPRESSIBLE (90 en repos, 56 au plancher — sous 56 le gros pouce n'a plus de
+   course) pendant que l'onde garde un plancher de 64. Les deux se partagent ce qui reste, et
+   retrouvent leurs tailles de Revue dès que la colonne le permet. */
+#sift-aside .sift-player-audition{gap:var(--space-12)}
+#sift-aside .sift-player-audition .sift-progress{flex:1 1 0;min-width:64px}
+#sift-aside .sift-player-audition .sift-volume{flex:0 1 90px;min-width:56px}
 /* Le verdict passe à la ligne au lieu de se couper (« LOSSLESS · AIF · 44,1 » tronqué à 44,1
    mesuré ce soir). */
 #sift-aside .sift-player-verdict{flex-wrap:wrap;white-space:normal}
