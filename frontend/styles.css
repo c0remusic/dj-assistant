@@ -550,7 +550,9 @@ body:has(#sift-titlebar){border-radius:var(--border-radius-sm);overflow:hidden}
    Elles sont scopées à #sift-aside : le même composant rendu dans la surface large de Revue garde
    son rendu d'origine, ce qui est le point — un composant partagé s'adapte à son hôte, il ne se
    duplique pas. */
-#sift-aside .sift-player-name,#sift-aside .sift-report-name{font-size:var(--text-lg);white-space:normal;overflow-wrap:anywhere}
+#sift-aside .sift-player-name,#sift-aside .sift-report-name{font-size:var(--text-lg);white-space:normal;overflow-wrap:anywhere;line-height:1.2}
+/* `line-height:1.2` : la règle large (`.sift-player-name`, 26px/32px) laissait ses 32 px à un titre
+   passé à 15 px — deux lignes = 64 px, mesuré le 2026-09-08 dans l'inspecteur de Rangés. */
 /* Le titre passe à la ligne ici (règle du dessus) : lui coller le verdict à droite ne laisserait
    ni à l'un ni à l'autre de quoi se lire dans une colonne de 287px. En zone D la rangée de titre
    redevient une pile — le verdict garde son rang (juste sous le titre, au-dessus de l'artiste),
@@ -608,6 +610,33 @@ body:has(#sift-titlebar){border-radius:var(--border-radius-sm);overflow:hidden}
 #sift-aside .sift-player-row{flex-wrap:nowrap}
 #sift-aside .sift-player-header,#sift-aside .sift-player-audition{width:100%;min-width:0}
 #sift-aside .sift-player-header>*,#sift-aside .sift-player-audition>*{min-width:0}
+/* ---- 2026-09-08, « ok pour le proposé » (Antoine, wireframe « Rangés — inspecteur ouvert ») :
+   la colonne parle Revue. Quatre règles, toutes scopées à la zone D, mesurées avant/après. ---- */
+/* La boîte de lecture (V2b) ne peint rien en colonne : elle est le cadre de la zone C de Revue, où
+   elle porte aussi réglages et engagement ; ici elle n'a que l'en-tête et l'audition, et son fond
+   --color-background-queue sur le sol faisait la seule carte de la colonne. Patron Finder « Lire les
+   informations » : un plan, aucune carte. */
+#sift-aside .sift-player-row{background:none;padding:0;border-radius:0}
+/* Audition sur DEUX rangées. Mesuré : dans 245 px, play 28 + temps 24 + haut-parleur 22 + capsule 90
+   + gaps laissaient 0 px à l'onde (`.sift-progress` mesurée à 0, le pouce seul visible). Grille à
+   zones plutôt que `flex-wrap` : un wrap dépend de la largeur au pixel près et casserait la paire
+   haut-parleur / capsule ; ici l'onde a toute la première rangée, la capsule toute la seconde. */
+#sift-aside .sift-player-audition{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"play wave time" "mute vol vol";align-items:center}
+#sift-aside .sift-player-audition .sift-play{grid-area:play}
+#sift-aside .sift-player-audition .sift-progress{grid-area:wave;width:100%}
+#sift-aside .sift-player-audition .sift-time{grid-area:time}
+#sift-aside .sift-player-audition .sift-volume-mute{grid-area:mute}
+#sift-aside .sift-player-audition .sift-volume{grid-area:vol;width:100%}
+/* Le verdict passe à la ligne au lieu de se couper (« LOSSLESS · AIF · 44,1 » tronqué à 44,1
+   mesuré ce soir). */
+#sift-aside .sift-player-verdict{flex-wrap:wrap;white-space:normal}
+/* Rangée de mesure en colonne : LIBELLÉ AU-DESSUS de la valeur. La grammaire H1 (rail de 150 px,
+   valeur à droite) est une décision de surface large ; dans 287 px elle laissait ~60 px à la valeur —
+   « Pleine bande · coupure 22050 Hz » sur quatre lignes, chaque densité sur cinq (mesuré 2026-09-08).
+   Libellé en --text-sm tertiaire, valeur mono dessous, la référence suit sur la ligne. Vaut pour la
+   zone D de Revue comme pour l'inspecteur de Rangés : même composant, même colonne. */
+#sift-aside .sift-row{flex-direction:column;gap:0;padding:var(--space-4) 0}
+#sift-aside .sift-row-label{width:auto;font-size:var(--text-sm)}
 #sift-aside .sift-editor-input{width:100%}
 #sift-aside .lib-edit-pair{grid-template-columns:1fr}
 /* Titre de page accessible, invisible à l'œil. Mesuré le 2026-08-05 : l'application ne

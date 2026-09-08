@@ -392,17 +392,18 @@ export function openLibraryDetailInto(
   deletedCb = onDeleted;
   const st: EditState = { track: { ...track, genres: [...track.genres] }, pendingCover: null, saving: false };
 
+  // « Ok pour le proposé » (Antoine, 2026-09-08, wireframe « Rangés — inspecteur ouvert ») : la
+  // colonne parle Revue. La carte « Piste ouverte » (titre + chevron) est partie — elle ne disait
+  // rien que la ligne surlignée et l'en-tête du lecteur ne disent déjà ; fermer = re-cliquer la ligne
+  // (`openBiblioDetail`, bibliotheque-view.ts). Le rapport et l'éditeur reposent sur le sol de la
+  // colonne, sans carte (patron Finder « Lire les informations »). L'éditeur garde son ancienne
+  // grammaire (champs bordés, Enregistrer, Supprimer) jusqu'au chantier 3 de ce wireframe — la
+  // fiche Métadonnées de Revue vit dans filing-identify.ts, couplée à RevueState, et se partage par
+  // extraction, pas par copie.
   host.innerHTML =
     '<div class="lib-detail-stack">' +
-    `<div class="lib-detail-head sift-ui-card-soft sift-ui-card-soft-pad">` +
-    `<div class="lib-detail-head-main">` +
-    `<div class="col-h">Piste ouverte</div>` +
-    `<div class="lib-detail-head-title">${esc(track.artist && track.title ? `${track.artist} - ${track.title}` : track.path.split(/[\\/]/).pop() || track.path)}</div>` +
-    `</div>` +
-    `<button type="button" data-lib="collapse" class="lib-detail-close" aria-label="Masquer les infos" title="Masquer les infos"><i class="ti ti-chevron-up"></i></button>` +
-    `</div>` +
     '<div class="lib-report"></div>' +
-    '<div class="lib-edit sift-ui-card sift-ui-card-pad"></div>' +
+    '<div class="lib-edit"></div>' +
     '<div class="lib-verdict"></div>' +
     "</div>";
   const reportEl = requireEl<HTMLElement>(".lib-report", "openLibraryDetailInto", host);
@@ -410,7 +411,14 @@ export function openLibraryDetailInto(
   // Verdict is the CONCLUSION — rendered last, after Identification, matching the maquette
   // (see docs/superpowers/plans/2026-07-02-refonte-ui-plan.md, décision du 2026-07-02).
   const verdictEl = requireEl<HTMLElement>(".lib-verdict", "openLibraryDetailInto", host);
-  host.querySelector<HTMLElement>('[data-lib="collapse"]')?.addEventListener("click", onClose);
-  void openReportInto(reportEl, track.path, verdictEl, { showAnalysisFailure: false });
+  void onClose; // la porte de fermeture est la ligne elle-même ; le paramètre reste pour l'appelant
+  // L'en-tête du lecteur porte le TITRE et l'ARTISTE (`.sift-report-name` / `.sift-report-sub`),
+  // comme Revue après reconcile (`filing-preview.ts::updateHeaderName`) — plus le nom de fichier
+  // en 15/600 sur trois lignes. Sans artiste ni titre, le nom de fichier reste (défaut du rapport).
+  void openReportInto(reportEl, track.path, verdictEl, {
+    showAnalysisFailure: false,
+    title: track.title || undefined,
+    subtitle: track.artist || undefined,
+  });
   renderEdit(editEl, st);
 }

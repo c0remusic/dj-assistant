@@ -258,14 +258,36 @@ Doublons · vues · recherche », compte « 15 pistes » ; en-têtes 24 / 269 / 
 popover de facette ancré sous son bouton dans la barre ; mode doublons : « Retour à la table »
 dans la barre, compte renommé, retour = 15 lignes et bouton de facette de retour.
 
-**Suite, non livrée.** L'inspecteur à l'ouverture d'une piste parle encore l'ancienne
-grammaire (trois cartes `.sift-ui-card-soft`, champs bordés, « Enregistrer », icônes dans les
-CTA, « Supprimer ») : à refaire avec les composants de Revue empilés en colonne — en-tête
-(pochette bornée 96, titre, artiste, format, pastille verdict), lecteur simple, Métadonnées
-(release choisie + Ré-identifier + attributs en place), Diagnostic. Décision S (dossiers dans le
-rail, canon HIG) écartée ce jour au profit de F + barre. « Doublons » reste un chip du
-segmenté de filtres alors que c'est une action (spec § Zone A) : à sortir. Gap de 24 px entre
-la barre et l'en-tête figé (padding-top de `#content`) : Finder n'en a pas, à mesurer.
+**Inspecteur à l'ouverture — « ok pour le proposé » (même nuit, wireframe « Rangés —
+inspecteur ouvert », colonne réelle 1:1 contre la colonne en composants de Revue).** Livré
+en deux temps :
+
+- **Livré le 2026-09-08 (5, 1, 2, 4 du wireframe)** — toutes règles scopées `#sift-aside`,
+  donc valables aussi pour la zone D de Revue : rangée de mesure **libellé au-dessus de la
+  valeur** (le rail de 150 laissait ~60 px à la valeur, « Pleine bande · coupure 22050 Hz »
+  sur quatre lignes) ; **en-tête de Revue** — titre et artiste dans `.sift-report-name` /
+  `.sift-report-sub` (plus le nom de fichier en 15/600 sur trois lignes), pochette **fixe 56**
+  en colonne (`COVER_COLUMN_PX`, la piste « pochette fixe 56px » de la spec Revue que l'en-tête
+  B avait écartée en surface large), verdict qui passe à la ligne au lieu de se couper ;
+  **lecteur simple de l'app sur deux rangées** (grille à zones : play · onde · temps, puis
+  haut-parleur · capsule — dans 245 px l'onde tombait à 0) ; **plus aucune carte** — la boîte
+  de lecture ne peint rien en colonne, la carte « Piste ouverte » et son chevron sont partis
+  (fermer = re-cliquer la ligne), l'éditeur perd son cadre. Mesuré après : pochette 56 × 56,
+  titre deux lignes, sous-titre = artiste, onde 177 × 24, capsule 225, rangées en colonne de
+  38 px, 0 carte, 1333 px de défilement (1546 avant, 3292 la veille).
+  Écart au wireframe, assumé : le verdict se lit entre le titre et l'artiste (la rangée de titre
+  de Revue le porte, l'artiste est un frère de cette rangée — pas de réordonnancement CSS
+  possible sans toucher au markup partagé).
+- **Reste (3 du wireframe)** : la fiche Métadonnées de Revue (release choisie + Ré-identifier
+  + attributs en place, gravés au blur) à la place de l'éditeur de `library-detail.ts` (champs
+  bordés, « Enregistrer », « Supprimer » → clic droit, « changer » → clic droit). Coût : la
+  fiche vit dans `filing-identify.ts`, couplée à `RevueState` — extraction en module pur avec
+  injection (`register*`, motif du dépôt), chantier à part.
+
+Décision S (dossiers dans le rail, canon HIG) écartée ce jour au profit de F + barre.
+« Doublons » reste un chip du segmenté de filtres alors que c'est une action (spec § Zone A) :
+à sortir. Gap de 24 px entre la barre et l'en-tête figé (padding-top de `#content`) : Finder
+n'en a pas, à mesurer.
 
 ## Décisions du 2026-08-19
 

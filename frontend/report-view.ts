@@ -666,6 +666,8 @@ function fillVerdictLanding(root: HTMLElement, r: AnalysisReport): void {
 let coverObserver: ResizeObserver | null = null;
 /** Plafond de la pochette d'en-tête, en px — voir `sizeCoverToBody` pour la mesure et la racine. */
 const COVER_MAX_PX = 96;
+/** Pochette d'en-tête EN COLONNE (zone D), fixe — voir `sizeCoverToBody`. */
+const COVER_COLUMN_PX = 56;
 /** La pochette (carrée) prend la hauteur du bloc texte de l'en-tête (en-tête B, Antoine 2026-08-21).
  *  Un ResizeObserver la garde synchrone quel que soit le moment où cette hauteur se stabilise :
  *  chargement d'Outfit (police système d'abord, mesuré 81→100px), pose du verdict, mise à jour tardive
@@ -703,6 +705,17 @@ function sizeCoverToBody(root: HTMLElement): void {
   // la marge d'une police de secours plus haute sans laisser la rétroaction de la colonne courir.
   // Un corps plus haut que ça n'est plus un en-tête, c'est un titre replié — la pochette s'arrête.
   const size = (h: number) => `${Math.min(h, COVER_MAX_PX)}px`;
+  // EN COLONNE (zone D — Rangés à l'ouverture, Diagnostic de Revue), la pochette est FIXE : 56 px,
+  // sans observer. « Ok pour le proposé » (Antoine, 2026-09-08, wireframe « Rangés — inspecteur
+  // ouvert ») : la règle « pochette à la hauteur du corps » est une décision de surface large ; en
+  // colonne le corps est une pile dont la largeur dépend de la pochette, donc même bornée à 96 elle
+  // repoussait le titre sur cinq lignes. 56 = la piste « pochette fixe 56px » de la spec Revue,
+  // celle que l'en-tête B (2026-08-21) avait écartée en surface large au profit de la mesure —
+  // voir le commentaire de `fillVerdictLanding` — et qui est la bonne en colonne.
+  if (root.closest("#sift-aside")) {
+    write(`${COVER_COLUMN_PX}px`);
+    return;
+  }
   let pending = 0;
   const apply = () => {
     const s = size(body.offsetHeight);
