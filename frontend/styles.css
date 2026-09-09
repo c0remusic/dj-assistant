@@ -2065,15 +2065,11 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
    vivaient dans `rekordbox-view.ts`, chacun avec un `padding:10px 12px` en style inline dont le
    10 n'appartient à aucune échelle. Ce n'était pas une boîte, c'était LA LIGNE d'un écran,
    rembourrée à la main huit fois.
-   Elle devient `.rb-row` ci-dessous, avec un padding pris dans l'échelle. Il reste DEUX niveaux :
+   Elle est devenue `.rb-row`, avec un padding pris dans l'échelle — puis `.rb-row` elle-même est
+   partie le 2026-09-08 : les rangées de candidats de Rekordbox sont `.rkb-cand` (grammaire de
+   Photos › Importer, voir `.sift-rkb-*`), sans cadre. Il reste DEUX niveaux :
    `.sift-ui-card` (contenu, fond sans bordure) et `.sift-ui-card-soft` (chrome doux, fond +
    bordure). Une boîte est une décision, pas une décoration. */
-/* La ligne de Rekordbox — depuis le 2026-09-08 seulement la ligne d'un CANDIDAT (ambigu, doublon
-   de playlist, erreur de chargement) ; les quatre sections elles-mêmes sont des fiches sans cadre
-   (`.rb-fiche`, plus bas avec `.sift-rkb-*`) et la carte du XML lié est devenue la cible en tête
-   de zone C (`.rkb-target`). `--idle`, `--last` et `--split` sont partis avec elles. */
-.rb-row{border:1px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:var(--space-8) var(--space-12);margin-bottom:var(--space-8)}
-.rb-row--inline{display:flex;align-items:center;gap:var(--space-8)}
 .sift-ui-kicker{font-size:var(--text-xs);letter-spacing:.09em;text-transform:uppercase;color:var(--color-text-tertiary);margin-bottom:var(--space-8)}
 .sift-ui-card-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .sift-ui-card-actions{display:flex;gap:8px;margin-top:var(--space-12)}
@@ -2177,11 +2173,8 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
    #content (18px horizontal), so 0 extra padding there already gives them a comparable real
    inset from the window edge. Forcing raw numbers to match would actually make the two headers'
    TRUE visual inset diverge, not converge — the two live in different padded containers. */
-/* Vertical gap between adjacent selected rows (annotation: "augmente l'espacement pour que les
-   cases selectionnées ne se fondent pas les unes dans les autres") — .bx-row is styled inline
-   (sift-live.ts) with no margin of its own, so back-to-back selected rows (translucent bg, no
-   border) had nothing separating them. */
-.bx-row+.bx-row{margin-top:var(--space-4)}
+/* `.bx-row+.bx-row` (écart entre rangées cochées de Rekordbox) est partie le 2026-09-08 avec son
+   dernier consommateur : les rangées sont `.rkb-cand`, à hauteur `--row-h`. */
 /* The single rail action button (adaptive Filer/Discarder / Stop) — same sizing/weight as the
    Détail rail's .sift-ranger-btn (inherits the generic button rule).
    DEUX GRAMMAIRES, PAS TROIS (2026-08-19, kit § 02-Buttons), et depuis le 2026-08-20 ce sont deux
@@ -2406,15 +2399,9 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
 .jrnl-insp-actions{margin-top:var(--space-16)}
 .jrnl-insp-actions button{width:100%}
 
-/* M8 Tier 1/3 candidate lists (rekordbox-view.ts) — collapsible groups by app session,
-   "Tout sélectionner"/"Tout désélectionner" per group. Mirrors .jrnl-group-* above (same
-   grouping concept, Journal) but needs a header row (toggle + select-all button) instead of a
-   plain label. */
-.rb-session-group{margin-bottom:var(--space-8)}
-.rb-session-hd{display:flex;align-items:center;gap:var(--space-8);padding:var(--space-4) 0}
-.rb-session-toggle{background:none;border:none;padding:0;font-size:var(--text-xs);text-transform:uppercase;letter-spacing:var(--tracking-wider);color:var(--color-text-tertiary);cursor:pointer}
-.rb-session-toggle:hover{color:var(--color-text-secondary)}
-.rb-session-selectall{margin-left:auto;font-size:var(--text-xs)}
+/* `.rb-session-*` (groupes de candidats Rekordbox repliés par session, « Tout sélectionner » par
+   groupe) sont partis le 2026-09-08 : Photos › Importer groupe par TYPE, pas par session — les
+   candidats sont en groupes de section `.rkb-group-hd`, tous visibles. */
 
 /* ── Revue detail (report-view.ts) — extracted inline styles, byte-identical values ───── */
 /* No scrollbar-gutter/overflow-y:scroll here (was added, then removed): in the Revue screen
@@ -3486,29 +3473,43 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
 /* Compte par entrée : un cran d'encre, pas une opacité (DESIGN.md § 4). */
 .rkb-entry-count{font-size:var(--text-sm);color:var(--color-text-tertiary);font-variant-numeric:tabular-nums}
 .sift-rkb-main{flex:1;min-width:0;overflow-y:auto;padding:var(--space-24) 0}
-/* La CIBLE en tête de zone C — grammaire de la zone centrale d'Utilitaire de disque (guide Apple,
-   macOS Tahoe) : nom en grand, deux sous-lignes, et à droite le badge chiffré avec sa légende en
-   capitales (« 2 TB · SHARED BY 8 VOLUMES »). Le badge porte l'état de synchronisation ; le compte
-   a quitté la barre pour ce badge. Le filet sous la cible sépare l'identité de la grille qui suit. */
-.rkb-target{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-24);padding-bottom:var(--space-16);border-bottom:1px solid var(--color-border-tertiary);margin-bottom:var(--space-16)}
-.rkb-target-body{min-width:0}
-.rkb-target-name{font-size:var(--text-xl);font-weight:600;line-height:1.2;overflow-wrap:anywhere}
-.rkb-target-sub{font-size:var(--text-md);color:var(--color-text-secondary);margin-top:var(--space-4)}
-.rkb-target-sub--danger{color:var(--color-text-danger)}
-.rkb-target-path{font-family:var(--font-mono);font-size:var(--text-sm);color:var(--color-text-tertiary);margin-top:var(--space-4);overflow-wrap:anywhere}
-.rkb-target-note{font-size:var(--text-sm);color:var(--color-text-warning);margin-top:var(--space-4)}
-.rkb-badge{flex:none;text-align:center}
-.rkb-badge-n{font-size:var(--text-xl);font-weight:500;padding:var(--space-8) var(--space-24);border:1px solid var(--color-border-secondary);border-radius:var(--border-radius-md);color:var(--color-text-secondary);font-variant-numeric:tabular-nums}
-.rkb-badge--warn .rkb-badge-n{color:var(--color-text-warning)}
-.rkb-badge-cap{font-size:var(--text-xs);letter-spacing:var(--tracking-wider);text-transform:uppercase;color:var(--color-text-tertiary);margin-top:var(--space-4)}
-.rkb-intro{font-size:var(--text-md);color:var(--color-text-tertiary);margin-bottom:var(--space-16)}
-/* Les quatre sections en FICHES (grammaire de Revue, .sift-meta-header/.sift-meta-title), sans
-   cadre : la référence pose une grille d'informations sous la cible, pas des boîtes. « À jour » /
-   « indisponible » s'atténue par l'encre du titre (DESIGN.md § 4), jamais par l'opacité. */
-.rb-fiche{margin-bottom:var(--space-24)}
-.rb-fiche--idle .sift-meta-title{color:var(--color-text-tertiary)}
-.rb-fiche-state{font-size:var(--text-sm);color:var(--color-text-tertiary)}
-.rb-fiche-count{font-size:var(--text-sm);color:var(--color-text-secondary);font-variant-numeric:tabular-nums}
+/* Zone C de Rekordbox — v4 du 2026-09-08 (« go v4 » d'Antoine, sans prose), lue contre trois
+   figures officielles Apple : Finder › appareil (Big Sur), Photos › Importer (Tahoe), Utilitaire
+   de disque (Tahoe). Bornée à --measure-data comme toute surface de donnée : à 2300 px, un
+   compte poussé au bord droit est « posé au hasard » (retour d'Antoine sur la passe précédente).
+   La tête reprend .sift-usage-head (Clé USB, même patron Utilitaire de disque) ; en dessous, la
+   grammaire du Finder › appareil : un LIBELLÉ ALIGNÉ À DROITE (Software: / Backups:), la valeur en
+   face, les actions secondaires dans la section, un filet en retrait entre les sections. */
+.rkb-main{max-width:var(--measure-data)}
+.rkb-head{margin-bottom:var(--space-16)}
+.rkb-head+.sift-usage-rule{margin-bottom:var(--space-16)}
+.rkb-glyph{width:56px;height:56px;flex:none;display:flex;align-items:center;justify-content:center;color:var(--color-text-tertiary);font-size:40px}
+.rkb-fact{display:flex;gap:var(--space-16);padding:var(--space-4) 0;font-size:var(--text-md)}
+.rkb-fact-label{flex:none;width:150px;text-align:right;font-weight:600;color:var(--color-text-primary)}
+.rkb-fact-body{min-width:0;flex:1;display:flex;flex-direction:column;gap:var(--space-4)}
+.rkb-fact-actions{display:flex;gap:var(--space-8);margin-top:var(--space-4)}
+.rkb-fact-muted{color:var(--color-text-secondary)}
+.rkb-rule{height:1px;background:var(--color-border-tertiary);margin:var(--space-12) 0 var(--space-12) calc(150px + var(--space-16))}
+.rkb-mono{font-family:var(--font-mono);font-size:var(--text-sm);overflow-wrap:anywhere}
+.rkb-warn{color:var(--color-text-warning)}
+.rkb-danger{color:var(--color-text-danger)}
+/* Compte par entrée de la colonne : un cran d'encre, pas une opacité (DESIGN.md § 4). */
+.rkb-entry-count{font-size:var(--text-sm);color:var(--color-text-tertiary);font-variant-numeric:tabular-nums}
+/* En attente : la grammaire de Photos › Importer — un groupe nommé avec son compte, une rangée par
+   candidat, une case. Le clic sur la rangée coche (délégué [data-sift] de #pa) ; cochée, la rangée
+   se surligne comme les rangées de Lot (--overlay-hover). Une rangée ambiguë n'a pas de case : ses
+   pistes candidates suivent, un bouton chacune, et l'écart dit « à choisir ». */
+.rkb-group-hd{font-weight:600;margin:var(--space-8) 0 var(--space-4)}
+.rkb-group-hd:first-child{margin-top:0}
+.rkb-cand{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-8);padding:var(--space-4) var(--space-8);min-height:var(--row-h);border-radius:var(--border-radius-md);cursor:pointer}
+.rkb-cand:hover{background:var(--overlay-hover)}
+.rkb-cand.sel{background:var(--overlay-hover)}
+.rkb-cand--amb{cursor:default}
+.rkb-cand-piste{flex:1 1 40%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rkb-cand-ecart{flex:1 1 55%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--color-text-secondary)}
+.rkb-cand-choices{flex-basis:100%;display:flex;flex-wrap:wrap;gap:var(--space-8);padding-left:calc(var(--space-16) + var(--space-8))}
+.rkb-cand-err{flex-basis:100%;font-size:var(--text-xs);color:var(--color-text-danger);padding-left:calc(var(--space-16) + var(--space-8))}
+.rkb-section-err{padding-left:0;font-size:var(--text-sm)}
 /* MENU CONTEXTUEL (étape 5). Surface surélevée, au-dessus des popovers et sous les modales — un
    menu contextuel ne doit jamais passer devant une confirmation destructive.
    Largeur bornée et non fixe : les libellés varient d'un écran à l'autre, et une largeur fixe

@@ -109,62 +109,87 @@ Cet écran écrit dans un système **live** — la base d'un autre logiciel.
   indépendamment.
 - La confirmation est in-app, armée et horodatée. Jamais `window.confirm()`.
 
-## Décision — 2026-09-08 : lu contre Utilitaire de disque (déclinaison #24, cinquième écran)
+## Décision — 2026-09-08 : lu contre Finder › appareil, Photos › Importer et Utilitaire de disque (déclinaison #24, cinquième écran)
 
-Référence nommée par cette spec et `DESIGN.md` § 15 : **Utilitaire de disque**. Aucune capture
-dans `docs/design-refs/` — deux captures officielles prises sur le guide Apple (macOS Tahoe,
-support.apple.com) : la zone centrale d'un volume, et la sheet de confirmation. Elles ne montrent
-ni la sidebar ni la toolbar, donc rien n'est affirmé sur celles-ci au-delà de ce qui précède.
-Maquette faite dans la vraie fenêtre avec les composants de l'app (v1 réfutée par la référence,
-v2 validée par Antoine — artefact « Rekordbox — contre Utilitaire de disque »).
+Une première passe le même soir (`27a3ff6`) avait mis la cible en tête de zone C, la colonne B′ au
+plan de la file et les sections en fiches sans cadre. Retour d'Antoine : « le texte semble posé au
+hasard » — mesuré, la zone principale faisait 2332 px et les compléments (« à jour », « 1 »,
+« Tout sélectionner ») étaient poussés à son bord droit, à 1900 px de leur titre — « et pourquoi on
+ne peut pas tout synchroniser d'un coup ? ». Puis : « regarde la ref et comment Apple ferait »,
+« d'autres pages peut-être ? ». Trois apps Apple font le geste de cet écran — **des changements en
+attente, à appliquer sur un autre système** — et leurs figures officielles disent la même chose :
 
-**Ce que la référence dit.** La *cible* (icône, nom en grand, deux sous-lignes) est **en tête de
-la zone centrale**, avec à droite un **badge chiffré et sa légende en capitales** (« 2 TB ·
-SHARED BY 8 VOLUMES ») ; dessous, la grille d'informations. La sidebar liste les cibles ; la zone
-centrale porte l'identité de celle qui est choisie. Ici la seule cible est le XML lié, et ses
-sections sont ses « volumes ».
+- **Finder › appareil** (guide macOS Big Sur, « Overview of syncing ») : l'appareil dans la
+  sidebar ; en tête l'icône, le nom, une ligne de faits ; une barre de boutons par type de contenu
+  (General · Music · Movies…) ; des sections à **libellé aligné à droite** (Software: / Backups: /
+  Options:), la valeur en face, les **actions secondaires dans la section** (Check for Update,
+  Restore iPhone… sous Software:) ; en bas, **un seul Apply**.
+- **Photos › Importer** (guide macOS Tahoe) : l'appareil dans la sidebar ; barre **« Import
+  Selected »** (inactif sans sélection) · **« Import All New Photos »** (primaire) ; les éléments
+  en **groupe nommé avec son compte** (« New Photos (15 photos) »), sans boîte.
+- **Utilitaire de disque** (guide macOS Tahoe) : la cible en tête, une action de toolbar = une
+  sheet. Pas de liste d'attente.
 
-Cinq écarts mesurés dans la vraie fenêtre (CDP 9333), corrigés le jour même :
+Quatre maquettes dans la vraie fenêtre avec les composants de l'app (v1 réfutée par la référence,
+v2 table de la § Zone C, v3 carte de Clé USB, v4 Finder + Photos — artefact « Rekordbox — comment
+Apple le ferait ») ; **v4 retenue, « moins de prose »** (Antoine, « go v4 »).
 
-- **La cible en tête de zone C** (`.rkb-target`) : nom du fichier à `--text-xl`/600, sous-ligne
-  « XML Rekordbox lié · N playlists · N pistes » (ou « illisible » en danger), chemin en mono ;
-  à droite le badge (`.rkb-badge-n` bordé, `--text-xl`/500) et sa légende en capitales
-  (`--text-xs`, `--tracking-wider`). C'était une carte bordée au-dessus de tout, avec ses deux
-  boutons dedans.
-- **Le badge porte l'état de synchronisation**, trois valeurs et non deux (2026-08-17, impasses
-  A13/A14) : `N` + « en attente de synchronisation » · `0` + « à jour » · `?` + « N sections sans
-  réponse » (warning) · `—` + « synchronisation indisponible » (warning, la cause nommée sous la
-  cible en `.rkb-target-note`). **Le compte quitte la barre** : la référence le met sur la cible.
-  La sur-ligne « Synchroniser avec Rekordbox » part avec la carte.
-- **Barre = la toolbar d'Utilitaire de disque** : « Réexporter maintenant » (primaire,
-  absent tant que le XML est illisible) · « Changer de XML lié », texte seul, géométrie
-  `.sift-bar-btn` (`--h-control`, 6/8 — partagée avec « Vider la corbeille »). Le « Synchroniser »
-  de la § Zone A ci-dessus appartient à la table des candidats, chantier à part.
-- **Colonne B′ au plan de la file** de Revue (`--color-background-queue`, bord à bord, pleine
-  hauteur, `.sift-rkb-side`), plus une carte `.sift-ui-card-soft` ; compte par entrée en
-  `--text-sm` tertiaire, jamais en opacité. La zone principale défile chez elle (§ 14).
-- **Les sections en fiches** (`.rb-fiche`, en-tête `.sift-meta-header` / `.sift-meta-title`
-  15/600 comme les fiches de Revue), **sans cadre** : la référence pose une grille d'informations
-  sous la cible, pas des boîtes. À droite, le compte ou l'état (« à jour » / « indisponible »,
-  atténué par l'encre du titre). **Sessions nommées** comme au Journal — « Session du 29/08/2026
-  17h16 » via `session-label.ts`, module pur partagé — à la place de l'identifiant brut.
+### Ce qui est livré
 
-Tient : le rappel de procédure (sous la cible, seulement lié), le bandeau de dérive en tête,
-l'état vide « Aucun XML Rekordbox lié » (sans rappel de procédure), les cinq entrées de B′ et leur
-compte, les quatre `data-sift` de dispatch, les lignes `.rb-row` des candidats ambigus et des
-doublons de playlist, les confirmations in-app.
+- **Barre unifiée** = Photos › Importer : **« Synchroniser la sélection »** (`data-sift="rkbsyncsel"`,
+  inactif sans sélection, compte entre parenthèses sinon) · **« Tout synchroniser (N) »**
+  (`rkbsyncall`, primaire). N est borné à la section active de B′ (« Tout » = les quatre) — choisir
+  une section, c'est le bouton de contenu du Finder. Les deux sont inactifs si la synchronisation
+  est indisponible ou en cours. Plus de compte dans la barre ni de badge.
+- **Zone C bornée à `--measure-data`** (`.rkb-main`), grammaire du Finder › appareil :
+  1. **Tête** (`.sift-usage-head`, la même que Clé USB) : icône, nom du fichier, une ligne de
+     faits « XML Rekordbox lié · N playlists · N pistes · N en attente de synchronisation » (ou
+     « à jour », ou warning : « synchronisation indisponible », « N sections sans réponse »).
+  2. **Fichier :** chemin en mono, puis **Réexporter maintenant** (absent tant que le XML est
+     illisible) · **Changer de XML lié…** — les actions du XML près du XML, comme Check for Update
+     sous Software:.
+  3. **master.db :** « Lisible » ou la cause (`masterdb_error`, warning) ; « Dérive : aucune » ou
+     la phrase entière en warning (elle était un bandeau).
+  4. **En attente :** un groupe par section (`.rkb-group-hd` « Métadonnées (1) », « · N à
+     choisir » si des ambigus attendent), **une rangée par candidat** (`.rkb-cand`, `--row-h`) :
+     case, piste, écart à droite en encre secondaire ; cochée = `--overlay-hover`. Rangée ambiguë
+     sans case, écart « à choisir », une piste candidate par bouton. Erreur d'application sous la
+     rangée. Rien en attente : « Rien — le XML lié est à jour. »
+  Libellés à droite (150 px, 600), filet en retrait entre les sections. Pas de rappel de procédure,
+  pas de règle master.db en prose — les faits seuls.
+- **Colonne B′** inchangée (plan de la file, cinq entrées, compte ou « — » si la section n'a pas
+  répondu).
+- **Synchroniser** (`rekordbox-plan.ts`, pur, gelé par `test/rekordbox-plan.test.ts`) : le plan
+  = tiers dans l'ordre 1 → 3 (métadonnées) → 3 (pochettes) → 2 (playlists), sélection ∩ en attente,
+  borné à la section active ; une confirmation in-app (« Synchroniser N entrées avec Rekordbox ?
+  Ferme Rekordbox avant de continuer. »), les quatre IPC enchaînés — chacun garde son backup et son
+  refus si Rekordbox tourne —, un rapport par toast, l'échec inscrit sur sa rangée.
+- **Ignorer** : clic droit sur une rangée (pas sur un doublon de playlist, rien n'y est persisté).
+- Partis : la carte du XML, la sur-ligne, les quatre fiches, les groupes de session repliés et
+  leur « Tout sélectionner », les quatre boutons « Appliquer la sélection », « Dédupliquer » par
+  groupe, le bandeau de dérive, le rappel de procédure. `.rb-row`, `.rb-session-*`, `.bx-row`
+  retirés de `styles.css`.
 
-**Vérifié dans la vraie fenêtre le 2026-09-08 (CDP 9333)** : plan de la colonne 0.2939 contre
-0.2273 du sol ; layout 893 px = `#content` 893 px, aucun défilement de page ; boutons de barre
-28 px ; badge « 2 » / « en attente de synchronisation » 10 px capitales ; fiches 15 px/600 sans
-bordure ; sessions « Session du 29/08/2026 17h16 » ; plancher typographique 10 px tenu. **Non
-exercé** : état non lié, XML illisible, sections en erreur, `masterdb_error` (aucun de ces états
-sur la machine de vérification).
+### Vérifié dans la vraie fenêtre le 2026-09-08 (CDP 9333)
 
-**Reste, chantier nommé — pas cette passe** : la § Zone C ci-dessus (table des candidats Case ·
-Section · Piste · Écart · État à la place des quatre rendus de section), la § Zone D (inspecteur
-du candidat, action de masse), le clic droit. Quatre DTO à ramener à une ligne commune, sur un
-écran qui écrit dans une base tierce (§ Sécurité). Ticket à ouvrir.
+Zone C 1200 px de large ; barre « Synchroniser la sélection » inactif · « Tout synchroniser (2) »
+28 px ; libellés « Fichier : / master.db : / En attente : » alignés à droite, 150 px ; groupes
+« Métadonnées (1) », « Pochettes (1) » ; rangées 32 px. Clic sur une rangée : `aria-checked`,
+fond `--overlay-hover`, barre « Synchroniser la sélection (1) » actif ; second clic : retour.
+« Tout synchroniser » : confirmation « Synchroniser 2 entrées avec Rekordbox ? Ferme Rekordbox
+avant de continuer. » puis **Annuler** — aucune écriture, les deux candidats toujours en attente.
+Plancher typographique 10 px tenu, aucun défilement de page. **Non exercés** : la synchronisation
+effective (écriture dans `master.db`, manuelle par Antoine), état non lié, XML illisible, sections
+en erreur, ambigus, doublons de playlist, `masterdb_error`, dérive.
+
+### Reste
+
+- **Rangée Pochettes / Fichiers** : dit le fichier, pas « Artiste — Titre » — `PendingArtworkSync`
+  et `PendingMasterdbRepair` ne portent que des chemins ; à enrichir côté Rust (miroir
+  `contracts.ts`, test de contrat).
+- **Inspecteur** (§ Zone D) : non fait — un candidat se lit sur sa rangée.
+- La § Zone C ci-dessus (table Case · Section · Piste · Écart · État) est **remplacée** par les
+  groupes de rangées de Photos : à 200 candidats, la table de Rangés redeviendrait la bonne forme.
 
 ## Hors périmètre / questions ouvertes
 

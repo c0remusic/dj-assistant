@@ -129,7 +129,7 @@
 - L1952 — Surfaces de Revue — trois plans : rail en retrait, file bord à bord, cadre de lecture, pied en surface (08-27).
 - L1995 — Carte de racine manquante du rail `.sift-railwarn` — remplace le bandeau `#sift-gate` supprimé ; états, survol en voile par-dessus l'ambre, rail replié ; module pur + story + vecteurs (09-02).
 - L2025 — À re-sourcer · Corbeille — ex-Écartés, deux destinations du rail, table de Rangés, inspecteur Racheter (09-08).
-- L2046 — Rekordbox — lu contre Utilitaire de disque : cible en tête de zone C + badge, colonne au plan de la file, fiches sans cadre, sessions nommées (09-08).
+- L2046 — Rekordbox — lu contre Finder › appareil et Photos › Importer : une seule synchronisation (Tout / sélection), faits à libellé aligné à droite, candidats en groupes nommés, colonne au plan de la file (09-08).
 
 ## Ligne de queue — `.qi` (`styles.css:1127-1214`, revérifié au grep le 2026-08-27)
 
@@ -2043,27 +2043,29 @@ de rail dans la grammaire de Rangés.
 Les liens boutique sont des recherches, pas une disponibilité : API boutiques essayées et
 écartées (Antoine, 2026-09-08). Vérifié dans la vraie fenêtre le jour même (spec § Vérifié).
 
-## Rekordbox — lu contre Utilitaire de disque : cible en tête de zone C, colonne au plan de la file, fiches (2026-09-08) — `rekordbox-view.ts`
+## Rekordbox — lu contre Finder › appareil et Photos › Importer : une seule synchronisation, faits à libellé, candidats en groupes (2026-09-08) — `rekordbox-view.ts`
 
 Spec : `docs/ui-specs/rekordbox.md` § Décision 2026-09-08. Les deux audits ci-dessus (L715,
-L1370) décrivent la carte de statut, les quatre cartes `.rb-row` et la sur-ligne « Synchroniser
-avec Rekordbox » — périmés pour la forme, exacts pour les états et les `data-sift`.
+L1370) décrivent la carte de statut, les quatre cartes `.rb-row` et les boutons par section —
+périmés pour la forme, exacts pour les `data-sift` de résolution (`mdb/mds/masresolve`).
 
 | Élément | État | Détail |
 |---|---|---|
-| Barre | deux actions, pas de compte | « Réexporter maintenant » (`.sift-ranger-btn.sift-bar-btn`, `data-sift="rkbreexport"`, absent si `status.error`) · « Changer de XML lié » (`data-bib="rkblink"`) ; `#sift-tb-count` vide — le compte est sur la cible |
-| Colonne B′ | plan de la file | `.sift-rkb-side` : `--color-background-queue`, bord à bord (marges négatives de `.sift-rkb-layout`), pleine hauteur, défile chez elle ; `.col-h` « Synchroniser » puis cinq `.fld` (Tout · Fichiers · Métadonnées · Pochettes · Playlists), compte `.rkb-entry-count` (« — » si la section n'a pas répondu) |
-| Cible | tête de zone C | `.rkb-target` : `.rkb-target-name` (fichier, `--text-xl`/600) · `.rkb-target-sub` (« XML Rekordbox lié · N playlists · N pistes », ou `--danger` « illisible ») · `.rkb-target-path` (mono) · `.rkb-target-note` (`masterdb_error`, warning) ; filet `--color-border-tertiary` dessous |
-| Badge | quatre valeurs | `.rkb-badge-n` + `.rkb-badge-cap` (capitales `--tracking-wider`) : `N` « en attente de synchronisation » · `0` « à jour » · `?` « N sections sans réponse » (`--warn`) · `—` « synchronisation indisponible » (`--warn`) |
-| Rappel de procédure | sous la cible | `.rkb-intro`, seulement lié |
-| Dérive | tête de zone C | `.sift-dup-banner` warning, phrase entière — inchangé |
-| Section | fiche sans cadre | `.rb-fiche` : `.sift-meta-header` + `.sift-meta-title` (15/600) ; à droite `.rb-fiche-count` ou `.rb-fiche-state` (« à jour » / « indisponible ») ; `--idle` atténue le titre par l'encre |
-| Groupe de session | nommé | `.rb-session-toggle` « ▸ Session du 29/08/2026 17h16 (1) » via `sessionLabel(id, true)` (`session-label.ts`, partagé avec le Journal) ; « Antérieur » pour les lignes sans session |
-| Candidat | ligne | `.bx-row` (pending, case) · `.rb-row` (ambigu, doublon `--inline`, erreur de chargement) — inchangés |
-| Chargement | squelette | `.sift-skel.sift-skel-line` dans un layout vide au premier passage |
-| Non lié | état vide | `emptyStateHtml` « Aucun XML Rekordbox lié », barre vide, sans rappel de procédure |
-| Statut indisponible | phrase | « Statut Rekordbox indisponible. », barre vide |
+| Barre | deux actions, pas de compte | « Synchroniser la sélection » (`.sift-bar-btn`, `data-sift="rkbsyncsel"`, `disabled` sans sélection, « (N) » sinon) · « Tout synchroniser (N) » (`.sift-ranger-btn.sift-bar-btn`, `rkbsyncall`) ; N borné à la section active ; les deux `disabled` si indisponible ou en cours (`busyLabel` sur le bouton cliqué) |
+| Colonne B′ | plan de la file | `.sift-rkb-side` : `--color-background-queue`, bord à bord, cinq `.fld` (Tout · Fichiers · Métadonnées · Pochettes · Playlists), compte `.rkb-entry-count` ou « — » si la section n'a pas répondu |
+| Zone C | bornée | `.rkb-main` à `--measure-data` ; tête `.sift-usage-head` (glyphe `.rkb-glyph`, `.sift-usage-name` = fichier, `.sift-usage-sub` = faits + état : « N en attente de synchronisation » / « à jour » / `.rkb-warn`) ; `.sift-usage-rule` |
+| Fait | libellé à droite | `.rkb-fact` : `.rkb-fact-label` 150 px, 600, `text-align:right` ; `.rkb-fact-body` ; `.rkb-rule` en retrait de 166 px entre les faits |
+| Fichier : | chemin + actions | `.rkb-mono` ; `.rkb-fact-actions` : « Réexporter maintenant » (`data-sift="rkbreexport"`, absent si `status.error`) · « Changer de XML lié… » (`data-bib="rkblink"`), en `.sift-meta-ident-btn` |
+| master.db : | état, dérive | « Lisible » ou `masterdb_error` en `.rkb-warn` ; « Dérive : aucune » (`.rkb-fact-muted`) ou la phrase entière en `.rkb-warn` — plus de bandeau |
+| En attente : | groupes | `.rkb-group-hd` « Métadonnées (1) », « · N à choisir » ; `.rkb-cand` (`--row-h`, `sel` = `--overlay-hover`, `aria-checked`) : `.sift-batch-ck` · `.rkb-cand-piste` · `.rkb-cand-ecart` (secondaire) · `.rkb-cand-err` ; `data-sift` mdbpick / mdspick / maspick / dedpick (`data-key`) |
+| Ambigu | rangée sans case | `.rkb-cand--amb` (`data-rkbamb`) : écart « — à choisir » (`.rkb-warn`), `.rkb-cand-choices` un `.sift-meta-ident-btn` « Choisir — … » par piste (`mdb/mds/masresolve`) |
+| Section en erreur | dans son groupe | `.rkb-section-err` : cause connue ou « Impossible de charger — réessaie plus tard. » ; comptée dans « N sections sans réponse » |
+| Rien en attente | phrase | « Rien — le XML lié est à jour. » / « cette section est à jour. » (`.rkb-fact-muted`) |
+| Clic droit | Ignorer | `openContextMenu`, une entrée `danger` (`dismiss_*`) ; aucune sur un doublon de playlist |
+| Synchroniser | plan + confirmation | `planSync` (`rekordbox-plan.ts`) : tiers 1 → 3 méta → 3 pochettes → 2 playlists, sélection ∩ en attente, section active ; `confirmAction` « Synchroniser N entrées avec Rekordbox ? Ferme Rekordbox avant de continuer. » ; quatre IPC enchaînés, échec par rangée, toast de rapport, re-rendu |
+| Chargement / non lié / statut KO | | squelette `.sift-skel-line` · `emptyStateHtml` « Aucun XML Rekordbox lié », barre vide · « Statut Rekordbox indisponible. » |
 
-Vérifié dans la vraie fenêtre le 2026-09-08 (spec § Décision : mesures). Gelé par
-`test/session-label.test.ts` (nom de session, deux formes, deux replis — mutation vue tomber).
-
+Vérifié dans la vraie fenêtre le 2026-09-08 (spec § Vérifié : mesures, coche, confirmation puis
+Annuler sans écriture). Gelé par `test/rekordbox-plan.test.ts` (portée, borne de section, compte —
+mutation vue tomber) et `test/session-label.test.ts` (nom de session, module partagé avec Journal ;
+Rekordbox ne l'utilise plus depuis v4 — plus de groupes de session).
