@@ -45,7 +45,19 @@ color-scheme:light;
    l'état d'avant). La vibrance ne se transporte pas (plans opaques), l'intention si.
    Coût contraste mesuré avant décision : 0,02 au plus, tous les tokens restent au-dessus de
    AAA (7:1). Les couleurs SÉMANTIQUES (--color-text-info/-danger/-success/-warning et les
-   --color-hue-*) ne bougent pas : l'accord L2 réserve la couleur au sens. */
+   --color-hue-*) ne bougent pas : l'accord L2 réserve la couleur au sens.
+   ÉCART ROUVERT — audit du 2026-09-09 (fin de la déclinaison #24, décision d'Antoine, lot 1).
+   Mesuré dans la vraie fenêtre : secondary et tertiary étaient à 1,6 point de clarté en sombre
+   (83,5 / 81,92) et 0,75 en clair (45,4 / 46,15) — la même encre à l'écran, alors que c'est sur
+   ces deux crans que reposent libellé ↔ valeur, titre ↔ sous-titre, .col-h et les comptes.
+   patterns-macos.md § 5 : « trois niveaux de texte suffisent » ; le kit espace Secondary /
+   Tertiary / Quaternary d'un ordre de grandeur. L'écart s'ouvre là où le contraste le permet,
+   mesuré par balayage AA (4,5:1) sur les cinq écrans peuplés — sol, rail, plan de la file,
+   cartes : en SOMBRE, tertiary descend 81,92 → 79 (76 tombait à 4,23:1 sur le plan de la file,
+   29,39 %), quaternary inchangé ; en CLAIR, le sol est à 86,22 % et tertiary n'a aucune marge
+   vers le bas (50 tombait à 3,93:1), donc c'est SECONDARY qui monte en contraste, 45,4 → 41,
+   tertiary et quaternary inchangés. Primary inchangé partout. Écart secondary → tertiary : 4,5 pts
+   en sombre, 5,15 en clair (contre 1,6 et 0,75). */
 --color-background-primary:oklch(86.22% 0.0068 286.3);--color-background-secondary:oklch(96.26% 0.0066 286.3);--color-background-tertiary:oklch(92.33% 0.0067 286.3);
 /* Extra warm-grey surfaces from DESIGN.md (Sift.dc.html theme map): the queue column, elevated
    surface (raised buttons/popovers), the recessed segmented "track"/well, and the SOLID
@@ -70,7 +82,7 @@ color-scheme:light;
    see the palette-coherence audit (2026-07-10). Same hue as before, chroma resized for a solid
    "pastel card" look, resolved to ~5:1 against their own text token everywhere. */
 --color-background-info:oklch(87.46% 0.035 246.74);--color-background-danger:oklch(90.45% 0.045 30.17);--color-background-success:oklch(93.42% 0.035 150.63);--color-background-warning:oklch(99.00% 0.045 73.21);
---color-text-primary:oklch(31.16% 0.0067 286.3);--color-text-secondary:oklch(45.4% 0.0067 286.3);--color-text-tertiary:oklch(46.15% 0.0067 286.3);--color-text-quaternary:oklch(50.30% 0.0067 286.3);
+--color-text-primary:oklch(31.16% 0.0067 286.3);--color-text-secondary:oklch(41.0% 0.0067 286.3);--color-text-tertiary:oklch(46.15% 0.0067 286.3);--color-text-quaternary:oklch(50.30% 0.0067 286.3);
 --color-text-info:oklch(45.37% 0.0835 246.66);--color-text-danger:oklch(48.88% 0.1399 30.93);--color-text-success:oklch(44% 0.0735 151.97);--color-text-warning:oklch(48% 0.103 75.31);
 /* Encre de bordure re-teintée le 2026-08-16 avec la base neutre : clarté et alphas inchangés
    (0,09 et 0,16, mesurés), seuls l'angle et la chroma rejoignent la famille Apple. Le bloc sombre
@@ -192,6 +204,10 @@ color-scheme:light;
    déclarées : leur application est un geste séparé, et un token sans consommateur est un token
    mort (voir --h-40, tokens.md:185). */
 --measure-data:1200px;
+/* Mesure de FORMULAIRE : le panneau de Réglages (DESIGN.md § 15, spec reglages.md). Réglages
+   Système emploie un panneau étroit à côté d'une sidebar ; 560 px est ce que `.sift-settings-stack`
+   portait en dur depuis le 2026-07, promu en token le 2026-09-09 (déclinaison #24). */
+--measure-form:560px;
 /* Plancher d'une colonne de la table Bibliothèque. Ce n'est pas une valeur de confort : sous ce
    seuil un en-tête ne montre plus son libellé ni sa flèche de tri, et la colonne devient
    impossible à réélargir puisque sa propre poignée n'a plus de prise.
@@ -422,7 +438,7 @@ color-scheme:light;
        token n'est JAMAIS un fond ni une bordure, uniquement de l'encre, et toutes les surfaces du
        thème sombre sont sombres : l'éclaircir ne peut qu'augmenter chaque ratio. Garder cette
        valeur identique dans les DEUX blocs sombres. */
-    --color-text-primary:oklch(95.9% 0.0067 286.3);--color-text-secondary:oklch(83.5% 0.0067 286.3);--color-text-tertiary:oklch(81.92% 0.0067 286.3);--color-text-quaternary:oklch(76.72% 0.0067 286.3);
+    --color-text-primary:oklch(95.9% 0.0067 286.3);--color-text-secondary:oklch(83.5% 0.0067 286.3);--color-text-tertiary:oklch(79.0% 0.0067 286.3);--color-text-quaternary:oklch(76.72% 0.0067 286.3);
     --color-text-info:oklch(79.21% 0.0789 242.05);--color-text-danger:oklch(78.05% 0.0992 32.54);--color-text-success:oklch(84.99% 0.0947 151.66);--color-text-warning:oklch(84.04% 0.1108 78.51);
     --color-border-tertiary:oklch(100.0% 0.0 89.88 / 0.09);--color-border-secondary:oklch(100.0% 0.0 89.88 / 0.22);
     --color-border-info:oklch(79.21% 0.0789 242.05 / .30);--color-border-danger:oklch(78.05% 0.0992 32.54 / .40);
@@ -463,7 +479,7 @@ color-scheme:light;
   --color-background-info:oklch(39.16% 0.035 246.74);--color-background-danger:oklch(37.65% 0.045 30.17);--color-background-success:oklch(44.00% 0.035 150.63);--color-background-warning:oklch(42.79% 0.045 73.21);
   /* 83.5% : même valeur et même motif que le bloc prefers-color-scheme ci-dessus (hiérarchie
      secondary/tertiary inversée en sombre). Les deux blocs doivent rester d'accord. */
-  --color-text-primary:oklch(95.9% 0.0067 286.3);--color-text-secondary:oklch(83.5% 0.0067 286.3);--color-text-tertiary:oklch(81.92% 0.0067 286.3);--color-text-quaternary:oklch(76.72% 0.0067 286.3);
+  --color-text-primary:oklch(95.9% 0.0067 286.3);--color-text-secondary:oklch(83.5% 0.0067 286.3);--color-text-tertiary:oklch(79.0% 0.0067 286.3);--color-text-quaternary:oklch(76.72% 0.0067 286.3);
   --color-text-info:oklch(79.21% 0.0789 242.05);--color-text-danger:oklch(78.05% 0.0992 32.54);--color-text-success:oklch(84.99% 0.0947 151.66);--color-text-warning:oklch(84.04% 0.1108 78.51);
   --color-border-tertiary:oklch(100.0% 0.0 89.88 / 0.09);--color-border-secondary:oklch(100.0% 0.0 89.88 / 0.22);
   --color-border-info:oklch(79.21% 0.0789 242.05 / .30);--color-border-danger:oklch(78.05% 0.0992 32.54 / .40);
@@ -810,7 +826,7 @@ body:has(#sift-titlebar){border-radius:var(--border-radius-sm);overflow:hidden}
    sur TOUS les états, sélection comprise : Finder garde ses glyphes bleus sur la rangée active —
    c'est le fond qui dit la sélection, pas l'icône. Refs : 01-finder.png, 03-mail.png. */
 .nv i{font-size:17px;flex:none;color:var(--color-text-info)}
-.nv:hover{background:var(--color-nav-active)}
+.nv:hover{background:var(--overlay-hover)}
 .nv.on{background:var(--color-nav-active);color:var(--color-text-primary);font-weight:500}
 /* Clé USB: dot instead of icon (no dedicated screen yet, unlike Rekordbox), but full opacity —
    dimming it read as inconsistent next to Rekordbox/Réglages (annotation: "homogénise avec le
@@ -1077,8 +1093,8 @@ body[data-view="revue"] .sift-pz-row.sift-pz-analyze{display:none}
    ne pose `display` ici, donc le `hidden` de repos garde le [hidden] UA intact. */
 .sift-qfoot-track{flex:1;height:3px;border-radius:var(--border-radius-pill);background:var(--color-border-tertiary);overflow:hidden}
 .sift-qfoot-fill{height:100%;width:100%;border-radius:var(--border-radius-pill);background:var(--color-text-info);transform-origin:left;transition:transform var(--duration-slow)}
-.sift-qfoot-go{flex:none;white-space:nowrap;background:var(--color-surface-raised);color:var(--color-text-secondary);border:0;padding:var(--space-4) var(--space-12);font-size:var(--text-sm);border-radius:var(--border-radius-sm)}
-.sift-qfoot-go:hover{background:var(--color-surface-raised);filter:brightness(0.97)}
+.sift-qfoot-go{flex:none;white-space:nowrap;background:var(--color-surface-raised);color:var(--color-text-secondary);border:0;height:var(--h-control-sm);padding:0 var(--space-12);font-size:var(--text-sm);border-radius:var(--border-radius-md)}
+.sift-qfoot-go:hover{background:var(--color-surface-raised)}
 /* En mode analyse le bouton est masqué — mais s'il quittait le flux, la rangée perdait sa
    hauteur et « semblait écrasée » (retour d'Antoine, 2026-09-06) au premier basculement.
    Il garde donc sa BOÎTE VERTICALE (padding + ligne) à largeur nulle : la hauteur de la rangée
@@ -1601,7 +1617,7 @@ body[data-view="revue"] .sift-pz-row.sift-pz-analyze{display:none}
    Hover = même fond + brightness, le pattern déjà posé sur .sift-confirm-btn : un primaire ne change
    pas de couleur au survol, il s'assombrit. */
 .sift-ranger-btn{flex:none;white-space:nowrap;background:var(--color-accent-fill);color:var(--color-accent-ink);border:0;font-weight:500}
-.sift-ranger-btn:hover{background:var(--color-accent-fill);filter:brightness(0.95)}
+.sift-ranger-btn:hover{background:var(--color-accent-fill)}
 .sift-secondary-resource{flex:none;white-space:nowrap;color:var(--color-text-warning)}
 /* Destructif SECONDAIRE : la forme d'un bouton secondaire (aplat gris, pas de bordure), et le
    danger porté par l'ENCRE seule. Le kit n'a aucun bouton bordé — un cadre coloré était la
@@ -1614,7 +1630,7 @@ body[data-view="revue"] .sift-pz-row.sift-pz-analyze{display:none}
    source, et elle était un sur-ensemble strict de la première), mais une ligne morte devant une
    ligne vivante se lit comme deux intentions concurrentes à la prochaine édition. Fusionnées le
    2026-08-19, sans changer ce qui est peint : fond `--color-background-danger` + assombrissement. */
-.sift-secondary-trash:hover{background:var(--color-background-danger);filter:brightness(0.95)}
+.sift-secondary-trash:hover{background:var(--color-background-danger)}
 /* Dans le PIED DE BOÎTE de Revue, Écarter (et Re-source, même slot quand le verdict est fake)
    est le secondaire du kit tel que la spec l'écrit depuis le 2026-08-24 (revue.md § Composants :
    « gris rempli, texte encre ») : « le contraste primaire / secondaire porte SEUL la distinction
@@ -2036,7 +2052,14 @@ input[type="checkbox"]:focus-visible{outline:1.5px solid var(--color-border-info
    désactivés exactement comme ça (kit § 02-Buttons, colonne « Disabled »), et « indisponible »
    n'est pas un état atténué du contenu — c'est l'absence de contrôle. Toute autre opacité de ce
    fichier doit passer par un token d'encre. */
-button:hover{background:var(--color-surface-raised);filter:brightness(0.95)}button:disabled{opacity:.4;cursor:default}
+/* AUDIT DU 2026-09-09 (fin de la déclinaison #24, décision d'Antoine) : plus AUCUN survol sur un
+   push button. Le kit Big Sur § 02 ne montre que Normal / Disabled pour un push (le survol n'existe
+   que sur les scope buttons et les icon buttons, en aplat) ; DESIGN.md § 8 réserve le survol à un
+   aplat --overlay-hover, jamais un filtre. Ce `filter:brightness(.95)` générique était devenu la
+   grammaire par défaut de tous les boutons pleins (mesuré sur 30 contrôles, vraie fenêtre) et
+   s'empilait sur le fond raised des boutons TRANSPARENTS (thead, légende, discret). Il tombe, et
+   la règle CLAUDE.md « réaffirmer le background dans son :hover » n'a plus d'objet. */
+button:disabled{opacity:.4;cursor:default}
 /* Audit-ref E1 (Écartés, 2026-07-09) : liens boutique (ecStoreLinks), <button> transparent
    converti depuis <a> sans href (non focusable) — réaffirme transparent au survol par prudence,
    même si le style inline devrait déjà l'emporter sur button:hover par spec (non mesuré ici). */
@@ -2133,8 +2156,8 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
    couleur au passage de la souris se lit comme s'il changeait d'état. Même fond, assombri — la
    règle générique du fichier depuis le 2026-08-19, réaffirmée ici parce que le bouton pose son
    propre fond. */
-.sift-id-btn{background:var(--color-surface-raised);border:0;color:var(--color-text-primary);font-weight:500;font-size:12px;padding:var(--space-4) var(--space-12)}
-.sift-id-btn:hover{background:var(--color-surface-raised);filter:brightness(0.95)}
+.sift-id-btn{background:var(--color-surface-raised);border:0;color:var(--color-text-primary);font-weight:500;font-size:var(--text-sm);height:var(--h-control-sm);padding:0 var(--space-12)}
+.sift-id-btn:hover{background:var(--color-surface-raised)}
 /* [C3] "changer" / "Ouvrir Réglages" inline jump link */
 /* Grammaire de LIEN (2026-08-19) : ce contrôle saute ailleurs, il n'engage rien — il n'a donc pas
    à porter l'aplat gris d'un bouton secondaire, qu'il prenait du reset `button{}`. Fond
@@ -2189,9 +2212,9 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
    il est payé ici une fois pour toutes. */
 .sift-baction{flex:none;white-space:nowrap;font-weight:500;border:none;cursor:pointer}
 .sift-baction--primary{background:var(--color-accent-fill);color:var(--color-accent-ink)}
-.sift-baction--primary:hover{background:var(--color-accent-fill);filter:brightness(0.95)}
+.sift-baction--primary:hover{background:var(--color-accent-fill)}
 .sift-baction--quiet{background:var(--color-surface-raised);color:var(--color-text-danger)}
-.sift-baction--quiet:hover{background:var(--color-surface-raised);filter:brightness(0.95)}
+.sift-baction--quiet:hover{background:var(--color-surface-raised)}
 /* display:contents: the slot is a stable DOM hook for in-place button swaps (see
    updateBatchRailSelection) but must not itself take part in the rail's flex layout — the
    button inside becomes a direct flex child of #filfoot, staying on the same line as
@@ -2599,7 +2622,11 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
    décision maquette 2026-08-27 (10 frames repassés), portage #50. Pas de token 26 dans
    l'échelle --text-* actuelle : littéral sourcé, à rationaliser avec #31 (11 rôles Apple).
    --text-2xl (32) reste aux glyphes qui le consomment (play, vignettes). */
-.sift-player-name{font-size:26px;line-height:32px;font-weight:600;color:var(--color-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 auto;min-width:0}
+/* 26 px → --text-xl (20 px) le 2026-09-09 : audit de fin de #24, lot 4, décision d'Antoine. 26 était
+   le Large Title du kit, hors de l'échelle de DESIGN.md § 2 (20 ou 32), et faisait de Revue le seul
+   écran à six crans. Le rapport au 12 px de l'artiste reste de 1,67. line-height 1.2 comme la tête
+   d'occupation (.sift-usage-name, même cran). */
+.sift-player-name{font-size:var(--text-xl);line-height:1.2;font-weight:600;color:var(--color-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 auto;min-width:0}
 /* Bumped one step each (annotation: "augmente encore le texte pour que ça fit aussi en haut" —
    the block reached the cover's bottom edge once centered but still fell short of the top; more
    overall block height, not just the title, closes that remaining gap). Artist bumped again +
@@ -2828,7 +2855,7 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
 /* Survol unifié sur la famille (2026-08-19) : `--color-row-active` est le gris d'une LIGNE
    sélectionnée, emprunté ici pour un survol de bouton. Même fond que le repos, assombri, comme
    `.sift-id-btn` juste au-dessus — les deux variantes du même bouton réagissent enfin pareil. */
-.sift-id-btn-neutral:hover{background:var(--color-surface-raised);filter:brightness(0.95)}
+.sift-id-btn-neutral:hover{background:var(--color-surface-raised)}
 /* width:100% → calc(...)+margin (annotation: "reduis .sift-sg.sift-spectro-canvas pour qu'il fit
    la largeur des .sift-row") — .sift-spectro-pills/.sift-spectro-rows both have their own
    --space-16 horizontal padding (la phrase originale disait « 18px », le littéral d'avant la
@@ -2962,7 +2989,7 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
    accent SE REPEIGNAIT EN PÂLE au survol, annulant le passage à l'aplat du sweep précédent au
    moment précis où l'utilisateur vise le bouton. Une seule règle désormais, et c'est la forme du
    kit : même fond, assombri. */
-.sift-confirm-btn:hover{background:var(--color-accent-fill);filter:brightness(0.95)}
+.sift-confirm-btn:hover{background:var(--color-accent-fill)}
 /* The destructive button is genuinely `disabled` for its first 250ms (confirm-modal.ts), because
    `pointer-events:none` does NOT stop HTMLElement.click() — the synthetic click is the exact
    failure mode this whole module exists to answer. A guard that silently swallows clicks is worse
@@ -3122,8 +3149,8 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
    .sift-attr-list donne au bloc qui la suit. Le margin-top reste — au repos (résultats masqués)
    il fait l'écart depuis l'en-tête, en recherche celui depuis la liste. */
 .sift-meta-actions{margin-top:var(--space-8);margin-bottom:var(--space-16)}
-.sift-meta-ident-btn{flex:none;white-space:nowrap;background:var(--color-surface-raised);color:var(--color-text-secondary);border:0;padding:var(--space-4) var(--space-12);font-size:var(--text-sm);border-radius:var(--border-radius-sm)}
-.sift-meta-ident-btn:hover{background:var(--color-surface-raised);filter:brightness(0.97)}
+.sift-meta-ident-btn{flex:none;white-space:nowrap;background:var(--color-surface-raised);color:var(--color-text-secondary);border:0;height:var(--h-control-sm);padding:0 var(--space-12);font-size:var(--text-sm);border-radius:var(--border-radius-md)}
+.sift-meta-ident-btn:hover{background:var(--color-surface-raised)}
 /* Liste d'attributs éditable en place (direction B) : ligne label/valeur, la valeur EST un input
    stylé comme du texte au repos (transparent, sans bord), révélé au survol et au focus.
    2026-08-25 — le champ passe au GABARIT « Text-fields » du kit Big Sur (relevé au pont Figma,
@@ -3268,7 +3295,7 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
    Le survol doit RÉAFFIRMER ce fond (règle CLAUDE.md) : sans cette ligne, le générique
    `button:hover` repeignait le bouton en gris surélevé et l'ambre disparaissait sous la souris. */
 .sift-rebuy-btn{width:100%;font-size:var(--text-sm);font-weight:500;color:var(--color-text-warning);background:var(--color-background-warning);border:0;border-radius:var(--border-radius-md)}
-.sift-rebuy-btn:hover{background:var(--color-background-warning);filter:brightness(0.95)}
+.sift-rebuy-btn:hover{background:var(--color-background-warning)}
 .sift-kbd-hint-id{font-size:var(--text-xs);border-color:var(--color-border-tertiary);color:var(--color-text-tertiary)}
 .sift-cand-error-icon{font-size:var(--text-md);vertical-align:-2px;margin-right:4px}
 .sift-searching-icon{font-size:var(--text-sm);vertical-align:-1px}
@@ -3452,8 +3479,9 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
    Réglages Système emploie exactement ça. Ce qui manquait n'était pas de la largeur, c'était la
    colonne de catégories à côté. Elle prend --pane-w, la même mesure que toute zone fixe latérale
    de l'app, et elle colle en haut pendant que le panneau défile. */
-.sift-settings-stack{max-width:560px}
-.sift-settings-layout{display:flex;align-items:flex-start;gap:var(--space-16)}
+/* `.sift-settings-stack{max-width:560px}` et `.sift-settings-layout` (flex, deux cartes) sont
+   partis le 2026-09-09 : Réglages partage désormais la grammaire colonne + zone principale de
+   Rekordbox et Clé USB (co-sélecteurs, plus bas), et le panneau est borné par --measure-form. */
 /* Rekordbox lu contre Utilitaire de disque (2026-09-08, déclinaison #24, cinquième écran —
    maquette v2 faite dans la vraie fenêtre, validée par Antoine). La colonne des sections est la
    sidebar de la référence : au PLAN DE LA FILE de Revue (--color-background-queue, mesuré 0.2939
@@ -3466,15 +3494,18 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
    par Antoine) : même référence — Utilitaire de disque —, même colonne d'appareils au plan de la
    file, même zone principale bornée. Co-sélecteurs plutôt qu'une copie : une seule règle à faire
    évoluer, et le jour où un troisième écran arrive, c'est ELLE qui prend un nom générique. */
-.sift-rkb-layout,.sift-usb-layout{display:flex;align-items:stretch;gap:var(--space-24);margin:calc(-1*var(--space-24)) 0 calc(-1*var(--space-24)) calc(-1*var(--space-24));height:calc(100% + 2*var(--space-24))}
-.sift-rkb-side,.sift-usb-side{width:var(--pane-w);flex:none;overflow-y:auto;padding:var(--space-12) var(--space-8);background:var(--color-background-queue)}
+.sift-rkb-layout,.sift-usb-layout,.sift-settings-layout{display:flex;align-items:stretch;gap:var(--space-24);margin:calc(-1*var(--space-24)) 0 calc(-1*var(--space-24)) calc(-1*var(--space-24));height:calc(100% + 2*var(--space-24))}
+.sift-rkb-side,.sift-usb-side,.sift-settings-side{width:var(--pane-w);flex:none;overflow-y:auto;padding:var(--space-12) var(--space-8);background:var(--color-background-queue)}
 .sift-rkb-side .fld,.sift-usb-side .fld{justify-content:space-between}
 /* Nom du disque dans son entrée : il prend la place entre le glyphe et la capacité, et se coupe
    proprement (« Disque 3 » ne déborde jamais sur « 32,0 Go »). */
 .sift-usb-entry-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* Compte par entrée : un cran d'encre, pas une opacité (DESIGN.md § 4). */
 .rkb-entry-count{font-size:var(--text-sm);color:var(--color-text-tertiary);font-variant-numeric:tabular-nums}
-.sift-rkb-main,.sift-usb-main{flex:1;min-width:0;overflow-y:auto;padding:var(--space-24) 0}
+.sift-rkb-main,.sift-usb-main,.sift-settings-main{flex:1;min-width:0;overflow-y:auto;padding:var(--space-24) 0}
+/* Réglages (2026-09-09, déclinaison #24, septième écran) : le panneau est borné par la mesure de
+   FORMULAIRE, pas de donnée — Réglages Système garde un panneau étroit à côté de sa sidebar. */
+.sift-settings-panel{max-width:var(--measure-form)}
 /* Zone C de Rekordbox — v4 du 2026-09-08 (« go v4 » d'Antoine, sans prose), lue contre trois
    figures officielles Apple : Finder › appareil (Big Sur), Photos › Importer (Tahoe), Utilitaire
    de disque (Tahoe). Bornée à --measure-data comme toute surface de donnée : à 2300 px, un
@@ -3556,7 +3587,8 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
 .sift-ctx-swatch:hover{background:transparent;filter:none;border-color:var(--color-border-secondary)}
 .sift-ctx-swatch.on{border-color:var(--color-text-primary)}
 .sift-ctx-swatch-fill{display:block;width:100%;height:100%;border-radius:var(--border-radius-pill)}
-.sift-settings-side{width:var(--pane-w);flex:none;position:sticky;top:0}
+/* `.sift-settings-side{width:--pane-w;sticky}` : remplacée le 2026-09-09 par le co-sélecteur sur
+   la règle de colonne de Rekordbox/Clé USB (plan de la file, bord à bord, défilement propre). */
 /* Une section masquée est retirée du FLUX (`hidden`), pas seulement invisible : un champ dans une
    section cachée resterait tabulable, et le focus disparaîtrait de l'écran en plein Tab. */
 #sift-reglages-list>[hidden]{display:none}
@@ -3570,30 +3602,44 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
    VISIBLES ; il n'ouvre pas un panneau. Le rythme vertical est celui de la carte
    (.sift-ui-card-soft-pad), le même pour les quatre. */
 .sift-settings-list{display:flex;flex-direction:column}
-.sift-settings-card{max-width:560px}
+/* Panneau de Réglages lu contre Réglages Système (2026-09-09, déclinaison #24) : plus de carte —
+   la zone C ne peint rien, comme Rangés, Rekordbox et Clé USB. Titre de catégorie, phrase, puis
+   des RANGÉES sur une grille commune : libellé à gauche sur 150 px (la colonne de libellés de
+   Rekordbox, `.rkb-fact-label`), contrôle à droite — alignés d'une rangée à l'autre, un filet en
+   retrait entre deux rangées (le même retrait que `.rkb-rule`). La phrase d'un libellé, quand elle
+   existe, vit SOUS lui en encre secondaire (spec § Zone C). */
 .sift-settings-title{font-size:var(--text-xl);font-weight:600;margin-bottom:4px;color:var(--color-text-primary)}
-.sift-settings-desc{font-size:var(--text-md);color:var(--color-text-tertiary);line-height:1.45;margin-bottom:12px}
-.sift-settings-row{display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);padding-top:12px;border-top:1px solid var(--color-border-tertiary)}
-.sift-settings-row-stack{flex-direction:column;align-items:flex-start;gap:8px}
-.sift-settings-row-head{display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);width:100%}
-.sift-settings-label{font-size:var(--text-base);color:var(--color-text-primary)}
-.sift-settings-btn{flex:none;font-size:var(--text-md);color:var(--color-text-primary);cursor:pointer;padding:var(--space-4) var(--space-12);border-radius:var(--border-radius-md);border:0;background:var(--color-surface-raised);font-family:inherit}
-.sift-settings-btn:hover{filter:brightness(0.95)}
+.sift-settings-desc{font-size:var(--text-md);color:var(--color-text-tertiary);line-height:1.45;margin-bottom:var(--space-16)}
+.sift-settings-row{display:grid;grid-template-columns:150px minmax(0,1fr);gap:var(--space-16);align-items:start;padding:var(--space-12) 0}
+.sift-settings-row+.sift-settings-row{border-top:1px solid var(--color-border-tertiary)}
+.sift-settings-row-lab{display:flex;flex-direction:column;gap:var(--space-4);min-width:0;padding-top:var(--space-4)}
+.sift-settings-row-ctl{display:flex;flex-direction:column;gap:var(--space-8);min-width:0}
+.sift-settings-note{font-size:var(--text-sm);color:var(--color-text-secondary)}
+.sift-settings-field{display:flex;align-items:center;gap:var(--space-8);min-width:0;position:relative}
+.sift-settings-input{width:100%;min-width:0;font-family:var(--font-mono)}
+.sift-settings-input-secret{padding-right:30px}
+.sift-settings-eye{position:absolute;right:2px;top:50%;transform:translateY(-50%);width:26px;height:26px;padding:0;border:none;background:transparent;color:var(--color-text-tertiary);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:var(--text-md)}
+.sift-settings-path{flex:1;min-width:0;font-size:var(--text-md);font-family:var(--font-mono);color:var(--color-text-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sift-settings-path-empty{color:var(--color-text-quaternary)}
+.sift-settings-status{font-size:var(--text-sm);color:var(--color-text-tertiary);min-height:14px}
+.sift-settings-label{font-size:var(--text-md);color:var(--color-text-primary)}
+.sift-settings-btn{flex:none;font-size:var(--text-sm);height:var(--h-control-sm);color:var(--color-text-primary);cursor:pointer;padding:0 var(--space-12);border-radius:var(--border-radius-md);border:0;background:var(--color-surface-raised);font-family:inherit}
 .sift-settings-btn-quiet{font-size:var(--text-sm);color:var(--color-text-tertiary);background:transparent}
+.sift-settings-btn-quiet:hover{background:var(--overlay-hover)}
 .sift-settings-link{font-size:var(--text-sm);color:var(--color-text-secondary);cursor:pointer;text-decoration:none}
 .sift-settings-link:hover{color:var(--color-text-primary)}
 .sift-settings-subactions{display:flex;align-items:center;gap:8px;margin-top:var(--space-12)}
+/* Dans une rangée de Réglages, le rythme vient du `gap` de la colonne de contrôle. */
+.sift-settings-row-ctl .sift-settings-subactions{margin-top:0}
 /* Carte « Modèle de nommage » (Réglages). Les pastilles insèrent un placeholder à la position du
    curseur — pilule pour les distinguer des boutons d'action carrés de la même carte. */
 .sift-tpl-chips{display:flex;gap:var(--space-4)}
 .sift-tpl-chip{font-size:var(--text-sm);font-family:var(--font-mono);color:var(--color-text-secondary);background:var(--color-background-primary);border:1px solid var(--color-border-tertiary);border-radius:var(--border-radius-pill);padding:2px var(--space-8);cursor:pointer}
-.sift-tpl-chip:hover{background:var(--color-background-primary);filter:brightness(0.96)}
+.sift-tpl-chip:hover{background:var(--overlay-hover)}
 .sift-tpl-input{width:100%;font-family:var(--font-mono)}
-.sift-tpl-preview-label{font-size:var(--text-sm);letter-spacing:var(--tracking-widest);text-transform:uppercase;color:var(--color-text-quaternary)}
 .sift-tpl-preview{display:flex;flex-direction:column;gap:3px;min-width:0;width:100%}
 .sift-tpl-preview-line{font-size:var(--text-md);font-family:var(--font-mono);color:var(--color-text-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sift-tpl-warn{font-size:var(--text-sm);color:var(--color-text-warning)}
-.sift-tpl-status{font-size:var(--text-sm);color:var(--color-text-tertiary);min-height:14px;margin-top:var(--space-8)}
 /* Pastille segmentée — composant partagé (2026-07-08 : Apparence/Format USB/Détail-Lot/
    Dossiers-Genres réimplémentaient chacun leur propre variante — une seule piste encaissée +
    pastille active désormais). .sift-seg = piste (fond --color-track) ; .sift-seg-opt = option,
@@ -3845,8 +3891,9 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
    le `gap:8px` (un seul enfant reste, il ne sépare plus rien — et c'était un littéral hors de
    l'échelle d'espacement) et la règle `.sift-empty-link i`, devenue sans consommateur.
    `display:inline-flex` RESTE : c'est lui qui garde le bouton à la largeur de son texte. */
-.sift-empty-link{margin-top:var(--space-4);display:inline-flex;align-items:center;font-size:var(--text-sm);font-weight:500;color:var(--color-text-secondary);border:0;border-radius:var(--border-radius-md);padding:var(--space-8) var(--space-12);cursor:pointer;font-family:inherit}
-.sift-empty-link:hover{color:var(--color-text-primary)}
+.sift-empty-link{margin-top:var(--space-4);display:inline-flex;align-items:center;font-size:var(--text-sm);height:var(--h-control-sm);font-weight:500;color:var(--color-text-secondary);border:0;border-radius:var(--border-radius-md);padding:0 var(--space-12);cursor:pointer;font-family:inherit}
+/* `.sift-empty-link` est un <button> : il hérite du fond raised de `button` — un push plein, donc
+   sans survol (2026-09-09). L'ancienne règle `:hover{color:primary}` est partie avec le générique. */
 /* Compact inline hint (2026-07-08) — deliberately NOT .sift-empty-state: that component is scaled
    for a whole dead-end screen, this is a single line inside a list whose header/actions stay
    functional around it (e.g. Accueil's source list with 0 sources). */
@@ -3884,7 +3931,7 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
 .sift-usage-ident{min-width:0;display:flex;flex-direction:column}
 .sift-usage-name{font-size:20px;font-weight:600;letter-spacing:-0.01em;line-height:1.2;color:var(--color-text-primary)}
 .sift-usage-sub{font-size:var(--text-md);color:var(--color-text-secondary)}
-.sift-usage-capacity{margin-left:auto;flex:none;border:1px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:var(--space-12) var(--space-16);font-size:var(--text-lg);font-variant-numeric:tabular-nums;color:var(--color-text-primary)}
+.sift-usage-capacity{margin-left:auto;flex:none;border:1px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:var(--space-12) var(--space-16);font-size:var(--text-base);font-variant-numeric:tabular-nums;color:var(--color-text-primary)}
 .sift-usage-rule{height:1px;background:var(--color-border-tertiary)}
 
 .sift-usage-barwrap{position:relative}
@@ -3956,12 +4003,12 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
    plus une bordure, et leur survol ne changeait que la couleur de ce cadre. Rien de tout ça n'est
    écrit ici désormais : aplat gris surélevé, pas de bordure, survol assombri, comme tout bouton.
    Le CHEVRON reste (c'est un disclosure) : seule la boîte change. */
-.sift-usage-disclose{display:inline-flex;align-items:center;gap:var(--space-8);font-family:inherit;font-size:var(--text-md);padding:var(--space-8) var(--space-12);border:0;border-radius:var(--border-radius-md);color:var(--color-text-primary);cursor:pointer}
+.sift-usage-disclose{display:inline-flex;align-items:center;gap:var(--space-8);font-family:inherit;font-size:var(--text-base);height:var(--h-control);padding:0 var(--space-12);border:0;border-radius:var(--border-radius-md);color:var(--color-text-primary);cursor:pointer}
 .sift-usage-disclose:focus-visible{outline:2px solid var(--color-border-info);outline-offset:2px}
 .sift-usage-chev{display:inline-block;transition:transform var(--duration-slow) ease;font-size:var(--text-xs);opacity:.7}
 .sift-usage-disclose[aria-expanded="true"] .sift-usage-chev{transform:rotate(90deg)}
 .sift-usage-cache-note{font-size:var(--text-sm);color:var(--color-text-tertiary)}
-.sift-usage-btn{font-family:inherit;font-size:var(--text-md);padding:var(--space-8) var(--space-12);border:0;border-radius:var(--border-radius-md);color:var(--color-text-primary);cursor:pointer}
+.sift-usage-btn{font-family:inherit;font-size:var(--text-base);height:var(--h-control);padding:0 var(--space-12);border:0;border-radius:var(--border-radius-md);color:var(--color-text-primary);cursor:pointer}
 .sift-usage-btn:disabled{opacity:.5;cursor:default}
 .sift-usage-btn:focus-visible{outline:2px solid var(--color-border-info);outline-offset:2px}
 .sift-usage-actions .sift-usage-btn:first-of-type{margin-left:auto}

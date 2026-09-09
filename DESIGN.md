@@ -414,7 +414,7 @@ Définis une fois ici, jamais redécidés par un écran.
 | État | Rendu | Règle |
 |---|---|---|
 | **Repos** | Aucun traitement | Un état confirmé permanent reste neutre |
-| **Survol** | `--overlay-hover` | Aplat, jamais une bordure colorée |
+| **Survol** | `--overlay-hover` | Aplat, jamais une bordure colorée. **Précisé le 2026-09-09 (audit de fin de #24, décision d'Antoine) : un push button n'a PAS de survol** — le kit Big Sur § 02 ne montre que Normal / Disabled pour un push, le survol n'existe que sur les scope buttons et les icon buttons, en aplat. Le survol reste aux rangées, entrées de colonne, rail et boutons discrets (transparents), toujours en `--overlay-hover` ; `filter: brightness()` est retiré de tous les `:hover` |
 | **Focus visible** | `outline:2px solid var(--color-border-info); outline-offset:1px` | Sur tout élément interactif, via `:focus-visible`. Une saisie remplace l'anneau par une bordure `--color-text-info` |
 | **Sélection** | `--color-background-secondary` | Promue au plan du contenu. Jamais un accent coloré, jamais une bordure latérale |
 | **Chargement** | Squelette ou libellé sobre **dans la structure finale** | Ne jamais vider l'écran pour recharger : si des données valides sont affichées, elles restent jusqu'à l'arrivée des nouvelles |

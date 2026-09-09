@@ -52,6 +52,38 @@ conservée — le découpage se fait par catégorie, pas par boîte.
 **Clé USB.** L'écran a quitté Réglages le 2026-07-31 et n'y revient pas. Réglages ne
 porte aucune action sur un périphérique.
 
+## Décision — 2026-09-09 : lu contre Réglages Système (déclinaison #24, septième écran)
+
+Pas de maquette cette fois : la § Layout ci-dessus est une décision d'Antoine du 2026-09-02, et
+les six écrans précédents ont fixé la grammaire de colonne. Exécutée telle quelle, contre l'état
+mesuré de l'écran (étape 9 de `DESIGN.md` : deux colonnes, mais deux CARTES `.sift-ui-card-soft`,
+libellé posé au-dessus du champ, bouton Enregistrer sur Nommage).
+
+- **Colonne B′** (`.sift-settings-side`) : la même règle CSS que la colonne des sections de
+  Rekordbox et des disques de Clé USB (co-sélecteur) — `--pane-w`, plan de la file, bord à bord,
+  défilement propre. Entrées `.fld` dérivées des sections rendues, dans l'ordre de la § Zone B′ :
+  **Général** (dossier racine ; les dossiers surveillés vivent au rail) · **Nommage** ·
+  **Identification** · **Apparence**. `↑` `↓` déplacent la sélection, `Entrée`/`Espace` choisit.
+  **Conversion n'existe pas** : aucun réglage de conversion n'est stocké, une catégorie vide
+  mentirait — elle arrivera avec son premier réglage.
+- **Zone C** (`.sift-settings-panel`, bornée à **`--measure-form`**, token posé le même jour à
+  560 px) : sans carte. Titre de la catégorie, phrase, puis des rangées `.sift-settings-row` sur une
+  **grille commune** — libellé à gauche sur 150 px (la colonne de libellés de Rekordbox), phrase du
+  libellé dessous en `--text-sm` secondaire quand elle existe, contrôle à droite ; un filet
+  `--color-border-tertiary` entre deux rangées.
+- **Application immédiate partout** : le modèle de nommage s'enregistre à la frappe (débounce
+  600 ms) et au blur, comme le jeton — le bouton **Enregistrer est retiré** ; « Revenir au modèle
+  par défaut » reste, discret, et enregistre aussi. Un modèle vide n'est pas écrit (l'avertissement
+  le dit, la dernière valeur valide reste en base).
+- Partis : `.sift-settings-stack`, `.sift-settings-card`, `.sift-settings-row-stack/-head`,
+  `.sift-tpl-preview-label`, `.sift-tpl-status`, les styles inline du champ de jeton.
+
+### Reste
+
+- **Recherche de réglages** : deuxième temps, inchangé (§ Recherche).
+- **Indicateur bref « appliqué »** (§ États) : les statuts texte existent (« Modèle enregistré. »,
+  « Jeton enregistré. », 2 s) ; pas d'indicateur sur Thème ni sur la racine au-delà du re-rendu.
+
 ## États
 
 | État | Rendu |

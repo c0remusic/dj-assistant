@@ -3,6 +3,25 @@
 // god-module after ecartes-view.ts/journal.ts were split out.
 // Self-contained: unlike Bibliothèque/Rekordbox, no state here is mutated from
 // installLiveWiring's delegated click handler, so no cross-module state wiring is needed.
+//
+// Lu contre Réglages Système le 2026-09-09 (déclinaison #24, septième et dernier écran — spec
+// `docs/ui-specs/reglages.md`, décision d'Antoine du 2026-09-02, § Décision 2026-09-09). La
+// référence : une sidebar de catégories, un panneau à droite, application immédiate (guide macOS
+// « Modifier les Réglages Système » : « une barre latérale à gauche contenant les catégories, un
+// panneau principal à droite »). Ce que l'écran en fait :
+//   · colonne B′ des catégories au PLAN DE LA FILE, bord à bord — la même règle CSS que la colonne
+//     des sections de Rekordbox et des disques de Clé USB (co-sélecteur `.sift-settings-side`) ;
+//   · panneau sans carte, borné à `--measure-form` (560 px, la mesure de formulaire), aligné en
+//     tête de zone : le titre de la catégorie, sa phrase, puis des RANGÉES sur une grille commune —
+//     libellé à gauche (150 px, la colonne de libellés de Rekordbox), contrôle à droite, alignés
+//     d'une rangée à l'autre ;
+//   · aucun bouton Enregistrer : le modèle de nommage s'enregistre à la frappe (débounce) et au
+//     blur, comme le jeton Discogs le faisait déjà ; « Revenir au modèle par défaut » reste, en
+//     action discrète ;
+//   · ↑ ↓ déplacent la catégorie, Entrée/Espace la choisit ; un champ garde ses touches.
+// Ce que cette lecture RETIRE : les deux cartes `.sift-ui-card-soft` (colonne et panneau — le
+// panneau était la dernière carte de contenu de l'app), `.sift-settings-stack`, le libellé posé
+// AU-DESSUS du champ (Discogs, Nommage), le bouton Enregistrer.
 import { getSetting, setSetting, openUrl, previewFilename, verifyDiscogsToken } from "./ipc";
 import { identifyErrorText } from "./identify-shared";
 import { DEFAULT_FILENAME_TEMPLATE } from "../shared/contracts";
@@ -17,25 +36,24 @@ import { humanizeError } from "./errors";
 import { open as openFolderDialog } from "@tauri-apps/plugin-dialog";
 import { refreshRootWarning } from "./rail-root-warning";
 
-/** Live Réglages view: a single scrolling page of real cards (Discogs, Bibliothèque, Apparence),
- * replacing the mockup's static placeholder rows (Dossiers source, Format lossless…), which have
- * no backing data and led nowhere — same "lean Tauri UI" pattern as usb-view.ts (hide the mock
- * content, keep only the title, inject the real thing). One page, not tabs: every card is always
- * visible and reachable by scrolling, per the maquette's "PAS des onglets exclusifs" rule. */
 /** Libellés des catégories, indexés par la clé `dataset.section` que chaque bloc porte déjà.
  *  Une clé sans libellé retombe sur la clé elle-même : une section neuve apparaît donc dans la
- *  colonne, mal nommée mais VISIBLE — un oubli qui se voit vaut mieux qu'une section introuvable. */
+ *  colonne, mal nommée mais VISIBLE — un oubli qui se voit vaut mieux qu'une section introuvable.
+ *
+ *  Noms de la spec (§ Zone B′) : « Général » porte la racine de bibliothèque ; « Conversion »
+ *  n'existe PAS — aucun réglage de conversion n'est stocké aujourd'hui, et une catégorie vide
+ *  serait un mensonge. Elle arrivera avec son premier réglage. */
 const SECTION_LABELS: Record<string, string> = {
-  discogs: "Identification",
-  bibliotheque: "Bibliothèque",
+  bibliotheque: "Général",
   nommage: "Nommage",
+  discogs: "Identification",
   apparence: "Apparence",
 };
 
 /** Catégorie affichée. Au niveau module : l'écran se re-rend à chaque réglage appliqué (pas de
  *  bouton Enregistrer, application immédiate), et un état local retomberait sur la première
- *  catégorie à chaque frappe dans le champ de jeton. */
-let activeSection = "discogs";
+ *  catégorie à chaque frappe dans le champ de jeton. La première de la spec : Général. */
+let activeSection = "bibliotheque";
 
 /** Montre une seule section et marque son entrée. Les autres sont retirées du flux par `hidden`,
  *  pas seulement masquées : un champ dans une section cachée resterait tabulable. */
@@ -45,7 +63,9 @@ function selectSettingsCategory(key: string): void {
     el.hidden = el.dataset.section !== key;
   });
   document.querySelectorAll<HTMLElement>('[data-reglages="cat"]').forEach((el) => {
-    el.classList.toggle("on", el.dataset.cat === key);
+    const on = el.dataset.cat === key;
+    el.classList.toggle("on", on);
+    el.setAttribute("aria-pressed", String(on));
   });
   // Apparence redevient visible : rejouer le placement du pouce du segmenté Thème. Il se mesure sur
   // `offsetWidth`/`offsetLeft`, tous deux 0 tant que la carte est `hidden` (display:none) — donc le
@@ -72,28 +92,31 @@ export function onSettingsCategoryPick(key: string): void {
   selectSettingsCategory(key);
 }
 
+/** Une rangée de la grille commune : libellé (et sa phrase, optionnelle) à gauche, contrôle à
+ *  droite. `control` est du markup déjà échappé par l'appelant. */
+function rowHtml(label: string, control: string, opts?: { note?: string; forId?: string }): string {
+  const lab = opts?.forId
+    ? `<label for="${esc(opts.forId)}" class="sift-settings-label">${label}</label>`
+    : `<span class="sift-settings-label">${label}</span>`;
+  return (
+    `<div class="sift-settings-row"><div class="sift-settings-row-lab">${lab}` +
+    (opts?.note ? `<span class="sift-settings-note">${opts.note}</span>` : "") +
+    `</div><div class="sift-settings-row-ctl">${control}</div></div>`
+  );
+}
+
 export async function renderReglagesLive() {
   const content = requireEl("#content", "renderReglagesLive");
   // `viewToken` et non `token` : ce module a déjà un `token`, celui de Discogs.
   const viewToken = viewEpoch();
 
   // Remove any previous live-settings wrapper so we don't duplicate on re-render.
-  // All cards live inside this single wrapper (not as separate #content siblings)
-  // so a future card can't be forgotten here the way libBlock/themeBlock once were.
+  // All sections live inside this single wrapper (not as separate #content siblings)
+  // so a future section can't be forgotten here the way libBlock/themeBlock once were.
   document.getElementById("sift-reglages-live")?.remove();
   const wrap = document.createElement("div");
   wrap.id = "sift-reglages-live";
-  wrap.className = "sift-screen-stack sift-settings-stack";
-
-  // Hide the mockup's static rows (no real data behind them); keep only the page title.
-  let title: Element | null = null;
-  for (const child of Array.from(content.children)) {
-    if (!title && child.classList.contains("h1")) {
-      title = child;
-      continue;
-    }
-    (child as HTMLElement).style.display = "none";
-  }
+  wrap.className = "sift-settings-panel";
 
   let token: string | null = null;
   try {
@@ -127,74 +150,71 @@ export async function renderReglagesLive() {
 
   // Dernier point d'attente avant que quoi que ce soit soit construit puis attaché à `#content`
   // (issue #42) : quatre `getSetting` séquentiels viennent de passer, et sous scan chacun attend le
-  // `Mutex<Connection>`. Sans ce garde, la pile de cartes de Réglages s'ajoutait au `#content` de
+  // `Mutex<Connection>`. Sans ce garde, la pile de sections de Réglages s'ajoutait au `#content` de
   // l'écran qu'on venait d'ouvrir. Le bloc synchrone en tête de fonction (retrait de
-  // `#sift-reglages-live`, masquage des enfants) n'a PAS besoin du garde : aucun `await` ne le
-  // précède, il s'exécute donc toujours dans le tour où l'écran est encore le sien.
+  // `#sift-reglages-live`) n'a PAS besoin du garde : aucun `await` ne le précède, il s'exécute donc
+  // toujours dans le tour où l'écran est encore le sien.
   if (isStaleViewRender(viewToken)) return;
 
-  // Cartes bordées + titre 16px/600 + texte explicatif, per la maquette (Sift.dc.html:642-691).
   // Divergence assumée : le jeton reste un input à sauvegarde auto (fonctionnel) au lieu du
   // "•••• 4471 + Modifier" de la maquette, dont le bouton est un onNotImpl de démo.
   const block = document.createElement("div");
   block.id = "sift-reglages-discogs";
   block.dataset.section = "discogs";
-  block.className = "sift-settings-card";
+  block.className = "sift-settings-section";
   block.innerHTML =
-    '<div class="sift-settings-title">Discogs</div>' +
+    '<div class="sift-settings-title">Identification</div>' +
     // Impasse A9 (issue #15) : la phrase précédente — « Sans jeton, les recherches sont limitées
     // et plus lentes » — décrivait une désactivation TOTALE comme une dégradation. La réalité est
     // dans le code : `ipc_identify.rs` rend `NO_TOKEN` AVANT tout appel réseau, et `settings.rs`
     // le dit en toutes lettres, « Empty/unset = identification disabled ». Aucune recherche n'est
     // ni limitée ni ralentie : il n'y en a aucune.
     '<div class="sift-settings-desc">Le jeton permet à Sift d\'interroger l\'API Discogs pour identifier tes morceaux (label, année, genre). Sans jeton, Sift n\'interroge pas Discogs du tout : le bouton Identifier renvoie ici. Le jeton est gratuit et se génère depuis un compte Discogs.</div>' +
-    '<div class="sift-settings-row sift-settings-row-stack">' +
-    '<div class="sift-settings-row-head">' +
-    '<label for="sift-discogs-token" class="sift-settings-label">Jeton d\'accès</label>' +
-    '<a id="sift-discogs-link" class="sift-settings-link">' +
-    '<i class="ti ti-external-link" style="font-size:var(--text-sm);vertical-align:-1px"></i> obtenir un jeton</a>' +
-    "</div>" +
-    // Masked like any credential (audit UI/UX 2026-07-03, fix 8) — a screenshot/share of Réglages
-    // must not leak the token in clear text. Eye toggle to check it without retyping.
-    '<div style="position:relative;width:100%">' +
-    // class="sift-editor-input" instead of an inline-duplicated border/background (2026-07-10,
-    // fix for a specificity bug this duplication caused: an inline `style="border:..."` always
-    // beats a stylesheet rule, even :focus-visible, so this field's border silently didn't
-    // shift color on focus while every other input using the shared class did).
-    `<input id="sift-discogs-token" type="password" placeholder="Jeton Discogs…" value="${esc(token ?? "")}" class="sift-editor-input" style="width:100%;font-family:var(--font-mono);padding-right:30px">` +
-    '<button type="button" id="sift-discogs-token-toggle" title="Afficher le jeton" aria-label="Afficher le jeton" style="position:absolute;right:2px;top:50%;transform:translateY(-50%);width:26px;height:26px;padding:0;border:none;background:transparent;color:var(--color-text-tertiary);cursor:pointer;display:flex;align-items:center;justify-content:center"><i class="ti ti-eye" style="font-size:var(--text-md)"></i></button>' +
-    "</div>" +
-    // « Vérifier » : impasse A11 de l'issue #15. Enregistrer un jeton ne dit que l'écriture ; sa
-    // validité ne se découvrait qu'au premier Identifier, plus tard et dans un autre écran.
-    // Libellé descriptif, donc TEXTE SEUL (règle CLAUDE.md : l'icône est réservée à ce qui n'a pas
-    // d'équivalent textuel). Le bouton ne redéfinit aucun `background`, donc il garde le `:hover`
-    // générique sans avoir à le réaffirmer.
-    '<div style="display:flex;align-items:center;gap:8px;margin-top:6px">' +
-    '<button type="button" id="sift-discogs-verify">Vérifier</button>' +
-    '<div id="sift-discogs-status" style="font-size:var(--text-sm);color:var(--color-text-tertiary);min-height:14px"></div>' +
-    "</div>" +
-    "</div>";
+    rowHtml(
+      "Jeton d'accès",
+      // Masked like any credential (audit UI/UX 2026-07-03, fix 8) — a screenshot/share of Réglages
+      // must not leak the token in clear text. Eye toggle to check it without retyping.
+      '<div class="sift-settings-field">' +
+        // class="sift-editor-input" instead of an inline-duplicated border/background (2026-07-10,
+        // fix for a specificity bug this duplication caused: an inline `style="border:..."` always
+        // beats a stylesheet rule, even :focus-visible, so this field's border silently didn't
+        // shift color on focus while every other input using the shared class did).
+        `<input id="sift-discogs-token" type="password" placeholder="Jeton Discogs…" value="${esc(token ?? "")}" class="sift-editor-input sift-settings-input sift-settings-input-secret">` +
+        '<button type="button" id="sift-discogs-token-toggle" class="sift-settings-eye" title="Afficher le jeton" aria-label="Afficher le jeton"><i class="ti ti-eye" aria-hidden="true"></i></button>' +
+        "</div>" +
+        // « Vérifier » : impasse A11 de l'issue #15. Enregistrer un jeton ne dit que l'écriture ; sa
+        // validité ne se découvrait qu'au premier Identifier, plus tard et dans un autre écran.
+        // Libellé descriptif, donc TEXTE SEUL (règle CLAUDE.md : l'icône est réservée à ce qui n'a
+        // pas d'équivalent textuel). Le bouton ne redéfinit aucun `background`, donc il garde le
+        // `:hover` générique sans avoir à le réaffirmer.
+        '<div class="sift-settings-subactions">' +
+        '<button type="button" id="sift-discogs-verify">Vérifier</button>' +
+        '<div id="sift-discogs-status" class="sift-settings-status"></div>' +
+        "</div>",
+      {
+        forId: "sift-discogs-token",
+        note: '<a id="sift-discogs-link" class="sift-settings-link">obtenir un jeton</a>',
+      },
+    );
 
   const libBlock = document.createElement("div");
   libBlock.id = "sift-reglages-bibliotheque";
   libBlock.dataset.section = "bibliotheque";
-  libBlock.className = "sift-settings-card";
+  libBlock.className = "sift-settings-section";
   libBlock.innerHTML =
-    '<div class="sift-settings-title">Bibliothèque</div>' +
-    '<div class="sift-settings-desc">Le dossier racine est l\'endroit réel sur ton disque où Sift convertit les morceaux filés. L\'arborescence de destination (House/Deep, Techno…) vit à l\'intérieur.</div>' +
-    '<div class="sift-settings-row">' +
-    '<div style="min-width:0">' +
-    '<div class="sift-settings-label" style="margin-bottom:3px">Dossier racine</div>' +
-    `<div style="font-size:var(--text-md);font-family:var(--font-mono);color:${
-      root ? "var(--color-text-tertiary)" : "var(--color-text-quaternary)"
-    };overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(root || "Aucun dossier sélectionné")}</div>` +
-    "</div>" +
-    '<button id="sift-lib-root-change" class="sift-settings-btn">Changer…</button>' +
-    "</div>" +
-    (root
-      ? '<div class="sift-settings-subactions"><button id="sift-lib-root-forget" type="button" class="sift-settings-btn sift-settings-btn-quiet">Oublier le dossier racine</button></div>'
-      : "") +
-    '<div id="sift-lib-root-status" style="font-size:var(--text-sm);color:var(--color-text-tertiary);min-height:14px"></div>';
+    '<div class="sift-settings-title">Général</div>' +
+    '<div class="sift-settings-desc">Le dossier racine est l\'endroit réel sur ton disque où Sift convertit les morceaux filés. L\'arborescence de destination (House/Deep, Techno…) vit à l\'intérieur. Les dossiers surveillés se gèrent depuis le rail, section Sources.</div>' +
+    rowHtml(
+      "Dossier racine",
+      '<div class="sift-settings-field">' +
+        `<span class="sift-settings-path${root ? "" : " sift-settings-path-empty"}">${esc(root || "Aucun dossier sélectionné")}</span>` +
+        '<button id="sift-lib-root-change" type="button" class="sift-settings-btn">Changer…</button>' +
+        "</div>" +
+        (root
+          ? '<div class="sift-settings-subactions"><button id="sift-lib-root-forget" type="button" class="sift-settings-btn sift-settings-btn-quiet">Oublier le dossier racine</button></div>'
+          : "") +
+        '<div id="sift-lib-root-status" class="sift-settings-status"></div>',
+    );
   const libStatus = libBlock.querySelector<HTMLElement>("#sift-lib-root-status");
   libBlock.querySelector("#sift-lib-root-change")?.addEventListener("click", () => {
     void (async () => {
@@ -240,30 +260,29 @@ export async function renderReglagesLive() {
   const tplBlock = document.createElement("div");
   tplBlock.id = "sift-reglages-nommage";
   tplBlock.dataset.section = "nommage";
-  tplBlock.className = "sift-settings-card";
+  tplBlock.className = "sift-settings-section";
   tplBlock.innerHTML =
-    '<div class="sift-settings-title">Modèle de nommage</div>' +
-    '<div class="sift-settings-desc">Le nom que Sift donne aux fichiers qu\'il range. Trois champs disponibles, à insérer d\'un clic. <code>{version}</code> se rend en «&nbsp;(Remix)&nbsp;» quand la piste en a une, et disparaît sinon — pas de parenthèses vides.</div>' +
-    '<div class="sift-settings-row sift-settings-row-stack">' +
-    '<div class="sift-settings-row-head">' +
-    '<div class="sift-settings-label">Modèle</div>' +
-    '<div class="sift-tpl-chips">' +
-    ["{artist}", "{title}", "{version}"]
-      .map((p) => `<button type="button" class="sift-tpl-chip" data-tpl-ph="${esc(p)}">${esc(p)}</button>`)
-      .join("") +
-    "</div></div>" +
-    `<input id="sift-tpl-input" class="sift-editor-input sift-tpl-input" spellcheck="false" aria-label="Modèle de nommage" value="${esc(tmpl)}">` +
-    "</div>" +
-    '<div class="sift-settings-row sift-settings-row-stack">' +
-    '<div class="sift-tpl-preview-label">Aperçu</div>' +
-    '<div id="sift-tpl-preview" class="sift-tpl-preview"></div>' +
-    '<div id="sift-tpl-warn" class="sift-tpl-warn" hidden></div>' +
-    "</div>" +
-    '<div class="sift-settings-subactions">' +
-    '<button type="button" id="sift-tpl-save" class="sift-settings-btn">Enregistrer</button>' +
-    '<button type="button" id="sift-tpl-reset" class="sift-settings-btn sift-settings-btn-quiet">Revenir au modèle par défaut</button>' +
-    "</div>" +
-    '<div id="sift-tpl-status" class="sift-tpl-status"></div>';
+    '<div class="sift-settings-title">Nommage</div>' +
+    '<div class="sift-settings-desc">Le nom que Sift donne aux fichiers qu\'il range. Trois champs disponibles, à insérer d\'un clic. <code>{version}</code> se rend en «&nbsp;(Remix)&nbsp;» quand la piste en a une, et disparaît sinon — pas de parenthèses vides. Le modèle s\'enregistre à la frappe.</div>' +
+    rowHtml(
+      "Modèle",
+      `<input id="sift-tpl-input" class="sift-editor-input sift-settings-input sift-tpl-input" spellcheck="false" aria-label="Modèle de nommage" value="${esc(tmpl)}">` +
+        '<div class="sift-tpl-chips">' +
+        ["{artist}", "{title}", "{version}"]
+          .map((p) => `<button type="button" class="sift-tpl-chip" data-tpl-ph="${esc(p)}">${esc(p)}</button>`)
+          .join("") +
+        "</div>" +
+        '<div id="sift-tpl-warn" class="sift-tpl-warn" hidden></div>',
+      { forId: "sift-tpl-input" },
+    ) +
+    rowHtml(
+      "Aperçu",
+      '<div id="sift-tpl-preview" class="sift-tpl-preview"></div>' +
+        '<div class="sift-settings-subactions">' +
+        '<button type="button" id="sift-tpl-reset" class="sift-settings-btn sift-settings-btn-quiet">Revenir au modèle par défaut</button>' +
+        '<div id="sift-tpl-status" class="sift-settings-status"></div>' +
+        "</div>",
+    );
 
   const tplInput = tplBlock.querySelector<HTMLInputElement>("#sift-tpl-input");
   const tplPreview = tplBlock.querySelector<HTMLElement>("#sift-tpl-preview");
@@ -323,7 +342,36 @@ export async function renderReglagesLive() {
     }, 120);
   }
 
-  tplInput?.addEventListener("input", refreshTplPreview);
+  // Application immédiate (spec § Zone C : « aucun bouton Enregistrer ») — même paire
+  // débounce + blur que le jeton Discogs. Un modèle vide n'est pas écrit : l'avertissement le dit
+  // déjà, et la dernière valeur valide reste en base.
+  let tplSaveTimer: ReturnType<typeof setTimeout> | undefined;
+  let tplLastSaved = tmpl;
+  async function saveTemplate(): Promise<void> {
+    clearTimeout(tplSaveTimer);
+    const t = tplInput?.value ?? "";
+    if (!t.trim() || t === tplLastSaved) return;
+    try {
+      await setSetting("filename_template", t);
+      tplLastSaved = t;
+      if (tplStatus) {
+        tplStatus.textContent = "Modèle enregistré.";
+        setTimeout(() => {
+          if (tplStatus && tplStatus.textContent === "Modèle enregistré.") tplStatus.textContent = "";
+        }, 2000);
+      }
+    } catch (e) {
+      console.error("[setSetting(filename_template)] enregistrement", e);
+      if (tplStatus) tplStatus.textContent = "Échec de l'enregistrement — réessaie.";
+    }
+  }
+
+  tplInput?.addEventListener("input", () => {
+    refreshTplPreview();
+    clearTimeout(tplSaveTimer);
+    tplSaveTimer = setTimeout(() => void saveTemplate(), 600);
+  });
+  tplInput?.addEventListener("blur", () => void saveTemplate());
   tplBlock.querySelectorAll<HTMLElement>("[data-tpl-ph]").forEach((chip) => {
     chip.addEventListener("click", () => {
       if (!tplInput) return;
@@ -335,36 +383,21 @@ export async function renderReglagesLive() {
       const caret = s + ph.length;
       tplInput.setSelectionRange(caret, caret);
       refreshTplPreview();
+      void saveTemplate();
     });
   });
   tplBlock.querySelector("#sift-tpl-reset")?.addEventListener("click", () => {
     if (!tplInput) return;
     tplInput.value = DEFAULT_FILENAME_TEMPLATE;
-    if (tplStatus) tplStatus.textContent = "";
     refreshTplPreview();
-  });
-  tplBlock.querySelector("#sift-tpl-save")?.addEventListener("click", () => {
-    void (async () => {
-      const t = tplInput?.value ?? "";
-      if (!t.trim()) {
-        if (tplStatus) tplStatus.textContent = "Un modèle vide n'est pas enregistrable.";
-        return;
-      }
-      try {
-        await setSetting("filename_template", t);
-        if (tplStatus) tplStatus.textContent = "Modèle enregistré.";
-      } catch (e) {
-        console.error("[setSetting(filename_template)] enregistrement", e);
-        if (tplStatus) tplStatus.textContent = "Échec de l'enregistrement — réessaie.";
-      }
-    })();
+    void saveTemplate();
   });
   refreshTplPreview();
 
   const themeBlock = document.createElement("div");
   themeBlock.id = "sift-reglages-apparence";
   themeBlock.dataset.section = "apparence";
-  themeBlock.className = "sift-settings-card";
+  themeBlock.className = "sift-settings-section";
   // Audit-ref G1 (Réglages, 2026-07-09) : <span> → <button>, incohérent avec le reste de l'app.
   const themeBtn = (v: ThemeChoice, label: string) =>
     `<button class="sift-seg-opt${theme === v ? " on" : ""}" data-theme-choice="${v}">${label}</button>`;
@@ -376,14 +409,15 @@ export async function renderReglagesLive() {
   themeBlock.innerHTML =
     '<div class="sift-settings-title">Apparence</div>' +
     '<div class="sift-settings-desc">Auto suit le réglage clair/sombre de ton système. Clair et Sombre forcent un mode fixe, quel que soit le système.</div>' +
-    '<div class="sift-settings-row">' +
-    '<span class="sift-settings-label">Thème</span>' +
-    '<div class="sift-seg sift-seg-thumbed">' +
-    '<div class="sift-seg-thumb"></div>' +
-    themeBtn("auto", "Auto") +
-    themeBtn("light", "Clair") +
-    themeBtn("dark", "Sombre") +
-    "</div></div>";
+    rowHtml(
+      "Thème",
+      '<div class="sift-seg sift-seg-thumbed">' +
+        '<div class="sift-seg-thumb"></div>' +
+        themeBtn("auto", "Auto") +
+        themeBtn("light", "Clair") +
+        themeBtn("dark", "Sombre") +
+        "</div>",
+    );
   themeBlock.querySelectorAll<HTMLElement>("[data-theme-choice]").forEach((el) =>
     el.addEventListener("click", () => {
       const choice = el.dataset.themeChoice as ThemeChoice;
@@ -412,34 +446,23 @@ export async function renderReglagesLive() {
   // ici : tout ce qui touche la clé USB vit dans cet onglet, une seule source.
 
   // Single wrapper: only #sift-reglages-live is removed/recreated per render (see the
-  // 2026-07-04 fix), so every settings card — present or future — must build inside `wrap`
+  // 2026-07-04 fix), so every settings section — present or future — must build inside `wrap`
   // rather than as a direct sibling of `content`, or it duplicates on re-render.
   //
-  // 2026-07-08: the 4 sections used to each be their own .sift-ui-card-soft box, but each one
-  // only ever holds a single setting — a box groups "related information" (HIG "Boxes"),
-  // grouping one item alone just adds chrome (retour utilisateur : "trop de boîtes"). They now
-  // share one .sift-ui-card-soft list instead of 4 separate cards. Any future settings section
-  // must append inside `list`, same rule as `wrap` above — not as a direct sibling of `content`.
-  //
-  // 2026-08-19 : le filet qui divisait ces lignes (.sift-settings-list-row) est RETIRÉ, classe
-  // comprise. Il datait du jour où les 4 sections étaient empilées et visibles ensemble ; depuis la
-  // colonne de catégories (étape 9), `selectSettingsCategory` en cache trois sur quatre — mais
-  // `:not(:first-child)` est structurel, un frère `hidden` compte encore. Mesuré dans la vraie
-  // fenêtre : Bibliothèque, Nommage et Apparence rendaient un `border-top` de 1px AU-DESSUS de leur
-  // titre, Discogs non. Un séparateur sépare deux voisines VISIBLES ; ici il n'y en a jamais deux,
-  // il ouvrait donc le panneau. Le rythme vertical vient maintenant de la carte seule
-  // (.sift-ui-card-soft-pad), identique pour les quatre catégories.
+  // 2026-07-08 : les 4 sections étaient chacune leur propre .sift-ui-card-soft, puis une seule
+  // carte partagée ; 2026-09-09 : plus de carte du tout — la zone C ne peint rien (Rangés,
+  // Rekordbox, Clé USB), et le panneau est le dernier écran qui en portait une. Le rythme vertical
+  // vient de la grille des rangées. Toute nouvelle section s'ajoute à l'intérieur de `list`.
   const list = document.createElement("div");
   list.id = "sift-reglages-list";
-  list.className = "sift-settings-list sift-ui-card-soft sift-ui-card-soft-pad";
-  list.appendChild(block);
-  list.appendChild(libBlock);
-  // Après Bibliothèque : le modèle décrit comment nommer DANS la racine qu'elle définit.
-  list.appendChild(tplBlock);
-  list.appendChild(themeBlock);
+  list.className = "sift-settings-list";
+  // Ordre de la spec (§ Zone B′) : Général · Nommage · Identification · Apparence.
+  const sections = [libBlock, tplBlock, block, themeBlock];
+  for (const el of sections) list.appendChild(el);
   wrap.appendChild(list);
 
-  // DEUX COLONNES depuis l'étape 9 (DESIGN.md § 17, question ouverte O-3).
+  // DEUX COLONNES depuis l'étape 9 (DESIGN.md § 17, question ouverte O-3) ; la colonne au plan de
+  // la file depuis le 2026-09-09.
   //
   // L'écran était une colonne unique plafonnée à 560px, qui laissait 44 % de la fenêtre vide sur
   // 1200 (rail 152 + padding 2×24 retirés : 1000 utiles, 560 employés). La correction n'était PAS
@@ -453,19 +476,39 @@ export async function renderReglagesLive() {
   const layout = document.createElement("div");
   layout.className = "sift-settings-layout";
   const side = document.createElement("nav");
-  side.className = "sift-settings-side sift-ui-card-soft sift-ui-card-soft-pad";
+  side.className = "sift-settings-side";
   side.setAttribute("aria-label", "Catégories de réglages");
   side.innerHTML = `<div class="col-h">Réglages</div>`;
-  for (const el of [block, libBlock, tplBlock, themeBlock]) {
+  for (const el of sections) {
     const key = el.dataset.section ?? "";
     const label = SECTION_LABELS[key] ?? key;
     side.insertAdjacentHTML(
       "beforeend",
-      `<div class="fld" data-reglages="cat" data-cat="${esc(key)}" tabindex="0" role="button">${esc(label)}</div>`,
+      `<div class="fld" data-reglages="cat" data-cat="${esc(key)}" tabindex="0" role="button" aria-pressed="false">${esc(label)}</div>`,
     );
   }
+  // Clavier (spec § Interactions) : ↑ ↓ déplacent la catégorie, Entrée/Espace la choisit. Un
+  // champ du panneau n'est jamais concerné : le listener vit sur la colonne seule.
+  side.addEventListener("keydown", (e) => {
+    const cur = (e.target as HTMLElement).closest<HTMLElement>('[data-reglages="cat"]');
+    if (!cur) return;
+    const all = Array.from(side.querySelectorAll<HTMLElement>('[data-reglages="cat"]'));
+    const i = all.indexOf(cur);
+    let next: HTMLElement | undefined;
+    if (e.key === "ArrowDown") next = all[i + 1];
+    else if (e.key === "ArrowUp") next = all[i - 1];
+    else if (e.key === "Enter" || e.key === " ") next = cur;
+    else return;
+    e.preventDefault();
+    if (!next) return;
+    next.focus();
+    selectSettingsCategory(next.dataset.cat ?? "");
+  });
+  const main = document.createElement("div");
+  main.className = "sift-settings-main";
+  main.appendChild(wrap);
   layout.appendChild(side);
-  layout.appendChild(wrap);
+  layout.appendChild(main);
   content.appendChild(layout);
   // Montre la catégorie active ET, si c'est « apparence », place le pouce du segmenté Thème
   // maintenant qu'il est dans le flux (selectSettingsCategory s'en charge).
@@ -509,7 +552,7 @@ export async function renderReglagesLive() {
     inp.type = shown ? "password" : "text";
     toggle.title = shown ? "Afficher le jeton" : "Masquer le jeton";
     toggle.setAttribute("aria-label", toggle.title);
-    toggle.innerHTML = `<i class="ti ${shown ? "ti-eye" : "ti-eye-off"}" style="font-size:var(--text-md)"></i>`;
+    toggle.innerHTML = `<i class="ti ${shown ? "ti-eye" : "ti-eye-off"}" aria-hidden="true"></i>`;
   });
 
   link?.addEventListener("click", () =>
