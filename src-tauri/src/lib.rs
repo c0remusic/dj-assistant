@@ -281,6 +281,15 @@ pub fn run() {
             if let Err(e) = reverdict::run_and_log(&mut conn) {
                 log::warn!("passe de re-verdict au démarrage échouée (rejouée au prochain lancement): {e}");
             }
+            // Ce que la passe n'a PAS pu réparer et que le pool va reprendre après la file (issue
+            // #59) : dit une fois au démarrage, pour que ce silence ne dure plus une semaine.
+            match worker::count_filed_needing_analysis(&conn) {
+                Ok(0) => {}
+                Ok(n) => log::info!(
+                    "{n} piste(s) rangée(s) sans verdict courant : reprises par le pool d'analyse après la file"
+                ),
+                Err(e) => log::warn!("compte des pistes rangées sans verdict courant impossible: {e}"),
+            }
             let session_id = format!(
                 "{}-{}",
                 std::time::SystemTime::now()

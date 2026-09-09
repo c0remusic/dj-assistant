@@ -85,9 +85,10 @@ import { dirname } from "@tauri-apps/api/path";
 import { setTask, clearTask, setCancelHandler } from "./progress-zone";
 
 // Global progress zone — feed the "analyze" row from the EXISTING analysis poll/events (no engine
-// rewrite). `analysis_progress` returns (done, total) over PENDING tracks; a track stays pending
-// after it's analysed (until filed), so done==total is the RESTING state, not "busy". So we show
-// the row only while done<total (actively analysing), then flash a brief 100% "done" before hiding.
+// rewrite). `analysis_progress` returns (done, total) over every track the pool can pick up —
+// pending, and since #59 (2026-09-09) filed/resourcing rows without a current verdict too — so
+// done==total is the RESTING state, not "busy". So we show the row only while done<total (actively
+// analysing), then flash a brief 100% "done" before hiding.
 let analyzeWasRunning = false;
 let analyzeClearTimer: ReturnType<typeof setTimeout> | undefined;
 async function pushAnalyzeProgress() {

@@ -438,7 +438,7 @@ fn heal_cache(
 }
 
 /// Force a re-analysis of the given tracks (still-pending only): clears their cached verdict
-/// and analysis timestamp so `worker::select_pending` picks them back up, then wakes the pool.
+/// and analysis timestamp so `worker::select_needing_analysis` picks them back up, then wakes the pool.
 /// Used for tracks stuck unanalysed (e.g. a transient decode error on first pass) — the user
 /// asks Sift to try again rather than waiting indefinitely with no way to retry.
 #[tauri::command]

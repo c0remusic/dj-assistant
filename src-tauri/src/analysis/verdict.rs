@@ -24,9 +24,9 @@ use crate::analysis::{Rail, Verdict};
 ///
 /// - `worker::persist_report` écrit `verdict` et `report_cache_ver` dans le MÊME `UPDATE`, donc
 ///   les deux sont d'accord à l'écriture ;
-/// - `worker::select_pending` re-sélectionne sur une version de verdict périmée, mais SEULEMENT en
-///   `status='pending'` : la bibliothèque rangée n'y passe jamais (constaté et payé par la
-///   migration v16, borne délibérée, voir son commentaire).
+/// - `worker::select_needing_analysis` re-sélectionne sur une version de verdict périmée — en
+///   `status='pending'` seulement jusqu'au 2026-09-09, puis sur la bibliothèque rangée aussi
+///   (issue #59, voir `worker::STATUSES_TO_ANALYSE`), la file d'abord.
 ///
 /// **Le troisième trou est fermé depuis le 2026-09-01.** `ipc::analyze_path` réparait le cache sur
 /// désaccord de version en réécrivant `report_json` + `report_cache_ver` **sans toucher
@@ -64,6 +64,14 @@ use crate::analysis::{Rail, Verdict};
 /// portait, et le gardera jusqu'à une ré-analyse RÉELLE (ouverture en Revue via
 /// `ipc::analyze_path`, ou reprise par le pool). C'est voulu : la seule alternative serait de
 /// stocker le signal, ou de re-décoder toute la bibliothèque au démarrage.
+///
+/// ⚠️ **Sauf que « reprise par le pool » n'existait pas pour une piste rangée (issue #59,
+/// 2026-09-09).** Le bump de rapport v10, le même jour, a rendu toute rangée analysée avant lui
+/// invisible à `reverdict::run` (filtre `report_cache_ver = courant`) — verdict effacé à la lecture,
+/// et le pool borné à la file. Depuis #59, le pool reprend aussi `filed` et `resourcing`, après la
+/// file. Conséquence à connaître le jour d'un prochain bump : **un bump de RAPPORT re-décode la
+/// bibliothèque rangée en fond**, comme il re-décode déjà la file ; un bump de VERDICT seul reste
+/// rejoué ici sans décodage.
 pub const VERDICT_CACHE_VERSION: i64 = 3;
 
 /// Lit le cache `(tracks.verdict, tracks.verdict_ver)`. Version absente (NULL — ligne d'avant la

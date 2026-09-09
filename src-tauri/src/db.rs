@@ -234,18 +234,18 @@ const MIGRATIONS: &[&str] = &[
     // and analysis::REPORT_CACHE_VERSION was bumped to 6, which makes every cached report
     // unservable (ipc.rs treats any other version as a miss) — but a bump ERASES NOTHING: the
     // rows would sit there, inflated, until each track happens to be reopened one by one
-    // (worker::select_pending only re-selects on `report_json IS NULL`, never on a stale version).
+    // (worker::select_needing_analysis only re-selects on `report_json IS NULL`, never on a stale version).
     // Measured 2026-07-27 on the production DB: 3907 rows, 6.63 GB of report_json, 99.3% of them
     // already permanently unservable. This clears them in one pass.
     //
     // NULL, never '': the empty string is worker::persist_failure's permanent-decode-failure
-    // sentinel (read by worker::select_pending and queue::list_pending) — writing '' here would
+    // sentinel (read by worker::select_needing_analysis and queue::list_pending) — writing '' here would
     // mark all 3907 tracks as broken files. With NULL they are simply re-analysed in the
     // background at next start, which is also what repopulates the cache in the new format.
     //
     // The WHERE guard is not an optimisation: without it this UPDATE also rewrites the rows that
     // already hold '' — persist_failure's permanent-failure sentinel — turning them back into NULL.
-    // select_pending would then re-queue those broken files, the decode would fail again, and
+    // select_needing_analysis would then re-queue those broken files, the decode would fail again, and
     // analysis_attempts would climb toward MAX_ANALYSIS_ATTEMPTS. Measured on the production DB:
     // 3 such rows, all at 1 attempt. Skipping them costs nothing and preserves the invariant this
     // very migration argues for.
@@ -345,7 +345,7 @@ const MIGRATIONS: &[&str] = &[
     // s'est ré-analysée et réécrite en version 6. Le cap `MAX_PEAKS` (commit 689b700) est arrivé
     // APRÈS, le même jour, SANS toucher la version — donc les rapports écrits entre les deux
     // portent une enveloppe non plafonnée tout en étant indiscernables des bons, et
-    // `worker::select_pending` ne re-sélectionne que sur `report_json` NULL.
+    // `worker::select_needing_analysis` ne re-sélectionne que sur `report_json` NULL.
     //
     // Mesuré sur la base de production le 2026-08-03 : 2 703 rapports sur 2 710 dans cet état,
     // 10 000 à 50 000 points d'enveloppe au lieu de 4 000. 1,00 Go de `peaks` là où le cap en

@@ -176,8 +176,9 @@ pub fn read(path: &str) -> TagInfo {
             // de docs/cdj-metadata-formats.md.
             //
             // `REPORT_CACHE_VERSION` passe à 9 dans le même geste (2026-09-01) : le bump verdict v2
-            // du 2026-08-29 ne couvre PAS la bibliothèque rangée, que `worker::select_pending` ne
-            // reprend jamais — voir la doc de la constante.
+            // du 2026-08-29 ne couvre PAS la bibliothèque rangée, que le pool ne reprenait alors
+            // jamais (borne `status='pending'`, levée le 2026-09-09 par l'issue #59) — voir la doc
+            // de la constante.
             let tags_cdj_ok = tagged.tags().iter().any(|t| {
                 tag_type_readable_on_cdj(file_type, t.tag_type())
                     && t.get_string(ItemKey::TrackArtist).is_some()

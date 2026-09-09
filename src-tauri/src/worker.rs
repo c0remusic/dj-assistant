@@ -35,10 +35,35 @@ pub(crate) fn verdict_str(v: Verdict) -> &'static str {
     }
 }
 
-/// Ids of tracks that still need analysis: pending and either never analysed OR analysed
-/// before the report cache existed (report_json NULL) — so every track ends up with a cached
-/// report and opening it is always instant. (`persist_failure` sets report_json='' so broken
-/// files don't loop here.)
+/// Les statuts que le pool reprend, et la clause « pas de verdict courant » qu'il applique à
+/// chacun. Les DEUX sont partagés entre [`select_needing_analysis`] et [`progress`] : « done » doit
+/// rester le complément exact de ce que `refill` enfile (voir `progress`), et une clause recopiée
+/// à la main a déjà divergé une fois (2026-09-06).
+///
+/// `'pending'` : la file. `'filed'` et `'resourcing'` : la bibliothèque rangée et les pistes à
+/// re-sourcer, **depuis le 2026-09-09 (issue #59)**. Jusque-là la clause était `status='pending'`,
+/// et son commentaire posait la borne comme délibérée : « invalider 3907 pistes rangées d'un bump
+/// est ce qu'a coûté la v16 ; cette décision-là appartient au jour du bump ». Le jour du bump est
+/// venu deux fois (v2 le 2026-09-01, v3 + rapport v10 le 2026-09-02), et la passe `reverdict::run`
+/// écrite pour lui ne rattrape que les lignes dont le RAPPORT est à la version courante — une
+/// piste rangée analysée avant le bump de rapport a `report_cache_ver` périmé, donc `reverdict` la
+/// saute, `verdict::cached` efface son verdict à la lecture, et rien ne la reprenait. Mesuré sur
+/// la base réelle le 2026-09-09 : 8 lignes rangées + 1 à re-sourcer dans cet état (`verdict_ver 2`,
+/// `report_cache_ver 8`), 7 autres réparées seulement parce qu'Antoine les avait rouvertes en
+/// Revue. Sift dit alors « — » dans la colonne Verdict de Rangés, le signal central de l'écran,
+/// pour des pistes qu'il a jugées.
+///
+/// Ce que la borne protégeait — ne pas re-décoder toute la bibliothèque rangée à chaque bump —
+/// reste tenu par `reverdict::run` : un bump de VERDICT seul se rejoue depuis les mesures stockées
+/// et ne passe jamais ici. Ne tombent au pool que les lignes que la passe n'a pas pu re-stamper :
+/// rapport à forme périmée, rapport illisible, ou sortie de domaine. Un bump de RAPPORT, lui,
+/// re-décode bien la bibliothèque rangée en fond — c'est déjà ce que la file paie (846 pistes
+/// observées après #52), et c'est ce que `VERDICT_CACHE_VERSION` documente désormais.
+///
+/// `'trash'` n'y est pas : une piste en corbeille est en train de partir.
+const STATUSES_TO_ANALYSE: &str = "('pending','filed','resourcing')";
+
+/// La clause « pas de verdict courant ». Paramètre `?1` = `VERDICT_CACHE_VERSION`.
 ///
 /// `typeof(report_json)='null'` rather than `report_json IS NULL`: identical result, but `IS NULL`
 /// forces SQLite to load an ~800 KB value per row just to find out it is absent (see queue.rs
@@ -51,24 +76,28 @@ pub(crate) fn verdict_str(v: Verdict) -> &'static str {
 /// réparée : `queue::list_pending` afficherait « non analysé » pour toujours sur des pistes que le
 /// pool ne reprendrait jamais.
 ///
-/// Deux bornes, et elles sont délibérées :
+/// `verdict IS NOT NULL` dans cette troisième clause est délibéré : une piste SANS verdict n'est
+/// pas périmée, elle est non analysée — et surtout, `persist_failure` laisse exactement cet état
+/// (verdict NULL, `verdict_ver` NULL, `report_json=''`). Sans ce garde, un fichier illisible
+/// redeviendrait éligible à chaque passage, échouerait à chaque fois, et `analysis_attempts`
+/// grimperait tout seul jusqu'au seuil terminal. C'est le piège que la sentinelle `''` existe
+/// pour éviter.
+const NEEDS_ANALYSIS: &str = "(analyzed_at IS NULL OR typeof(report_json)='null' \
+                              OR (verdict IS NOT NULL AND verdict_ver IS NOT ?1))";
+
+/// Ids of tracks that still need analysis — never analysed, analysed before the report cache
+/// existed (report_json NULL), or carrying a verdict from another engine version — so every track
+/// ends up with a cached report and a current verdict. (`persist_failure` sets report_json='' so
+/// broken files don't loop here.) Statuts et clause : [`STATUSES_TO_ANALYSE`], [`NEEDS_ANALYSIS`].
 ///
-/// - `verdict IS NOT NULL` : une piste SANS verdict n'est pas périmée, elle est non analysée — et
-///   surtout, `persist_failure` laisse exactement cet état (verdict NULL, `verdict_ver` NULL,
-///   `report_json=''`). Sans ce garde, un fichier illisible redeviendrait éligible à chaque
-///   passage, échouerait à chaque fois, et `analysis_attempts` grimperait tout seul jusqu'au seuil
-///   terminal. C'est le piège que la sentinelle `''` existe pour éviter.
-/// - `status='pending'` (déjà là) : la bibliothèque RANGÉE n'est jamais reprise ici. Invalider
-///   3907 pistes rangées d'un bump est ce qu'a coûté la v16 ; cette décision-là appartient au jour
-///   du bump, pas à ce filet.
-pub fn select_pending(conn: &Connection) -> rusqlite::Result<Vec<i64>> {
-    let mut stmt = conn.prepare(
+/// **La file d'abord.** Les `pending` sortent avant les rangées : c'est sur elles que l'utilisateur
+/// attend une décision. La réparation de la bibliothèque rangée passe après, par id.
+pub fn select_needing_analysis(conn: &Connection) -> rusqlite::Result<Vec<i64>> {
+    let mut stmt = conn.prepare(&format!(
         "SELECT id FROM tracks \
-         WHERE status='pending' \
-           AND (analyzed_at IS NULL OR typeof(report_json)='null' \
-                OR (verdict IS NOT NULL AND verdict_ver IS NOT ?1)) \
-         ORDER BY id",
-    )?;
+         WHERE status IN {STATUSES_TO_ANALYSE} AND {NEEDS_ANALYSIS} \
+         ORDER BY (status='pending') DESC, id"
+    ))?;
     let rows = stmt.query_map(
         rusqlite::params![analysis::verdict::VERDICT_CACHE_VERSION],
         |r| r.get::<_, i64>(0),
@@ -76,7 +105,22 @@ pub fn select_pending(conn: &Connection) -> rusqlite::Result<Vec<i64>> {
     rows.collect()
 }
 
-/// (done, total): total = current pending; done = pending already analysed.
+/// Compte des pistes RANGÉES (`filed` + `resourcing`) sans verdict courant — ce que le pool va
+/// reprendre après la file. Journalisé au démarrage (`lib.rs`) : ce silence-là a duré du 2026-09-02
+/// au 2026-09-09 sans qu'aucun log ne le nomme (issue #59, piste 3).
+pub fn count_filed_needing_analysis(conn: &Connection) -> rusqlite::Result<i64> {
+    conn.query_row(
+        &format!(
+            "SELECT count(*) FROM tracks \
+             WHERE status IN {STATUSES_TO_ANALYSE} AND status != 'pending' AND {NEEDS_ANALYSIS}"
+        ),
+        rusqlite::params![analysis::verdict::VERDICT_CACHE_VERSION],
+        |r| r.get(0),
+    )
+}
+
+/// (done, total) sur les pistes que le pool peut reprendre ([`STATUSES_TO_ANALYSE`]) ; done = celles
+/// pour lesquelles il n'a plus rien à faire.
 pub fn progress(conn: &Connection) -> rusqlite::Result<(i64, i64)> {
     // « done » = le complément EXACT de la clause de `refill` (ci-dessus) : une piste est faite
     // quand le pool n'a plus rien à lui faire. Jusqu'au 2026-09-06, done ne regardait que
@@ -86,16 +130,22 @@ pub fn progress(conn: &Connection) -> rusqlite::Result<(i64, i64)> {
     // que le pool tournait sur des centaines de pistes, et la zone de progression comme la rangée
     // du pied de file affichaient un compte inerte au lieu d'une progression (observé par Antoine
     // sur la vraie fenêtre, 846 « non analysées » décroissantes avec progress à 3372/3372).
+    //
+    // Même périmètre de statuts que `refill`, pour la même raison : depuis #59 le pool reprend
+    // aussi les rangées, et un total borné à la file ferait rementir le signal pendant cette
+    // reprise. Conséquence assumée : `total` n'est plus « la file », c'est « ce que le pool sait
+    // reprendre » — la rangée « Analyse — x/y » du pied de file (`queue-panel.ts`) compte sur ce
+    // périmètre pendant qu'une reprise tourne, et se cache au repos.
     let total: i64 = conn.query_row(
-        "SELECT count(*) FROM tracks WHERE status='pending'",
+        &format!("SELECT count(*) FROM tracks WHERE status IN {STATUSES_TO_ANALYSE}"),
         [],
         |r| r.get(0),
     )?;
     let done: i64 = conn.query_row(
-        "SELECT count(*) FROM tracks \
-         WHERE status='pending' \
-           AND NOT (analyzed_at IS NULL OR typeof(report_json)='null' \
-                    OR (verdict IS NOT NULL AND verdict_ver IS NOT ?1))",
+        &format!(
+            "SELECT count(*) FROM tracks \
+             WHERE status IN {STATUSES_TO_ANALYSE} AND NOT {NEEDS_ANALYSIS}"
+        ),
         rusqlite::params![crate::analysis::verdict::VERDICT_CACHE_VERSION],
         |r| r.get(0),
     )?;
@@ -164,7 +214,7 @@ pub fn persist_report(
 /// Marks a track analysed-but-failed so the worker doesn't loop on a broken file.
 fn persist_failure(conn: &Connection, id: i64, err: &str) -> rusqlite::Result<()> {
     // Set report_json='' (non-null sentinel) so this broken file isn't re-selected forever
-    // by select_pending's `report_json IS NULL` backfill clause.
+    // by select_needing_analysis's `report_json IS NULL` backfill clause.
     // Also clear `verdict` (review-caught bug: this UPDATE used to leave it untouched — a track
     // that had a real verdict from a PRIOR successful analysis, then had its content change
     // (scanner.rs resets analyzed_at/report_json but keeps the old verdict), then failed on
@@ -229,8 +279,9 @@ pub fn init(app: &AppHandle) {
     log::info!("analysis worker pool started ({n} threads)");
 }
 
-/// Enqueues every pending, not-yet-analysed track not already queued/in-flight, then wakes
-/// the pool. Call at startup and after every `queue:changed`.
+/// Enqueues every track without a current verdict (`select_needing_analysis` — la file d'abord,
+/// puis les rangées) not already queued/in-flight, then wakes the pool. Call at startup and after
+/// every `queue:changed`.
 pub fn refill(app: &AppHandle) {
     let Some(worker) = app.try_state::<AnalysisWorker>() else {
         return;
@@ -241,7 +292,7 @@ pub fn refill(app: &AppHandle) {
             log::error!("worker refill: DB connection mutex poisoned, skipping refill");
             return;
         };
-        match select_pending(&conn) {
+        match select_needing_analysis(&conn) {
             Ok(v) => v,
             Err(e) => {
                 log::error!("worker refill query failed: {e}");
@@ -484,11 +535,11 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn select_pending_returns_unanalysed_or_uncached() {
+    fn select_needing_analysis_returns_unanalysed_or_uncached() {
         let conn = db();
         let a = add_pending(&conn, "a.flac"); // never analysed → selected
         let b = add_pending(&conn, "b.flac"); // analysed + report cached → NOT selected
-        let c = add_pending(&conn, "c.flac"); // filed → NOT selected
+        let c = add_pending(&conn, "c.flac"); // filed, never analysed → selected, AFTER the queue
         let d = add_pending(&conn, "d.flac"); // analysed but no report cache → selected (backfill)
         conn.execute(
             "UPDATE tracks SET analyzed_at=datetime('now'), report_json='{}' WHERE id=?1",
@@ -502,7 +553,53 @@ pub(crate) mod tests {
             [d],
         )
         .unwrap();
-        assert_eq!(select_pending(&conn).unwrap(), vec![a, d]);
+        // `c` est rangée et son id précède `d` : elle sort quand même APRÈS — la file d'abord.
+        assert_eq!(select_needing_analysis(&conn).unwrap(), vec![a, d, c]);
+    }
+
+    /// Issue #59 : une piste RANGÉE sans verdict courant est reprise par le pool — c'est l'état exact
+    /// mesuré sur la base réelle le 2026-09-09 (`verdict_ver` périmée, rapport à forme antérieure,
+    /// que `reverdict::run` saute) — et les deux bornes de la clause tiennent toujours sur elle :
+    /// une rangée à verdict courant n'est pas reprise, la sentinelle de `persist_failure` non plus,
+    /// et la corbeille jamais. Muter `STATUSES_TO_ANALYSE` en `('pending')` fait tomber la première
+    /// assertion (mesuré le 2026-09-09 : `left: [1]`, `right: [1, 2, 6]`).
+    #[test]
+    fn une_rangee_sans_verdict_courant_est_reprise_apres_la_file_jamais_la_corbeille() {
+        let conn = db();
+        let file = add_pending(&conn, "file.flac"); // pending, jamais analysée
+        let perimee = add_pending(&conn, "perimee.flac");
+        let courante = add_pending(&conn, "courante.flac");
+        let cassee = add_pending(&conn, "cassee.mp3");
+        let corbeille = add_pending(&conn, "corbeille.flac");
+        let resourcing = add_pending(&conn, "resourcing.flac");
+        let stampe = |id: i64, status: &str, ver: i64| {
+            conn.execute(
+                "UPDATE tracks SET status=?2, analyzed_at=datetime('now'), report_json='{}', \
+                 verdict='ok', verdict_ver=?3 WHERE id=?1",
+                rusqlite::params![id, status, ver],
+            )
+            .unwrap();
+        };
+        let cur = analysis::verdict::VERDICT_CACHE_VERSION;
+        stampe(perimee, "filed", cur - 1);
+        stampe(courante, "filed", cur);
+        stampe(corbeille, "trash", cur - 1);
+        stampe(resourcing, "resourcing", cur - 1);
+        conn.execute(
+            "UPDATE tracks SET status='filed', analyzed_at=datetime('now'), report_json='', \
+             verdict=NULL, verdict_ver=NULL, analysis_attempts=1 WHERE id=?1",
+            rusqlite::params![cassee],
+        )
+        .unwrap();
+
+        // `file` a le plus petit id ET est pending ; `perimee` (id 2) puis `resourcing` (id 6).
+        assert_eq!(
+            select_needing_analysis(&conn).unwrap(),
+            vec![file, perimee, resourcing],
+            "une rangée à verdict périmé est reprise, après la file ; verdict courant, échec de \
+             décodage et corbeille ne le sont pas"
+        );
+        assert_eq!(count_filed_needing_analysis(&conn).unwrap(), 2);
     }
 
     /// La lecture qui répare le verdict : un verdict PRÉSENT dont la version a été distancée
@@ -520,7 +617,7 @@ pub(crate) mod tests {
     /// place la ligne dans l'état qu'elle aurait le jour d'un bump. Relatif, donc encore vrai
     /// après ce bump.
     #[test]
-    fn select_pending_reprend_un_verdict_perime_mais_jamais_un_echec_de_decodage() {
+    fn select_needing_analysis_reprend_un_verdict_perime_mais_jamais_un_echec_de_decodage() {
         let conn = db();
         let courant = add_pending(&conn, "courant.flac");
         let perime = add_pending(&conn, "perime.flac");
@@ -547,7 +644,7 @@ pub(crate) mod tests {
         )
         .unwrap();
 
-        let selected = select_pending(&conn).unwrap();
+        let selected = select_needing_analysis(&conn).unwrap();
         assert!(
             !selected.contains(&courant),
             "un verdict à la version courante n'a aucune raison d'être recalculé"
@@ -593,8 +690,8 @@ pub(crate) mod tests {
             })
             .unwrap();
         assert_eq!(ver, Some(analysis::verdict::VERDICT_CACHE_VERSION));
-        // and it leaves select_pending empty now
-        assert!(select_pending(&conn).unwrap().is_empty());
+        // and it leaves select_needing_analysis empty now
+        assert!(select_needing_analysis(&conn).unwrap().is_empty());
     }
 
     #[test]
@@ -696,6 +793,31 @@ pub(crate) mod tests {
             progress(&conn).unwrap(),
             (0, 1),
             "verdict_ver périmée = le pool va la reprendre, elle n'est pas faite"
+        );
+    }
+
+    /// Le jumelage refill ↔ progress, étendu aux rangées (#59) : une piste rangée que le pool va
+    /// reprendre entre dans `total` et pas dans `done`, sinon `analysis_progress` dit « repos »
+    /// pendant la reprise — exactement le mensonge corrigé le 2026-09-06 sur la file. Muter
+    /// `STATUSES_TO_ANALYSE` en `('pending')` rend `(0, 0)` dès la première assertion.
+    #[test]
+    fn progress_counts_a_filed_track_the_pool_will_repair() {
+        let conn = db();
+        let a = add_pending(&conn, "a.flac");
+        let r = fake_report();
+        persist_report(&conn, a, &r, &serde_json::to_string(&r).unwrap()).unwrap();
+        conn.execute("UPDATE tracks SET status='filed' WHERE id=?1", [a])
+            .unwrap();
+        assert_eq!(progress(&conn).unwrap(), (1, 1), "rangée à jour = faite");
+        conn.execute(
+            "UPDATE tracks SET verdict_ver = verdict_ver - 1 WHERE id=?1",
+            rusqlite::params![a],
+        )
+        .unwrap();
+        assert_eq!(
+            progress(&conn).unwrap(),
+            (0, 1),
+            "rangée à verdict_ver périmée = le pool va la reprendre, elle n'est pas faite"
         );
     }
 }

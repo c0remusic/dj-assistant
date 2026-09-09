@@ -197,11 +197,13 @@ pub struct AnalysisReport {
 /// - `id3_version` portait le stub `Some("ID3")` posé à l'aveugle sur l'extension `.mp3` ; il porte
 ///   maintenant le ou les TYPES réels du porteur, triés et joints par `+`.
 ///
-/// Le bump n'est pas cosmétique, et c'est là qu'il se gagne : `worker::select_pending` ne reprend
-/// JAMAIS une piste RANGÉE (`status='pending'` dans sa clause, `worker.rs`, et le commentaire y
-/// dit pourquoi). Pour toute la bibliothèque rangée, le SEUL chemin qui rafraîchit un rapport est
-/// la réparation à l'ouverture (`ipc::analyze_path`), et elle ne se déclenche que sur désaccord de
-/// version. Sans ce bump, une piste rangée resservirait indéfiniment un `tags_cdj_ok` calculé par
+/// Le bump n'est pas cosmétique, et c'est là qu'il se gagne : jusqu'au 2026-09-09 le pool
+/// (`worker::select_needing_analysis`, alors `select_pending`) ne reprenait JAMAIS une piste RANGÉE
+/// (`status='pending'` dans sa clause). Pour toute la bibliothèque rangée, le SEUL chemin qui
+/// rafraîchissait un rapport était la réparation à l'ouverture (`ipc::analyze_path`), et elle ne se
+/// déclenche que sur désaccord de version. (Depuis l'issue #59 le pool reprend aussi les rangées
+/// sans verdict courant — mais un rapport périmé à verdict courant, lui, n'est toujours réparé qu'à
+/// l'ouverture.) Sans ce bump, une piste rangée resservirait indéfiniment un `tags_cdj_ok` calculé par
 /// l'ancien critère.
 ///
 /// **v10, 2026-09-02 (issue #52) — champ neuf, et il porte `#[serde(default)]`.**

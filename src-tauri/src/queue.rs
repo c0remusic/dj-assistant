@@ -30,21 +30,21 @@ pub struct QueueItem {
     pub dup: bool,
     /// True when there's no CURRENT, usable verdict to show for this track — either the worker
     /// hasn't gotten to it yet / needs to redo it (`analyzed_at IS NULL OR report_json IS NULL`,
-    /// worker::select_pending's own pick-up condition — covers a fresh scan AND a content-change
+    /// worker::select_needing_analysis's own pick-up condition — covers a fresh scan AND a content-change
     /// re-pending, which resets these two but leaves the OLD verdict in place), OR it's a
     /// permanently-stuck decode failure: `persist_failure` (worker.rs) sets `analyzed_at` and
-    /// `report_json=''` (a non-NULL sentinel, precisely so select_pending's own condition never
+    /// `report_json=''` (a non-NULL sentinel, precisely so select_needing_analysis's own condition never
     /// re-selects it forever) while leaving `verdict` NULL — the worker will NEVER retry that one
     /// on its own, so `verdict IS NULL` is included too, specifically to keep surfacing it for a
     /// manual retry (reanalyze_tracks). Single source of truth for "offer a re-analyze affordance
     /// here" across the whole app — never re-derive this from `verdict` alone in the frontend
-    /// (caught in review: an earlier version of this field mirrored ONLY select_pending's
+    /// (caught in review: an earlier version of this field mirrored ONLY select_needing_analysis's
     /// condition and silently excluded every decode-failed track from the retry UI meant for
     /// exactly that case).
     ///
     /// Troisième cas depuis l'issue #39 : un verdict PRÉSENT dont `verdict_ver` a été distancé par
     /// `verdict::VERDICT_CACHE_VERSION`. Il n'y a alors pas de verdict courant à montrer, et
-    /// `select_pending` reprend la piste par la même clause — les deux conditions restent
+    /// `select_needing_analysis` reprend la piste par la même clause — les deux conditions restent
     /// jumelles, ce que verrouille `un_verdict_perime_vaut_besoin_d_analyse`.
     pub needs_analysis: bool,
     /// How many times analysis has failed for this track (worker::persist_failure increments it,
@@ -107,7 +107,7 @@ pub fn list_pending(conn: &Connection) -> rusqlite::Result<Vec<QueueItem>> {
 
 /// Forces re-analysis of the given tracks: clears `verdict`/`report_json`/`analyzed_at` (plus
 /// the two failure-marker columns `persist_failure` sets) and zeroes `analysis_attempts` so a
-/// manual retry gives the track a fresh set of attempts, then `worker::select_pending` picks them
+/// manual retry gives the track a fresh set of attempts, then `worker::select_needing_analysis` picks them
 /// back up on the next refill. Only touches rows still `status='pending'` — a filed/écarté track
 /// is left alone even if its id is passed in by mistake (no accidental resurrection).
 ///
@@ -228,8 +228,8 @@ mod tests {
     #[test]
     fn needs_analysis_true_for_a_permanent_decode_failure() {
         // Mirrors worker::persist_failure exactly: analyzed_at + report_json='' (non-NULL
-        // sentinel, so select_pending never re-selects it on its own), verdict left NULL. Caught
-        // in review: an earlier version of `needs_analysis` mirrored ONLY select_pending's pick-up
+        // sentinel, so select_needing_analysis never re-selects it on its own), verdict left NULL. Caught
+        // in review: an earlier version of `needs_analysis` mirrored ONLY select_needing_analysis's pick-up
         // condition and was FALSE here, silently hiding every decode-failed track from the manual
         // retry UI built specifically for this case.
         let conn = db();
@@ -336,7 +336,7 @@ mod tests {
         assert_eq!(q[0].verdict, None);
         assert!(
             q[0].needs_analysis,
-            "reset row must be picked up by select_pending's condition"
+            "reset row must be picked up by select_needing_analysis's condition"
         );
 
         // The filed row's verdict is untouched (it never left `pending` filter results either).
@@ -361,12 +361,17 @@ mod tests {
         .unwrap();
         let id = conn.last_insert_rowid();
         assert!(
-            crate::worker::select_pending(&conn).unwrap().is_empty(),
+            crate::worker::select_needing_analysis(&conn)
+                .unwrap()
+                .is_empty(),
             "already-analysed track shouldn't be selected for (re)analysis yet"
         );
 
         reset_analysis(&conn, &[id]).unwrap();
 
-        assert_eq!(crate::worker::select_pending(&conn).unwrap(), vec![id]);
+        assert_eq!(
+            crate::worker::select_needing_analysis(&conn).unwrap(),
+            vec![id]
+        );
     }
 }

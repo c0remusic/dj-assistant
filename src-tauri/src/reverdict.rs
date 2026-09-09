@@ -3,12 +3,20 @@
 //! la version courante.
 //!
 //! **Pourquoi elle existe (2026-09-01, bump `VERDICT_CACHE_VERSION` 1 → 2, `8ac3a23`).**
-//! `worker::select_pending` borne délibérément sa reprise à `status='pending'` — « la bibliothèque
-//! RANGÉE n'est jamais reprise ici […] cette décision-là appartient au jour du bump ». C'est ce
-//! jour-là. Sans cette passe, une piste rangée à `verdict_ver` périmée n'est reprise par personne :
-//! `verdict::cached` efface son verdict à la lecture, pour toujours — Bibliothèque sans badge,
-//! compte « à re-sourcer » faux. Mesuré sur la base réelle au moment de l'écriture : 15 lignes
-//! rangées + 1 en re-sourcing dans cet état.
+//! Le pool (`worker::select_needing_analysis`, alors `select_pending`) bornait sa reprise à
+//! `status='pending'` — « la bibliothèque RANGÉE n'est jamais reprise ici […] cette décision-là
+//! appartient au jour du bump ». C'est ce jour-là. Sans cette passe, une piste rangée à
+//! `verdict_ver` périmée n'est reprise par personne : `verdict::cached` efface son verdict à la
+//! lecture, pour toujours — Bibliothèque sans badge, compte « à re-sourcer » faux. Mesuré sur la
+//! base réelle au moment de l'écriture : 15 lignes rangées + 1 en re-sourcing dans cet état.
+//!
+//! **Ce qu'elle ne couvre pas, et qui a un autre filet depuis le 2026-09-09 (issue #59).** Le
+//! filtre `report_cache_ver = courant` ci-dessous est nécessaire (un rapport d'une forme antérieure
+//! rendrait un verdict sur des valeurs par défaut), mais il laisse passer toute ligne rangée
+//! analysée AVANT un bump de rapport — et le bump v10 du 2026-09-02 est arrivé avec le bump de
+//! verdict v3 : rien n'a été re-stampé sur ces lignes, et `cached()` les effaçait quand même.
+//! Depuis #59 le pool reprend aussi `filed` et `resourcing` (après la file) : ce que cette passe
+//! saute ou sort du domaine finit ré-analysé pour de vrai, au lieu de rester « — » à vie.
 //!
 //! **Ce n'est PAS une migration** (`db.rs::MIGRATIONS` reste intouché) : elle est idempotente,
 //! versionnée par `verdict_ver`, tourne à chaque lancement et ne fait rien quand tout est courant.
@@ -122,9 +130,9 @@ pub fn run(conn: &mut Connection) -> rusqlite::Result<Stats> {
     // (ligne d'avant la v22) ou différente = pas de verdict courant. Les trois gardes sur
     // `report_json` écartent respectivement l'absence, la sentinelle d'échec de `persist_failure`
     // (`''`) et le NULL — `typeof(...)='null'` plutôt que `IS NULL` pour la même raison qu'ailleurs
-    // (voir `worker::select_pending`) : ne pas charger la valeur pour découvrir qu'elle est absente.
+    // (voir `worker::select_needing_analysis`) : ne pas charger la valeur pour découvrir qu'elle est absente.
     //
-    // `verdict IS NOT NULL` : la MÊME borne que `worker::select_pending`, et pour le même
+    // `verdict IS NOT NULL` : la MÊME borne que `worker::select_needing_analysis`, et pour le même
     // invariant (`worker.rs:161-163`) — « `verdict` est non-NULL si et seulement s'il reflète
     // l'analyse réussie la plus récente du fichier COURANT ». Une ligne sans verdict n'est pas
     // périmée, elle est non analysée : lui en poser un depuis un rapport qu'aucune analyse réussie
@@ -270,8 +278,8 @@ mod tests {
         .unwrap()
     }
 
-    /// (a) Le cas qui motive toute la passe : une piste RANGÉE, que `worker::select_pending` ne
-    /// reprend jamais, à version périmée et rapport valide.
+    /// (a) Le cas qui motive toute la passe : une piste RANGÉE à version périmée et rapport valide —
+    /// re-jugée ICI, sans décodage (le pool la reprendrait aussi depuis #59, mais en la re-décodant).
     #[test]
     fn ligne_rangee_perimee_est_rejugee_et_restampee() {
         let mut conn = db();
@@ -479,7 +487,7 @@ mod tests {
         assert_eq!(read(&conn, efface), (None, None));
     }
 
-    /// (i) Jumelage avec `worker::select_pending` : les deux lisent la même colonne pour la même
+    /// (i) Jumelage avec `worker::select_needing_analysis` : les deux lisent la même colonne pour la même
     /// raison, et une ligne PENDING à verdict périmé est le point où ils se croisent. Fige la paire
     /// (modèle `queue.rs::un_verdict_perime_vaut_besoin_d_analyse`) : sélectionnable AVANT la
     /// passe, restampée et donc plus sélectionnable APRÈS. Ce qu'aucun des deux ne doit produire :
@@ -491,7 +499,7 @@ mod tests {
         let id = seed(&conn, "pending", Some("ok"), Some(1), &json);
 
         assert_eq!(
-            crate::worker::select_pending(&conn).unwrap(),
+            crate::worker::select_needing_analysis(&conn).unwrap(),
             vec![id],
             "avant la passe, le verdict perime vaut besoin d'analyse"
         );
@@ -507,7 +515,9 @@ mod tests {
             )
         );
         assert!(
-            crate::worker::select_pending(&conn).unwrap().is_empty(),
+            crate::worker::select_needing_analysis(&conn)
+                .unwrap()
+                .is_empty(),
             "restampee sans re-analyse : le pool n'a plus rien a reprendre sur cette ligne"
         );
     }
