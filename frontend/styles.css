@@ -2979,11 +2979,6 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
 .sift-confirm-btn:disabled{opacity:.4;cursor:not-allowed}
 .sift-confirm-btn:disabled:hover{background:var(--color-accent-fill);filter:none}
 .sift-usbfmt-error{font-size:var(--text-sm);color:var(--color-text-danger)}
-.sift-usb-list{display:flex;flex-direction:column;gap:var(--space-8);margin:var(--space-12) 0}
-.sift-usb-row{display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);padding:var(--space-8) var(--space-8);background:var(--color-background-primary);border-radius:var(--border-radius-md)}
-.sift-usb-row-info{display:flex;flex-direction:column;gap:var(--space-4);min-width:0}
-.sift-usb-row-id{font-size:var(--text-md);font-family:var(--font-mono);color:var(--color-text-primary)}
-.sift-usb-row-meta{font-size:var(--text-sm);color:var(--color-text-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sift-report-overlay-modal{max-width:760px;width:100%;max-height:90vh;overflow:auto;padding:var(--space-24)}
 
 /* ── Revue filing rail (filing.ts) — extracted inline styles, byte-identical values ───── */
@@ -3467,12 +3462,19 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
    le bas, comme la file ; la zone principale remet l'inset de son côté et DÉFILE CHEZ ELLE
    (DESIGN.md § 14 : la page ne défile jamais). height et non min-height : c'est ce qui donne à la
    zone principale une hauteur à laquelle borner son défilement. */
-.sift-rkb-layout{display:flex;align-items:stretch;gap:var(--space-24);margin:calc(-1*var(--space-24)) 0 calc(-1*var(--space-24)) calc(-1*var(--space-24));height:calc(100% + 2*var(--space-24))}
-.sift-rkb-side{width:var(--pane-w);flex:none;overflow-y:auto;padding:var(--space-12) var(--space-8);background:var(--color-background-queue)}
-.sift-rkb-side .fld{justify-content:space-between}
+/* Clé USB partage cette grammaire depuis le 2026-09-09 (déclinaison #24, sixième écran, v3 validée
+   par Antoine) : même référence — Utilitaire de disque —, même colonne d'appareils au plan de la
+   file, même zone principale bornée. Co-sélecteurs plutôt qu'une copie : une seule règle à faire
+   évoluer, et le jour où un troisième écran arrive, c'est ELLE qui prend un nom générique. */
+.sift-rkb-layout,.sift-usb-layout{display:flex;align-items:stretch;gap:var(--space-24);margin:calc(-1*var(--space-24)) 0 calc(-1*var(--space-24)) calc(-1*var(--space-24));height:calc(100% + 2*var(--space-24))}
+.sift-rkb-side,.sift-usb-side{width:var(--pane-w);flex:none;overflow-y:auto;padding:var(--space-12) var(--space-8);background:var(--color-background-queue)}
+.sift-rkb-side .fld,.sift-usb-side .fld{justify-content:space-between}
+/* Nom du disque dans son entrée : il prend la place entre le glyphe et la capacité, et se coupe
+   proprement (« Disque 3 » ne déborde jamais sur « 32,0 Go »). */
+.sift-usb-entry-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* Compte par entrée : un cran d'encre, pas une opacité (DESIGN.md § 4). */
 .rkb-entry-count{font-size:var(--text-sm);color:var(--color-text-tertiary);font-variant-numeric:tabular-nums}
-.sift-rkb-main{flex:1;min-width:0;overflow-y:auto;padding:var(--space-24) 0}
+.sift-rkb-main,.sift-usb-main{flex:1;min-width:0;overflow-y:auto;padding:var(--space-24) 0}
 /* Zone C de Rekordbox — v4 du 2026-09-08 (« go v4 » d'Antoine, sans prose), lue contre trois
    figures officielles Apple : Finder › appareil (Big Sur), Photos › Importer (Tahoe), Utilitaire
    de disque (Tahoe). Bornée à --measure-data comme toute surface de donnée : à 2300 px, un
@@ -3480,10 +3482,26 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
    La tête reprend .sift-usage-head (Clé USB, même patron Utilitaire de disque) ; en dessous, la
    grammaire du Finder › appareil : un LIBELLÉ ALIGNÉ À DROITE (Software: / Backups:), la valeur en
    face, les actions secondaires dans la section, un filet en retrait entre les sections. */
-.rkb-main{max-width:var(--measure-data)}
-.rkb-head{margin-bottom:var(--space-16)}
-.rkb-head+.sift-usage-rule{margin-bottom:var(--space-16)}
-.rkb-glyph{width:56px;height:56px;flex:none;display:flex;align-items:center;justify-content:center;color:var(--color-text-tertiary);font-size:40px}
+.rkb-main,.sift-usb-main-inner{max-width:var(--measure-data)}
+.rkb-head,.sift-usb-head{margin-bottom:var(--space-16)}
+.rkb-head+.sift-usage-rule,.sift-usb-head+.sift-usage-rule{margin-bottom:var(--space-16)}
+.rkb-glyph,.sift-usb-glyph{width:56px;height:56px;flex:none;display:flex;align-items:center;justify-content:center;color:var(--color-text-tertiary);font-size:40px}
+/* Zone C de Clé USB sous la tête (v3, 2026-09-09) : le graphique sans sa carte, un filet, puis la
+   grille de faits d'Utilitaire de disque — QUATRE colonnes, libellé au-dessus en encre secondaire,
+   valeur en dessous, alignée sur la barre. La v2 posait ces faits en libellés alignés à droite
+   (grammaire Finder › appareil) : « le layout est bizarre avec le texte » (Antoine) — deux
+   grammaires se mélangeaient, la barre au bord gauche et le texte à 150 px. Les actions du disque
+   ferment la section, à gauche, dans l'ordre de la référence (Effacer d'abord). */
+.sift-usage-card-plain{padding:0}
+.sift-usb-rule{margin:var(--space-16) 0}
+.sift-usb-facts{margin:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--space-12) var(--space-24)}
+.sift-usb-fact{display:flex;flex-direction:column;gap:var(--space-4);min-width:0}
+.sift-usb-fact dt{font-size:var(--text-sm);color:var(--color-text-secondary)}
+.sift-usb-fact dd{margin:0;font-size:var(--text-md);color:var(--color-text-primary);font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sift-usb-fact dd.warn{color:var(--color-text-warning)}
+.sift-usb-fact dd.mono{font-family:var(--font-mono);font-size:var(--text-sm)}
+.sift-usb-actions{display:flex;gap:var(--space-8);margin-top:var(--space-16)}
+.sift-usb-danger{color:var(--color-text-danger)}
 .rkb-fact{display:flex;gap:var(--space-16);padding:var(--space-4) 0;font-size:var(--text-md)}
 .rkb-fact-label{flex:none;width:150px;text-align:right;font-weight:600;color:var(--color-text-primary)}
 .rkb-fact-body{min-width:0;flex:1;display:flex;flex-direction:column;gap:var(--space-4)}
@@ -3900,7 +3918,11 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
    L'OFFSET reste propre à chaque site (2px, 2px, 3px, 2px) : il dépend de ce qui entoure le
    contrôle, pas de la couleur de l'anneau. Le token, lui, est global. */
 .sift-usage-seg:focus-visible{outline:2px solid var(--color-border-info);outline-offset:2px}
-.sift-usage-seg-free{flex:1 1 auto;background:var(--color-background-primary);cursor:default}
+/* Le segment libre peignait --color-background-primary : lisible DANS une carte (un cran plus
+   sombre qu'elle), invisible AU SOL — la barre de Clé USB n'était alors « arrondie que d'un
+   côté » (Antoine, 2026-09-09), le second arrondi étant porté par un segment de la couleur du
+   fond. Un alpha de trait lit sur tous les plans, carte ou sol, clair ou sombre. */
+.sift-usage-seg-free{flex:1 1 auto;background:var(--color-border-secondary);cursor:default}
 
 .sift-usage-tip{position:absolute;bottom:calc(100% + 8px);left:0;background:var(--color-text-primary);color:var(--color-background-secondary);padding:var(--space-8) var(--space-12);border-radius:var(--border-radius-sm);font-size:var(--text-md);white-space:nowrap;pointer-events:none;opacity:0;transform:translateY(3px);transition:opacity var(--duration-fast) ease,transform var(--duration-fast) ease;z-index:var(--z-popover)}
 .sift-usage-tip.on{opacity:1;transform:translateY(0)}

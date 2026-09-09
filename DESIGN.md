@@ -799,7 +799,7 @@ Aucune vue orpheline. Deux fusions proposées, chacune avec son motif.
 | **Journal** | Console | Parcours | Table des actions, groupées par session | Détail de l'entrée + annuler |
 | **Revue** | Finder + Utilitaire de disque (mode Batch) | Poste de décision | Surface de travail : lecture, verdict, identification, rangement | — (la file tient lieu de zone fixe) |
 | **Rekordbox** | Utilitaire de disque | Parcours | Liste des candidats de la section choisie | Détail du candidat |
-| **Clé USB** | Utilitaire de disque | Parcours | Liste des disques amovibles | Occupation + formatage du disque choisi |
+| **Clé USB** | Utilitaire de disque | Parcours | Le disque choisi : tête, occupation, faits, actions (colonne B′ = liste des disques, au plan de la file — 2026-09-09, #24) | — (pas d'inspecteur : le disque est la zone C) |
 | **Réglages** | Réglages Système | Parcours | Panneau du réglage choisi, borné à `--measure-form` | — (les catégories occupent la zone gauche) |
 
 ### Fusion 1 — Accueil disparaît dans le rail

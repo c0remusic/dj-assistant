@@ -119,17 +119,17 @@
 - L1424 — `styles.css` — tokens `--color-text-warning`/`-success` clair recalibrés, hover réaffirmé (07-24).
 - L1437 — Historique des corrections (chronologique, par date de session).
 - L1619 — Conventions de cohérence (sémantique couleur, hiérarchie de poids, discipline classe partagée) — à consulter AVANT tout nouveau composant (07-24).
-- L1689 — Ligne disque amovible (écran Clé USB) — trois états, rendu `usbRowHtml()` (07-31).
-- L1724 — Teintes pleines `-solid` — neuf tokens pour les surfaces de donnée (08-01), dix depuis 08-27 (`red`, pastille de verdict).
-- L1760 — Modale de formatage USB — états, trois corrections d'usage réel (08-02).
-- L1794 — Menu contextuel `.sift-ctx-menu` — états catalogués + rangée de pastilles couleur de source (08-20).
-- L1820 — Ligne de source du rail `.sift-rail-src` — teintes du cycle, `--error`, suspendue, « 0 audio » (#55), cadran de dépôt `.sift-rail-drop` (#56) ; story + module pur `rail-source-entry.ts` (08-20, 09-03).
-- L1876 — Lecteur simple de Revue — rangée d'audition : slider kit, play 28, temps unique, volume fin ; module pur + story (08-27).
-- L1927 — Pastille de verdict de file `verdictDot()` — teintes système pleines, 5 cas / 4 rendus ; module pur + story (08-27).
-- L1952 — Surfaces de Revue — trois plans : rail en retrait, file bord à bord, cadre de lecture, pied en surface (08-27).
-- L1995 — Carte de racine manquante du rail `.sift-railwarn` — remplace le bandeau `#sift-gate` supprimé ; états, survol en voile par-dessus l'ambre, rail replié ; module pur + story + vecteurs (09-02).
-- L2025 — À re-sourcer · Corbeille — ex-Écartés, deux destinations du rail, table de Rangés, inspecteur Racheter (09-08).
-- L2046 — Rekordbox — lu contre Finder › appareil et Photos › Importer : une seule synchronisation (Tout / sélection), faits à libellé aligné à droite, candidats en groupes nommés, colonne au plan de la file (09-08).
+- L1689 — Entrée disque amovible (écran Clé USB) — trois états, rendu `usbEntryHtml()` (07-31 ; entrée de colonne 09-09).
+- L1726 — Teintes pleines `-solid` — neuf tokens pour les surfaces de donnée (08-01), dix depuis 08-27 (`red`, pastille de verdict).
+- L1762 — Modale de formatage USB — états, trois corrections d'usage réel (08-02).
+- L1796 — Menu contextuel `.sift-ctx-menu` — états catalogués + rangée de pastilles couleur de source (08-20).
+- L1822 — Ligne de source du rail `.sift-rail-src` — teintes du cycle, `--error`, suspendue, « 0 audio » (#55), cadran de dépôt `.sift-rail-drop` (#56) ; story + module pur `rail-source-entry.ts` (08-20, 09-03).
+- L1878 — Lecteur simple de Revue — rangée d'audition : slider kit, play 28, temps unique, volume fin ; module pur + story (08-27).
+- L1929 — Pastille de verdict de file `verdictDot()` — teintes système pleines, 5 cas / 4 rendus ; module pur + story (08-27).
+- L1954 — Surfaces de Revue — trois plans : rail en retrait, file bord à bord, cadre de lecture, pied en surface (08-27).
+- L1997 — Carte de racine manquante du rail `.sift-railwarn` — remplace le bandeau `#sift-gate` supprimé ; états, survol en voile par-dessus l'ambre, rail replié ; module pur + story + vecteurs (09-02).
+- L2027 — À re-sourcer · Corbeille — ex-Écartés, deux destinations du rail, table de Rangés, inspecteur Racheter (09-08).
+- L2048 — Rekordbox — lu contre Finder › appareil et Photos › Importer : une seule synchronisation (Tout / sélection), faits à libellé aligné à droite, candidats en groupes nommés, colonne au plan de la file (09-08).
 
 ## Ligne de queue — `.qi` (`styles.css:1127-1214`, revérifié au grep le 2026-08-27)
 
@@ -1686,38 +1686,40 @@ présent au moment du calcul double silencieusement chaque compte (piège vécu
 
 ---
 
-## Ligne disque amovible (écran Clé USB) — trois états (2026-07-31)
+## Entrée disque amovible (écran Clé USB) — trois états (2026-07-31, entrée de colonne depuis le 2026-09-09)
 
-Story : `frontend/usb-drive-row.stories.ts`. Rendu par `usbRowHtml()`
-(`frontend/usb-row.ts`), la fonction que `renderUsbList()` appelle elle-même —
-pas une copie du markup.
+Story : `frontend/usb-drive-row.stories.ts`. Rendu par `usbEntryHtml()`
+(`frontend/usb-row.ts`), la fonction que `paint()` (`usb-view.ts`) appelle
+elle-même — pas une copie du markup. Jusqu'au 2026-09-09 c'était une LIGNE de
+carte (`usbRowHtml`) ; lu contre Utilitaire de disque (déclinaison #24, spec
+`docs/ui-specs/cle-usb.md` § Décision), un disque est une **entrée de sidebar**
+`.fld` au plan de la file — glyphe, nom, capacité à droite —, la zone C portant
+tête, occupation, faits et actions.
 
-Deux de ces trois états **ne pouvaient pas exister avant cette date** :
+Deux de ces trois états **ne pouvaient pas exister avant le 2026-07-31** :
 l'énumération partait du volume logique, donc un disque sans volume monté ne
-sortait jamais de `list_removable_drives`. Elle part maintenant du disque
-physique (`usb_format::windows`).
+sortait jamais de `list_removable_drives`. Elle part du disque physique
+(`usb_format::windows`).
 
-| État | Ce qu'affiche la ligne | Bouton |
+| État | Ce qu'affiche l'entrée | Zone C |
 |---|---|---|
-| Formatée et montée | Lettre (`E:`) · modèle · taille · système de fichiers | `Formater…` |
-| Non formatée / RAW | `Disque N` (aucune lettre à afficher) · modèle · taille · « non formaté » | `Formater…` |
-| Sans média | `Disque N` · modèle · « aucun média inséré » | **aucun** |
+| Formatée et montée | Lettre (`E:`) · capacité | tête, occupation, faits, Formater… · Éjecter · Relire |
+| Non formatée / RAW | `Disque N` (aucune lettre) · capacité | tête, « aucun volume monté », faits avec « — », Formater… |
+| Sans média | `Disque N` ou lettre · « vide » | tête seule et l'explication de la lettre fantôme |
 
 L'identifiant affiché vient de `driveDisplayName()` : `RemovableDrive.id` est
-devenu un chemin de disque physique (`\.\PHYSICALDRIVE2`), illisible sur une
-ligne.
+devenu un chemin de disque physique (`\.\PHYSICALDRIVE2`), illisible.
 
 **« Sans média » est listé exprès, pas masqué.** Un lecteur de cartes vide garde
 sa lettre dans l'explorateur Windows indéfiniment : afficher « aucun disque
 amovible détecté » pendant que l'explorateur montre un lecteur USB est une
-contradiction que l'utilisateur ne peut pas résoudre. Le vide de la liste porte
-la même explication.
+contradiction que l'utilisateur ne peut pas résoudre. L'état vide de l'écran
+porte la même explication.
 
-Modale de formatage, état ajouté le même jour : FAT32 refusé au-delà de 32 Gio
+Modale de formatage (2026-07-31) : FAT32 refusé au-delà de 32 Gio
 (`.sift-usbfmt-error`, sévérité `danger` déjà couverte par
 `error-pattern.stories.ts`). Windows ne sait pas créer de volume FAT32 plus
-grand — `diskpart` subit la limite comme l'explorateur, contrairement à ce que
-le module et le texte de l'écran affirmaient tous les deux.
+grand — `diskpart` subit la limite comme l'explorateur.
 
 ---
 

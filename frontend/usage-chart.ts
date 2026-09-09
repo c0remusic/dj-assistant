@@ -72,6 +72,9 @@ export interface UsageChartOptions {
   onEject?: () => Promise<void>;
   /** Fourni = un bouton Actualiser apparaît, à côté de l'âge de la mesure. */
   onRefresh?: () => Promise<void>;
+  /** Sans carte ni inset : le graphique posé au sol d'une zone C qui ne peint rien (Clé USB depuis
+   * le 2026-09-09). L'inspecteur de Rangés garde la carte. */
+  plain?: boolean;
 }
 
 /** Construit la carte. Rien n'est reconstruit ensuite : le dépliage ne touche qu'une classe et le
@@ -79,7 +82,7 @@ export interface UsageChartOptions {
 export function renderUsageChart(opts: UsageChartOptions): HTMLElement {
   const { report } = opts;
   const card = document.createElement("div");
-  card.className = "sift-usage-card sift-ui-card-soft";
+  card.className = opts.plain ? "sift-usage-card sift-usage-card-plain" : "sift-usage-card sift-ui-card-soft";
 
   const used = report.buckets.reduce((s, b) => s + b.bytes, 0);
   // Une bibliothèque n'est pas un volume : `free_bytes` y vaut 0 et il n'y a pas de segment libre
@@ -320,7 +323,10 @@ export function renderUsageChart(opts: UsageChartOptions): HTMLElement {
 const slug = (s: string): string => s.replace(/[^a-z0-9]/gi, "");
 
 /** Le refus du système est le cas fréquent : le message doit dire quoi fermer, pas « réessaie ». */
-function humanizeEject(raw: string): string {
+/** Le motif d'un refus d'éjection, en français et en entier (spec cle-usb.md § États :
+ * « nommer ce qui tient le volume »). Exportée pour `usb-view.ts`, qui porte ses propres boutons
+ * depuis le 2026-09-09. */
+export function humanizeEject(raw: string): string {
   if (raw.includes("EJECT_BUSY")) {
     return (
       "Windows refuse de démonter ce disque : un programme le tient encore ouvert. " +
