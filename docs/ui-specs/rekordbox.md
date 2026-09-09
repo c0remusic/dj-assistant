@@ -184,9 +184,11 @@ en erreur, ambigus, doublons de playlist, `masterdb_error`, dérive.
 
 ### Reste
 
-- **Rangée Pochettes / Fichiers** : dit le fichier, pas « Artiste — Titre » — `PendingArtworkSync`
-  et `PendingMasterdbRepair` ne portent que des chemins ; à enrichir côté Rust (miroir
-  `contracts.ts`, test de contrat).
+- **Rangée Pochettes / Fichiers** : « Artiste — Titre » depuis `metadata` (jointure par
+  `track_id`, `actions.track_id` pour les corrections de chemin), repli sur le nom du fichier sans
+  ligne `metadata` — livré le jour même (`PendingArtworkSync.artist/title`,
+  `PendingMasterdbRepair.artist/title`, miroir `contracts.ts`, tests de contrat
+  `pending_*_shape_matches_contracts_ts`).
 - **Inspecteur** (§ Zone D) : non fait — un candidat se lit sur sa rangée.
 - La § Zone C ci-dessus (table Case · Section · Piste · Écart · État) est **remplacée** par les
   groupes de rangées de Photos : à 200 candidats, la table de Rangés redeviendrait la bonne forme.

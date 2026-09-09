@@ -35,6 +35,11 @@ pub struct PendingMasterdbRepair {
     /// actions recorded before that column existed (migration v8). Used to group candidates in
     /// the UI ("select all for this session") rather than listing every row flat.
     pub session_id: Option<String>,
+    /// `metadata.artist` / `metadata.title` of the track the action moved (`actions.track_id`),
+    /// for display — same contract as `PendingArtworkSync::artist` (2026-09-08). `None` when the
+    /// action has no track or the track no metadata row; callers fall back to the path.
+    pub artist: Option<String>,
+    pub title: Option<String>,
 }
 
 /// One ambiguous-repair candidate, enriched with its current `master.db` path for display.
@@ -191,9 +196,10 @@ pub(crate) fn pending_repairs_inner(
 ) -> Result<Vec<PendingMasterdbRepair>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT r.id, r.track_id, r.candidate_track_ids, r.from_path, r.to_path, r.status, r.detected_at, a.session_id
+            "SELECT r.id, r.track_id, r.candidate_track_ids, r.from_path, r.to_path, r.status, r.detected_at, a.session_id, m.artist, m.title
              FROM rekordbox_masterdb_repairs r
              LEFT JOIN actions a ON a.id = r.action_id
+             LEFT JOIN metadata m ON m.track_id = a.track_id
              WHERE r.status IN ('pending', 'ambiguous')
              ORDER BY r.detected_at",
         )
@@ -210,6 +216,8 @@ pub(crate) fn pending_repairs_inner(
                 status: r.get(5)?,
                 detected_at: r.get(6)?,
                 session_id: r.get(7)?,
+                artist: r.get(8)?,
+                title: r.get(9)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -641,6 +649,11 @@ pub struct PendingArtworkSync {
     pub detected_at: String,
     /// Same session-grouping contract as `PendingMasterdbRepair::session_id`.
     pub session_id: Option<String>,
+    /// `metadata.artist` / `metadata.title` of the Sift track, for display — the Rekordbox screen
+    /// names a candidate « Artiste — Titre » like its metadata siblings, not by file name
+    /// (2026-09-08). `None` when the track has no metadata row yet; callers fall back to the path.
+    pub artist: Option<String>,
+    pub title: Option<String>,
 }
 
 /// Plain (testable) implementation of `rekordbox_masterdb_pending_artwork_syncs`.
@@ -649,9 +662,10 @@ pub(crate) fn rekordbox_masterdb_pending_artwork_syncs_inner(
 ) -> Result<Vec<PendingArtworkSync>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT s.id, s.track_id, t.path, s.rekordbox_track_id, s.candidate_track_ids, s.cover_path, s.status, s.detected_at, a.session_id
+            "SELECT s.id, s.track_id, t.path, s.rekordbox_track_id, s.candidate_track_ids, s.cover_path, s.status, s.detected_at, a.session_id, m.artist, m.title
              FROM rekordbox_masterdb_artwork_syncs s
              JOIN tracks t ON t.id = s.track_id
+             LEFT JOIN metadata m ON m.track_id = t.id
              LEFT JOIN actions a ON a.id = s.action_id
              WHERE s.status IN ('pending', 'ambiguous')
              ORDER BY s.detected_at",
@@ -670,6 +684,8 @@ pub(crate) fn rekordbox_masterdb_pending_artwork_syncs_inner(
                 status: r.get(6)?,
                 detected_at: r.get(7)?,
                 session_id: r.get(8)?,
+                artist: r.get(9)?,
+                title: r.get(10)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -2280,6 +2296,132 @@ mod tests {
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].status, "pending");
         assert_eq!(rows[0].cover_path, "/cache/a.jpg");
+        // Sans ligne `metadata`, pas de nom : le front retombe sur le chemin.
+        assert_eq!(rows[0].artist, None);
+        assert_eq!(rows[0].title, None);
+    }
+
+    /// La rangée « Pochettes » de l'écran Rekordbox dit « Artiste — Titre » (2026-09-08) : les deux
+    /// viennent de `metadata`, jointe par `track_id`, et manquent sans casser la ligne.
+    #[test]
+    fn pending_artwork_syncs_carry_artist_and_title_from_metadata() {
+        let conn = db();
+        conn.execute(
+            "INSERT INTO tracks(path, status) VALUES('D:/a.mp3', 'filed')",
+            [],
+        )
+        .unwrap();
+        let track_id = conn.last_insert_rowid();
+        conn.execute(
+            "INSERT INTO metadata(track_id, artist, title) VALUES(?1, 'Olsvangèr & MYKI', 'The Triss')",
+            rusqlite::params![track_id],
+        )
+        .unwrap();
+        seed_artwork_sync_row(
+            &conn,
+            track_id,
+            "pending",
+            Some("40000001"),
+            None,
+            "/cache/a.jpg",
+        );
+
+        let rows = rekordbox_masterdb_pending_artwork_syncs_inner(&conn).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].artist.as_deref(), Some("Olsvangèr & MYKI"));
+        assert_eq!(rows[0].title.as_deref(), Some("The Triss"));
+    }
+
+    /// Miroir manuel de `shared/contracts.ts` (§ Architecture, CLAUDE.md) : destructuration
+    /// exhaustive, sans `..` — un champ ajouté ici casse la compilation tant que le miroir TS n'a
+    /// pas suivi. Ne détecte pas un désaccord de type, seulement un champ manquant.
+    #[test]
+    fn pending_artwork_sync_shape_matches_contracts_ts() {
+        let v = PendingArtworkSync {
+            id: 0,
+            track_id: 0,
+            sift_path: String::new(),
+            rekordbox_track_id: None,
+            candidate_track_ids: None,
+            candidate_tracks: None,
+            cover_path: String::new(),
+            status: String::new(),
+            detected_at: String::new(),
+            session_id: None,
+            artist: None,
+            title: None,
+        };
+        let PendingArtworkSync {
+            id,
+            track_id,
+            sift_path,
+            rekordbox_track_id,
+            candidate_track_ids,
+            candidate_tracks,
+            cover_path,
+            status,
+            detected_at,
+            session_id,
+            artist,
+            title,
+        } = v;
+        let _ = (
+            id,
+            track_id,
+            sift_path,
+            rekordbox_track_id,
+            candidate_track_ids,
+            candidate_tracks,
+            cover_path,
+            status,
+            detected_at,
+            session_id,
+            artist,
+            title,
+        );
+    }
+
+    #[test]
+    fn pending_masterdb_repair_shape_matches_contracts_ts() {
+        let v = PendingMasterdbRepair {
+            id: 0,
+            track_id: None,
+            candidate_track_ids: None,
+            candidate_tracks: None,
+            from_path: String::new(),
+            to_path: String::new(),
+            status: String::new(),
+            detected_at: String::new(),
+            session_id: None,
+            artist: None,
+            title: None,
+        };
+        let PendingMasterdbRepair {
+            id,
+            track_id,
+            candidate_track_ids,
+            candidate_tracks,
+            from_path,
+            to_path,
+            status,
+            detected_at,
+            session_id,
+            artist,
+            title,
+        } = v;
+        let _ = (
+            id,
+            track_id,
+            candidate_track_ids,
+            candidate_tracks,
+            from_path,
+            to_path,
+            status,
+            detected_at,
+            session_id,
+            artist,
+            title,
+        );
     }
 
     #[test]

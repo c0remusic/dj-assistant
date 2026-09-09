@@ -109,6 +109,11 @@ const fileName = (p: string | null | undefined): string => {
   return s.split(/[\\/]/).pop() || s;
 };
 
+/** « Artiste — Titre » quand `metadata` les porte, sinon le nom du fichier — même repli que la
+ *  rangée Métadonnées, pour que les quatre groupes nomment une piste de la même façon. */
+const trackLabel = (artist: string | null, title: string | null, path: string): string =>
+  artist && title ? `${artist} — ${title}` : fileName(path);
+
 function candidateList(r: { candidate_tracks: CandidateTrack[] | null; candidate_track_ids: string | null }): CandidateTrack[] {
   return r.candidate_tracks && r.candidate_tracks.length
     ? r.candidate_tracks
@@ -208,13 +213,14 @@ function masterdbRepairsSectionHtml(rows: PendingMasterdbRepair[]): string {
   lastPendingRepairs = pending;
   if (!pending.length && !ambiguous.length) return `<div id="sift-rkb-masterdb-section"></div>`;
   const ecart = (r: PendingMasterdbRepair) => `Chemin corrigé : <span class="rkb-mono">${esc(r.to_path)}</span>`;
+  const piste = (r: PendingMasterdbRepair) => esc(trackLabel(r.artist, r.title, r.to_path));
   return (
     `<div id="sift-rkb-masterdb-section">` +
     groupHeadHtml("Fichiers", pending.length, ambiguous.length) +
     pending
-      .map((r) => candidateRowHtml("mdbpick", `data-id="${r.id}"`, mdbRepairSel.has(r.id), esc(fileName(r.to_path)), ecart(r), mdbErrorById.get(r.id)))
+      .map((r) => candidateRowHtml("mdbpick", `data-id="${r.id}"`, mdbRepairSel.has(r.id), piste(r), ecart(r), mdbErrorById.get(r.id)))
       .join("") +
-    ambiguous.map((r) => ambiguousRowHtml("mdbresolve", r.id, esc(fileName(r.to_path)), ecart(r), candidateList(r), mdbErrorById.get(r.id))).join("") +
+    ambiguous.map((r) => ambiguousRowHtml("mdbresolve", r.id, piste(r), ecart(r), candidateList(r), mdbErrorById.get(r.id))).join("") +
     `</div>`
   );
 }
@@ -255,14 +261,13 @@ function artworkSyncsSectionHtml(rows: PendingArtworkSync[]): string {
   const pending = rows.filter((r) => r.status === "pending");
   lastPendingArtworkSyncs = pending;
   if (!pending.length && !ambiguous.length) return `<div id="sift-rkb-mas-section"></div>`;
-  // Le DTO ne porte que le chemin — la rangée dit le fichier, pas « Artiste — Titre » (à enrichir
-  // côté Rust, `PendingArtworkSync`).
   const ecart = (r: PendingArtworkSync) => `Nouvelle pochette : ${esc(fileName(r.cover_path))}`;
+  const piste = (r: PendingArtworkSync) => esc(trackLabel(r.artist, r.title, r.sift_path));
   return (
     `<div id="sift-rkb-mas-section">` +
     groupHeadHtml("Pochettes", pending.length, ambiguous.length) +
-    pending.map((r) => candidateRowHtml("maspick", `data-id="${r.id}"`, masSyncSel.has(r.id), esc(fileName(r.sift_path)), ecart(r), masErrorById.get(r.id))).join("") +
-    ambiguous.map((r) => ambiguousRowHtml("masresolve", r.id, esc(fileName(r.sift_path)), ecart(r), candidateList(r), masErrorById.get(r.id))).join("") +
+    pending.map((r) => candidateRowHtml("maspick", `data-id="${r.id}"`, masSyncSel.has(r.id), piste(r), ecart(r), masErrorById.get(r.id))).join("") +
+    ambiguous.map((r) => ambiguousRowHtml("masresolve", r.id, piste(r), ecart(r), candidateList(r), masErrorById.get(r.id))).join("") +
     `</div>`
   );
 }

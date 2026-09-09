@@ -513,6 +513,10 @@ export interface PendingMasterdbRepair {
   to_path: string;
   status: "pending" | "ambiguous";
   detected_at: string;
+  /** `metadata.artist` / `.title` of the moved track — display only, null without a metadata row
+   *  (2026-09-08, pinned by `pending_masterdb_repair_shape_matches_contracts_ts`). */
+  artist: string | null;
+  title: string | null;
   /** The Sift app session that produced this candidate — null for pre-migration rows. */
   session_id: string | null;
 }
@@ -561,6 +565,10 @@ export interface PendingArtworkSync {
   cover_path: string;
   status: "pending" | "ambiguous";
   detected_at: string;
+  /** `metadata.artist` / `.title` of the track — display only, null without a metadata row
+   *  (2026-09-08, pinned by `pending_artwork_sync_shape_matches_contracts_ts`). */
+  artist: string | null;
+  title: string | null;
   /** The Sift app session that produced this candidate — null for pre-migration rows. */
   session_id: string | null;
 }
