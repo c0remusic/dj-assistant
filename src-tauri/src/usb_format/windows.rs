@@ -556,10 +556,24 @@ impl WindowsBackend {
         };
 
         super::privileged::write_step("Écriture du système de fichiers FAT32…");
+        // L'étape dit combien est parti, pas seulement qu'on écrit : sur ce SSD de 500 Go le
+        // zéro-remplissage des FAT (~122 Mo) a laissé l'étape figée plusieurs minutes le
+        // 2026-09-09 — « l'impression que l'écran est bloqué ». Un mot tous les 16 Mio, pas plus :
+        // `write_step` recrée le fichier d'étape à chaque appel.
+        let mut last_reported: u64 = 0;
         let aligned = super::sector_io::SectorIo::new(
             volume.as_file_mut(),
             u64::from(super::fat32::BYTES_PER_SECTOR),
-        );
+        )
+        .with_progress(Box::new(move |written| {
+            if written - last_reported >= 16 << 20 {
+                last_reported = written;
+                super::privileged::write_step(&format!(
+                    "Écriture du système de fichiers FAT32… {} Mo écrits",
+                    written / 1_000_000
+                ));
+            }
+        }));
         Some(
             super::fat32::write_fat32(aligned, volume_bytes, label)
                 .map_err(|e| UsbFormatError::Format(e.to_string())),

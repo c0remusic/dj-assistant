@@ -94,7 +94,7 @@ disponible, point de montage, état S.M.A.R.T. ») et ce que l'écran en fait :
 | **Disque non formaté** | Entrée « Disque N » ; zone C : tête, « Aucun volume monté — rien à parcourir », faits avec « — », Formater… seul |
 | **Lecteur sans média** | Entrée « vide » ; zone C : tête seule et la phrase qui explique la lettre fantôme de l'explorateur |
 | **Formatage — confirmation** | Sheet attachée. Nom du volume à retaper, confirmation **armée et horodatée**. Jamais `window.confirm()` |
-| **Formatage en cours** | Sheet bloquante mais **annulable**, barre déterminée, étape en texte |
+| **Formatage en cours** | Sheet bloquante mais **annulable**, barre déterminée, étape en texte. Depuis le 2026-09-09 l'étape d'écriture du FAT32 dit les Mo écrits (tous les 16 Mio) — l'écriture elle-même passe de plusieurs minutes à quelques secondes sur 500 Go (`sector_io.rs`, fenêtre de 1 Mio au lieu d'un secteur). **Non tenu encore** : ni barre déterminée, ni annulation — `formatDrive` n'a pas de chemin d'annulation |
 | **Formatage — rapport** | Résumé : système de fichiers produit, capacité utile, sortie claire |
 | **Élévation refusée** | Message explicite : ce qui a été refusé et ce que l'utilisateur peut faire. Sentinelle `ELEVATION_DECLINED` |
 | **Disque disparu en cours d'opération** | Sentinelle `DRIVE_VANISHED` — l'opération s'arrête, l'état est dit, rien n'est supposé |

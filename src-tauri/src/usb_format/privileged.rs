@@ -168,7 +168,19 @@ pub fn run(job: &PrivilegedJob) -> i32 {
             // A travers l'adaptateur d'alignement : un handle de volume refuse les E/S qui ne
             // tombent pas sur des multiples entiers de secteur, et `fatfs` écrit comme dans un
             // fichier. C'est ce qui a fait échouer le premier formatage réel.
-            let aligned = SectorIo::new(volume.as_file_mut(), u64::from(fat32::BYTES_PER_SECTOR));
+            // Même mot de progression que le chemin sans élévation (`windows.rs`) : tous les
+            // 16 Mio, ce processus est le seul à pouvoir dire au parent que ça avance.
+            let mut last_reported: u64 = 0;
+            let aligned = SectorIo::new(volume.as_file_mut(), u64::from(fat32::BYTES_PER_SECTOR))
+                .with_progress(Box::new(move |written| {
+                    if written - last_reported >= 16 << 20 {
+                        last_reported = written;
+                        write_step(&format!(
+                            "Écriture du système de fichiers FAT32… {} Mo écrits",
+                            written / 1_000_000
+                        ));
+                    }
+                }));
             fat32::write_fat32(aligned, total_bytes, &job.label)
         }
         // exFAT passe par diskpart, qui le sait faire sans plafond — ce mode ne devrait pas être
