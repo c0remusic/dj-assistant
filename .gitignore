@@ -99,6 +99,7 @@ docs/*
 !docs/manuel.pdf
 !docs/developpement.md
 !docs/screenshots/
+!docs/variantes/
 !docs/design-system-states.md
 !docs/ressources-externes.md
 !docs/cdj-metadata-formats.md
