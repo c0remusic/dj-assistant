@@ -18,9 +18,11 @@ const rawArgs = process.argv.slice(2);
 let port = 9222;
 let reload = false;
 const args = [];
+let anyTitle = false;
 for (let i = 0; i < rawArgs.length; i++) {
   if (rawArgs[i] === "--port") port = Number(rawArgs[++i]);
   else if (rawArgs[i] === "--reload") reload = true;
+  else if (rawArgs[i] === "--any-title") anyTitle = true;
   else args.push(rawArgs[i]);
 }
 const [cmd, ...cmdArgs] = args;
@@ -30,6 +32,16 @@ async function pageWsUrl() {
   const targets = await res.json();
   const page = targets.find((t) => t.type === "page");
   if (!page) throw new Error("no page target found — is tauri dev running with the CDP port open?");
+  // GARDE D'IDENTITÉ (2026-09-09). Un port de débogage se fait reprendre par un autre projet Tauri
+  // dès que Sift redémarre (édition .rs → restart → l'app ne revient pas → Tuple ou shaderlab
+  // prend le port). Ce soir-là, huit mesures « Sift » ont mesuré shaderlab avant que quelqu'un
+  // lise un titre. Le titre se vérifie ICI, à chaque appel — pas une fois en début de session.
+  if (!anyTitle && !/Sift/i.test(page.title || "")) {
+    throw new Error(
+      `target on port ${port} is NOT Sift: "${page.title}" (${page.url}) — another project holds ` +
+        `this port; re-check after every .rs edit. Pass --any-title to talk to it anyway.`,
+    );
+  }
   return page.webSocketDebuggerUrl;
 }
 

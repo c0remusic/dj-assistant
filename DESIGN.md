@@ -541,9 +541,9 @@ Sans lui, la migration des 37 sites est impossible sans écraser une intention.
 - **`--toolbar-h`** — la toolbar n'existe pas encore. Le dépôt supprime tout token sans
   consommateur (`--h-32`, `--h-44`, `--h-36`). Il se déclarera en phase 3, avec sa
   première utilisation.
-- **`--measure-form:560px`** — le littéral existe (`.sift-settings-stack`,
-  `styles.css:1650`) et `styles.css:157` note que cette mesure de l'issue #9 n'est pas
-  encore déclarée. Elle attend la décision de shell : voir § 11.
+- ~~**`--measure-form:560px`** — le littéral existe (`.sift-settings-stack`) et cette mesure
+  de l'issue #9 n'est pas encore déclarée.~~ **Déclarée le 2026-09-09** : premier consommateur
+  `.sift-settings-panel` (Réglages, déclinaison #24) ; `.sift-settings-stack` a disparu.
 
 ---
 
@@ -600,6 +600,11 @@ Clé USB (fenêtre 1200 px, moins le rail 152 et le padding 2×24 : 1000 px util
 **La correction n'est pas d'élargir la colonne.** Réglages Système de macOS emploie
 justement un panneau étroit — mais à côté d'une **sidebar de catégories**. Ce qui manque
 n'est pas de la largeur, c'est la seconde colonne. Décision de phase 3.
+
+**Soldé le 2026-09-09** (déclinaison #24) : Clé USB est lu contre Utilitaire de disque
+(colonne des disques + zone principale bornée à `--measure-data`), Réglages contre Réglages
+Système (colonne des catégories + panneau borné à `--measure-form`, token déclaré ce jour).
+`.sift-settings-stack` n'existe plus.
 
 ### O‑4 · Le signal orange→vert décrit par le brief n'existe pas
 

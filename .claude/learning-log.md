@@ -516,3 +516,28 @@ calcul (géométrie déclarée : positions absolues, largeurs, offsets) ou par
 `read_page`, jamais en comptant sur une capture. Pour une vraie preuve pixel
 sur l'app Sift, le chemin reste la fenêtre WebView2 par CDP
 (`cdp.cjs screenshot`), qui composite toujours, pane ou pas.
+
+## 2026-09-09 — trois ratés d'outillage, une récidive
+
+**`git checkout` dans une ligne de mutation — récidive.** Mémoire
+`never-git-checkout-to-undo-a-test-edit` chargée, et pourtant : une seule ligne Bash
+enchaînait `sed` (mutation) → `cargo test` → `git checkout -- worker.rs 2>/dev/null` →
+`sed` (restauration). Le `2>/dev/null` et un `echo` rassurant écrit d'avance ont masqué que
+le checkout avait tourné : ~200 lignes d'éditions non commitées effacées, réapprises du
+contexte. La règle ne tient pas seule quand la ligne contient déjà le mot ; le cran
+suivant est un hook `PreToolUse` qui refuse `git checkout --` / `git restore` sur arbre
+sale (proposé, non posé).
+
+**Port CDP squatté après un redémarrage.** Les éditions `.rs` font redémarrer le `tauri
+dev` d'Antoine ; l'app n'est pas revenue et 9333 a été repris par Tuple (9222 par
+shaderlab). Huit mesures « Sift » ont mesuré shaderlab (polices Space Grotesk / Syne,
+classes `cell`, `ddc-d`) avant que je le voie. Symptôme précoce : un `eval` qui rend `{}`.
+Gate : `cdp.cjs` refuse désormais une cible dont le titre n'est pas Sift (voir commit).
+
+**`tauri dev` ignore `CARGO_TARGET_DIR`** et lie dans `src-tauri/target` — corrompu ce
+soir (LNK2019 `anon.*.llvm.*`, même après `cargo clean -p sift`), alors que `cargo build
+--no-default-features` sur le target isolé passait en 37 s. Contournement : lancer le
+binaire dev isolé directement (`Start-Process …\debug\sift.exe`, cwd `src-tauri`, env
+`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`) — il se branche sur n'importe quel Vite 5173 qui
+sert l'arbre. `driver.mjs launch` pendait 25 min : `buildAlive()` voyait le `cargo.exe` de
+shaderlab. Mémoire : `tauri-dev-ignores-cargo-target-dir-and-port-squat-after-restart`.

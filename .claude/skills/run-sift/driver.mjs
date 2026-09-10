@@ -91,13 +91,23 @@ async function findFreePort() {
 /** Is anything still compiling or running the app? Used as the liveness signal because the
  *  dev-server log is empty on Windows (see cmdLaunch). */
 function buildAlive() {
-  const r =
-    process.platform === "win32"
-      ? spawnSync("tasklist", [], { encoding: "utf8" })
-      : spawnSync("sh", ["-c", "ps ax"], { encoding: "utf8" });
   // Deliberately NOT matching node.exe: this machine always has node processes from other
   // projects, so including it would make the check always-true and therefore useless.
-  return /cargo|rustc|sift/i.test(r.stdout || "");
+  //
+  // 2026-09-09 : ne compter que les processus dont la LIGNE DE COMMANDE nomme ce dépôt. Un
+  // `tasklist` nu voyait le `cargo.exe` de shaderlab et `launch` a attendu 25 minutes une fenêtre
+  // qu'aucun build de Sift ne préparait. Sur Windows, seule WMI donne la ligne de commande.
+  if (process.platform === "win32") {
+    const repoRe = REPO.replace(/[\\/]/g, "[\\\\\\\\/]").replace(/[.+?^${}()|[\]]/g, "\\$&");
+    const ps =
+      `Get-CimInstance Win32_Process | Where-Object { $_.Name -match '^(cargo|rustc|sift)' ` +
+      `-and $_.CommandLine -match '${repoRe}' } | Measure-Object | Select-Object -ExpandProperty Count`;
+    const r = spawnSync("powershell", ["-NoProfile", "-NonInteractive", "-Command", ps], { encoding: "utf8" });
+    return Number((r.stdout || "0").trim()) > 0;
+  }
+  const r = spawnSync("sh", ["-c", "ps ax"], { encoding: "utf8" });
+  const lines = (r.stdout || "").split("\n").filter((l) => /cargo|rustc|sift/i.test(l));
+  return lines.some((l) => l.includes(REPO));
 }
 
 function readState() {
