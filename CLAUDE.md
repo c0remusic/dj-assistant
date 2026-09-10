@@ -18,7 +18,8 @@ analyse (détection de faux lossless au spectrogramme), dédoublonnage, identifi
 Discogs, rangement, export Rekordbox (XML + écriture directe `master.db`), formatage
 clé USB. Principe : « déplacer = encoder + ranger ».
 
-État des jalons (M0→M8, tous livrés) : `README.md`.
+État des jalons (M0→M8, tous livrés) et pile : `docs/developpement.md` ; historique par
+version : `CHANGELOG.md`. Le `README.md` s'adresse à l'utilisateur final, pas au contributeur.
 Glossaire de domaine : `CONTEXT.md` — le lire avant tout travail qui manipule le
 vocabulaire métier.
 
