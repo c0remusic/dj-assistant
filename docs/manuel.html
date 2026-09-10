@@ -133,7 +133,9 @@ td:first-child{white-space:nowrap}
   .main{padding:24px 20px 40px}
   .screens{grid-template-columns:1fr}
 }
-@media (prefers-reduced-motion: no-preference){ html{scroll-behavior:smooth} }
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} }
+.rail a{transition:background-color .15s ease,color .15s ease}
 /* Impression / PDF : la même fenêtre que l'écran, page après page. La barre et le rail sont
    `position:fixed` — Chromium les répète sur chaque page imprimée —, le contenu coule dans la
    colonne de droite. Fonds et thème conservés (`print-color-adjust:exact`). */
@@ -172,7 +174,7 @@ td:first-child{white-space:nowrap}
   </div>
   <div class="frame">
     <div class="railcol"><nav class="rail" aria-label="Sommaire">
-      <a href="#debut" class="on">Ce que fait Sift</a>
+      <a href="#debut">Ce que fait Sift</a>
       <a href="#installer">Installer</a>
       <a href="#mots">Trois mots</a>
       <a href="#rail">Le rail</a>
@@ -350,3 +352,52 @@ td:first-child{white-space:nowrap}
     </main>
   </div>
 </div>
+
+<script>
+// Le rail suit la lecture (scroll-spy) et le clic défile en douceur — même grammaire que le rail
+// de l'app : un seul lien « on », celui de la section sous le haut de la fenêtre.
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll(".rail a[href^='#']"));
+  var targets = links.map(function (a) { return document.getElementById(a.getAttribute("href").slice(1)); });
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var OFFSET = 72; // la section « courante » est celle dont le titre est passé sous cette ligne
+  var current = null;
+  function setOn(i) {
+    if (i === current) return;
+    current = i;
+    links.forEach(function (a, j) { a.classList.toggle("on", j === i); });
+    var a = links[i];
+    if (a && a.scrollIntoView) a.scrollIntoView({ block: "nearest" });
+  }
+  function spy() {
+    var best = 0;
+    var bottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
+    if (bottom) { best = targets.length - 1; }
+    else {
+      for (var i = 0; i < targets.length; i++) {
+        var t = targets[i];
+        if (t && t.getBoundingClientRect().top <= OFFSET) best = i;
+      }
+    }
+    setOn(best);
+  }
+  var ticking = false;
+  window.addEventListener("scroll", function () {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(function () { ticking = false; spy(); });
+  }, { passive: true });
+  window.addEventListener("resize", spy);
+  links.forEach(function (a, i) {
+    a.addEventListener("click", function (e) {
+      var t = targets[i];
+      if (!t) return;
+      e.preventDefault();
+      t.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+      history.replaceState(null, "", a.getAttribute("href"));
+      setOn(i);
+    });
+  });
+  spy();
+})();
+</script>
