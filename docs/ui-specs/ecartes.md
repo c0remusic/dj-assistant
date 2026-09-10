@@ -38,7 +38,7 @@ Au sol (`.sift-library-main`, fond de `.pa`, inset `--space-16`), **aucune carte
 
 | # | Colonne | Rendu |
 |---|---|---|
-| 1 | **Raison** | pastille 6 px + libellé, une seule forme (DESIGN § 16) : **FAKE** (danger, verdict `fake`), **TRONQUÉ** (warning, `truncated`), **À VÉRIFIER** (warning, verdict `grey`), **—** (neutre, sans verdict). Non triable : catégorielle, quatre valeurs |
+| 1 | **Raison** | pastille 6 px + libellé, une seule forme (DESIGN § 16) : **FAUX** (danger, verdict `fake` — `FAKE` jusqu'au 2026-09-10, le même mot que Revue), **TRONQUÉ** (warning, `truncated`), **À VÉRIFIER** (warning, verdict `grey`), **—** (neutre, sans verdict). Non triable : catégorielle, quatre valeurs |
 | 2 | Artiste | triable, tri par défaut ascendant |
 | 3 | Titre | triable |
 | 4 | Fichier | `--font-mono`, `--text-sm`, tronqué ; triable |

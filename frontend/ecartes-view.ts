@@ -74,7 +74,8 @@ function reasonView(it: EcarteItem): ReasonView {
   if (it.truncated)
     return { cls: "sift-lib-v-check", label: "TRONQUÉ", sentence: "Fin de fichier tronquée : le fichier est incomplet." };
   if (it.verdict === "fake")
-    return { cls: "sift-lib-v-fake", label: "FAKE", sentence: "Déclaré lossless, mesuré compressé — un faux lossless, écarté depuis Revue." };
+    // FAUX depuis le 2026-09-10, le même mot que Revue (`report-view.ts::verdictWordTone`).
+    return { cls: "sift-lib-v-fake", label: "FAUX", sentence: "Déclaré lossless, mesuré compressé — un faux lossless, écarté depuis Revue." };
   if (it.verdict === "grey")
     return { cls: "sift-lib-v-check", label: "À VÉRIFIER", sentence: "Douteux à l'analyse — à vérifier avant de le garder." };
   return {

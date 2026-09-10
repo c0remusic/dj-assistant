@@ -395,8 +395,9 @@ Ordre vertical, et il est le parcours de décision :
    verdict).
    **Conservée le 2026-08-25** contre le *fix 6* du wireframe, qui voulait une taille fixe —
    décision d'Antoine. Le **verdict** est une **pastille
-   discrète en haut à droite**, au niveau du titre : **point coloré + mot** (`LOSSLESS`,
-   `FAKE`, `À VÉRIFIER`, `—`), **sans capsule**, ~10 px / 500. La couleur (teinte de la
+   discrète en haut à droite**, au niveau du titre : **point coloré + mot** (`VRAI`,
+   `FAUX`, `À VÉRIFIER`, `—` — `LOSSLESS` / `AUTHENTIQUE` / `FAKE` jusqu'au 2026-09-10, décision
+   d'Antoine : le mot dit la réponse, pas le rail), **sans capsule**, ~10 px / 500. La couleur (teinte de la
    table, `.sift-lib-v-*`) double le libellé (§ 16, daltonisme). **Dit une seule fois**,
    ici — jamais répété plus bas. Discret par choix : Apple Music tient « Lossless » en
    indicateur neutre parce qu'il n'a qu'un état ; Sift garde la couleur (verdict

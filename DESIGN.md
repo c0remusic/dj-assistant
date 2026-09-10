@@ -628,8 +628,9 @@ une décision produit à prendre explicitement, pas un existant à préserver.
 
 Volontairement en anglais dans l'interface, ne pas « corriger » :
 
-`LOSSLESS` · `DUPLICATE` · `MATCH` · `CHECK MATCH` · `FAKE` · `kbps` · `kHz` · `MP3` ·
-`AIFF` · `WAV`
+`LOSSLESS` (le rail, jamais le mot de verdict depuis le 2026-09-10) · `DUPLICATE` · `MATCH` ·
+`CHECK MATCH` · `kbps` · `kHz` · `MP3` · `AIFF` · `WAV` — `FAKE` en est sorti le 2026-09-10 :
+le verdict dit `FAUX`.
 
 Ce n'est pas du jargon d'implémentation : c'est le vocabulaire professionnel de la
 cible. Traduire dégraderait la reconnaissance.
@@ -984,11 +985,17 @@ texte**, dans la colonne 1, identique dans les cinq tables.
 
 | Verdict | Teinte | Libellé |
 |---|---|---|
-| Lossless authentique | `success` | `LOSSLESS` |
-| Authentique, rail lossy | `success` | `AUTHENTIQUE` |
-| Faux lossless | `danger` | `FAKE` |
+| Authentique (tout rail) | `success` | `VRAI` |
+| Faux lossless | `danger` | `FAUX` |
 | Douteux | `warning` | `À VÉRIFIER` |
 | Non analysé | neutre | `—` |
+
+**Recalé le 2026-09-10** (Antoine : « le verdict annonce "vrai" ou "faux", pas "lossless" »).
+Jusque-là : `LOSSLESS` (authentique, rail lossless), `AUTHENTIQUE` (authentique, rail lossy),
+`FAKE`. Le verdict répond à une seule question — le fichier est-il ce qu'il prétend être — et
+son mot dit la réponse, pas le rail ; le rail reste dit à côté, par la ligne de format. `FAKE`
+quitte l'allowlist de jargon ci-dessous ; `LOSSLESS` y reste pour le rail, les facettes et les
+chips, plus pour le mot de verdict.
 
 ⚠️ **Révisé le 2026-08-19 contre les littéraux réels du backend** (`worker.rs::verdict_str` :
 `ok` / `fake` / `grey`, plus NULL). Deux corrections mesurées, pas des choix : **`DUPLICATE` n'est

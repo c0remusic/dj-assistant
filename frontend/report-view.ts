@@ -609,12 +609,15 @@ export function zoneToggleHtml(opts: {
  *  cannot drift apart. `declared_rail` is the rail directly here (AnalysisReport carries it;
  *  LibraryTrack instead derives it from the written format). */
 function verdictWordTone(r: AnalysisReport): { word: string; cls: string } {
-  if (r.verdict === "fake") return { word: "FAKE", cls: "sift-lib-v-fake" };
+  // VRAI / FAUX depuis le 2026-09-10 (Antoine : « le verdict annonce "vrai" ou "faux", pas
+  // "lossless" »). Le verdict répond à UNE question — le fichier est-il ce qu'il prétend être — et
+  // son mot dit la réponse, pas le rail : LOSSLESS nommait le format, AUTHENTIQUE variait selon le
+  // rail pour le même fait. Le rail reste dit à côté, par la ligne de format (`formatSummary`).
+  // L'entrée « LOSSLESS » de l'allowlist de jargon (CLAUDE.md § Front) ne couvre plus ce mot.
+  if (r.verdict === "fake") return { word: "FAUX", cls: "sift-lib-v-fake" };
   if (r.verdict === "grey") return { word: "À VÉRIFIER", cls: "sift-lib-v-check" };
   if (r.verdict !== "ok") return { word: "—", cls: "sift-lib-v-none" };
-  return r.declared_rail === "lossless"
-    ? { word: "LOSSLESS", cls: "sift-lib-v-ok" }
-    : { word: "AUTHENTIQUE", cls: "sift-lib-v-ok" };
+  return { word: "VRAI", cls: "sift-lib-v-ok" };
 }
 
 /** Résumé de format pour la ligne d'état du verdict : format déclaré + la mesure la plus parlante —
