@@ -16,7 +16,13 @@
 // une couche globale qui prendrait une lettre nue les écraserait sur tous les écrans.
 import { goTo, type ViewId } from "./router";
 import { focusBarSearch } from "./toolbar";
-import { focusQueueSearch, closeQueueFacet } from "./queue-panel";
+import {
+  focusQueueSearch,
+  closeQueueFacet,
+  reviewMode,
+  selectAllQueueBatch,
+  clearQueueBatchSelection,
+} from "./queue-panel";
 import { toggleRail } from "./chrome";
 import {
   selectAllVisible,
@@ -141,6 +147,14 @@ export function installWindowShortcuts(): void {
         return;
       case "a":
       case "A": {
+        // Mode Lot de Revue (issue #60, 2026-09-10) : Ctrl+A = tout, Ctrl+Maj+A = aucune — les
+        // deux entrées du menu Édition de Photos et Mail, que Sift n'a pas (#58).
+        if (reviewMode === "batch" && document.getElementById("sift-qselmenu")) {
+          e.preventDefault();
+          if (e.shiftKey) clearQueueBatchSelection();
+          else selectAllQueueBatch();
+          return;
+        }
         // ⌘/Ctrl+A n'agit QUE sur une table présente à l'écran. Ailleurs on laisse passer : la
         // sélection de texte du navigateur reste le comportement attendu partout ailleurs.
         if (!document.querySelector('.lr[data-bib="row"]')) return;

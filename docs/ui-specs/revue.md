@@ -132,7 +132,7 @@ d'Antoine), portées le jour même :
 | **Volume** | capsule SVG kit 112×24 (inlinée le 25) | **slider fin 90 px assorti au lecteur** (patron Music, maquette « Volume (lecteur) ») : haut-parleur cliquable (mute, bascule ti-volume/ti-volume-off), remplissage et pouce BLANCS (`--color-accent-ink` — un volume ne porte pas l'accent), pouce 14. « Couleur, taille et style vraiment goofy » dans la rangée fine — renverse la copie capsule du 25 |
 | **Piste des sliders** | `--color-track` | **`--overlay-bar`** — color-track vaut le fond de fenêtre en sombre (token du segmenté) : piste invisible, « on ne voit pas la longueur de la barre ». overlay-bar est l'overlay themed des barres de lecture, qui venait de perdre la waveform |
 | **Bandeau de lecture** | sections nues | **BOÎTE pleine largeur** (fond queue, rayon md, padding 16) — verdict X filets / Y cadre : Y, sourcé HIG § Boxes. Filet interne en-tête\|lecteur (12/12), filet de section avant la fiche (16\|filet\|16, border-top de `.sift-meta-header`). Exception à « une surface de contenu ne peint rien », consignée dans patterns.md. Pleine largeur : le `max-width:--measure-data` datait du bloc sans boîte |
-| **Pied de Détail** | à plat + filet (wireframe v2, 2026-08-21) | **surface pleine largeur** (fond queue, sans filet ni marges latérales) — une zone de boutons se distingue par surface ou espace, jamais par un trait (Big Sur). Le rail de Lot garde sa carte |
+| **Pied de Détail** | à plat + filet (wireframe v2, 2026-08-21) | **surface pleine largeur** (fond queue, sans filet ni marges latérales) — une zone de boutons se distingue par surface ou espace, jamais par un trait (Big Sur). ~~Le rail de Lot garde sa carte~~ — **renversé le 2026-09-10** (Antoine : « collé et rectangle ») : le rail de Lot perd rayon et bordures latérale/basse, garde le fond queue et le filet du haut (`#filfoot.sift-action-rail`) |
 
 L'état « analyse en cours » (squelette) ne prend PAS la boîte : sans lecteur, le bandeau
 n'existe pas encore — le squelette couvre l'emplacement, gap 32 simple.
@@ -535,6 +535,18 @@ actions **« Écarter la sélection »** (secondaire) et **« Ranger la sélecti
 dominante). Le **clic droit** sur la sélection porte les mêmes actions (Ranger · Écarter ·
 Changer la destination). Combiné au **filtre** (Zone B′), il isole une catégorie pour la
 cocher vite (« Faux » + tout cocher = agir sur une catégorie).
+
+**Sélection d'un geste — livré le 2026-09-10 (issue #60, demande d'Antoine : « tout
+désélectionner, et sélectionner uniquement toutes les tracks d'une catégorie »).** Armer le Lot
+coche tout ce qui a un verdict ; il manquait le retour et la catégorie. Un pulldown
+**« Sélection ⌄ »** en tête de file (mode Lot seulement, gabarit du pulldown de filtre, kit
+§ 02-08, posé avant « Terminé ») ouvre un menu : **Tout (N)** · **Aucune** · puis **« Seulement
+Lossless (n) » · « Seulement MP3 » · « Seulement Faux » · « Seulement Doublons »** — la sélection
+devient exactement cette catégorie, filtre posé ou non (« Non analysés » n'y est pas : une piste
+sans verdict n'entre pas dans un lot ; une catégorie vide est désactivée, jamais masquée).
+Clavier : `Ctrl+A` = tout, `Ctrl+Maj+A` = aucune (Édition › Tout sélectionner / Tout
+désélectionner de Photos et Mail — Sift n'a pas de barre de menus, #58). Le compte de la barre,
+les cases et le résumé de zone C se repeignent dans le même geste.
 
 Le rangement d'un lot affiche la **progression** en **sheet non-modale** attachée à la fenêtre
 (carte glissant du haut, ombre douce, kit § 06-01), **forme mince** (feuille de copie Finder :

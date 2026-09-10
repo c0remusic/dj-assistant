@@ -590,6 +590,61 @@ function initQueueBatchSel(items: QueueItem[]): void {
   }
 }
 
+/** Pistes qu'une sélection de lot peut contenir : celles qui ont un verdict — le même prédicat
+ *  qu'`initQueueBatchSel`, une piste sans verdict ne se range pas. */
+function batchEligible(): QueueItem[] {
+  return currentItems.filter((it) => it.verdict !== null);
+}
+
+/** Remplace la sélection de lot par `ids`, puis repeint ce qui la montre : les cases de la file,
+ *  le compte de la barre (`renderQueueWindow`) et le résumé de la zone C (`renderBatch`, par import
+ *  dynamique : `batch-panel` importe ce module, jamais l'inverse en statique). */
+function setQueueBatchSelection(ids: Iterable<number>): void {
+  queueBatchSel.clear();
+  for (const id of ids) queueBatchSel.add(id);
+  const ql = document.getElementById("ql");
+  if (ql) renderQueueWindow(ql);
+  if (reviewMode === "batch") void import("./batch-panel").then((m) => m.renderBatch());
+}
+
+/** Tout sélectionner (mode Lot) — Finder : Édition › Tout sélectionner, `Ctrl+A`. Exportée pour
+ *  `shortcuts.ts`. Sans effet hors mode Lot. */
+export function selectAllQueueBatch(): void {
+  if (reviewMode !== "batch") return;
+  setQueueBatchSelection(batchEligible().map((it) => it.id));
+}
+
+/** Tout désélectionner (mode Lot) — Photos / Mail : Édition › Tout désélectionner, `Ctrl+Maj+A`.
+ *  Exportée pour `shortcuts.ts`. Sans effet hors mode Lot. */
+export function clearQueueBatchSelection(): void {
+  if (reviewMode !== "batch") return;
+  setQueueBatchSelection([]);
+}
+
+/** Le menu du pulldown « Sélection » (issue #60, 2026-09-10) : « Tout », « Aucune », puis
+ *  « Seulement <catégorie> » par facette de la file — la sélection devient EXACTEMENT cette
+ *  catégorie, filtre ou pas. Sift n'a pas de barre de menus (#58) : ce que macOS met dans Édition
+ *  vit ici, dans un pulldown du kit (§ 02-08), à côté de « Terminé ». « Non analysés » n'y est pas :
+ *  une piste sans verdict n'entre pas dans un lot. */
+function openQueueSelectionMenu(anchor: HTMLElement): void {
+  const eligible = batchEligible();
+  const r = anchor.getBoundingClientRect();
+  void import("./context-menu").then(({ openContextMenu }) => {
+    const perFacet = QUEUE_FACETS.filter((f) => f.id !== "unanalyzed").map((f) => {
+      const ids = eligible.filter(f.match).map((it) => it.id);
+      return {
+        label: `Seulement ${f.label} (${ids.length.toLocaleString("fr-FR")})`,
+        onPick: ids.length ? () => setQueueBatchSelection(ids) : undefined,
+      };
+    });
+    openContextMenu(r.left, r.bottom + 4, [
+      { label: `Tout (${eligible.length.toLocaleString("fr-FR")})`, onPick: selectAllQueueBatch },
+      { label: "Aucune", onPick: queueBatchSel.size ? clearQueueBatchSelection : undefined },
+      ...perFacet.map((m, i) => (i === 0 ? { ...m, separated: true } : m)),
+    ]);
+  });
+}
+
 // Verdict = sens seul, et la teinte vient de la table verdict de `DESIGN.md` § 16 — la même que la
 // colonne Verdict de la Bibliothèque (`library-views.ts`), pour que le même fait n'ait pas deux
 // couleurs selon l'écran où on le lit.
@@ -936,6 +991,26 @@ function syncQueueSelectButton(): void {
   btn.dataset.m = armed ? "detail" : "batch";
   btn.setAttribute("aria-pressed", armed ? "true" : "false");
   btn.title = armed ? "Quitter le mode Lot" : "Sélectionner plusieurs pistes";
+
+  // Pulldown « Sélection » (issue #60) : créé une fois, montré en mode Lot seulement, posé juste
+  // avant « Terminé ». Même gabarit de kit que le pulldown de filtre à gauche.
+  let menu = document.getElementById("sift-qselmenu") as HTMLButtonElement | null;
+  if (!menu) {
+    menu = document.createElement("button");
+    menu.id = "sift-qselmenu";
+    menu.className = "sift-qfacet-btn sift-qselmenu-btn";
+    menu.type = "button";
+    menu.setAttribute("aria-haspopup", "menu");
+    menu.title = "Tout, aucune, ou seulement une catégorie";
+    menu.innerHTML =
+      '<span class="sift-qfacet-label">Sélection</span><i class="ti ti-chevron-down" aria-hidden="true"></i>';
+    menu.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openQueueSelectionMenu(menu as HTMLElement);
+    });
+    head.insertBefore(menu, btn);
+  }
+  menu.hidden = !armed;
 }
 
 /** Confirmation threshold for the bulk retry — a few stuck tracks retry on one click, but a mass

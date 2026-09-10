@@ -1490,6 +1490,17 @@ body[data-view="revue"] .sift-pz-row.sift-pz-analyze{display:none}
    (CLAUDE.md § Front). Même correctif que `.sift-dest-popover[hidden]` plus bas. Le mode Lot
    redémasque son rail lui-même (`renderBatchRail`, batch-panel.ts). */
 .sift-action-rail[hidden]{display:none}
+/* Le rail de LOT est COLLÉ au bas du panneau et RECTANGLE depuis le 2026-09-10 (Antoine : « le bas
+   de la fenêtre de conversion est arrondi alors qu'il devrait être collé et rectangle »). Il
+   touchait déjà les trois bords (mesuré : 552 → 2011 px, bas 950 = bas de fenêtre) ; seuls le rayon
+   lg et la bordure sur quatre côtés en faisaient une carte flottante posée sur le bord. Ce qui
+   reste : le fond queue et le filet du HAUT, qui le sépare du résumé. Renverse « le rail de Lot
+   garde sa carte » (revue.md § Après-midi 2026-08-27, ligne Pied de Détail), daté là-bas aussi. */
+#filfoot.sift-action-rail{border-radius:0;border-left:0;border-right:0;border-bottom:0}
+/* Pulldown « Sélection » de la tête de file, mode Lot seulement (2026-09-10, #60) : même gabarit
+   que le pulldown de filtre (kit § 02-08), poussé contre « Terminé » par margin-left:auto. */
+.sift-qselmenu-btn{margin-left:auto}
+.sift-qselmenu-btn[hidden]{display:none}
 /* POP-UP BUTTON, forme du kit (§ 02-Buttons / 09-Pop Up Buttons) : un aplat gris SANS bordure.
    Ni fond ni bordure ne sont plus écrits ici — un pop-up button EST un bouton secondaire, et le
    reset `button{}` (plus haut) donne déjà exactement ça (`--color-surface-raised`, `border:0`).
