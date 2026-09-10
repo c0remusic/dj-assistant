@@ -60,7 +60,7 @@ a:hover{text-decoration:underline}
 
 /* La fenêtre : une barre unifiée, un rail, un contenu — la charpente de Sift, posée comme cadre
    du manuel. Le rail est la table des matières, dans l'ordre réel des destinations. */
-.win{max-width:1120px;margin:24px auto;background:var(--bg-2);border:1px solid var(--line);border-radius:var(--r-base);overflow:hidden;
+.win{max-width:1120px;margin:24px auto;background:var(--bg-2);border:1px solid var(--line);border-radius:var(--r-base);overflow:clip;
      box-shadow:0 1px 3px rgba(0,0,0,.10),0 12px 48px -6px rgba(0,0,0,.25)}
 .bar{display:flex;align-items:center;gap:12px;height:44px;padding:0 16px;background:var(--bg-3);border-bottom:1px solid var(--line-2)}
 .lights{display:flex;gap:8px}
@@ -70,7 +70,10 @@ a:hover{text-decoration:underline}
 .bar .spacer{flex:1}
 .bar .ver{font:500 11px var(--mono);color:var(--ink-3);border:1px solid var(--line);border-radius:var(--r-sm);padding:2px 8px}
 .frame{display:grid;grid-template-columns:200px 1fr;min-height:70vh}
-.rail{background:var(--bg-3);border-right:1px solid var(--line-2);padding:12px 8px;position:sticky;top:0;align-self:start;max-height:100vh;overflow:auto}
+/* La colonne s'étire sur toute la hauteur et porte le fond ; la nav dedans est collante.
+   (`overflow:hidden` sur .win ferait de la fenêtre un conteneur de défilement et tuerait le sticky.) */
+.railcol{background:var(--bg-3);border-right:1px solid var(--line-2)}
+.rail{padding:12px 8px;position:sticky;top:0}
 .rail h4{margin:10px 8px 4px;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
 .rail a{display:flex;align-items:center;gap:8px;height:28px;padding:0 8px;border-radius:var(--r-md);color:var(--ink);font-size:13px}
 .rail a:hover{background:var(--hover);text-decoration:none}
@@ -128,7 +131,8 @@ td:first-child{white-space:nowrap}
 @media (max-width:820px){
   .win{margin:0;border-radius:0;border:0}
   .frame{grid-template-columns:1fr}
-  .rail{position:static;max-height:none;border-right:0;border-bottom:1px solid var(--line-2)}
+  .railcol{border-right:0;border-bottom:1px solid var(--line-2)}
+  .rail{position:static}
   .main{padding:24px 20px 40px}
   .screens{grid-template-columns:1fr}
 }
@@ -144,7 +148,7 @@ td:first-child{white-space:nowrap}
     <span class="ver">v0.1.1</span>
   </div>
   <div class="frame">
-    <nav class="rail" aria-label="Sommaire">
+    <div class="railcol"><nav class="rail" aria-label="Sommaire">
       <a href="#debut" class="on">Ce que fait Sift</a>
       <a href="#installer">Installer</a>
       <a href="#mots">Trois mots</a>
@@ -166,7 +170,7 @@ td:first-child{white-space:nowrap}
       <a href="#detection">Ce qu'il laisse passer</a>
       <a href="#nouveautes">Nouveautés v0.1.1</a>
       <a href="#aide">Quand ça ne va pas</a>
-    </nav>
+    </nav></div>
 
     <main class="main">
       <h1 id="debut">Sift prépare une bibliothèque de DJ.</h1>
