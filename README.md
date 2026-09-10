@@ -11,8 +11,9 @@
 
 | | |
 |---|---|
+| **Télécharger** | [dernière version](https://github.com/c0remusic/sift/releases/latest) — Windows (`x64-setup.exe`), Mac Apple Silicon (`aarch64.dmg`), Mac Intel (`x64.dmg`) |
 | **Installer** | [`docs/install-non-signe.md`](docs/install-non-signe.md) — quel fichier prendre, et quoi faire de l'avertissement du système |
-| **Utiliser** | [`docs/manuel.md`](docs/manuel.md) — le vocabulaire, les huit écrans, et ce que la détection laisse passer |
+| **Utiliser** | [le manuel en ligne](https://dj-assistant-navy.vercel.app/manuel.html) · [en PDF](https://dj-assistant-navy.vercel.app/manuel.pdf) · [`docs/manuel.md`](docs/manuel.md) — le vocabulaire, les huit écrans, le clavier, et ce que la détection laisse passer |
 
 Ces deux liens passent avant tout ce qui suit, et ce n'est pas une question de mise en page :
 quelqu'un à qui on envoie ce dépôt cherche une app, pas une fiche de projet. Tout ce qui vient
@@ -135,9 +136,12 @@ Chaque push sur `main` build des installeurs **non signés** pour Windows (`.msi
 macOS (`.dmg`), uploadés en artefacts. Le code-signing / notarization + auto-update sont prévus
 en V1 (app diffusée gratuitement).
 
-## Démo web (Vercel)
+## Site (Vercel)
 
-> ⚠️ Le déploiement statique d'origine ne fonctionne plus tel quel : depuis la migration Vite,
-> `index.html` importe un module TypeScript qui doit être **buildé**. Pour une démo web,
-> configurer Vercel avec build `npm run build` et output `dist/` (la même UI s'affiche ; les
-> appels IPC échouent silencieusement hors app native).
+https://dj-assistant-navy.vercel.app — intégration Git : chaque push sur `main` lance
+`npm run build` (`vercel.json` : Vite, sortie `dist/`). Deux choses y vivent :
+
+- `/manuel.html` et `/manuel.pdf` — le manuel dans le design de l'app, généré depuis
+  `docs/manuel.{html,pdf}` par `scripts/build-manuel.mjs` (`prebuild`) dans `public/`, gitignoré.
+- la racine — la maquette de l'interface, sans backend : les appels IPC échouent silencieusement
+  hors app native. Une démo, pas l'app.

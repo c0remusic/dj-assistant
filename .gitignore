@@ -3,6 +3,8 @@ node_modules/
 
 # build / deploy
 dist/
+# généré par scripts/build-manuel.mjs (prebuild) depuis docs/manuel.{html,pdf}
+public/
 .vercel/
 
 # rust / tauri

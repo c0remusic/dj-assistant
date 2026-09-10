@@ -4,8 +4,9 @@ Pour quelqu'un qui vient de recevoir le lien et veut s'en servir. Pas pour un d�
 vocabulaire technique du dépôt vit dans `CONTEXT.md`, et l'installation dans
 [`install-non-signe.md`](install-non-signe.md).
 
-La même chose, dans le design de l'app : [`manuel.html`](manuel.html) (à ouvrir dans un
-navigateur — GitHub ne le rend pas).
+La même chose, dans le design de l'app : [dj-assistant-navy.vercel.app/manuel.html](https://dj-assistant-navy.vercel.app/manuel.html)
+(source : [`manuel.html`](manuel.html), que GitHub ne rend pas), et [en PDF](https://dj-assistant-navy.vercel.app/manuel.pdf).
+Installeurs : [la dernière version](https://github.com/c0remusic/sift/releases/latest).
 
 Sift prépare une bibliothèque de DJ : il détecte les faux fichiers lossless, trouve les doublons,
 range, exporte vers Rekordbox et prépare une clé pour les platines. Son principe tient en une

@@ -113,8 +113,11 @@ selon le message affiché :
 
 ### Se servir de Sift
 
-Le manuel — vocabulaire, les huit écrans, et ce que la détection laisse passer :
-https://github.com/c0remusic/sift/blob/main/docs/manuel.md
+Le manuel — vocabulaire, les huit écrans, le clavier, et ce que la détection laisse passer :
+
+- en ligne, dans le design de l'app : https://dj-assistant-navy.vercel.app/manuel.html
+- en PDF : https://dj-assistant-navy.vercel.app/manuel.pdf
+- sur GitHub : https://github.com/c0remusic/sift/blob/main/docs/manuel.md
 `;
 
 process.stdout.write(body + "\n" + FOOTER);

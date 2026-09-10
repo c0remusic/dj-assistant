@@ -56,6 +56,7 @@ describe("notes de release", () => {
     // Installer et utiliser ne sont pas le même moment (issue #19). Quelqu'un qui reçoit le lien
     // n'ouvre pas forcément le dépôt : sans cette ligne, le manuel n'existe que pour qui le fait.
     expect(notes(premiereVersion())).toContain("docs/manuel.md");
+    expect(notes(premiereVersion())).toContain("dj-assistant-navy.vercel.app/manuel.html");
   });
 
   it("contient les notes de la version, pas seulement le pied de page", () => {
