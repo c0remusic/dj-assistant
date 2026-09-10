@@ -9,8 +9,9 @@
   "scripts": {
     "dev": "vite",
     "dev:blank": "powershell -ExecutionPolicy Bypass -File scripts/dev-blank-profile.ps1",
-    "prebuild": "node scripts/build-manuel.mjs",
+    "prebuild": "node scripts/build-site.mjs prepare",
     "build": "vite build",
+    "postbuild": "node scripts/build-site.mjs finish",
     "preview": "vite preview",
     "tauri": "tauri",
     "fetch-ffmpeg": "node scripts/fetch-ffmpeg.mjs",

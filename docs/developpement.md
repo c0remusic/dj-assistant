@@ -86,9 +86,11 @@ https://sift-music.vercel.app — projet Vercel `dj-assistant` (domaine `sift-mu
 2026-09-10 par `vercel domains add` — `sift.vercel.app` appartient à un autre projet ;
 `sift-dj.vercel.app` et `dj-assistantapp.vercel.app` répondent encore), intégration Git : chaque push
 sur `main` est un déploiement de production (`npm run build`, `vercel.json` : Vite, sortie
-`dist/`). Le build sert `/manuel.html` et `/manuel.pdf` (générés depuis `docs/manuel.{html,pdf}`
-par `scripts/build-manuel.mjs` en `prebuild`, dans `public/` gitignoré) et, à la racine, la
-maquette de l'interface sans backend — une démo, pas l'app.
+`dist/`). `scripts/build-site.mjs` (`prebuild` / `postbuild`) y ajoute la page d'accueil
+(`docs/accueil.html`), le manuel (`docs/manuel.html`, `manuel.pdf`) et la capture d'écran, via
+`public/` gitignoré ; sur Vercel seulement (`VERCEL=1`), la racine devient l'accueil et l'app
+passe en `/app.html` — partout ailleurs `dist/index.html` reste l'app, que Tauri embarque.
+`/app.html` est la maquette de l'interface sans backend — une démo, pas l'app.
 
 Les URL `dj-assistant-<hash>-c0re-s-projects.vercel.app` des statuts GitHub sont protégées par le
 SSO Vercel : seul le domaine ci-dessus est public. `vercel project ls` donne le domaine courant.

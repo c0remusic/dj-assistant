@@ -3,7 +3,7 @@ node_modules/
 
 # build / deploy
 dist/
-# généré par scripts/build-manuel.mjs (prebuild) depuis docs/manuel.{html,pdf}
+# généré par scripts/build-site.mjs (prebuild) depuis docs/{accueil,manuel}.html, manuel.pdf, screenshots/
 public/
 .vercel/
 
@@ -95,6 +95,7 @@ docs/*
 !docs/install-non-signe.md
 !docs/manuel.md
 !docs/manuel.html
+!docs/accueil.html
 !docs/manuel.pdf
 !docs/developpement.md
 !docs/screenshots/
