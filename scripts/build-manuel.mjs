@@ -1,5 +1,5 @@
-// Prépare le manuel pour le site Vercel (`npm run build` → `dist/`, servi à `/manuel.html` et
-// `/manuel.pdf` sur le domaine de production du projet — à confirmer, voir README § Site).
+// Prépare le manuel pour le site Vercel (`npm run build` → `dist/`, servi à
+// https://dj-assistantapp.vercel.app/manuel.html et /manuel.pdf).
 //
 // `docs/manuel.html` est écrit SANS squelette HTML (`<!doctype>`, `<html>`, `<head>`, `<body>`) :
 // c'est la forme que demande l'outil d'artefact de Claude, qui l'enveloppe lui-même à la
