@@ -160,14 +160,14 @@ footer a{color:var(--ink-2)}
   <div class="wrap hero" id="telecharger">
     <h1>Le poste de prépa entre les téléchargements et les platines.</h1>
     <p class="lede">Sift est une application gratuite pour DJ, sur Windows et macOS. Elle écoute chaque fichier téléchargé, dit s'il est vraiment lossless, repère les doublons, le range au bon format au bon endroit, puis pousse la bibliothèque vers Rekordbox et sur une clé USB.</p>
-    <p class="who">Pour qui achète ou télécharge sa musique en fichiers — Bandcamp, Beatport, Soulseek, rips de vinyles — et joue sur CDJ, XDJ ou Rekordbox.</p>
+    <p class="who">Pour qui achète ou télécharge sa musique en fichiers (Bandcamp, Beatport, Soulseek, rips de vinyles) et joue sur CDJ, XDJ ou Rekordbox.</p>
     <div class="dl">
       <a class="btn primary" id="dl-main" href="https://github.com/c0remusic/sift/releases/latest">Télécharger <span class="k" id="dl-ver"></span></a>
       <span class="dl-alt" id="dl-alt"><a href="https://github.com/c0remusic/sift/releases/latest" data-os="win">Windows</a><span class="sep"> · </span><a href="https://github.com/c0remusic/sift/releases/latest" data-os="mac-arm">Mac Apple Silicon</a><span class="sep"> · </span><a href="https://github.com/c0remusic/sift/releases/latest" data-os="mac-intel">Mac Intel</a></span>
     </div>
-    <p class="dl-note">Les installeurs ne sont pas signés (pas de certificat Apple ni Microsoft) : le système avertit au premier lancement, une seule fois — <a href="/manuel.html#installer">quoi cliquer, selon le message</a>. Les versions suivantes s'installent d'elles-mêmes, depuis l'application.</p>
+    <p class="dl-note">Les installeurs ne sont pas signés (pas de certificat Apple ni Microsoft) : le système avertit au premier lancement, une seule fois. <a href="/manuel.html#installer">Quoi cliquer, selon le message</a>. Les versions suivantes s'installent d'elles-mêmes, depuis l'application.</p>
     <button type="button" class="shot" id="shot-open" aria-label="Agrandir la capture d'écran"><picture>
-      <!-- Mobile : le lecteur seul, recadré — l'écran entier serait illisible à 375 px. -->
+      <!-- Mobile : le lecteur seul, recadré. L'écran entier serait illisible à 375 px. -->
       <source media="(max-width: 760px)" type="image/avif" srcset="/screenshots/revue-mobile-750.avif 750w, /screenshots/revue-mobile-930.avif 930w" sizes="calc(100vw - 40px)" width="930" height="272">
       <source media="(max-width: 760px)" type="image/webp" srcset="/screenshots/revue-mobile-750.webp 750w, /screenshots/revue-mobile-930.webp 930w" sizes="calc(100vw - 40px)" width="930" height="272">
       <source type="image/avif" srcset="/screenshots/revue-1040.avif 1040w, /screenshots/revue-2011.avif 2011w" sizes="(max-width: 1088px) calc(100vw - 48px), 1040px">
@@ -178,7 +178,7 @@ footer a{color:var(--ink-2)}
 
   <section class="wrap" id="mots">
     <h2>Un verdict en un mot.</h2>
-    <p class="sub">Un faux lossless est un fichier FLAC, WAV ou AIFF fabriqué à partir d'un MP3, d'un AAC ou d'un Opus : le contenant est sans perte, le contenu ne l'est plus, et la qualité perdue ne revient pas. Ça se vend, ça circule, et à l'oreille ça ne s'entend pas toujours. Sift mesure trois choses dans le signal — la coupure du spectre, la platitude de l'aigu, la trace que laisse un codec dans les échantillons — et répond en un mot :</p>
+    <p class="sub">Un faux lossless est un fichier FLAC, WAV ou AIFF fabriqué à partir d'un MP3, d'un AAC ou d'un Opus : le contenant est sans perte, le contenu ne l'est plus, et la qualité perdue ne revient pas. Ça se vend, ça circule, et à l'oreille ça ne s'entend pas toujours. Sift mesure trois choses dans le signal : la coupure du spectre, la platitude de l'aigu, la trace que laisse un codec dans les échantillons. Puis il répond en un mot :</p>
     <div class="verdicts">
       <div class="vcard"><span class="verdict v-ok">VRAI</span><p>Rien de mesuré ne contredit un master.</p></div>
       <div class="vcard"><span class="verdict v-fake">FAUX</span><p>Preuve mesurée. Le fichier est mis de côté dans une liste « à re-sourcer », pas supprimé.</p></div>
@@ -207,7 +207,7 @@ footer a{color:var(--ink-2)}
         <p class="role">Tout ce que Sift a fait, et le moyen de le défaire.</p>
         <ul>
           <li>Chaque conversion, écart, identification et synchronisation, groupés par session et par jour.</li>
-          <li><b>Retour en arrière</b> depuis n'importe quelle ligne — y compris un rangement de masse parti au mauvais endroit, y compris après un redémarrage.</li>
+          <li><b>Retour en arrière</b> depuis n'importe quelle ligne, y compris un rangement de masse parti au mauvais endroit, y compris après un redémarrage.</li>
         </ul>
       </div>
       <div class="scr">
@@ -223,7 +223,7 @@ footer a{color:var(--ink-2)}
         <h3><span class="grp">Bibliothèque</span>À re-sourcer · Corbeille</h3>
         <p class="role">Ce qui a été écarté, avec la raison.</p>
         <ul>
-          <li><b>À re-sourcer</b> : les faux et les fichiers tronqués — une liste de courses pour les racheter ou les retrouver ailleurs.</li>
+          <li><b>À re-sourcer</b> : les faux et les fichiers tronqués, une liste de courses pour les racheter ou les retrouver ailleurs.</li>
           <li><b>Corbeille</b> : doublons et erreurs. Rien n'est effacé du disque tant qu'elle n'est pas vidée, à la main.</li>
           <li>Restaurer une piste la remet dans la file.</li>
         </ul>
@@ -232,7 +232,7 @@ footer a{color:var(--ink-2)}
         <h3><span class="grp">Exporter</span>Rekordbox</h3>
         <p class="role">La bibliothèque rangée, dans Rekordbox.</p>
         <ul>
-          <li><b>Une synchronisation</b> : nouveaux fichiers, métadonnées, pochettes, playlists — par XML à importer, ou directement dans la base de Rekordbox.</li>
+          <li><b>Une synchronisation</b> : nouveaux fichiers, métadonnées, pochettes, playlists. Par XML à importer, ou directement dans la base de Rekordbox.</li>
           <li>Répare les chemins cassés par un renommage ou un déplacement ; dédoublonne les playlists ; les playlists survivent à un reformatage.</li>
           <li>Sauvegarde vérifiée avant toute écriture, refus d'agir si Rekordbox est ouvert.</li>
         </ul>
@@ -279,7 +279,7 @@ footer a{color:var(--ink-2)}
   <section class="wrap" id="honnete">
     <h2>Ce que la détection laisse passer.</h2>
     <div class="honest">
-      <p>Un détecteur parfait n'existe pas. Sur un jeu de test de 150 fichiers transcodés et 10 achats authentiques : <b>aucun fichier authentique n'a été accusé</b> — c'est la règle qui prime, mieux vaut rater un faux que faire racheter un bon fichier — et <b>environ un tiers des transcodages passent encore</b>, surtout l'AAC à débit élevé et le MP3 320 kbps, qui ne coupent pas le haut du spectre.</p>
+      <p>Un détecteur parfait n'existe pas. Sur un jeu de test de 150 fichiers transcodés et 10 achats authentiques, Sift n'a accusé <b>aucun fichier authentique</b>. C'est la règle qui prime : mieux vaut rater un faux que vous faire racheter un bon fichier. <b>Environ un tiers des transcodages passent encore</b>, surtout l'AAC à débit élevé et le MP3 320 kbps, qui ne coupent pas le haut du spectre.</p>
       <p>Autrement dit : un verdict <span class="verdict v-fake">FAUX</span> est fiable ; un verdict <span class="verdict v-ok">VRAI</span> veut dire « rien de mesuré ne le contredit », pas « garanti ».</p>
     </div>
   </section>
