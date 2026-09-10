@@ -115,9 +115,8 @@ selon le message affiché :
 
 Le manuel — vocabulaire, les huit écrans, le clavier, et ce que la détection laisse passer :
 
-- en ligne, dans le design de l'app : https://dj-assistant-navy.vercel.app/manuel.html
-- en PDF : https://dj-assistant-navy.vercel.app/manuel.pdf
-- sur GitHub : https://github.com/c0remusic/sift/blob/main/docs/manuel.md
+- en PDF, dans le design de l'app : https://github.com/c0remusic/sift/releases/download/${tag}/manuel.pdf
+- en Markdown : https://github.com/c0remusic/sift/blob/main/docs/manuel.md
 `;
 
 process.stdout.write(body + "\n" + FOOTER);
