@@ -541,3 +541,13 @@ binaire dev isolé directement (`Start-Process …\debug\sift.exe`, cwd `src-tau
 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`) — il se branche sur n'importe quel Vite 5173 qui
 sert l'arbre. `driver.mjs launch` pendait 25 min : `buildAlive()` voyait le `cargo.exe` de
 shaderlab. Mémoire : `tauri-dev-ignores-cargo-target-dir-and-port-squat-after-restart`.
+
+## 2026-09-10 — release v0.1.0 : le sidecar FFmpeg pointe sur une release mouvante
+
+`scripts/fetch-ffmpeg.mjs` télécharge `BtbN/FFmpeg-Builds/releases/download/latest/…win64-lgpl.zip`.
+BtbN RÉ-PUBLIE `latest` à chaque autobuild (15:31 et 15:52 ce jour) : pendant la fenêtre de
+remplacement des 49 assets, l'URL rend 404. Le job `test` de `b8a7d88` (15:51:47) est tombé dedans
+— « Download failed: 404 » — alors que le run de 15:45 et l'URL cinq minutes plus tard étaient
+bons. Un `gh run rerun --failed` a suffi. Ce n'est pas un bug du dépôt mais un aléa de CI
+récurrent par construction : épingler un tag `autobuild-<date>` (même asset, URL stable) le
+supprimerait, au prix d'un bump manuel du sidecar. À trancher, pas fait le jour de la release.
