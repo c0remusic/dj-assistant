@@ -112,13 +112,14 @@ function headHtml(): string {
     col("artist", "Artiste", "sift-lib-col-artist") +
     col("title", "Titre", "sift-lib-col-title") +
     col("file", "Fichier", "sift-lib-col-genre") +
-    `<span class="sift-lib-thead-tail" aria-hidden="true"></span></div>`
+    `<span class="sift-lib-thead-tail" role="columnheader">Format</span></div>`
   );
 }
 
-function rowHtml(it: EcarteItem): string {
+/** `index` : parité de zébrure, posée par le rendu virtualisé (même règle que Rangés). */
+function rowHtml(it: EcarteItem, index = 0): string {
   const r = reasonView(it);
-  const cur = it.id === openId ? " cur" : "";
+  const cur = (it.id === openId ? " cur" : "") + (index % 2 === 1 ? " alt" : "");
   const label = `${r.label}, ${it.artist || "Artiste inconnu"} — ${it.title || "Titre inconnu"}, ${ecFile(it)}`;
   return (
     `<div class="lr${cur}" data-ecrow="${it.id}" tabindex="0" role="option" aria-label="${esc(label)}">` +
@@ -126,7 +127,7 @@ function rowHtml(it: EcarteItem): string {
     `<span class="sift-lib-col sift-lib-col-artist">${esc(it.artist || "—")}</span>` +
     `<span class="sift-lib-col sift-lib-col-title">${esc(it.title || "—")}</span>` +
     `<span class="sift-lib-col sift-lib-col-genre sift-ec-file">${esc(ecFile(it))}</span>` +
-    `<span class="pill" style="flex:none">${esc(ecExt(it))}</span>` +
+    `<span class="sift-lib-col sift-lib-col-fmt">${esc(ecExt(it))}</span>` +
     `</div>`
   );
 }

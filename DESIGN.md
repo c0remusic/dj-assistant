@@ -960,8 +960,17 @@ pochette reste reconnaissable) plus `--space-4` au-dessus et au-dessous. C'est a
 de la bande 24–28 px d'une liste Finder, et la raison est nommée : la ligne de Sift
 porte une pochette, celle de Finder n'en porte pas.
 
-Pas d'alternance de fond de ligne. La séparation vient de l'espace, pas d'un trait ni
-d'un zébrage.
+~~Pas d'alternance de fond de ligne. La séparation vient de l'espace, pas d'un trait ni
+d'un zébrage.~~ **Renversé le 2026-09-10** (décision d'Antoine, « pas fan du design de la
+liste, comment ferait Apple ? ») : la rangée est lue contre la présentation par liste du
+Finder — la seule table de macOS, le kit Big Sur n'en a aucune. **Fonds alternés**
+(`--overlay-alt`, un cran au-dessus de `--overlay-hover`, parité d'index posée par le rendu
+virtualisé — jamais `:nth-child`, qui s'inverse au défilement), **aucun filet entre
+rangées, aucun arrondi, aucun survol de rangée** (le triangle de lecture se révèle au
+survol de la pochette seule), sélection pleine largeur. Le format devient une colonne de
+texte, plus une pastille. La règle d'avant n'était de toute façon pas appliquée : le code
+traçait un filet sous chaque rangée ET un arrondi de 7 px. Le § Tri ci-dessus, qui
+« tranchait » le conflit avec les HIG par la précédence, est caduc sur ce point.
 
 ### Signal de compatibilité — une seule forme, partout
 

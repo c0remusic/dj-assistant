@@ -7,9 +7,11 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { esc } from "./dom";
 import { libraryColumns, columnStyle, type LibraryColumn, type LibraryColumnField } from "./library-columns";
 
-function qualPill(t: LibraryTrack): string {
+/** Colonne Format : du texte, dans sa colonne — le Finder rend le type ainsi. C'était une pastille
+ * `.pill` à fond secondaire jusqu'au 2026-09-10 (quinze surfaces dans une table de quinze lignes). */
+function fmtCell(t: LibraryTrack): string {
   const f = (t.format || "?").toUpperCase();
-  return `<span class="pill" style="flex:none">${esc(f)}</span>`;
+  return `<span class="sift-lib-col sift-lib-col-fmt">${esc(f)}</span>`;
 }
 
 // La vue de verdict de la ligne (`VerdictView`, `verdictRank`, `verdictView` — pastille + libellé,
@@ -144,7 +146,7 @@ export function libraryTableHeaderHtml(sort: LibrarySortState): string {
   // l'en-tête flotte décalé au-dessus des colonnes qu'il nomme. Mesuré : 62px devant, 69 derrière.
   return (
     `<div class="sift-lib-thead" role="row"><span class="sift-lib-thead-cov"></span>${cells}` +
-    `<span class="sift-lib-thead-tail" aria-hidden="true"></span></div>`
+    `<span class="sift-lib-thead-tail" role="columnheader">Format</span></div>`
   );
 }
 
@@ -154,10 +156,13 @@ export function libraryTableHeaderHtml(sort: LibrarySortState): string {
  * Anatomie depuis le 2026-09-08 (audit Rangés, #24) : pochette-bouton de lecture · colonnes ·
  * pastille de format. Sont partis ce jour-là le bouton lecture séparé (le triangle vit au survol
  * de la pochette), la colonne Verdict (lue dans l'inspecteur) et l'icône Discogs / loupe de fin de
- * ligne (clic droit, inspecteur). Les espaceurs d'en-tête suivent : `.sift-lib-thead-cov` mesure
- * la pochette seule, `.sift-lib-thead-tail` la pastille seule. */
-export function libraryTableRowHtml(t: LibraryTrack, curId: number | null, selected = false): string {
-  const cur = (t.id === curId ? " cur" : "") + (selected ? " sel" : "");
+ * ligne (clic droit, inspecteur). L'espaceur `.sift-lib-thead-cov` mesure la pochette seule ;
+ * `.sift-lib-thead-tail` est l'en-tête de la colonne Format (texte depuis le 2026-09-10).
+ *
+ * `alt` : parité d'index posée par le rendu virtualisé — la zébrure du Finder (HIG Lists and
+ * tables § macOS), jamais par `:nth-child`, qui s'inverserait au défilement d'une fenêtre recyclée. */
+export function libraryTableRowHtml(t: LibraryTrack, curId: number | null, selected = false, alt = false): string {
+  const cur = (t.id === curId ? " cur" : "") + (selected ? " sel" : "") + (alt ? " alt" : "");
   const cov = t.cover_path
     ? `<img src="${esc(convertFileSrc(t.cover_path))}" alt="" class="sift-lib-cov">`
     : `<i class="ti ti-vinyl sift-lib-cov-fallback"></i>`;
@@ -176,7 +181,7 @@ export function libraryTableRowHtml(t: LibraryTrack, curId: number | null, selec
     // moins en tête de ligne (22 px + gap), et le geste reste là où l'œil cherche « écouter ».
     `<button class="pb" data-bib="play" data-id="${t.id}" aria-label="Écouter">${cov}<i class="ti ti-player-play sift-lib-play" aria-hidden="true"></i></button>` +
     libraryColumns().map((col) => cellHtml(col, t)).join("") +
-    qualPill(t) +
+    fmtCell(t) +
     `</div>`
   );
 }

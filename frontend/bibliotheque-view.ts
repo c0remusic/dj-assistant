@@ -988,7 +988,7 @@ export async function renderBiblioLive() {
         host: biblist,
         scrollContainer: content,
         items: sortedTracks,
-        rowHtml: (t) => libraryTableRowHtml(t, bibOpenId, bibSelection.has(t.id)),
+        rowHtml: (t, i) => libraryTableRowHtml(t, bibOpenId, bibSelection.has(t.id), i % 2 === 1),
         probeHtml: LIBRARY_TABLE_PROBE_HTML,
         fallbackRowH: 32, // --row-h : repli seulement, la sonde mesure la vraie ligne
       });

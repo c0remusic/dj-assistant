@@ -446,3 +446,24 @@ Sans ce garde, tout réordonnancement trierait aussi la table — deux effets po
 - **Tonalité et énergie** — absentes du modèle (`shared/contracts.ts`, `db.rs`, vérifié
   le 2026-08-19). Aucune colonne n'est spécifiée pour elles. Les ajouter est un
   chantier d'analyse Rust, pas de design.
+
+## Décision — 2026-09-10 : la rangée lue contre le Finder
+
+Antoine : « pas fan du design de la liste, comment ferait Apple ? Comment fait la ref ? » Mesuré
+dans la vraie fenêtre : rangée de 33 px avec un filet SOUS CHAQUE rangée et un arrondi de 7 px,
+survol au plan de sélection (`--color-row-active` = `--color-background-secondary`, celui de
+`.sel`), `translateY(1px)` à la pression, format en pastille à fond secondaire en bout de rangée,
+Artiste et Titre à flex égal. Les refs locales n'ont pas de table (Mail et Notes sont des listes
+multilignes, le kit Big Sur n'a aucun composant table) ; la référence est la présentation par
+liste du Finder, et les HIG « Lists and tables » § macOS : « *Consider using alternating row
+colors in a multicolumn table* ». Deux maquettes CSS sur les vraies données — A Finder zébré, B
+Mail à filets — **A retenue, sans survol de rangée** (macOS n'en a pas).
+
+Livré : `.lr` sans filet, sans arrondi, sans transition ; zébrure `--overlay-alt` (token neuf,
+un cran au-dessus de `--overlay-hover`, clair .045 / sombre .05) par parité d'index posée par
+`createVirtualList` (`libraryTableRowHtml(…, alt)`) — jamais `:nth-child`, la fenêtre recyclée
+changerait de parité au défilement ; aucun `:hover` de rangée, le triangle de lecture se révèle
+au survol de la pochette ; en-tête en encre secondaire ; colonne **Format** en texte
+(`.sift-lib-col-fmt`, en-tête « Format »), la pastille `.pill` quitte la table. `DESIGN.md` § 16
+(« pas d'alternance ») renversé le même jour. Non retenu pour l'instant : l'ordre de Musique
+(Titre d'abord).

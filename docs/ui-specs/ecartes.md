@@ -104,3 +104,10 @@ restore, purge (déjà câblés, inchangés dans `sift-live.ts`).
 - Recherche dans ces deux listes : à ajouter si elles s'allongent.
 - `EcarteItem` sans date d'écart ni mesure : la phrase de Raison reste courte tant que le contrat
   ne les porte pas (chantier backend, pas de design).
+
+## Décision — 2026-09-10 : la même rangée que Rangés, lue contre le Finder
+
+Même geste que `bibliotheque.md` § Décision 2026-09-10 (zébrure par parité d'index, ni filet ni
+arrondi ni survol, colonne Format en texte). Propre à cet écran : la colonne **Fichier** quitte le
+monospace — `DESIGN.md` § 2 réserve `--font-mono` aux chiffres alignés en colonne, un chemin se
+rend en `--font-ui`.

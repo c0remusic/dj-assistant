@@ -136,7 +136,7 @@ color-scheme:light;
    since the surface is light; flipped to light-tinted in the dark variant below. Anything that
    used to hardcode rgba(255,255,255,...) for "selected row" must use these instead, or it goes
    invisible the moment dark mode is active (see fix 2026-07-01: .nv/.qi selection). */
---overlay-hover:oklch(25.67% 0.0142 67.12 / .035);--overlay-selected:oklch(25.67% 0.0142 67.12 / .06);
+--overlay-hover:oklch(25.67% 0.0142 67.12 / .035);--overlay-selected:oklch(25.67% 0.0142 67.12 / .06);--overlay-alt:oklch(25.67% 0.0142 67.12 / .045);
 /* Hover-scrub fill on the waveform (see .sift-wave-hover) — was only added to the 2 dark blocks
    when created (2026-07-10), never here: .sift-wave-hover's background silently resolved to
    nothing in light theme (regression found via the follow-up coherence audit, same session). */
@@ -444,7 +444,7 @@ color-scheme:light;
     --color-border-info:oklch(79.21% 0.0789 242.05 / .30);--color-border-danger:oklch(78.05% 0.0992 32.54 / .40);
     --color-hue-indigo-text:oklch(74.16% 0.1143 286.69);--color-hue-indigo-bg:oklch(34.15% 0.045 278.34);--color-hue-purple-text:oklch(77.58% 0.0892 311.64);--color-hue-purple-bg:oklch(37.40% 0.05 312.41);--color-hue-pink-text:oklch(80.76% 0.0905 355.95);--color-hue-pink-bg:oklch(39.91% 0.045 2.52);--color-hue-teal-text:oklch(84.24% 0.0961 185.53);--color-hue-teal-bg:oklch(43.48% 0.035 186.37);--color-hue-yellow-text:oklch(88.36% 0.129 93.67);
     --color-hue-blue-solid:oklch(62.43% 0.2056 255.49);--color-hue-indigo-solid:oklch(55.64% 0.2032 278.15);--color-hue-teal-solid:oklch(77.06% 0.1181 211.98);--color-hue-green-solid:oklch(75.56% 0.2082 146.98);--color-hue-orange-solid:oklch(78.24% 0.1711 67.22);--color-hue-yellow-solid:oklch(88.49% 0.1805 94.78);--color-hue-purple-solid:oklch(65.60% 0.2274 312.42);--color-hue-pink-solid:oklch(65.77% 0.2317 16.02);--color-hue-red-solid:oklch(66.33% 0.2236 28.29);--color-hue-gray-solid:oklch(68.12% 0.0073 286.21);
-    --overlay-hover:oklch(100.0% 0.0 89.88 / .03);--overlay-selected:oklch(100.0% 0.0 89.88 / .06);
+    --overlay-hover:oklch(100.0% 0.0 89.88 / .03);--overlay-selected:oklch(100.0% 0.0 89.88 / .06);--overlay-alt:oklch(100.0% 0.0 89.88 / .05);
     --overlay-drop:oklch(35.51% 0.0051 106.66 / .93);
     /* Hover-scrub fill on the waveform (see .sift-wave-hover) — replaces a hardcoded
        rgba(255,255,255,.6) that ignored the theme, same overlay-tint convention as --overlay-hover. */
@@ -485,7 +485,7 @@ color-scheme:light;
   --color-border-info:oklch(79.21% 0.0789 242.05 / .30);--color-border-danger:oklch(78.05% 0.0992 32.54 / .40);
   --color-hue-indigo-text:oklch(74.16% 0.1143 286.69);--color-hue-indigo-bg:oklch(34.15% 0.045 278.34);--color-hue-purple-text:oklch(77.58% 0.0892 311.64);--color-hue-purple-bg:oklch(37.40% 0.05 312.41);--color-hue-pink-text:oklch(80.76% 0.0905 355.95);--color-hue-pink-bg:oklch(39.91% 0.045 2.52);--color-hue-teal-text:oklch(84.24% 0.0961 185.53);--color-hue-teal-bg:oklch(43.48% 0.035 186.37);--color-hue-yellow-text:oklch(88.36% 0.129 93.67);
   --color-hue-blue-solid:oklch(62.43% 0.2056 255.49);--color-hue-indigo-solid:oklch(55.64% 0.2032 278.15);--color-hue-teal-solid:oklch(77.06% 0.1181 211.98);--color-hue-green-solid:oklch(75.56% 0.2082 146.98);--color-hue-orange-solid:oklch(78.24% 0.1711 67.22);--color-hue-yellow-solid:oklch(88.49% 0.1805 94.78);--color-hue-purple-solid:oklch(65.60% 0.2274 312.42);--color-hue-pink-solid:oklch(65.77% 0.2317 16.02);--color-hue-red-solid:oklch(66.33% 0.2236 28.29);--color-hue-gray-solid:oklch(68.12% 0.0073 286.21);
-  --overlay-hover:oklch(100.0% 0.0 89.88 / .03);--overlay-selected:oklch(100.0% 0.0 89.88 / .06);
+  --overlay-hover:oklch(100.0% 0.0 89.88 / .03);--overlay-selected:oklch(100.0% 0.0 89.88 / .06);--overlay-alt:oklch(100.0% 0.0 89.88 / .05);
   --overlay-drop:oklch(35.51% 0.0051 106.66 / .93);
   --overlay-wave-hover:oklch(100% 0 0 / .14);
   --overlay-bar:oklch(100% 0 0 / .32);
@@ -656,7 +656,7 @@ body:has(#sift-titlebar){border-radius:var(--border-radius-sm);overflow:hidden}
 /* ---- Écartés, refonte du 2026-09-08 (deux destinations du rail, grammaire de Rangés) ---- */
 /* La colonne Fichier est un nom de fichier : mono, tronqué au MILIEU comme un path control (le
    début et l'extension sont ce qui identifie), jamais à la fin. */
-.sift-ec-file{font-family:var(--font-mono);font-size:var(--text-sm);color:var(--color-text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sift-ec-file{color:var(--color-text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sift-ec-detail-file{margin-top:var(--space-4);color:var(--color-text-tertiary)}
 /* Fiches de l'inspecteur : même titre que « Métadonnées » (direction T), même pas entre fiches
    que la zone C de Revue (--space-16). */
@@ -1745,34 +1745,38 @@ body[data-view="revue"] .sift-pz-row.sift-pz-analyze{display:none}
    switch — le fond bascule sec sous un pouce qui glisse, ce qui est exactement le rendu d'un
    NSSwitch. Ce qu'on perd n'est visible que si l'on regarde le fond seul, pendant 100 ms. */
 .tog{width:30px;height:17px;border-radius:var(--border-radius-pill);background:var(--color-accent-fill);position:relative;flex:none;cursor:pointer}.tog::after{content:"";position:absolute;left:2px;top:2px;width:13px;height:13px;border-radius:var(--border-radius-pill);background:var(--color-accent-ink);transform:translateX(13px);transition:transform var(--duration-fast)}.tog.off{background:var(--color-border-secondary)}.tog.off::after{transform:translateX(0)}
-/* `background` et `color` retirés de la transition le 2026-08-19 (DESIGN.md § 6). `.lr` est la
-   LIGNE de la table : elle est virtualisée et repeinte en rafale au défilement, et une transition
-   de fond sur une ligne recyclée fait traîner la couleur de la ligne PRÉCÉDENTE pendant 150 ms sur
-   la nouvelle donnée. `transform` reste, seul : c'est l'enfoncement de `:active`, un retour sous le
-   doigt et non un état de donnée. */
-.lr{display:flex;align-items:center;gap:var(--space-8);padding:var(--space-4) var(--space-8);border-bottom:1px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);font-size:12px;cursor:pointer;transition:transform var(--duration-fast) ease}
-.lr:hover{background:var(--color-row-active)}
-/* Explicit rather than relying on source order (both selectors have equal specificity) — same
-   hardening as .sift-seg-opt.on:hover. */
-.lr.cur:hover{background:var(--color-background-info)}
-.lr:active{transform:translateY(1px)}
-.lr:focus-within{background:var(--color-row-active)}
+/* LA RANGÉE DE TABLE, lue contre le Finder le 2026-09-10 (décision d'Antoine : « pas fan du design
+   de la liste, comment ferait Apple ? »). Mesuré avant : un filet SOUS CHAQUE rangée ET un arrondi
+   de 7 px (une pilule posée sur une ligne), un survol au plan de SÉLECTION (survolée = sélectionnée),
+   un `translateY(1px)` à la pression (patrons § 8 : « il ne déplace rien »). La présentation par
+   liste du Finder — la seule table de macOS, le kit Big Sur n'en a pas — fait l'inverse : fonds
+   ALTERNÉS (HIG Lists and tables § macOS : « Consider using alternating row colors in a multicolumn
+   table »), aucun filet entre rangées, aucun arrondi, aucun survol, sélection pleine largeur.
+   DESIGN.md § 16 interdisait le zébrage (« la séparation vient de l'espace ») : recalé le même
+   jour — le code n'appliquait de toute façon pas cette règle, il traçait un filet.
+   Aucune transition : la rangée est virtualisée et repeinte en rafale au défilement (§ 6). */
+.lr{display:flex;align-items:center;gap:var(--space-8);padding:var(--space-4) var(--space-8);font-size:12px;cursor:pointer}
+/* Zébrure par PARITÉ D'INDEX (`alt` posé par le rendu virtualisé, `rowHtml(item, index)`), jamais
+   par `:nth-child` : la fenêtre de rangées recyclées change de première rangée au défilement, et
+   la parité DOM inverserait la zébrure à chaque cran. Un cran de voile au-dessus de --overlay-hover. */
+.lr.alt:not(.sel):not(.cur){background:var(--overlay-alt)}
 .lr.cur{background:var(--color-background-info);color:var(--color-text-primary)}
 .lr.cur .bib-name{font-weight:500}
 .lr.cur .lk-icon{background:var(--color-surface-raised)}
-.lr:hover .lk-icon,.lr.cur .lk-icon{color:var(--color-text-primary)}
+.lr.cur .lk-icon{color:var(--color-text-primary)}
 /* La POCHETTE est le bouton de lecture depuis le 2026-09-08 (audit Rangés #24, patron Musique : le
    triangle apparaît au survol de la vignette, la ligne au repos ne montre que la donnée). Le bouton
    fait exactement la pochette — 24 px, rayon de la vignette — et ne peint rien de lui-même : la
    vignette (ou son repli vinyle) est son contenu. Le triangle `.sift-lib-play` est un calque
    par-dessus, voile sombre + glyphe blanc, à opacité 0 au repos ; `opacity` est l'une des deux
-   propriétés que DESIGN.md § 6 autorise à animer. Il se révèle au survol de la LIGNE (pas du seul
-   bouton : la cible est la ligne entière, le geste « écouter » se cherche à gauche), au focus
-   clavier dans la ligne, et reste visible sur la piste ouverte — c'est celle qu'on écoute. */
+   propriétés que DESIGN.md § 6 autorise à animer. Il se révèle au survol de la POCHETTE (depuis le
+   2026-09-10 : la rangée n'a plus de survol, comme une liste du Finder — le geste « écouter » se
+   cherche sur la vignette, patron Musique), au focus clavier dans la ligne, et reste visible sur
+   la piste ouverte — c'est celle qu'on écoute. */
 .lr .pb{position:relative;width:24px;height:24px;border-radius:var(--border-radius-sm);flex:none;padding:0;display:inline-flex;align-items:center;justify-content:center;background:none;overflow:hidden}
 .lr .pb:hover{background:none}
 .lr .sift-lib-play{position:absolute;inset:0;display:grid;place-items:center;font-size:var(--text-md);color:var(--color-accent-ink);background:var(--overlay-scrim);opacity:0;transition:opacity var(--duration-fast) ease;pointer-events:none}
-.lr:hover .sift-lib-play,.lr:focus-within .sift-lib-play,.lr.cur .sift-lib-play{opacity:1}
+.lr .pb:hover .sift-lib-play,.lr:focus-within .sift-lib-play,.lr.cur .sift-lib-play{opacity:1}
 /* Icon-only 22x22 buttons (Discogs link, Identifier, Écartés requeue/trash) — NOT for text
    buttons. `.lk` used to double as a generic "minimal button" class for text content too, which
    forced long labels ("Réexporter maintenant", "Lier un fichier XML Rekordbox"...) to wrap inside
@@ -1815,7 +1819,7 @@ body[data-view="revue"] .sift-pz-row.sift-pz-analyze{display:none}
    <button>, dont la feuille UA remet `text-transform:none` — Rangés se lisait en casse mixte par
    accident, Journal (spans) en capitales par intention, Raison d'Écartés en capitales à côté
    d'« Artiste ». Une seule forme, écrite. */
-.sift-lib-thead{position:sticky;top:0;z-index:1;background:var(--color-background-primary);display:flex;align-items:center;gap:var(--space-8);padding:var(--space-4) var(--space-8);font-size:var(--text-sm);color:var(--color-text-tertiary);border-bottom:1px solid var(--color-border-tertiary)}
+.sift-lib-thead{position:sticky;top:0;z-index:1;background:var(--color-background-primary);display:flex;align-items:center;gap:var(--space-8);padding:var(--space-4) var(--space-8);font-size:var(--text-sm);color:var(--color-text-secondary);border-bottom:1px solid var(--color-border-tertiary)}
 /* COLONNES DE LA TABLE (DESIGN.md § 16). Les largeurs vivent ici et non en style inline sur
    chaque cellule : l'en-tête et la ligne doivent s'aligner, et deux listes de flex inline écrites
    à deux endroits divergent au premier ajout de colonne — ce qui est arrivé, l'en-tête ayant
@@ -1904,7 +1908,6 @@ body[data-view="revue"] .sift-pz-row.sift-pz-analyze{display:none}
    n'aurait été qu'un plancher jamais atteint. Le bouton lecture est passé de 23 à 22px sur SA
    règle d'origine (.lr .pb) plutôt qu'ici : un second sélecteur identique gagne par l'ordre, ce
    qui marche et rend la vraie valeur introuvable au grep suivant. */
-.lr .pill{line-height:1.1}
 /* Espaceurs d'alignement de l'en-tête. 54 = bouton lecture 22 + gap 8 + pochette 24 ; le gap de
    l'en-tête lui-même fournit le 8 restant. 69 = pastille de qualité (la plus large, « LOSSLESS »)
    + gap + icône Discogs. Mesures du 2026-08-19 dans la vraie fenêtre. */
@@ -1914,7 +1917,10 @@ body[data-view="revue"] .sift-pz-row.sift-pz-analyze{display:none}
    loupe de 22 + gap est partie au clic droit). Avant : 54 et 69, mêmes additions avec les deux
    objets retirés. */
 .sift-lib-thead-cov{width:24px;flex:none}
-.sift-lib-thead-tail{width:40px;flex:none}
+/* Colonne Format (2026-09-10) : le format était une PASTILLE à fond secondaire en bout de rangée —
+   quinze petites surfaces dans une table. Le Finder rend le type en texte, dans sa colonne. */
+.sift-lib-thead-tail,.sift-lib-col-fmt{width:44px;flex:none}
+.sift-lib-col-fmt{color:var(--color-text-secondary)}
 .sift-lib-thead button{padding:0;border:0;background:none;font:inherit;color:inherit;cursor:pointer;text-align:left}
 .sift-lib-thead button:hover{color:var(--color-text-primary)}
 /* Colonnes redimensionnables et réordonnables (library-columns.ts, 2026-08-19). Source Apple pour
