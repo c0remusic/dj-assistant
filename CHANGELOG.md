@@ -9,6 +9,92 @@ détails techniques vivent dans les messages de commit.
 Une section manquante fait **échouer** le build de release plutôt que publier des notes vides.
 Le titre de section doit être exactement `## vX.Y.Z` pour que l'extraction le trouve.
 
+## v0.1.0
+
+### Une interface refaite, écran par écran
+
+Sift a été relu contre les applications système de macOS — Finder, Musique, Mail, Photos,
+Utilitaire de disque, Réglages Système — et redessiné sur leur grammaire, puis adapté aux
+conventions Windows (contrôles de fenêtre à droite, `Ctrl`, clic droit partout).
+
+- **Une barre unique** porte le titre de l'écran, son compte et ses actions. Le rail de
+  navigation est groupé en sections, repliable, et accueille désormais les **dossiers
+  surveillés** (l'écran Accueil a disparu : ses sources vivent dans le rail, avec leur
+  couleur, leur compte et leur état de surveillance).
+- **Revue**, l'écran de décision : lecteur façon Apple (temps cliquable, survol de l'onde,
+  volume en capsule), verdict dit en un mot — **VRAI**, **FAUX** ou **À VÉRIFIER** —, fiche
+  Métadonnées éditable en place et gravée au blur, identification Discogs en liste ouverte,
+  Diagnostic audio dans l'inspecteur, filtre par facettes et recherche en tête de la file,
+  menu contextuel sur chaque piste, raccourcis clavier en infobulle.
+- **Mode Lot** : on coche dans la file, la zone centrale résume la sélection (verdicts,
+  formats, durée), une alerte récapitule avant un rangement de masse, une feuille de
+  progression non modale montre l'avancement puis le rapport. Menu **Sélection** : tout,
+  aucune, seulement une catégorie (Lossless, MP3, Faux, Doublons), sans les faux ;
+  `Ctrl+A` / `Ctrl+Maj+A`.
+- **Rangés** (ex-Bibliothèque) : table à fonds alternés comme le Finder, colonnes
+  redimensionnables et réordonnables (mémorisées), tri sur chaque colonne, sélection
+  multiple avec inspecteur agrégé, menu contextuel (ouvrir l'emplacement, réanalyser,
+  écarter, corbeille), pochette-bouton de lecture, inspecteur qui parle Revue.
+- **À re-sourcer** et **Corbeille** deviennent deux destinations du rail, dans la même
+  table.
+- **Journal** : une vraie table, groupée par session et par jour ; une action annulée reste
+  marquée annulée après un redémarrage.
+- **Rekordbox** : une seule synchronisation — « Synchroniser la sélection » ou « Tout
+  synchroniser » —, les candidats groupés par type et nommés « Artiste — Titre », les
+  faits du fichier lié en tête.
+- **Clé USB** : colonne des disques, puis pour le disque choisi la barre d'occupation par
+  format, une grille de faits (point de montage, format, capacité, libre, fichiers,
+  modèle, périphérique, santé) et les actions Formater, Éjecter, Relire.
+- **Réglages** : catégories à gauche, panneau à droite, application immédiate — plus
+  aucun bouton Enregistrer, le modèle de nommage se grave à la frappe.
+- Police **Inter**, gris système d'Apple, accent bleu système, coins arrondis de fenêtre
+  sur Windows 11, une seule hauteur de rangée, deux familles de boutons, et plus aucun
+  survol sur un bouton plein.
+
+### Une détection des faux lossless plus fiable
+
+- Deux signaux s'ajoutent à la coupure spectrale : la **platitude de l'aigu** et la
+  **vraisemblance de quantification** (la trace que laisse un codec dans les échantillons).
+  Mesuré sur la référence du dépôt : les faux négatifs passent de 68 % à 31 %.
+- La durée décodée est mesurée, plus lue dans l'en-tête ; l'absence de mesure ne produit
+  plus de verdict ; les seuils ont été re-dérivés sur une référence assainie.
+- Un changement de moteur ne perd plus la bibliothèque rangée : le verdict est rejoué au
+  démarrage sur les mesures stockées, et les pistes rangées qui ne peuvent pas l'être sont
+  reprises par l'analyse de fond, la file d'abord. Un compteur le dit dans le journal.
+- Le badge « Prêt CDJ » juge le porteur du tag (un WAV en RIFF n'est pas lisible par la
+  platine), plus sa seule présence.
+
+### Rangement
+
+- La racine de bibliothèque n'est plus exigée pour convertir : elle ne conditionne que
+  l'arbre de destinations. Le rappel vit dans le rail, sous les sources.
+- Le popover Destination est en sections (Bibliothèque / Autres), avec un pied natif.
+- Un dossier surveillé sans fichier audio reconnu porte un badge « 0 audio ».
+
+### Clé USB
+
+- L'écriture du FAT32 au-delà de 32 Go part par blocs de 1 Mio au lieu de secteur par
+  secteur, et l'étape affiche les Mo écrits : plus d'écran qui semble figé.
+- Le type de partition FAT32 est posé correctement ; l'éjection d'un SSD USB vu comme
+  disque fixe passe par son périphérique parent ; plus de demande d'élévation quand la
+  partition existante convient.
+
+### Vitesse
+
+- Les rapports d'analyse en cache sont 21 fois plus petits (la base réelle est passée de
+  4,1 Go à 119 Mo), la grille du spectrogramme se recalcule à l'ouverture.
+- Le dédoublonnage ne recalcule plus tout quand une seule piste est rangée, et sa fenêtre
+  de durée énumère au lieu de filtrer.
+- Un rendu d'écran en retard ne repeint plus l'écran courant ; le rail des sources se met
+  à jour en place.
+
+### Sous le capot
+
+- Build macOS Intel ajouté (en plus d'Apple Silicon) ; FFmpeg macOS compilé depuis les
+  sources, sans composant GPL.
+- Les chaînes françaises ont retrouvé leurs accents, avec des gardes qui empêchent le
+  retour du problème.
+
 ## v0.0.3
 
 ### L'écran Clé USB fonctionne
