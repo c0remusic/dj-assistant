@@ -10,6 +10,12 @@
             "command": "node scripts/check-gh-title.mjs",
             "timeout": 15,
             "statusMessage": "check-gh-title (titres gh accentués, #43)"
+          },
+          {
+            "type": "command",
+            "command": "node scripts/check-git-restore.mjs",
+            "timeout": 15,
+            "statusMessage": "check-git-restore (checkout/restore/stash sur arbre sale)"
           }
         ]
       }

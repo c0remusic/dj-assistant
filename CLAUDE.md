@@ -95,6 +95,13 @@ sautent quand elles sont absentes.
 disputent le lock du `target/` (attente, ou corruption du cache incrémental).
 `scripts/cargo-isolated.sh` lance `cargo` avec un `CARGO_TARGET_DIR` isolé.
 
+⚠️ **`tauri dev` ignore `CARGO_TARGET_DIR`** et lie toujours dans `src-tauri/target` (vérifié au
+`/OUT:` du log, 2026-09-09). Quand ce cache est corrompu (LNK2019 `anon.*.llvm.*`, résistant à
+`cargo clean -p sift`) : `scripts/cargo-isolated.sh build --no-default-features`, puis lancer le
+binaire isolé directement — `Start-Process <isolé>\debug\sift.exe -WorkingDirectory src-tauri`
+avec `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=<port>` — il se branche sur
+tout Vite 5173 qui sert l'arbre (HMR, sans watcher Rust). Ticket #62.
+
 Storybook est le **miroir vivant** de `docs/design-system-states.md` : documenter un
 nouvel état veut dire ajouter sa story, pas seulement étendre le markdown.
 
@@ -492,6 +499,11 @@ la commande dev** expose un endpoint CDP standard sur la vraie fenêtre WebView2
   autre projet. **Constaté le 2026-08-05 : 9222 ET 9223 étaient tous deux tenus par un
   autre projet Tauri, dont le CDP répond normalement.** Mesurer sans vérifier l'identité
   produit un résultat faux et crédible.
+- **Le port change de main dès que Sift redémarre** (édition `.rs` → restart → l'app ne
+  revient pas → Tuple ou shaderlab prend 9333). Constaté le 2026-09-09 : huit mesures « Sift »
+  ont mesuré shaderlab. Le titre se revérifie après **chaque** édition Rust, pas en début de
+  session ; `cdp.cjs` refuse désormais une cible non-Sift (`--any-title` pour passer outre
+  sciemment). Symptôme précoce : un `eval` qui rend `{}`.
 - **`:hover` et `:focus-visible` ne se déclenchent PAS par le DOM** (`dispatchEvent`/`focus()`
   seuls) : seuls de vrais événements CDP les posent — `Input.dispatchMouseEvent` (mouseMoved aux
   coordonnées du nœud), `Input.dispatchKeyEvent` (Tab réel) puis `focus()`. `driver.mjs hover|focus`
