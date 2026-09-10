@@ -9,7 +9,11 @@ détails techniques vivent dans les messages de commit.
 Une section manquante fait **échouer** le build de release plutôt que publier des notes vides.
 Le titre de section doit être exactement `## vX.Y.Z` pour que l'extraction le trouve.
 
-## v0.1.0
+## v0.1.1
+
+Première version publiée depuis la 0.0.3 : elle porte tout ce qui suit, plus les
+installeurs **Mac Intel** (`x86_64`) à côté d'Apple Silicon et de Windows — un binaire arm64
+ne démarre pas sur un Mac Intel, et le parc visé est mixte.
 
 ### Une interface refaite, écran par écran
 
@@ -94,6 +98,10 @@ conventions Windows (contrôles de fenêtre à droite, `Ctrl`, clic droit partou
   sources, sans composant GPL.
 - Les chaînes françaises ont retrouvé leurs accents, avec des gardes qui empêchent le
   retour du problème.
+
+## v0.1.0
+
+Brouillon jamais publié (sans installeur Mac Intel) : ses notes sont celles de la v0.1.1.
 
 ## v0.0.3
 
