@@ -56,7 +56,7 @@ describe("notes de release", () => {
     // Installer et utiliser ne sont pas le même moment (issue #19). Quelqu'un qui reçoit le lien
     // n'ouvre pas forcément le dépôt : sans cette ligne, le manuel n'existe que pour qui le fait.
     expect(notes(premiereVersion())).toContain("docs/manuel.md");
-    expect(notes(premiereVersion())).toContain("https://sift-dj.vercel.app/manuel.html");
+    expect(notes(premiereVersion())).toContain("https://sift-music.vercel.app/manuel.html");
     expect(notes(premiereVersion())).toContain(`/releases/download/${premiereVersion()}/manuel.pdf`);
   });
 

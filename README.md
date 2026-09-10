@@ -26,8 +26,8 @@ Les versions suivantes arrivent par la mise à jour automatique, depuis l'app.
 
 ## Manuel
 
-- **En ligne, dans le design de l'app :** https://sift-dj.vercel.app/manuel.html
-- **En PDF :** https://sift-dj.vercel.app/manuel.pdf
+- **En ligne, dans le design de l'app :** https://sift-music.vercel.app/manuel.html
+- **En PDF :** https://sift-music.vercel.app/manuel.pdf
 - En Markdown : [`docs/manuel.md`](docs/manuel.md)
 
 Installer, trois mots à connaître, les huit écrans, le clavier, et ce que la détection laisse
