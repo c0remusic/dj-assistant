@@ -22,6 +22,13 @@ jobs:
             triple: x86_64-pc-windows-msvc
           - os: macos-latest
             triple: aarch64-apple-darwin
+          # Mac Intel : même entrée que build.yml (issue #14, décidée le 2026-09-02) — elle y
+          # avait été ajoutée sans suivre ici, constaté sur le brouillon v0.1.0 le 2026-09-10
+          # (aucun installeur Intel, pas de plateforme darwin-x86_64 dans latest.json). Runner
+          # natif x86_64 `macos-15-intel`, disponible jusqu'en août 2027 ; ffmpeg se construit à
+          # l'architecture de l'hôte, la clé de cache porte le triple.
+          - os: macos-15-intel
+            triple: x86_64-apple-darwin
     runs-on: ${{ matrix.os }}
     # Sans plafond, un job bloque consomme jusqu'a la limite du fournisseur (6 h).
     timeout-minutes: 60
