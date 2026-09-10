@@ -430,10 +430,14 @@ export function handleBatchAction(el: HTMLElement, act: string, e: MouseEvent): 
     document
       .querySelectorAll<HTMLElement>("#sift-batch-fmt-seg [data-sift='batchformat']")
       .forEach((b) => b.classList.toggle("on", b.dataset.t === batchLosslessFormat));
+    // Le pouce GLISSE sur le nœud existant, et rien d'autre ne bouge : jusqu'au 2026-09-10 un
+    // `requestAnimationFrame(renderBatchRail)` suivait, qui reconstruisait tout le rail par
+    // `innerHTML` à la frame suivante — le pouce neuf repartait de `left:0` (la position MP3) et
+    // reglissait jusqu'à la cible (mesuré : 52 px à 70 ms au lieu d'un point entre 45 et 89).
+    // C'est le piège de CLAUDE.md § Front : une transition n'anime rien sur un nœud recréé. Rien
+    // dans le rail ne lit `batchLosslessFormat` — seule la confirmation de rangement le lit, au
+    // moment de ranger (`handleBatchQueueAction`).
     positionBatchFmtThumb();
-    requestAnimationFrame(() => {
-      renderBatchRail();
-    });
   } else if (act === "batchopen") {
     e.stopPropagation();
     const id = Number(el.dataset.id);
