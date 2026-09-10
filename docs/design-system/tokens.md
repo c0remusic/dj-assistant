@@ -68,11 +68,26 @@ Tokens principaux :
 - `--color-border-danger`
 - `--overlay-hover`
 - `--overlay-selected`
+- `--overlay-alt` — fonds alternés d'une table (2026-09-10 : un cran au-dessus de
+  `--overlay-hover`, clair .045 / sombre .05), posé par parité d'index, jamais `:nth-child`
 - `--overlay-drop`
 - `--overlay-wave-hover`
 
 Les overlays sont préférables aux aplats colorés pour les états subtils :
 sélection, survol, hover de waveform.
+
+**Survol — tranché le 2026-09-09 (audit de fin de #24, décision d'Antoine).** Un seul
+traitement : `--overlay-hover` en aplat, sur ce qui agit et n'est pas plein — rangées de
+colonne (`.fld`), entrées du rail (`.nv`), boutons discrets (transparents), candidats. **Un push
+button n'a aucun survol** (kit Big Sur § 02 : Normal / Disabled seulement ; le survol n'existe
+que sur les scope buttons et les icon buttons). **Une rangée de table n'a aucun survol** non plus
+(2026-09-10, Finder). `filter: brightness()` n'existe plus sur un `:hover` — il assombrissait
+l'encre en sombre et n'était ni un aplat ni un token. Le survol ne peint jamais le plan de
+l'actif : `.nv:hover` peignait `--color-nav-active`, survolée et active se confondaient.
+
+**Segment libre d'une barre de donnée** : `--color-border-secondary` (alpha), pas
+`--color-track` — ce dernier vaut le fond de page en sombre et disparaît au sol (Clé USB,
+2026-09-09).
 
 ### Contraste
 
@@ -88,8 +103,19 @@ chantier à part entière, pas une retouche.
 
 Police UI canonique : `--font-ui`.
 
-Police mono canonique : `--font-mono`, réservée aux données techniques,
-chemins, durées, formats, valeurs numériques et noms de fichier.
+Police mono canonique : `--font-mono`, réservée aux **chiffres qui s'alignent en colonne**
+(durées, BPM, mesures, `tabular-nums`). ⚠️ Cette page disait « chemins, formats, noms de
+fichier » : faux depuis `DESIGN.md` § 2 (2026-08-21) — un chemin, un format ou un nom de fichier
+se rend en `--font-ui`. Dernier site corrigé : la colonne Fichier d'À re-sourcer (2026-09-10).
+
+**Encres neutres — écart rouvert le 2026-09-09.** Mesuré dans la vraie fenêtre : secondary et
+tertiary étaient à 1,6 point de clarté en sombre (83,5 / 81,92) et 0,75 en clair (45,4 / 46,15),
+la même encre à l'écran, alors que toute la hiérarchie des rangées (libellé ↔ valeur, `.col-h`,
+comptes) repose sur ces deux crans. Valeurs depuis : sombre 95,9 / 83,5 / **79** / 76,72 ; clair
+31,16 / **41** / 46,15 / 50,30. En sombre c'est tertiary qui descend (76 tombait à 4,23:1 sur le
+plan de la file) ; en clair le sol à 86,22 % interdit de descendre tertiary, donc c'est secondary
+qui monte en contraste. AA (4,5:1) tenu sur les cinq écrans peuplés, sauf le bouton primaire
+(blanc sur `--color-accent-fill`, 3,65 sombre / 4,02 clair — antérieur, non tranché).
 
 Règles :
 
@@ -192,6 +218,17 @@ suppression peut casser un usage futur déjà prévu).
 Règle : les dimensions de contrôles répétés doivent être stables. Un hover,
 un état actif ou un libellé long ne doit jamais faire bouger le layout.
 
+**Deux familles de boutons, et deux seulement — tranché le 2026-09-09** (audit de fin de #24 :
+cinq gabarits mesurés, 22 / 23 / 28 / 30 / 31 px, pour ce que le kit Big Sur § 02 rend en Large
+et Small) :
+
+| Famille | Hauteur | Police | Rayon | Porteurs |
+|---|---|---|---|---|
+| Large | `--h-control` 28 | `--text-base` 13 | `--border-radius-md` 7 | `.sift-bar-btn`, `.sift-ranger-btn`, rail d'action de Revue, `.sift-usage-btn`, `.sift-usage-disclose` |
+| Small | `--h-control-sm` 22 | `--text-sm` 11 | `--border-radius-md` 7 | `.sift-settings-btn`, `.sift-meta-ident-btn`, `.sift-qfoot-go`, `.sift-empty-link`, `.sift-id-btn` |
+
+Le rayon 5 (`--border-radius-sm`) reste aux champs et aux segmentés, jamais à un push.
+
 ### Géométrie Concentrique
 
 Tranché le 2026-08-14 (issue #26), portée bornée le 2026-08-19 (commentaire de correction
@@ -269,8 +306,11 @@ présenterait comme mesurée. Le désaccord serait silencieux, d'où un test Rus
 `styles.css`** et compare : `analysis::spectrum::tests::css_data_measure_matches_max_cols`
 (issue #30, 2026-08-14). Éditer l'un sans l'autre fait tomber `cargo test`.
 
-Les deux autres mesures ne sont **pas** déclarées : un token sans consommateur est un token
-mort (voir `--h-40` plus haut). Elles se déclarent au moment où on les applique.
+**`--measure-form` (560) est déclarée depuis le 2026-09-09** : son premier consommateur est le
+panneau de Réglages (`.sift-settings-panel`, déclinaison #24, septième écran), où elle a
+remplacé le `max-width:560px` en dur de `.sift-settings-stack`. La mesure « dialogue » (760)
+n'est toujours **pas** déclarée : un token sans consommateur est un token mort (voir `--h-40`
+plus haut). Elle se déclare au moment où on l'applique.
 
 **Réserve héritée de #9, non tranchée** : 560 px porte 99 à 107 caractères par ligne
 (mesuré en **Outfit** 400, 12–13 px — ⚠️ chiffre à refaire, `--font-ui` est passé à **Inter** le

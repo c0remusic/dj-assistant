@@ -370,9 +370,17 @@ HIG Settings, pour l'écran Réglages.
   chaque réglage plus dur à trouver ;
 - un réglage qui n'affecte qu'une tâche vit **dans** cette tâche, pas dans l'écran
   global ;
-- convention macOS non implémentée : Cmd+, ouvre les réglages. Sift n'a pas de raccourci
-  de réglages ; à décider, pas un défaut tant que Réglages est une vue de navigation et
-  non une fenêtre séparée.
+- ~~convention macOS non implémentée : Cmd+, ouvre les réglages~~ — `Ctrl+,` existe
+  (`shortcuts.ts`, `goTo("reglages")`), constaté le 2026-09-09.
+
+**Réglages Système, exécuté le 2026-09-09** (déclinaison #24, septième écran, spec
+`docs/ui-specs/reglages.md` § Décision) : colonne de catégories au plan de la file (la même
+règle CSS que Rekordbox et Clé USB, voir `components.md` § Rail), panneau **sans carte** borné à
+`--measure-form`, rangées sur une grille commune — libellé 150 px à gauche, contrôle à droite,
+un filet entre rangées —, **application immédiate partout** (le modèle de nommage s'enregistre
+à la frappe et au blur ; plus de bouton Enregistrer), `↑` `↓` sur les catégories. Quatre
+catégories : Général · Nommage · Identification · Apparence — « Conversion » de la spec n'existe
+pas tant qu'aucun réglage de conversion n'est stocké : une catégorie vide mentirait.
 
 ## Saisie
 

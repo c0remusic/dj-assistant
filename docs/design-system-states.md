@@ -130,6 +130,7 @@
 - L2004 — Carte de racine manquante du rail `.sift-railwarn` — remplace le bandeau `#sift-gate` supprimé ; états, survol en voile par-dessus l'ambre, rail replié ; module pur + story + vecteurs (09-02).
 - L2034 — À re-sourcer · Corbeille — ex-Écartés, deux destinations du rail, table de Rangés, inspecteur Racheter (09-08).
 - L2055 — Rekordbox — lu contre Finder › appareil et Photos › Importer : une seule synchronisation (Tout / sélection), faits à libellé aligné à droite, candidats en groupes nommés, colonne au plan de la file (09-08).
+- L2085 — Rangée de table `.lr` — grammaire Finder : fonds alternés par index, ni filet ni arrondi ni survol, colonne Format (09-10).
 
 ## Ligne de queue — `.qi` (`styles.css:1127-1214`, revérifié au grep le 2026-08-27)
 
@@ -2078,3 +2079,27 @@ Vérifié dans la vraie fenêtre le 2026-09-08 (spec § Vérifié : mesures, coc
 Annuler sans écriture). Gelé par `test/rekordbox-plan.test.ts` (portée, borne de section, compte —
 mutation vue tomber) et `test/session-label.test.ts` (nom de session, module partagé avec Journal ;
 Rekordbox ne l'utilise plus depuis v4 — plus de groupes de session).
+
+---
+
+## Rangée de table `.lr` — grammaire Finder (2026-09-10) — `library-views.ts`, `ecartes-view.ts`
+
+Rangés, À re-sourcer et Corbeille partagent la rangée `.lr`. Lue contre la présentation par liste
+du Finder (les refs locales n'ont pas de table ; HIG Lists and tables § macOS, fonds alternés) :
+
+| État | Sélecteur | Rendu |
+|---|---|---|
+| Repos, rangée paire | `.lr` | fond transparent, 32 px (`--row-h`), sans filet ni arrondi |
+| Repos, rangée impaire | `.lr.alt` | `--overlay-alt` — parité d'INDEX posée par `createVirtualList` (`rowHtml(item, index)`), jamais `:nth-child` (s'inverserait au défilement d'une fenêtre recyclée) |
+| Survol | — | **aucun** (macOS n'en a pas) ; le triangle de lecture se révèle au survol de la pochette seule (`.lr .pb:hover .sift-lib-play`) |
+| Sélectionnée | `.lr.sel` | `--color-background-secondary` pleine largeur (bat `.alt`) |
+| Ouverte | `.lr.cur` | `--color-background-info` (bat `.alt`), cumulable avec `.sel` |
+| Focus clavier | `:focus-visible` générique | anneau, plus de fond (`:focus-within` retiré) |
+| En-tête | `.sift-lib-thead` | `--text-sm`, encre secondaire, un filet — le seul trait de la table |
+| Format | `.sift-lib-col-fmt` | colonne de texte 44 px, encre secondaire, en-tête « Format » ; la pastille `.pill` a quitté les tables |
+
+Parti le même jour : le filet sous chaque rangée + l'arrondi de 7 px, `.lr:hover` au plan de
+sélection, `.lr:active{translateY(1px)}`, `.lr:focus-within` de fond, `.sift-ec-file` en
+monospace. Vérifié dans la vraie fenêtre (CDP 9334) : motif `alt` 010101 sur 15 rangées, fond
+alterné `oklch(1 0 89.88 / 0.05)`, survol réel de la rangée sans changement, triangle 0 → 1 au
+survol de la pochette. `DESIGN.md` § 16 « pas d'alternance » renversé, daté.

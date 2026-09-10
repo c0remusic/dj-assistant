@@ -25,7 +25,20 @@ Règles :
 - la title bar doit prolonger visuellement le rail gauche et le fond principal ;
 - les séparations doivent être continues, sans décalage ni double bordure ;
 - le rail est une structure permanente, pas une carte ;
-- la navigation active reste neutre et lisible.
+- la navigation active reste neutre et lisible ;
+- le survol d'une entrée du rail est `--overlay-hover`, jamais le plan de l'entrée active
+  (`--color-nav-active`) : jusqu'au 2026-09-09, survolée et active se confondaient.
+
+**Colonne au plan de la file + zone principale — la grammaire partagée de trois écrans
+(Rekordbox 2026-09-08, Clé USB et Réglages 2026-09-09).** Une colonne B′ à `--pane-w`, au plan
+de la file de Revue (`--color-background-queue`), bord à bord et pleine hauteur (marges
+négatives sur l'inset de `#content`) ; une zone principale qui défile chez elle, bornée à
+`--measure-data` (donnée : Rekordbox, Clé USB) ou `--measure-form` (formulaire : Réglages) ;
+des entrées `.fld` avec compte ou capacité à droite. Une seule règle CSS (`.sift-rkb-layout`
+et ses co-sélecteurs `.sift-usb-*`, `.sift-settings-*`) — le jour où un quatrième écran arrive,
+c'est elle qui prend un nom générique. Références : Utilitaire de disque (sidebar des appareils,
+infos à droite, action destructrice en sheet), Réglages Système (catégories, panneau étroit,
+application immédiate).
 
 ## File De Morceaux
 
@@ -203,6 +216,24 @@ Ajouts HIG Feedback :
   besoin d'un signal que pour l'échec ;
 - un retour ne doit jamais reposer sur un seul canal : couleur **et** texte.
 
+## Boutons
+
+Tranché le 2026-09-09 (audit de fin de #24, décision d'Antoine ; valeurs dans `tokens.md`
+§ Radius et hauteurs) :
+
+- **deux familles** — Large 28 / 13 / r7, Small 22 / 11 / r7 — et aucun autre gabarit ;
+- **un push button n'a pas de survol** : le kit Big Sur § 02 ne montre que Normal / Disabled ;
+  `button:hover` générique et ses `filter: brightness()` ont été retirés. Un bouton plein répond
+  à la pression, pas au passage ;
+- un **bouton discret** (transparent : `.sift-settings-btn-quiet`, `.sift-tpl-chip`) répond en
+  aplat `--overlay-hover`, comme une rangée de colonne ;
+- exceptions documentées : `.sift-secondary-trash` peint le fond `danger` au survol
+  (destructif), `.sift-lib-thead button` ne change que l'encre (padding 0, pas de place pour un
+  aplat), `.sift-usage-lg` souligne ;
+- un `<button>` sans classe de famille hérite du fond raised de `button{}` : c'est un push,
+  et il n'a donc pas de survol (`.sift-empty-link`, rétabli après un aplat qui le faisait
+  disparaître).
+
 ## Rail De Navigation
 
 HIG Sidebars, transposé. Le rail de Sift tient le rôle de sidebar sans en avoir la forme.
@@ -231,6 +262,29 @@ HIG Lists and tables.
 
 Sur des listes virtualisées, une sélection persistante doit être portée par l'état, pas
 par le nœud DOM — celui-ci est recyclé.
+
+**La rangée de table `.lr`, lue contre le Finder — 2026-09-10 (Rangés, À re-sourcer,
+Corbeille).** Les refs locales n'ont pas de table (Mail et Notes sont des listes multilignes,
+le kit Big Sur n'a aucun composant table) : la référence est la présentation par liste du
+Finder, et les HIG « Lists and tables » § macOS (« *Consider using alternating row colors in a
+multicolumn table* »). Grammaire :
+
+- **fonds alternés** `--overlay-alt`, par **parité d'index** posée par le rendu virtualisé
+  (`rowHtml(item, index)` → classe `alt`) — jamais `:nth-child`, la fenêtre de rangées recyclées
+  change de première rangée au défilement et la parité DOM s'inverserait ;
+- **aucun filet** entre rangées, **aucun arrondi**, **aucun survol**, aucun enfoncement à la
+  pression ; le seul trait de la table est le filet sous l'en-tête ;
+- sélection `.sel` = `--color-background-secondary` pleine largeur ; piste ouverte `.cur` =
+  `--color-background-info` — deux états qui se cumulent ;
+- en-tête `--text-sm` en encre **secondaire**, un filet, indicateur de tri sur la colonne triée ;
+- le format est une **colonne de texte** (« Format », `.sift-lib-col-fmt`, encre secondaire),
+  jamais une pastille : quinze pastilles à fond secondaire faisaient quinze surfaces ;
+- la pochette est le bouton de lecture (patron Musique) : le triangle se révèle au survol de la
+  **pochette seule**, au focus clavier et sur la piste ouverte ;
+- `--font-mono` sur Durée et Année seulement (chiffres alignés), jamais sur un chemin.
+
+Ce qui était là avant et qui est parti : un filet sous chaque rangée ET un arrondi de 7 px, un
+survol au plan de sélection (survolée = sélectionnée), `translateY(1px)` à la pression.
 
 ⚠️ **Écart relevé le 2026-08-05 : la file de Revue n'est pas focalisable.**
 `queue-panel.ts:351` rend `<div class="qi" … title="…" style="cursor:pointer">` — ni
