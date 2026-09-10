@@ -17,7 +17,7 @@
 // swap inconditionnel livrerait le site d'accueil dans l'installeur.
 //
 // `public/` est généré et gitignoré : la source reste `docs/`.
-import { copyFile, mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { copyFile, cp, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -47,6 +47,8 @@ async function wrap(page) {
   const html =
     '<!doctype html>\n<html lang="fr">\n<head>\n<meta charset="utf-8">\n' +
     '<meta name="viewport" content="width=device-width,initial-scale=1">\n' +
+    // Déclaré avant tout rendu : le canevas prend la bonne couleur dès le départ (guide dark-mode).
+    '<meta name="color-scheme" content="light dark">\n' +
     `<meta name="description" content="${page.description}">\n` +
     "</head>\n<body>\n" +
     body +
@@ -58,8 +60,10 @@ async function prepare() {
   await mkdir(join(pub, "screenshots"), { recursive: true });
   for (const page of PAGES) await wrap(page);
   await copyFile(join(root, "docs", "manuel.pdf"), join(pub, "manuel.pdf"));
-  await copyFile(join(root, "docs", "screenshots", "revue.png"), join(pub, "screenshots", "revue.png"));
-  console.log("build-site: public/{accueil.html, manuel.html, manuel.pdf, screenshots/revue.png}");
+  // Toutes les variantes (PNG d'origine, AVIF/WebP bureau 1x/2x, recadrage mobile) : le <picture>
+  // de l'accueil les nomme une par une.
+  await cp(join(root, "docs", "screenshots"), join(pub, "screenshots"), { recursive: true });
+  console.log("build-site: public/{accueil.html, manuel.html, manuel.pdf, screenshots/*}");
 }
 
 async function finish() {
