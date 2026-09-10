@@ -82,7 +82,8 @@ Les builds ne sont pas signés (code-signing Windows et notarization macOS diff�
 
 ## Site (Vercel)
 
-https://dj-assistantapp.vercel.app — projet Vercel `dj-assistant`, intégration Git : chaque push
+https://sift-dj.vercel.app — projet Vercel `dj-assistant` (domaine `sift-dj.vercel.app` ajouté le
+2026-09-10 par `vercel domains add` ; `dj-assistantapp.vercel.app` répond encore), intégration Git : chaque push
 sur `main` est un déploiement de production (`npm run build`, `vercel.json` : Vite, sortie
 `dist/`). Le build sert `/manuel.html` et `/manuel.pdf` (générés depuis `docs/manuel.{html,pdf}`
 par `scripts/build-manuel.mjs` en `prebuild`, dans `public/` gitignoré) et, à la racine, la

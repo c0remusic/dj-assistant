@@ -8,6 +8,8 @@ la bibliothèque vers Rekordbox et sur une clé USB.
 Une seule règle : **déplacer, c'est encoder et ranger**. Rien n'est supprimé sans que tu le
 demandes, et un dossier surveillé n'est jamais réécrit.
 
+![L'écran Revue de Sift : la file à gauche, la piste ouverte au centre avec son verdict, le diagnostic audio à droite](docs/screenshots/revue.png)
+
 ## Télécharger
 
 [**Dernière version →**](https://github.com/c0remusic/sift/releases/latest)
@@ -24,8 +26,8 @@ Les versions suivantes arrivent par la mise à jour automatique, depuis l'app.
 
 ## Manuel
 
-- **En ligne, dans le design de l'app :** https://dj-assistantapp.vercel.app/manuel.html
-- **En PDF :** https://dj-assistantapp.vercel.app/manuel.pdf
+- **En ligne, dans le design de l'app :** https://sift-dj.vercel.app/manuel.html
+- **En PDF :** https://sift-dj.vercel.app/manuel.pdf
 - En Markdown : [`docs/manuel.md`](docs/manuel.md)
 
 Installer, trois mots à connaître, les huit écrans, le clavier, et ce que la détection laisse
