@@ -544,7 +544,7 @@ coche tout ce qui a un verdict ; il manquait le retour et la catégorie. Un pull
 Lossless (n) » · « Seulement MP3 » · « Seulement Faux » · « Seulement Doublons »** — la sélection
 devient exactement cette catégorie, filtre posé ou non (« Non analysés » n'y est pas : une piste
 sans verdict n'entre pas dans un lot ; une catégorie vide est désactivée, jamais masquée).
-Clavier : `Ctrl+A` = tout, `Ctrl+Maj+A` = aucune (Édition › Tout sélectionner / Tout
+Puis **« Sans Faux (n) »** : la sélection courante moins ses pistes `fake` — « tout ranger sauf les faux » en un clic, là où « Seulement » remplace (ajouté le jour même à la demande d'Antoine). Clavier : `Ctrl+A` = tout, `Ctrl+Maj+A` = aucune (Édition › Tout sélectionner / Tout
 désélectionner de Photos et Mail — Sift n'a pas de barre de menus, #58). Le compte de la barre,
 les cases et le résumé de zone C se repeignent dans le même geste.
 

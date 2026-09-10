@@ -637,10 +637,22 @@ function openQueueSelectionMenu(anchor: HTMLElement): void {
         onPick: ids.length ? () => setQueueBatchSelection(ids) : undefined,
       };
     });
+    // « Sans Faux » (demande d'Antoine, 2026-09-10) : la sélection COURANTE moins ses pistes à
+    // verdict `fake` — le geste « tout ranger sauf les faux » en un clic, là où « Seulement »
+    // remplace. Le compte est celui des faux actuellement cochés ; zéro = entrée désactivée.
+    const selectedFake = eligible.filter((it) => queueBatchSel.has(it.id) && it.verdict === "fake");
+    const sansFaux = {
+      label: `Sans Faux (${selectedFake.length.toLocaleString("fr-FR")})`,
+      onPick: selectedFake.length
+        ? () => setQueueBatchSelection([...queueBatchSel].filter((id) => !selectedFake.some((it) => it.id === id)))
+        : undefined,
+      separated: true,
+    };
     openContextMenu(r.left, r.bottom + 4, [
       { label: `Tout (${eligible.length.toLocaleString("fr-FR")})`, onPick: selectAllQueueBatch },
       { label: "Aucune", onPick: queueBatchSel.size ? clearQueueBatchSelection : undefined },
       ...perFacet.map((m, i) => (i === 0 ? { ...m, separated: true } : m)),
+      sansFaux,
     ]);
   });
 }
