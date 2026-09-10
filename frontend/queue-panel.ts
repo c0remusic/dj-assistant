@@ -604,7 +604,10 @@ function setQueueBatchSelection(ids: Iterable<number>): void {
   for (const id of ids) queueBatchSel.add(id);
   const ql = document.getElementById("ql");
   if (ql) renderQueueWindow(ql);
-  if (reviewMode === "batch") void import("./batch-panel").then((m) => m.renderBatch());
+  // Le renderer du Lot est INJECTÉ (`registerBatchRenderer`, sift-live.ts) — jamais un import de
+  // `batch-panel`, qui importe ce module : le `import()` dynamique posé ici le 2026-09-10 était
+  // inefficace (Vite : « also statically imported by sift-live.ts ») et contournait le motif du dépôt.
+  if (reviewMode === "batch") batchRenderer?.();
 }
 
 /** Tout sélectionner (mode Lot) — Finder : Édition › Tout sélectionner, `Ctrl+A`. Exportée pour

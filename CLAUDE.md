@@ -478,8 +478,9 @@ publie jamais. Nommer la racine depuis une mesure du dépôt quand elle existe.
   `<script>` casse ce raisonnement — il demande alors une SECONDE fonction (`safeUrl` /
   `escAttr`), jamais un `esc()` élargi qui alourdirait les dizaines de sites corrects.
 
-Jargon anglais volontairement conservé dans l'UI (ne pas « corriger ») : LOSSLESS,
-DUPLICATE, MATCH, CHECK MATCH, FAKE, kbps, kHz, MP3, AIFF, WAV.
+Jargon anglais volontairement conservé dans l'UI (ne pas « corriger ») : LOSSLESS (le rail,
+les facettes, les chips — jamais le mot de verdict, qui dit VRAI / FAUX / À VÉRIFIER depuis le
+2026-09-10), DUPLICATE, MATCH, CHECK MATCH, kbps, kHz, MP3, AIFF, WAV.
 
 ## Vérification UI — l'app réelle, pas la maquette
 
