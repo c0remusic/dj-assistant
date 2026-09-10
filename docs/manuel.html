@@ -134,6 +134,32 @@ td:first-child{white-space:nowrap}
   .screens{grid-template-columns:1fr}
 }
 @media (prefers-reduced-motion: no-preference){ html{scroll-behavior:smooth} }
+/* Impression / PDF : même charpente, posée en pages A4. La fenêtre perd sa marge et son ombre,
+   le rail devient un sommaire en tête (première page), puis le contenu coule en une colonne. */
+@page{size:A4;margin:16mm 14mm 18mm}
+@media print{
+  :root{color-scheme:light}
+  body{background:var(--bg-2)}
+  .win{max-width:none;margin:0;border:0;border-radius:0;box-shadow:none;overflow:visible}
+  .bar{height:auto;padding:0 0 10px;background:none;border-bottom:1px solid var(--line)}
+  .lights{display:none}
+  .frame{display:block;min-height:0}
+  .railcol{border:0;background:none;margin-bottom:28px;padding-bottom:16px;border-bottom:1px solid var(--line-2)}
+  .rail{position:static;max-height:none;overflow:visible;padding:16px 0 0;columns:2;column-gap:32px}
+  .rail h4{break-after:avoid;margin-top:14px}
+  .rail a{height:22px;color:var(--ink);page-break-inside:avoid;break-inside:avoid}
+  .rail a.on{background:none;color:var(--ink)}
+  .rail a .k,.rail a.on .k{color:var(--ink-3)}
+  .main{padding:0;max-width:none}
+  h1{font-size:26px}
+  h2{margin-top:28px;padding-top:14px;page-break-after:avoid;break-after:avoid}
+  h3{page-break-after:avoid;break-after:avoid}
+  table,.note,pre,.screen{page-break-inside:avoid;break-inside:avoid}
+  .screens{grid-template-columns:repeat(2,1fr)}
+  a{color:var(--ink)}
+  a[href^="http"]::after{content:" (" attr(href) ")";font-size:10px;color:var(--ink-3)}
+  .foot{page-break-before:avoid}
+}
 </style>
 
 <div class="win">
