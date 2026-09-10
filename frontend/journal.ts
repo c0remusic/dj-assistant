@@ -29,7 +29,7 @@
 // et `libraryTableRowHtml`). L'état entre en un seul point, `liveGroupHtml`.
 import type { JournalEntry } from "../shared/contracts";
 import { listJournal, getSessionId, revertBatch, revealTrack, getSetting } from "./ipc";
-import { requireEl, esc, plural } from "./dom";
+import { requireEl, esc, plural, durationMs } from "./dom";
 import { isStaleViewRender, viewEpoch } from "./view-epoch";
 import { humanizeError } from "./errors";
 import { confirmAction, BATCH_CONFIRM_THRESHOLD } from "./confirm-modal";
@@ -1172,9 +1172,15 @@ function installJournalHandlers(): void {
     const grp = t.closest<HTMLElement>("[data-jgroup]");
     if (grp?.dataset.jgroup) {
       const k = grp.dataset.jgroup;
-      if (jrnlState.collapsed.has(k)) jrnlState.collapsed.delete(k);
+      const opening = jrnlState.collapsed.has(k);
+      if (opening) jrnlState.collapsed.delete(k);
       else jrnlState.collapsed.add(k);
-      repaintBody();
+      // Le chevron tourne SUR LE NŒUD EXISTANT d'abord (`aria-expanded` pilote sa rotation en CSS),
+      // et le corps se reconstruit APRÈS la transition : `repaintBody` passe par `innerHTML`, et un
+      // chevron recréé naît déjà tourné — la transition déclarée sur `.jrnl-group-chev` n'avait
+      // jamais joué (audit des animations du 2026-09-10, même famille que le pouce du Lot).
+      grp.setAttribute("aria-expanded", String(opening));
+      window.setTimeout(repaintBody, durationMs("--duration-base"));
       return;
     }
 

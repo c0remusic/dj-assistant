@@ -535,6 +535,9 @@ function dupGroupHtml(g: DupGroup, idx: number): string {
  *  Un jeton à usage unique plutôt qu'un état durable : c'est le geste qui prolonge le menu, pas le
  *  temps qui passe. */
 let facetPopSurviveNextRender = false;
+/** Ce que la barre porte hors segmenté (pilote + chips) au dernier montage : tant que c'est égal,
+ *  `renderBiblioLive` ne remonte pas la barre et le pouce Tableau/Grille garde son nœud. */
+let lastBarKey = "";
 
 /** Appelée par le dispatch avant de relancer un rendu depuis le menu lui-même. */
 export function keepFacetPopoverOpen(): void {
@@ -948,8 +951,26 @@ export async function renderBiblioLive() {
     return;
   }
 
-  mountBarActions(barActionsHtml);
-  positionViewModeThumb(); // le nœud vient d'être (re)créé dans la barre — le placer après montage
+  // Le segmenté Tableau/Grille SURVIT au re-rendu de la barre : le clic sur une vue glisse le pouce
+  // (sift-live.ts, `positionViewModeThumb`) puis appelle ce rendu, qui reconstruisait la barre par
+  // `innerHTML` — le pouce neuf repartait de `left:0` et reglissait (mesuré le 2026-09-10 : 31 → 0
+  // → 1 au retour vers Tableau, un saut visible). Une transition n'anime rien sur un nœud recréé
+  // (CLAUDE.md § Front) : on remonte la barre, puis on remet l'ANCIEN segmenté à la place du neuf,
+  // classes `.on` recalées — le pouce garde sa position de départ et la transition joue.
+  // Remettre l'ancien nœud à la place du neuf ne suffit pas non plus : un nœud détaché puis
+  // rattaché perd sa transition en vol (mesuré : même nœud, mais 31 px dès 100 ms). La barre ne se
+  // remonte donc QUE si ce qu'elle porte hors segmenté (pilote, chips) a changé.
+  const barKey = pilot + chips;
+  const seg = document.getElementById("sift-bib-viewmode-seg");
+  if (seg?.isConnected && barKey === lastBarKey) {
+    seg
+      .querySelectorAll<HTMLElement>("[data-bib='viewmode']")
+      .forEach((b) => b.classList.toggle("on", b.dataset.mode === bibState.viewMode));
+  } else {
+    mountBarActions(barActionsHtml);
+    lastBarKey = barKey;
+  }
+  positionViewModeThumb(); // au premier montage le nœud est neuf — le placer après montage
   // Le compte vit dans la barre, à côté du titre, depuis le 2026-09-08 — comme la file de Revue
   // (`queue-panel.ts`, même slot `#sift-tb-count`, spec revue.md § Zone A). Il dit ce que la table
   // MONTRE (filtre compris), jamais un total global ; en mode doublons il nomme la portée du scan.

@@ -2843,9 +2843,9 @@ input{font-family:inherit}input[type=range]{accent-color:var(--color-accent-fill
    en display:none/block, sans transition (annotation : "on a une belle animation pour analyse
    audio mais pas pour métadonnées"). EXEMPTION VOLONTAIRE à DESIGN.md § 6, au même titre et pour
    le même motif que .sift-spectro-body, dont le commentaire porte la justification complète. */
-.sift-zone-toggle-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows var(--duration-slow) ease}
-.sift-zone-toggle-body.sift-zone-toggle-body-open{grid-template-rows:1fr}
-.sift-zone-toggle-body-inner{overflow:hidden;min-height:0}
+/* `.sift-zone-toggle-body*` (pli générique de zone) : trois règles MORTES retirées le 2026-09-10 —
+   aucun porteur dans `frontend/` depuis le retrait du disclosure Détails (00d27b4) ; le seul pli
+   restant est celui du spectrogramme (`.sift-spectro-body`). */
 /* Badge d'en-tête (ex. "MP3 ≈ X kbps", "CDJ incompatible") — visible replié, cohérent avec
    .sift-vchip existant mais sans dépendre de sa mise en page en ligne de "Preuves". */
 /* Uppercase + tracking (annotation: "fais en sorte que le texte soit plus homogene dans ces deux

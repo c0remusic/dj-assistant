@@ -11,7 +11,7 @@ import { getSetting, setSetting, listBins } from "./ipc";
 import type { Bin } from "../shared/contracts";
 import { EXTERNAL_DEST_PREFIX } from "../shared/contracts";
 import { open } from "@tauri-apps/plugin-dialog";
-import { esc } from "./dom";
+import { esc, durationMs } from "./dom";
 import { toast } from "./filing-toast";
 import { humanizeError } from "./errors";
 import { destPopoverPosition } from "./popover-position";
@@ -496,9 +496,14 @@ function renderBins(fldz: HTMLElement): void {
     el.addEventListener("click", (e) => {
       e.stopPropagation();
       const rel = el.dataset.rel || "";
-      if (expanded.has(rel)) expanded.delete(rel);
-      else expanded.add(rel);
-      renderBins(fldz);
+      const opening = !expanded.has(rel);
+      if (opening) expanded.add(rel);
+      else expanded.delete(rel);
+      // Le caret tourne sur le nœud existant, l'arbre se reconstruit après la transition : `renderBins`
+      // passe par `innerHTML` et un caret recréé naît déjà tourné — la transition déclarée sur
+      // `.sift-fld-caret` n'avait jamais joué (audit des animations du 2026-09-10).
+      el.style.transform = opening ? "rotate(90deg)" : "";
+      window.setTimeout(() => renderBins(fldz), durationMs("--duration-base"));
     }),
   );
   fldz.querySelectorAll<HTMLElement>('[data-fil="bin"]').forEach((el) =>

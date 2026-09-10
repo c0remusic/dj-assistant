@@ -39,6 +39,18 @@ export function esc(s: string): string {
  *  Le pluriel s'accorde à partir de 2, comme en français courant — `n > 1`, donc « 0 piste » et non
  *  « 0 pistes ». `many` est déduit en ajoutant un « s » ; le passer explicitement sert aux mots qui
  *  ne se pluralisent pas comme ça (« un dossier surveillé » → « des dossiers surveillés »). */
+/** Une durée de `styles.css` (`--duration-fast|base|slow`, écrites en `ms`) lue en millisecondes,
+ *  pour différer un re-rendu jusqu'à la fin de la transition qu'il tuerait (un nœud reconstruit
+ *  par `innerHTML` n'anime rien — CLAUDE.md § Front). Repli 150 ms hors DOM ou token absent :
+ *  ne jamais bloquer un rendu sur une valeur illisible. Miroir de lecture, pas de valeur : la
+ *  durée reste déclarée une seule fois, dans `styles.css`. */
+export function durationMs(token: "--duration-fast" | "--duration-base" | "--duration-slow"): number {
+  if (typeof document === "undefined") return 150;
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(token).trim();
+  const ms = raw.endsWith("ms") ? parseFloat(raw) : raw.endsWith("s") ? parseFloat(raw) * 1000 : NaN;
+  return Number.isFinite(ms) ? ms : 150;
+}
+
 export function plural(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n > 1 ? many : one}`;
 }
