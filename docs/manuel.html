@@ -73,16 +73,13 @@ a:hover{text-decoration:underline}
 /* La colonne s'étire sur toute la hauteur et porte le fond ; la nav dedans est collante.
    (`overflow:hidden` sur .win ferait de la fenêtre un conteneur de défilement et tuerait le sticky.) */
 .railcol{background:var(--bg-3);border-right:1px solid var(--line-2)}
-.rail{padding:12px 8px;position:sticky;top:0}
+.rail{padding:12px 8px;position:sticky;top:0;max-height:100vh;overflow-y:auto;scrollbar-width:thin}
 .rail h4{margin:10px 8px 4px;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
 .rail a{display:flex;align-items:center;gap:8px;height:28px;padding:0 8px;border-radius:var(--r-md);color:var(--ink);font-size:13px}
 .rail a:hover{background:var(--hover);text-decoration:none}
 .rail a.on{background:var(--accent);color:var(--on-accent)}
 .rail a .k{margin-left:auto;font:500 10px var(--mono);color:var(--ink-3)}
 .rail a.on .k{color:var(--on-accent);opacity:.8}
-.rail .src{display:flex;align-items:center;gap:8px;height:26px;padding:0 8px;font-size:12px;color:var(--ink-2)}
-.rail .src i{width:8px;height:8px;border-radius:50%;display:block}
-.rail .src .n{margin-left:auto;font:500 11px var(--mono);color:var(--ink-3);font-variant-numeric:tabular-nums}
 .main{padding:32px 40px 56px;max-width:760px}
 
 h1{font-size:32px;line-height:1.15;font-weight:600;letter-spacing:-.01em;margin:0 0 8px;text-wrap:balance}
@@ -152,9 +149,7 @@ td:first-child{white-space:nowrap}
       <a href="#debut" class="on">Ce que fait Sift</a>
       <a href="#installer">Installer</a>
       <a href="#mots">Trois mots</a>
-      <h4>Sources</h4>
-      <div class="src"><i style="background:oklch(62% .19 257)"></i>Téléchargements<span class="n">42</span></div>
-      <div class="src"><i style="background:oklch(66% .16 150)"></i>Bandcamp<span class="n">7</span></div>
+      <a href="#rail">Le rail</a>
       <h4>Écrans</h4>
       <a href="#revue">Revue<span class="k">1</span></a>
       <a href="#journal">Journal<span class="k">2</span></a>
