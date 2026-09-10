@@ -92,6 +92,7 @@ Ces builds ne sont pas signés : le système avertit au premier lancement. Une s
 |---|---|
 | Windows | \`Sift_<version>_x64-setup.exe\` |
 | Mac Apple Silicon | \`Sift_<version>_aarch64.dmg\` |
+| Mac Intel | \`Sift_<version>_x64.dmg\` |
 
 Tout le reste de la liste sert à la mise à jour automatique et **ne s'installe pas** :
 \`.app.tar.gz\`, \`.msi\`, les \`.sig\`, \`latest.json\`. Le \`.app.tar.gz\` est le piège — il pèse
@@ -100,7 +101,7 @@ PLUS LOURD que le \`.dmg\`, donc il a l'air d'être le bon.
 **Windows** — SmartScreen affiche « Windows a protégé votre ordinateur » : cliquer
 **Informations complémentaires**, puis **Exécuter quand même**.
 
-**macOS** (Apple Silicon uniquement) — ouvrir le \`.dmg\`, glisser Sift dans Applications, puis
+**macOS** — ouvrir le \`.dmg\`, glisser Sift dans Applications, puis
 selon le message affiché :
 
 - « développeur non identifié » : **Réglages Système > Confidentialité et sécurité**, descendre

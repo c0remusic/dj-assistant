@@ -16,6 +16,7 @@ La page de release expose huit fichiers. Un seul s'installe, selon la machine :
 |---|---|
 | Windows | `Sift_<version>_x64-setup.exe` |
 | Mac Apple Silicon | `Sift_<version>_aarch64.dmg` |
+| Mac Intel | `Sift_<version>_x64.dmg` |
 
 Tout le reste sert à la mise à jour automatique et ne s'installe pas : `.app.tar.gz`, `.msi`,
 les `.sig`, `latest.json`.
@@ -37,11 +38,11 @@ Le `.msi` s'installe aussi sur Windows, mais un seul fichier nommé vaut mieux q
 
 ## macOS
 
-Les builds publiés sont **Apple Silicon uniquement** (`aarch64`) : la matrice de
-`.github/workflows/build.yml` n'a pas d'entrée Intel, et un binaire arm64 ne démarre
-pas du tout sur un Mac Intel.
+Deux builds depuis la v0.1.1 : **Apple Silicon** (`aarch64`) et **Intel** (`x64`). Un
+binaire arm64 ne démarre pas du tout sur un Mac Intel — prendre celui de sa machine
+(menu Pomme › À propos de ce Mac : « Puce Apple M… » ou « Processeur Intel »).
 
-1. Ouvrir `Sift_<version>_aarch64.dmg` (§ Quel fichier prendre), glisser Sift dans Applications.
+1. Ouvrir le `.dmg` de sa machine (§ Quel fichier prendre), glisser Sift dans Applications.
 2. Au double-clic, macOS affiche **l'un des deux messages suivants**. Ils n'ont pas le
    même contournement, et c'est le point qui a fait échouer une installation réelle le
    2026-08-16 :

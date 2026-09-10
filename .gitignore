@@ -92,6 +92,7 @@ skills-lock.json
 docs/*
 !docs/install-non-signe.md
 !docs/manuel.md
+!docs/manuel.html
 !docs/design-system-states.md
 !docs/ressources-externes.md
 !docs/cdj-metadata-formats.md
