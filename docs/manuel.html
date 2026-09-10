@@ -137,22 +137,27 @@ td:first-child{white-space:nowrap}
 /* Impression / PDF : la même fenêtre que l'écran, page après page. La barre et le rail sont
    `position:fixed` — Chromium les répète sur chaque page imprimée —, le contenu coule dans la
    colonne de droite. Fonds et thème conservés (`print-color-adjust:exact`). */
-@page{size:A4;margin:0}
+@page{size:A4;margin:22px 18px}
 @media print{
   html{print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  /* La marge de page est peinte du plan de la fenêtre (--bg) : chaque feuille montre la fenêtre
+     posée sur son fond, comme à l'écran. La barre reste dans le flux (première page seulement) ;
+     le rail est fixe — Chromium répète un élément fixe sur chaque page — dans la zone imprimable,
+     donc jamais sous la marge ; le contenu ne coule jamais sous un élément fixe. */
   body{background:var(--bg)}
   .win{max-width:none;margin:0;border:0;border-radius:0;box-shadow:none;overflow:visible;background:var(--bg-2)}
-  .bar{position:fixed;top:0;left:0;right:0;z-index:2}
+  .bar{position:relative;z-index:2}
   .frame{display:block;min-height:0}
-  .railcol{position:fixed;top:45px;bottom:0;left:0;width:180px;z-index:1}
-  .rail{position:static;max-height:none;overflow:visible;padding:12px 8px}
+  .railcol{position:fixed;top:0;bottom:0;left:0;width:180px;z-index:1}
+  .rail{position:static;max-height:none;overflow:visible;padding:56px 8px 12px}
   .rail a{height:26px;font-size:12px}
   .rail a.on{background:var(--accent);color:var(--on-accent)}
-  .main{margin-left:180px;padding:60px 28px 40px 28px;max-width:none}
+  .main{margin-left:180px;padding:20px 28px 24px 28px;max-width:none}
   h1{font-size:28px}
-  h2{margin-top:32px;padding-top:16px;page-break-after:avoid;break-after:avoid}
+  h2{margin-top:30px;padding-top:14px;page-break-after:avoid;break-after:avoid}
   h3{page-break-after:avoid;break-after:avoid}
-  table,.note,pre,.screen{page-break-inside:avoid;break-inside:avoid}
+  p,li{orphans:3;widows:3}
+  table,.note,pre,.screen,.hints{page-break-inside:avoid;break-inside:avoid}
   .screens{grid-template-columns:repeat(2,1fr)}
 }
 </style>
