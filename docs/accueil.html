@@ -75,16 +75,20 @@ p{margin:0}
 .shot-hint{position:absolute;right:12px;bottom:12px;font-size:11px;letter-spacing:.04em;color:var(--ink-2);background:var(--bg-3);border:1px solid var(--line);border-radius:var(--r-sm);padding:3px 8px;opacity:0;transition:opacity .15s ease}
 .shot:hover .shot-hint,.shot:focus-visible .shot-hint{opacity:1}
 @media (hover: none){ .shot-hint{opacity:1} }
-/* --shot-w / --shot-h : les dimensions de la capture, celles des attributs width/height de l'img.
-   La boîte de l'image se calcule depuis elles, donc elle existe AVANT que le fichier soit décodé :
-   sans cela l'image mesure 0x0 à l'ouverture, le premier clic tombe sur .lb-inner et la lightbox
-   se ferme au lieu de zoomer. */
+/* --shot-w / --shot-h : la taille de la capture en pixels CSS (l'écran de Sift à 100 %), celle des
+   attributs width/height de l'img. La boîte se calcule depuis elles, donc elle existe AVANT que le
+   fichier soit décodé : sans cela l'image mesure 0x0 à l'ouverture, le premier clic tombe sur
+   .lb-inner et la lightbox se ferme au lieu de zoomer.
+   Le fichier servi fait 2x cette taille (4022 px, capturé à deviceScaleFactor 2) : la vue ajustée
+   ne dépasse jamais --shot-w, donc rien n'est étiré, et le zoom affiche l'écran à 2x — deux fois
+   plus grand qu'en vrai, net sur tout écran. Avant, la vue ajustée étirait un fichier de 2011 px
+   sur toute la largeur d'un grand écran, et le « zoom » à 1:1 le RÉTRÉCISSAIT. */
 .lb{border:0;padding:0;margin:0;max-width:100vw;max-height:100vh;width:100vw;height:100vh;background:transparent;overflow:auto;--shot-w:2011;--shot-h:950}
 .lb::backdrop{background:oklch(0% 0 0 / .8)}
 .lb-inner{min-height:100%;display:grid;place-items:center;padding:24px}
-.lb img{display:block;aspect-ratio:var(--shot-w) / var(--shot-h);width:min(calc(100vw - 48px), calc((100vh - 48px) * var(--shot-w) / var(--shot-h)));height:auto;border-radius:var(--r-md);cursor:zoom-in;box-shadow:0 12px 48px -6px rgba(0,0,0,.5)}
-.lb.is-1x img{width:calc(var(--shot-w) * 1px);max-width:none;max-height:none;cursor:zoom-out}
-.lb.is-1x .lb-inner{place-items:start}
+.lb img{display:block;aspect-ratio:var(--shot-w) / var(--shot-h);width:min(calc(var(--shot-w) * 1px), calc(100vw - 48px), calc((100vh - 48px) * var(--shot-w) / var(--shot-h)));height:auto;border-radius:var(--r-md);cursor:zoom-in;box-shadow:0 12px 48px -6px rgba(0,0,0,.5)}
+.lb.is-2x img{width:calc(var(--shot-w) * 2px);max-width:none;max-height:none;border-radius:0;cursor:zoom-out}
+.lb.is-2x .lb-inner{place-items:start}
 .lb-close{position:fixed;top:12px;right:12px;height:32px;padding:0 12px;border-radius:var(--r-md);border:1px solid var(--line);background:var(--bg-3);color:var(--ink);font:500 13px var(--font);cursor:pointer}
 section.wrap{padding:44px 24px}
 section + section{border-top:1px solid var(--line-2)}
@@ -250,13 +254,13 @@ footer a{color:var(--ink-2)}
 </footer>
 
 <dialog class="lb" id="lb" aria-label="Capture d'écran de Sift, agrandie">
-  <!-- Mêmes fichiers que le <picture> du hero, en 2011 px : sur un écran à forte densité l'octet est
-       déjà en cache, et l'AVIF pèse 53 ko contre 206 ko pour le PNG, gardé en repli. Pas de
+  <!-- La capture en 2x (4022 px, AVIF 92 ko, WebP 188 ko ; le PNG 2011 px reste en repli) : c'est
+       elle qui rend le zoom réel et la vue ajustée nette sur un écran à forte densité. Pas de
        loading="lazy" ici : l'image ne se chargeait qu'à l'ouverture du dialog, qui s'ouvrait vide. -->
   <div class="lb-inner"><picture>
-    <source type="image/avif" srcset="/screenshots/revue-2011.avif">
-    <source type="image/webp" srcset="/screenshots/revue-2011.webp">
-    <img src="/screenshots/revue.png" alt="L'écran Revue de Sift en taille réelle" width="2011" height="950" decoding="async" fetchpriority="low">
+    <source type="image/avif" srcset="/screenshots/revue-4022.avif">
+    <source type="image/webp" srcset="/screenshots/revue-4022.webp">
+    <img src="/screenshots/revue.png" alt="L'écran Revue de Sift, agrandi" width="2011" height="950" decoding="async" fetchpriority="low">
   </picture></div>
   <button type="button" class="lb-close" id="lb-close">Fermer</button>
 </dialog>
@@ -268,7 +272,7 @@ footer a{color:var(--ink-2)}
   if (!lb || !open || typeof lb.showModal !== "function") return;
   var img = lb.querySelector("img");
   open.addEventListener("click", function () {
-    lb.classList.remove("is-1x");
+    lb.classList.remove("is-2x");
     lb.scrollLeft = 0; lb.scrollTop = 0;
     lb.showModal();
   });
@@ -279,8 +283,8 @@ footer a{color:var(--ink-2)}
     var r = img.getBoundingClientRect();
     var px = r.width ? (e.clientX - r.left) / r.width : 0.5;
     var py = r.height ? (e.clientY - r.top) / r.height : 0.5;
-    lb.classList.toggle("is-1x");
-    if (!lb.classList.contains("is-1x")) { lb.scrollLeft = 0; lb.scrollTop = 0; return; }
+    lb.classList.toggle("is-2x");
+    if (!lb.classList.contains("is-2x")) { lb.scrollLeft = 0; lb.scrollTop = 0; return; }
     lb.scrollLeft = 24 + px * img.offsetWidth - lb.clientWidth / 2;
     lb.scrollTop = 24 + py * img.offsetHeight - lb.clientHeight / 2;
   });
