@@ -141,9 +141,15 @@ pub struct AnalysisReport {
     /// faisions pas du tout, alors que le fichier est déjà décodé entièrement.
     #[serde(default)]
     pub decoded_duration_sec: f32,
-    /// Vraisemblance que le signal soit DÉJÀ passé par la grille de quantification d'un codec AAC
-    /// — le troisième signal du verdict (issue #52, méthode d'Olivier Derrien). `None` = **pas
-    /// mesurée**, et c'est le cas de l'immense majorité des fichiers.
+    /// Vraisemblance que le signal soit DÉJÀ passé par la grille de quantification d'un codec
+    /// (AAC ou MP3) — le troisième signal du verdict (issue #52, méthode d'Olivier Derrien).
+    /// `None` = **pas mesurée**, et c'est le cas de l'immense majorité des fichiers.
+    ///
+    /// **Depuis le 2026-09-11, un RAPPORT AU SEUIL et plus un `L`** : `max(L_banc / λ_banc)` sur
+    /// les trois mesures (AAC blocs courts, AAC blocs longs, MP3), dont les `λ` vivent dans
+    /// `verdict.rs`. `1` = pile sur le seuil, `> 1` = grille retrouvée, `verdict::QUANT_LAMBDA`
+    /// vaut 1. Trois bancs, trois échelles (64, 224 et 64 cellules) : un maximum de `L` bruts
+    /// aurait été dominé par la plus bruyante.
     ///
     /// Elle n'est calculée que là où elle peut trancher — lossless déclaré, conteneur non démenti,
     /// **bande pleine** (`verdict::needs_quant_probe`), soit ~tout lossless sain, à +0,3 s par
@@ -153,7 +159,7 @@ pub struct AnalysisReport {
     /// pour un groupe de trames. Un fichier plus long que `QUANT_MAX_PCM_SAMPLES` est sondé sur
     /// son début, pas écarté (2026-09-11).
     ///
-    /// Un FAIT, pas un verdict : c'est `verdict::QUANT_LAMBDA` qui le seuille, et lui seul. Le
+    /// Un FAIT, pas un verdict : c'est `verdict::QUANT_LAMBDA` (1) qui le seuille, et lui seul. Le
     /// champ voyage pour que la Revue puisse un jour l'afficher dans le collapse Détails.
     ///
     /// ⚠️ Ancien rapport en cache : `null`. À lire comme « pas mesuré », jamais comme 0 — 0 est une
@@ -223,7 +229,13 @@ pub struct AnalysisReport {
 /// portent `quant_likelihood: None`, et un `None` stocké ne se répare pas par le re-verdict (qui
 /// rejoue les mesures, il n'en refait pas) : seul un re-décodage produit la mesure. v11 n'a
 /// jamais été livrée (v0.1.2 encore en chantier), le coût réel est nul pour un utilisateur.
-pub const REPORT_CACHE_VERSION: i64 = 12;
+///
+/// **13 (2026-09-11)** : `quant_likelihood` change d'ÉCHELLE — un rapport au seuil de son banc
+/// (`> 1` = grille retrouvée) et plus un `L` lu contre 0,18. Un rapport v12 relu tel quel
+/// comparerait un `L` de 0,5 à un seuil de 1 et blanchirait un transcodage : bump de RAPPORT, pas
+/// de verdict (le re-verdict rejoue les mesures stockées, il ne les normalise pas). Même jour, la
+/// fenêtre KBD et la fenêtre de 28 bandes des blocs longs — aac128 passe de 1/10 à 10/10.
+pub const REPORT_CACHE_VERSION: i64 = 13;
 
 /// Lit le cache `(tracks.report_json, tracks.report_cache_ver)`. Version absente, version distancée
 /// ou JSON vide (sentinelle d'échec de `persist_failure`) = **pas de rapport courant**, rendu comme
@@ -480,12 +492,13 @@ pub fn analyze(path: &str, with_spectrogram: bool) -> Result<AnalysisReport, Str
                     quant_pcm.len() as f32 / (info.sample_rate as f32 * target_ch as f32)
                 );
             }
-            // Deux bancs, une mesure : la grille d'un codec est cherchée par le banc AAC (#52)
-            // puis par le banc MP3 (#63), et `quant_likelihood` est le MAXIMUM des deux. Un
+            // Deux bancs, trois mesures, UN rapport : la grille d'un codec est cherchée par le
+            // banc AAC (#52, blocs courts et longs, chacun sur sa fenêtre de bandes) puis par le
+            // banc MP3 (#63). Chaque mesure se rapporte à SON seuil (`verdict::quant_lambda_aac`,
+            // `verdict::QUANT_LAMBDA_MP3`) et `quant_likelihood` est le MAXIMUM des rapports. Un
             // transcodage n'est passé que par un codec, donc un seul banc peut le voir ; un master
-            // ne porte aucune grille, et le max de deux mesures nulles reste sous le seuil. Les
-            // deux se lisent contre le même `verdict::QUANT_LAMBDA` (calibré sur les deux bancs,
-            // corpus et référence ACID, 2026-09-11 — voir la review du corpus).
+            // ne porte aucune grille, et le max de trois rapports nuls reste sous 1. Les échelles
+            // sont différentes (64, 224 et 64 cellules), d'où le rapport et pas un max de `L`.
             let t0 = std::time::Instant::now();
             let aac = quant_trace::likelihood(
                 &quant_pcm,
@@ -494,19 +507,26 @@ pub fn analyze(path: &str, with_spectrogram: bool) -> Result<AnalysisReport, Str
                 &QUANT_RESOLUTIONS,
                 Some(QUANT_PROBE_THREADS),
             );
-            match &aac {
-                Some(t) => log::info!(
-                    "quant_trace {} : banc AAC L={:.5} décalage={} canal={} résolution={} en {} ms",
+            if aac.is_empty() {
+                log::info!(
+                    "quant_trace {path} : banc AAC non mesuré (taux non tabulé ou signal court)"
+                );
+            }
+            let mut rapport: Option<f32> = None;
+            for t in &aac {
+                let r = t.l as f32 / verdict::quant_lambda_aac(t.resolution);
+                log::info!(
+                    "quant_trace {} : banc AAC {} L={:.5} rapport={:.2} décalage={} canal={} fenêtre={} en {} ms",
                     path,
+                    t.resolution.label(),
                     t.l,
+                    r,
                     t.decalage,
                     t.canal.label(),
-                    t.resolution.label(),
+                    t.fenetre.label(),
                     t0.elapsed().as_millis()
-                ),
-                None => log::info!(
-                    "quant_trace {path} : banc AAC non mesuré (taux non tabulé ou signal court)"
-                ),
+                );
+                rapport = Some(rapport.map_or(r, |m| m.max(r)));
             }
             let t1 = std::time::Instant::now();
             let mp3 = crate::analysis::mp3_bank::likelihood(
@@ -516,22 +536,24 @@ pub fn analyze(path: &str, with_spectrogram: bool) -> Result<AnalysisReport, Str
                 Some(QUANT_PROBE_THREADS),
             );
             match &mp3 {
-                Some(t) => log::info!(
-                    "quant_trace {} : banc MP3 L={:.5} décalage={} canal={} en {} ms",
-                    path,
-                    t.l,
-                    t.decalage,
-                    t.canal.label(),
-                    t1.elapsed().as_millis()
-                ),
+                Some(t) => {
+                    let r = t.l as f32 / verdict::QUANT_LAMBDA_MP3;
+                    log::info!(
+                        "quant_trace {} : banc MP3 L={:.5} rapport={:.2} décalage={} canal={} en {} ms",
+                        path,
+                        t.l,
+                        r,
+                        t.decalage,
+                        t.canal.label(),
+                        t1.elapsed().as_millis()
+                    );
+                    rapport = Some(rapport.map_or(r, |m| m.max(r)));
+                }
                 None => log::info!(
                     "quant_trace {path} : banc MP3 non mesuré (taux non tabulé ou signal court)"
                 ),
             }
-            match (aac.map(|t| t.l), mp3.map(|t| t.l)) {
-                (None, None) => None,
-                (a, b) => Some(a.unwrap_or(0.0).max(b.unwrap_or(0.0)) as f32),
-            }
+            rapport
         }
     } else {
         None

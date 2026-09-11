@@ -583,7 +583,7 @@ mod tests {
         r.cutoff_hz = 21_000.0; // bande pleine
         r.hf_flatness_db = Some(-40.0); // aigu sous la plage des masters → Douteux
         r.hf_flatness_top_db = Some(-4.0);
-        r.quant_likelihood = Some(0.45); // très au-dessus de QUANT_LAMBDA
+        r.quant_likelihood = Some(2.5); // rapport très au-dessus de QUANT_LAMBDA (1)
         let json = serde_json::to_string(&r).unwrap();
         let id = seed(&conn, "filed", Some("ok"), Some(1), &json);
 

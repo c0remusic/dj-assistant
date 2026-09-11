@@ -33,6 +33,59 @@ pub fn sine_window(two_n: usize) -> Vec<f32> {
         .collect()
 }
 
+/// Fenêtre de Kaiser-Bessel dérivée (KBD), celle des blocs longs AAC dans la plupart des
+/// encodeurs — ISO/IEC 14496-3 § 4.6.11.3.2, avec `α = 4` pour les blocs longs (`2N = 2048`) et
+/// `α = 6` pour les courts (`2N = 256`).
+///
+/// ```text
+/// W'[p] = I₀(π α · √(1 − ((2p − N)/N)²))     pour p = 0..=N
+/// w[n]  = √( Σ_{p≤n} W'[p] / Σ_{p≤N} W'[p] )   pour n = 0..N,   w[2N − 1 − n] = w[n]
+/// ```
+///
+/// Elle satisfait Princen-Bradley comme le sinus (`w[n]² + w[n+N]² = 1`, tenu par test), donc
+/// un flux synthétisé en KBD se ré-analyse EXACTEMENT en KBD — et pas en sinus. C'est toute la
+/// raison de son existence ici (2026-09-11) : `ffmpeg` encode ses blocs longs en KBD
+/// (`aacpsy.c`, `psy_lame_window` : `window_shape = 1` sauf `LONG_START`, `0` pour les courts),
+/// et la sonde de quantification de [`super::quant_trace`], qui n'analysait qu'en sinus, ne
+/// pouvait pas retrouver la grille des blocs longs — ce que sa doc constatait sans l'expliquer
+/// (« la grille des blocs longs est essentiellement absente après décodage »). Elle n'était pas
+/// absente : elle était regardée à travers la mauvaise fenêtre.
+///
+/// `I₀` par sa série entière `Σ ((x/2)^{2k} / k!²)`, arrêtée quand le terme passe sous `1e-12`
+/// du cumul — la même forme que `ff_kbd_window_init`.
+pub fn kbd_window(two_n: usize, alpha: f64) -> Vec<f32> {
+    let n = two_n / 2;
+    let nf = n as f64;
+    let i0 = |x: f64| -> f64 {
+        let q = x * x / 4.0;
+        let mut terme = 1.0f64;
+        let mut somme = 1.0f64;
+        let mut k = 1.0f64;
+        while terme > somme * 1e-12 {
+            terme *= q / (k * k);
+            somme += terme;
+            k += 1.0;
+        }
+        somme
+    };
+    let kaiser: Vec<f64> = (0..=n)
+        .map(|p| {
+            let u = (2.0 * p as f64 - nf) / nf;
+            i0(std::f64::consts::PI * alpha * (1.0 - u * u).max(0.0).sqrt())
+        })
+        .collect();
+    let total: f64 = kaiser.iter().sum();
+    let mut w = vec![0.0f32; two_n];
+    let mut cumul = 0.0f64;
+    for (i, k) in kaiser.iter().enumerate().take(n) {
+        cumul += k;
+        let v = (cumul / total).sqrt() as f32;
+        w[i] = v;
+        w[two_n - 1 - i] = v;
+    }
+    w
+}
+
 /// MDCT d'une trame de `2N` échantillons vers `N` coefficients.
 ///
 /// `X[k] = Σ x[n] · cos(π/N · (n + 1/2 + N/2) · (k + 1/2))`
@@ -453,6 +506,85 @@ mod sonde {
 
 #[cfg(test)]
 mod tests {
+    /// La KBD est une fenêtre MDCT au sens de Princen-Bradley, symétrique, croissante sur sa
+    /// première moitié — sinon rien de ce que [`kbd_window`] promet ne tient.
+    #[test]
+    fn la_kbd_satisfait_princen_bradley() {
+        for (two_n, alpha) in [(2048usize, 4.0f64), (256, 6.0)] {
+            let w = super::kbd_window(two_n, alpha);
+            let n = two_n / 2;
+            for i in 0..n {
+                let pb = w[i] * w[i] + w[i + n] * w[i + n];
+                assert!((pb - 1.0).abs() < 1e-5, "PB en {i} : {pb}");
+                assert_eq!(w[i], w[two_n - 1 - i], "symétrie en {i}");
+                if i > 0 {
+                    assert!(w[i] >= w[i - 1], "non croissante en {i}");
+                }
+            }
+            assert!(
+                w[0] < 0.01 && w[n - 1] > 0.99,
+                "bords {} {}",
+                w[0],
+                w[n - 1]
+            );
+        }
+    }
+
+    /// Ce que la sonde de quantification exige de la fenêtre : un flux synthétisé (IMDCT +
+    /// recouvrement) dans une forme se ré-analyse EXACTEMENT dans la même forme, et PAS dans
+    /// l'autre. Sinus→sinus et KBD→KBD rendent les coefficients à `1e-4` près ; KBD→sinus s'en
+    /// écarte d'un facteur mesurable. C'est l'idempotence que `quant_trace` teste, et la raison
+    /// pour laquelle le balayage essaie les deux formes.
+    #[test]
+    fn une_synthese_kbd_ne_se_reanalyse_quen_kbd() {
+        const N: usize = 128;
+        let sinus = super::sine_window(2 * N);
+        let kbd = super::kbd_window(2 * N, 6.0);
+        // Signal pseudo-aléatoire déterministe, 4 trames de recouvrement.
+        let mut x = 0x2545_F491u32;
+        let signal: Vec<f32> = (0..5 * N)
+            .map(|_| {
+                x ^= x << 13;
+                x ^= x >> 17;
+                x ^= x << 5;
+                (x as f32 / u32::MAX as f32) - 0.5
+            })
+            .collect();
+        let ecart = |synthese: &[f32], analyse: &[f32]| -> f32 {
+            // Synthèse : MDCT fenêtrée de chaque trame, IMDCT, refenêtrage, recouvrement-addition.
+            let mut out = vec![0.0f32; 5 * N];
+            let mut coeffs_ref: Vec<Vec<f32>> = Vec::new();
+            for t in 0..4 {
+                let trame: Vec<f32> = (0..2 * N)
+                    .map(|i| signal[t * N + i] * synthese[i])
+                    .collect();
+                let c = super::mdct(&trame);
+                let y = super::imdct(&c);
+                for i in 0..2 * N {
+                    out[t * N + i] += y[i] * synthese[i];
+                }
+                coeffs_ref.push(c);
+            }
+            // Ré-analyse de la trame centrale (recouvrement complet des deux côtés).
+            let t = 1;
+            let trame: Vec<f32> = (0..2 * N).map(|i| out[t * N + i] * analyse[i]).collect();
+            let c = super::mdct(&trame);
+            let num: f32 = c
+                .iter()
+                .zip(&coeffs_ref[t])
+                .map(|(a, b)| (a - b) * (a - b))
+                .sum();
+            let den: f32 = coeffs_ref[t].iter().map(|b| b * b).sum();
+            (num / den).sqrt()
+        };
+        let ss = ecart(&sinus, &sinus);
+        let kk = ecart(&kbd, &kbd);
+        let ks = ecart(&kbd, &sinus);
+        assert!(ss < 1e-4, "sinus→sinus {ss}");
+        assert!(kk < 1e-4, "KBD→KBD {kk}");
+        assert!(ks > 1e-2, "KBD→sinus devrait s'écarter, mesuré {ks}");
+    }
+
     use super::*;
 
     /// **La propriété qui pinne vraiment une MDCT** : deux trames voisines se reconstruisent

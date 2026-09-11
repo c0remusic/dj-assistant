@@ -32,6 +32,12 @@ Le titre de section doit être exactement `## vX.Y.Z` pour que l'extraction le t
   sondé sur ses 9 premières minutes (la sonde garde le signal décodé en mémoire, et s'arrête là) —
   la grille d'un transcodage est la même du début à la fin. Un fichier
   tenu pour authentique dans la référence s'est révélé un MP3 transcodé, et la sonde l'a vu.
+- **Les AAC à bas débit déguisés en lossless sont reconnus.** La sonde ne regardait les blocs
+  longs de l'AAC qu'à travers une fenêtre sinus, alors que ffmpeg les encode en Kaiser-Bessel :
+  elle essaie désormais les deux formes, et juge la grille sur 2 à 18 kHz au lieu de 14,5 à
+  20 kHz, là où un AAC 128 n'a plus rien à montrer. Mesuré sur le corpus de test : les AAC 128 de
+  ffmpeg passent de 1 sur 10 à 10 sur 10, les AAC 256 de 6 à 10 sur 10 ; aucun des 8 achats
+  vérifiés ni des 957 lossless d'une bibliothèque réelle n'est touché.
 - Les verdicts sont rejoués au démarrage depuis les mesures déjà stockées, sans nouvelle analyse.
 
 ## v0.1.1

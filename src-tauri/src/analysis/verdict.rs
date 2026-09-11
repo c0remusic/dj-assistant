@@ -246,7 +246,51 @@ const HF_TOP_FLOOR_DB: f32 = -23.8;
 /// `f32` et non `f64` : la comparaison se fait contre la valeur telle qu'elle voyage dans
 /// `AnalysisReport::quant_likelihood`. Aucun `L` atteignable n'est ambigu à cette précision — les
 /// `L` sont des multiples de 1/64, et les deux plus proches de 0,18 sont 0,171875 et 0,1875.
-pub const QUANT_LAMBDA: f32 = 0.18;
+///
+/// **Depuis le 2026-09-11 ce 0,18 est le seuil des blocs COURTS du banc AAC**, et il en existe
+/// deux autres : [`QUANT_LAMBDA_AAC_LONG`] et [`QUANT_LAMBDA_MP3`]. `verdict()` ne lit plus un
+/// `L` mais un RAPPORT au seuil de son banc ([`QUANT_LAMBDA`], à 1) — voir là-bas.
+pub const QUANT_LAMBDA_AAC_COURT: f32 = 0.18;
+
+/// Seuil des blocs LONGS du banc AAC, sur la fenêtre de 28 bandes (`quant_trace::N_SF_LONG`,
+/// 224 cellules par groupe). MESURÉ le 2026-09-11, harnais `quant_scan` en long seul, saut 17 :
+///
+/// - 10 authentiques du corpus ≤ **0,045**, 6 LAME témoins ≤ 0,045 ;
+/// - 411 lossless taggés magasin (Bandcamp, « Purchased at Beatport », Beatport strict) : maximum
+///   **0,076**, deux fichiers ; cinq au-dessus de 0,06 ;
+/// - aac128 (ffmpeg, KBD) 0,089 → 0,371, **10/10 sur le décalage 1007** ; aacmf128 (Media
+///   Foundation, sinus) 0,054 → 0,228 ; aac256 ≥ 0,357 ; aacmf256 ≥ 0,357.
+///
+/// 0,085 sépare : au-dessus du maximum de la référence (0,076), sous le minimum aac128 (0,089).
+/// Détection à cette valeur : aac128 10/10, aacmf128 7/10. La marge côté référence est de 12 % —
+/// mince, et c'est pourquoi l'échelle longue ne se mélange plus à la courte : un maximum entre les
+/// deux aurait pris la queue nulle de la plus bruyante.
+pub const QUANT_LAMBDA_AAC_LONG: f32 = 0.085;
+
+/// Seuil du banc MP3 (`mp3_bank`, 8 bandes × 8 trames, même échelle que les blocs courts AAC).
+/// Calibré le 2026-09-11 avec la valeur historique : 8 authentiques ≤ 0,094, 411 lossless taggés
+/// magasin bimodaux (392 sous 0,10, 12 à 0,50 et plus, rien entre 0,18 et 0,50).
+pub const QUANT_LAMBDA_MP3: f32 = 0.18;
+
+/// Le seuil du banc AAC pour une résolution — les deux constantes ci-dessus, par le type qui les
+/// distingue, pour que `analysis::analyze` et les harnais lisent le seuil au même endroit.
+pub fn quant_lambda_aac(kind: crate::analysis::aac_sfb::BlockKind) -> f32 {
+    match kind {
+        crate::analysis::aac_sfb::BlockKind::Long => QUANT_LAMBDA_AAC_LONG,
+        crate::analysis::aac_sfb::BlockKind::Short => QUANT_LAMBDA_AAC_COURT,
+    }
+}
+
+/// Ce que `verdict()` compare à `quant_likelihood`, qui est depuis le 2026-09-11 un **rapport au
+/// seuil de son banc** : `max(L_banc / λ_banc)` sur les trois mesures (AAC court, AAC long, MP3),
+/// calculé par `analysis::analyze`. `1` = pile sur le seuil de la mesure la plus forte, `> 1` =
+/// grille retrouvée. La borne reste STRICTE (`>`), comme avant.
+///
+/// Pourquoi un rapport et plus un `L` : trois bancs, trois échelles (64, 224 et 64 cellules), et
+/// un `max` de `L` bruts aurait été dominé par l'échelle la plus bruyante. Les trois `λ` restent
+/// ici, dans le code qui juge, avec leur calibration ; ce qui voyage dans le rapport est déjà
+/// normalisé.
+pub const QUANT_LAMBDA: f32 = 1.0;
 
 /// Vrai quand au moins une des deux bandes sort par le bas de la plage des masters.
 ///
@@ -1098,14 +1142,14 @@ mod tests {
     #[test]
     fn la_grille_du_codec_retrouvee_transforme_le_doute_en_faux() {
         assert_eq!(
-            ambigu(Some(0.45)),
+            ambigu(Some(2.5)),
             Ok(Verdict::Fake),
-            "L bien au-dessus de lambda : transcodage etabli par la grille, donc Faux"
+            "rapport bien au-dessus de 1 : transcodage etabli par la grille, donc Faux"
         );
         assert_eq!(
-            ambigu(Some(0.094)),
+            ambigu(Some(0.52)),
             Ok(Verdict::Grey),
-            "L au niveau des authentiques : le doute reste un doute"
+            "rapport au niveau des authentiques : le doute reste un doute"
         );
         assert_eq!(
             ambigu(None),
@@ -1114,27 +1158,40 @@ mod tests {
         );
     }
 
-    /// La VALEUR de λ, gelée en littéral, et sa borne encadrée au plus près de la calibration.
+    /// Les VALEURS des trois λ, gelées en littéral, et la borne du rapport encadrée au plus près.
     ///
     /// Même raison que `les_planchers_sont_ceux_de_la_reference_assainie` : les tests symboliques
-    /// (`QUANT_LAMBDA + ε`) suivraient n'importe quelle dérive sans tomber. 0,18 est une mesure —
-    /// le maximum des 10 authentiques du 2026-09-02 vaut 0,172, vetted au spectrogramme — et la
-    /// changer exige de rejouer la calibration, pas d'éditer ce test.
+    /// (`QUANT_LAMBDA + ε`) suivraient n'importe quelle dérive sans tomber. 0,18, 0,085 et 0,18 sont
+    /// des mesures (voir chaque constante) — les changer exige de rejouer la calibration, pas
+    /// d'éditer ce test. Et le rapport se compare à 1, pas à un λ : `analyze()` normalise, ici on
+    /// juge.
     ///
-    /// La comparaison est **stricte** (`> λ`), et le test le fige des deux côtés : à la valeur
+    /// La comparaison est **stricte** (`> 1`), et le test le fige des deux côtés : à la valeur
     /// exacte on est encore dans le doute, un cheveu au-dessus on ne l'est plus.
     #[test]
     fn lambda_est_la_valeur_calibree_et_sa_borne_est_stricte() {
-        assert_eq!(QUANT_LAMBDA, 0.18);
+        assert_eq!(QUANT_LAMBDA_AAC_COURT, 0.18);
+        assert_eq!(QUANT_LAMBDA_AAC_LONG, 0.085);
+        assert_eq!(QUANT_LAMBDA_MP3, 0.18);
+        assert_eq!(QUANT_LAMBDA, 1.0);
         assert_eq!(
-            ambigu(Some(0.172)),
+            quant_lambda_aac(crate::analysis::aac_sfb::BlockKind::Long),
+            QUANT_LAMBDA_AAC_LONG
+        );
+        assert_eq!(
+            quant_lambda_aac(crate::analysis::aac_sfb::BlockKind::Short),
+            QUANT_LAMBDA_AAC_COURT
+        );
+        // Le maximum de la référence magasin en long (0,076) rapporté à son seuil : Douteux.
+        assert_eq!(
+            ambigu(Some(0.076 / QUANT_LAMBDA_AAC_LONG)),
             Ok(Verdict::Grey),
-            "le MAXIMUM authentique mesure (src10) doit rester Douteux — c'est le critere zero faux positif"
+            "le MAXIMUM de la reference doit rester Douteux — c'est le critere zero faux positif"
         );
         assert_eq!(
             ambigu(Some(QUANT_LAMBDA)),
             Ok(Verdict::Grey),
-            "pile sur lambda : borne INCLUSE du cote du doute"
+            "pile sur le seuil : borne INCLUSE du cote du doute"
         );
         assert_eq!(
             ambigu(Some(QUANT_LAMBDA + 0.001)),
@@ -1262,7 +1319,7 @@ mod tests {
             // Et sur les deux bras : la mesure tranche, quelle que soit la platitude.
             for f in [plate, creuse] {
                 assert_eq!(
-                    verdict(c, Rail::Lossless, None, Rail::Lossless, f, Some(0.45)),
+                    verdict(c, Rail::Lossless, None, Rail::Lossless, f, Some(2.5)),
                     Ok(Verdict::Fake),
                     "grille retrouvee a {c} Hz, platitude {f:?} : Faux"
                 );
@@ -1285,7 +1342,7 @@ mod tests {
                 "fenetre a {c} Hz : Grey par la coupure, la sonde doit pouvoir lever le doute"
             );
             assert_eq!(
-                verdict(c, Rail::Lossless, None, Rail::Lossless, plate, Some(0.45)),
+                verdict(c, Rail::Lossless, None, Rail::Lossless, plate, Some(2.5)),
                 Ok(Verdict::Fake),
                 "grille retrouvee dans la fenetre a {c} Hz : Faux"
             );

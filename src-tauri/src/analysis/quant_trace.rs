@@ -115,7 +115,7 @@
 //! du corpus, et c'est attendu. Le banc MP3 est un ticket à part.
 
 use crate::analysis::aac_sfb::{swb_offsets, BlockKind};
-use crate::analysis::mdct::{sine_window, MdctFast};
+use crate::analysis::mdct::{kbd_window, sine_window, MdctFast};
 
 // ---------------------------------------------------------------------------------------------
 // Fonctions spéciales — erf et son inverse, à la main.
@@ -250,17 +250,33 @@ pub const N_SF: usize = 8;
 /// coût double.
 pub const GROUPES: usize = 8;
 
-/// Première bande de la fenêtre d'analyse, blocs LONGS.
+/// Première bande de la fenêtre d'analyse, blocs LONGS — **17**, avec [`N_SF_LONG`] = 28 bandes,
+/// soit les bandes 17 à 44 : coefficients 96 à 832, **2,1 → 17,9 kHz à 44,1 kHz**.
 ///
-/// NON CALIBRÉ — choix d'ici, argumenté a priori et pas mesuré. Les bandes 40 à 47 couvrent les
-/// coefficients 672 à 928, soit **14,5 → 20,0 kHz à 44,1 kHz**. C'est la zone où l'AAC à débit élevé
-/// travaille avec de PETITS `q` (donc où `Δ̂ = min v` a une vraie chance de tomber sur `q = 1`) tout
-/// en restant sous la coupure d'un aac256. Plus bas, les `q` se comptent en milliers et la grille
-/// est irrécupérable ; plus haut, il n'y a que le plancher 16 bits.
+/// MESURÉ le 2026-09-11, et ça remplace un choix a priori (bandes 40 à 47, 14,5 → 20 kHz) qui
+/// était faux pour tout le monde. Le diagnostic par bande (`diagnostic::quant_bandes`, décalage
+/// forcé 1007, canal M, KBD) sur `src02` donne, en bandes sous `τ` sur 64 trames :
 ///
-/// ⚠️ Conséquence assumée : cette fenêtre est réglée pour l'AAC ≥ 192 kbps. Un aac128, coupé vers
-/// 16 kHz, a la moitié de ces bandes vides — il faudra une autre fenêtre, ou un balayage.
-pub const BANDE_DEBUT_LONG: usize = 40;
+/// | bandes | kHz | aac256 | aac128 | authentique |
+/// |---|---|---|---|---|
+/// | 17-32 | 2,1-9,6 | 12-24 | 9-21 | 0-2 |
+/// | 33-44 | 10-17,9 | 21-26 | 0-4 | 0-2 |
+/// | 45-47 | 17,9-20 | 7-15 | 0 | 0-2 |
+///
+/// La grille d'un aac128 vit entre 2 et 10 kHz, celle d'un aac256 entre 2 et 18 kHz, et l'ancienne
+/// fenêtre 40-47 tombait exactement là où elle s'éteint. Vingt-huit bandes plutôt que huit
+/// glissantes : la statistique gagne en cellules (`8 × 28 = 224` par groupe contre 64), donc la loi
+/// nulle se resserre — authentiques ≤ 0,045, 411 lossless taggés magasin ≤ 0,076, contre
+/// aac128 ≥ 0,089 et aac256 ≥ 0,357 (`quant_scan`, long seul). Un maximum sur des fenêtres
+/// glissantes de huit bandes aurait au contraire ÉLARGI la queue nulle.
+///
+/// ⚠️ L'échelle de `L` n'est donc plus celle des blocs courts (64 cellules) : chaque résolution se
+/// compare à SON seuil, `verdict::quant_lambda_aac`. C'est pour ça que [`likelihood`] rend un
+/// résultat PAR résolution au lieu d'un maximum.
+pub const BANDE_DEBUT_LONG: usize = 17;
+
+/// Bandes de la fenêtre des blocs LONGS — voir [`BANDE_DEBUT_LONG`].
+pub const N_SF_LONG: usize = 28;
 
 /// Première bande de la fenêtre d'analyse, blocs COURTS. NON CALIBRÉ, même raisonnement : les
 /// bandes 6 à 13 d'un bloc court de 128 coefficients sont les huit dernières de la table.
@@ -374,7 +390,55 @@ pub struct Trace {
     pub decalage: usize,
     pub canal: Canal,
     pub resolution: BlockKind,
+    pub fenetre: Fenetre,
 }
+
+/// Forme de la fenêtre MDCT essayée par le balayage.
+///
+/// Elle existe depuis le 2026-09-11, et c'est une correction de fond : l'analyse ne fenêtrait
+/// qu'en sinus, or `ffmpeg` encode ses blocs LONGS en Kaiser-Bessel dérivée (`aacpsy.c`,
+/// `psy_lame_window` : `window_shape = 1` pour `ONLY_LONG` et `LONG_STOP`, `0` pour `LONG_START`
+/// et les huit courts). Une MDCT sinus d'un flux synthétisé en KBD ne rend pas les coefficients
+/// du codec — l'annulation du repliement temporel exige la même fenêtre des deux côtés
+/// (`mdct::tests::une_synthese_kbd_ne_se_reanalyse_quen_kbd`). C'est ce qui faisait constater à
+/// ce module que « la grille des blocs longs est essentiellement absente après décodage » : elle
+/// était regardée à travers la mauvaise fenêtre. Le balayage essaie désormais les DEUX formes par
+/// résolution et garde le maximum, comme il le fait déjà pour les canaux — la forme d'un encodeur
+/// inconnu (Apple, Media Foundation, Fraunhofer) ne se devine pas, elle se mesure.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Fenetre {
+    Sinus,
+    Kbd,
+}
+
+impl Fenetre {
+    pub fn label(self) -> &'static str {
+        match self {
+            Fenetre::Sinus => "sinus",
+            Fenetre::Kbd => "kbd",
+        }
+    }
+
+    /// La fenêtre de `2N` échantillons pour cette forme et cette résolution. Les `α` sont ceux
+    /// de la norme : 4 pour les blocs longs, 6 pour les courts.
+    pub fn echantillons(self, kind: BlockKind) -> Vec<f32> {
+        let two_n = 2 * kind.coeffs();
+        match self {
+            Fenetre::Sinus => sine_window(two_n),
+            Fenetre::Kbd => kbd_window(
+                two_n,
+                match kind {
+                    BlockKind::Long => 4.0,
+                    BlockKind::Short => 6.0,
+                },
+            ),
+        }
+    }
+}
+
+/// Les deux formes, dans l'ordre du balayage. `likelihood` les essaie toutes ; le harnais
+/// `quant_scan` peut en isoler une (`SIFT_QUANT_WIN`).
+pub const FENETRES: [Fenetre; 2] = [Fenetre::Sinus, Fenetre::Kbd];
 
 /// Ce qu'une trame rapporte au balayage : combien de ses bandes portent la grille, et sur combien
 /// de bandes JUGEABLES.
@@ -436,74 +500,11 @@ pub fn frame_likelihood(
     let mut eligibles = 0usize;
     for s in bande_debut..(bande_debut + n_sf).min(offsets.len() - 1) {
         let (lo, hi) = (offsets[s] as usize, offsets[s + 1] as usize);
-        if hi > coeffs.len() {
-            continue;
-        }
-        // v = |X|^{3/4}, calculé par deux racines et un cube : `powf` coûte ici plus cher que tout
-        // le reste du balayage réuni, et `r = √√|X|` puis `r·r·r` donne exactement |X|^{3/4}.
-        let mut v = [0.0f64; 128];
-        let bande = &coeffs[lo..hi];
-        if bande.len() > v.len() {
-            continue;
-        }
-        let mut vmax = 0.0f64;
-        for (i, &x) in bande.iter().enumerate() {
-            let r = x.abs().sqrt().sqrt();
-            let vi = r * r * r;
-            v[i] = vi;
-            if vi > vmax {
-                vmax = vi;
+        if let Jugement::Jugee { sous_tau, .. } = juge_bande(coeffs, lo, hi, taus) {
+            eligibles += 1;
+            if sous_tau {
+                compte += 1;
             }
-        }
-        if vmax <= 0.0 {
-            continue;
-        }
-        let porte = vmax * GATE_REL;
-        let mut delta = f64::INFINITY;
-        let mut actifs = 0usize;
-        for &vi in &v[..bande.len()] {
-            if vi > porte {
-                actifs += 1;
-                if vi < delta {
-                    delta = vi;
-                }
-            }
-        }
-        if actifs < MIN_ACTIFS || !delta.is_finite() || delta <= 0.0 {
-            continue;
-        }
-        // Le degré de liberté consommé par l'estimation de Δ̂ : le coefficient qui l'a fixée rend
-        // ε = 0 par construction, il ne compte ni dans la somme ni dans les degrés de liberté.
-        let mut somme = 0.0f64;
-        // Marques des niveaux `round(y)` déjà vus. 64 entrées suffisent STRUCTURELLEMENT : la
-        // porte de bruit borne `vmax/Δ̂` à 24 (voir `GATE_REL`), donc `y < 24` pour tout
-        // coefficient actif. La garde d'indice reste, parce qu'une borne raisonnée n'est pas une
-        // borne vérifiée par le compilateur.
-        let mut niveaux = [false; 64];
-        let mut n_niveaux = 0usize;
-        for &vi in &v[..bande.len()] {
-            if vi <= porte {
-                continue;
-            }
-            let y = vi / delta;
-            let eps = y - y.round();
-            somme += eps * eps;
-            let niv = y.round() as usize;
-            if niv < niveaux.len() && !niveaux[niv] {
-                niveaux[niv] = true;
-                n_niveaux += 1;
-            }
-        }
-        if n_niveaux < MIN_NIVEAUX_DISTINCTS {
-            continue;
-        }
-        let k_eff = actifs - 1;
-        if k_eff == 0 || k_eff >= taus.len() {
-            continue;
-        }
-        eligibles += 1;
-        if somme < taus[k_eff] {
-            compte += 1;
         }
     }
     FrameCount {
@@ -512,14 +513,117 @@ pub fn frame_likelihood(
     }
 }
 
-/// Balayage complet d'un fichier décodé : `L = max` sur décalages × groupes de trames × canaux ×
-/// résolutions.
+/// Ce qu'une bande rend au jugement — les sorties silencieuses de [`frame_likelihood`], NOMMÉES,
+/// pour que le diagnostic puisse les compter au lieu de les deviner. Seule `Jugee` entre au
+/// dénominateur de `L`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Jugement {
+    /// Table de bandes hors de la trame, ou bande plus large que le tampon de 128.
+    HorsTrame,
+    /// Bande entièrement nulle.
+    Nulle,
+    /// Moins de [`MIN_ACTIFS`] coefficients au-dessus de la porte.
+    PeuActifs { actifs: usize },
+    /// Moins de [`MIN_NIVEAUX_DISTINCTS`] marches occupées.
+    PeuNiveaux { actifs: usize, niveaux: usize },
+    /// Pas de seuil tabulé pour ce nombre de degrés de liberté.
+    SansSeuil,
+    Jugee {
+        sous_tau: bool,
+        actifs: usize,
+        niveaux: usize,
+    },
+}
+
+/// Le jugement d'UNE bande `[lo, hi)` d'une trame — le corps historique de [`frame_likelihood`],
+/// sorti tel quel le 2026-09-11 pour que `diagnostic::quant_bandes` le rejoue bande par bande.
+pub fn juge_bande(coeffs: &[f64], lo: usize, hi: usize, taus: &[f64]) -> Jugement {
+    if hi > coeffs.len() {
+        return Jugement::HorsTrame;
+    }
+    // v = |X|^{3/4}, calculé par deux racines et un cube : `powf` coûte ici plus cher que tout
+    // le reste du balayage réuni, et `r = √√|X|` puis `r·r·r` donne exactement |X|^{3/4}.
+    let mut v = [0.0f64; 128];
+    let bande = &coeffs[lo..hi];
+    if bande.len() > v.len() {
+        return Jugement::HorsTrame;
+    }
+    let mut vmax = 0.0f64;
+    for (i, &x) in bande.iter().enumerate() {
+        let r = x.abs().sqrt().sqrt();
+        let vi = r * r * r;
+        v[i] = vi;
+        if vi > vmax {
+            vmax = vi;
+        }
+    }
+    if vmax <= 0.0 {
+        return Jugement::Nulle;
+    }
+    let porte = vmax * GATE_REL;
+    let mut delta = f64::INFINITY;
+    let mut actifs = 0usize;
+    for &vi in &v[..bande.len()] {
+        if vi > porte {
+            actifs += 1;
+            if vi < delta {
+                delta = vi;
+            }
+        }
+    }
+    if actifs < MIN_ACTIFS || !delta.is_finite() || delta <= 0.0 {
+        return Jugement::PeuActifs { actifs };
+    }
+    // Le degré de liberté consommé par l'estimation de Δ̂ : le coefficient qui l'a fixée rend
+    // ε = 0 par construction, il ne compte ni dans la somme ni dans les degrés de liberté.
+    let mut somme = 0.0f64;
+    // Marques des niveaux `round(y)` déjà vus. 64 entrées suffisent STRUCTURELLEMENT : la
+    // porte de bruit borne `vmax/Δ̂` à 24 (voir `GATE_REL`), donc `y < 24` pour tout
+    // coefficient actif. La garde d'indice reste, parce qu'une borne raisonnée n'est pas une
+    // borne vérifiée par le compilateur.
+    let mut niveaux = [false; 64];
+    let mut n_niveaux = 0usize;
+    for &vi in &v[..bande.len()] {
+        if vi <= porte {
+            continue;
+        }
+        let y = vi / delta;
+        let eps = y - y.round();
+        somme += eps * eps;
+        let niv = y.round() as usize;
+        if niv < niveaux.len() && !niveaux[niv] {
+            niveaux[niv] = true;
+            n_niveaux += 1;
+        }
+    }
+    if n_niveaux < MIN_NIVEAUX_DISTINCTS {
+        return Jugement::PeuNiveaux {
+            actifs,
+            niveaux: n_niveaux,
+        };
+    }
+    let k_eff = actifs - 1;
+    if k_eff == 0 || k_eff >= taus.len() {
+        return Jugement::SansSeuil;
+    }
+    Jugement::Jugee {
+        sous_tau: somme < taus[k_eff],
+        actifs,
+        niveaux: n_niveaux,
+    }
+}
+
+/// Balayage complet d'un fichier décodé : pour CHAQUE résolution demandée, `L = max` sur
+/// décalages × groupes de trames × canaux × formes de fenêtre.
 ///
 /// `pcm` est ENTRELACÉ (`channels` canaux), tel que le rend `decode::decode_pcm`.
 ///
-/// Rend `None` quand la mesure n'existe pas — taux d'échantillonnage hors des tables AAC, ou
-/// fichier trop court pour un seul groupe. Jamais une valeur par défaut : c'est la règle du mémo,
-/// et c'est déjà celle de `verdict()` sur l'absence de mesure.
+/// Un résultat par résolution mesurable, dans l'ordre de `resolutions` — et PAS un maximum entre
+/// elles : depuis le 2026-09-11 les blocs longs se jugent sur 28 bandes et les courts sur 8, donc
+/// leurs `L` ne sont pas sur la même échelle et se comparent chacun à leur seuil
+/// (`verdict::quant_lambda_aac`). Vide quand la mesure n'existe pas — taux d'échantillonnage hors
+/// des tables AAC, ou fichier trop court pour un seul groupe. Jamais une valeur par défaut : c'est
+/// la règle du mémo, et c'est déjà celle de `verdict()` sur l'absence de mesure.
 ///
 /// `fils_max` plafonne la parallélisation interne du balayage. **`None` = le comportement
 /// historique** (`available_parallelism()`, borné à 16) : c'est ce que veut le harnais
@@ -539,11 +643,48 @@ pub fn likelihood(
     sample_rate: u32,
     resolutions: &[BlockKind],
     fils_max: Option<usize>,
-) -> Option<Trace> {
+) -> Vec<Trace> {
+    likelihood_fenetres(pcm, channels, sample_rate, resolutions, &FENETRES, fils_max)
+}
+
+/// [`likelihood`] avec le choix des formes de fenêtre laissé à l'appelant — pour le harnais de
+/// mesure, qui doit pouvoir isoler une forme et comparer. La production passe par [`likelihood`],
+/// qui essaie toujours [`FENETRES`] en entier.
+pub fn likelihood_fenetres(
+    pcm: &[f32],
+    channels: u16,
+    sample_rate: u32,
+    resolutions: &[BlockKind],
+    fenetres: &[Fenetre],
+    fils_max: Option<usize>,
+) -> Vec<Trace> {
+    likelihood_reglee(
+        pcm,
+        channels,
+        sample_rate,
+        resolutions,
+        fenetres,
+        (BANDE_DEBUT_LONG, N_SF_LONG),
+        fils_max,
+    )
+}
+
+/// [`likelihood_fenetres`] avec la fenêtre de bandes des blocs LONGS `(première bande, nombre de
+/// bandes)` laissée à l'appelant — harnais de mesure uniquement (`SIFT_QUANT_BANDES`). Le
+/// dénominateur de `L` suit le nombre de bandes.
+pub fn likelihood_reglee(
+    pcm: &[f32],
+    channels: u16,
+    sample_rate: u32,
+    resolutions: &[BlockKind],
+    fenetres: &[Fenetre],
+    bandes_long: (usize, usize),
+    fils_max: Option<usize>,
+) -> Vec<Trace> {
     let ch = channels.max(1) as usize;
     let n_trames = pcm.len() / ch;
     if n_trames == 0 {
-        return None;
+        return Vec::new();
     }
 
     // Canaux dérivés. En mono, G seul : M et S seraient G et zéro, donc trois mesures pour une.
@@ -562,8 +703,9 @@ pub fn likelihood(
         vec![(Canal::Gauche, pcm.to_vec())]
     };
 
-    let mut best: Option<Trace> = None;
+    let mut traces: Vec<Trace> = Vec::with_capacity(resolutions.len());
     for &kind in resolutions {
+        let mut best: Option<Trace> = None;
         // Indisponibilité de résolution = cette résolution SAUTE, pas le fichier entier. Le `?`
         // d'origine sortait de toute la fonction : un taux tabulé en long mais pas en court (ou
         // l'inverse, si les tables divergent un jour) aurait rendu `None` alors qu'une des deux
@@ -572,18 +714,17 @@ pub fn likelihood(
             continue;
         };
         let n = kind.coeffs();
-        let bande_debut = match kind {
-            BlockKind::Long => BANDE_DEBUT_LONG,
-            BlockKind::Short => BANDE_DEBUT_COURT,
+        let (bande_debut, n_sf) = match kind {
+            BlockKind::Long => bandes_long,
+            BlockKind::Short => (BANDE_DEBUT_COURT, N_SF),
         };
-        if bande_debut + N_SF > offsets.len() - 1 {
+        if bande_debut + n_sf > offsets.len() - 1 {
             continue;
         }
         // Table de seuils indexée par degrés de liberté, calculée UNE fois : le balayage la lit des
         // millions de fois.
         let largeurs: Vec<usize> = (0..=n).collect();
         let taus = thresholds(P_CENTILE, &largeurs);
-        let w = sine_window(2 * n);
 
         // Départs de groupes, communs à tous les décalages : sinon les groupes ne comparent pas les
         // mêmes instants d'un décalage à l'autre.
@@ -601,28 +742,40 @@ pub fn likelihood(
             })
             .collect();
 
-        let reglage = Balayage {
-            w: &w,
-            n,
-            offsets,
-            bande_debut,
-            taus: &taus,
-            departs: &departs,
-            fils_max,
-        };
-        for (canal, signal) in &canaux {
-            let (l, decalage) = balaye_decalages(signal, &reglage);
-            if best.map(|b| l > b.l).unwrap_or(true) {
-                best = Some(Trace {
-                    l,
-                    decalage,
-                    canal: *canal,
-                    resolution: kind,
-                });
+        for &fenetre in fenetres {
+            // Les blocs courts sont en sinus chez ffmpeg comme chez Media Foundation (mesuré le
+            // 2026-09-11 : court KBD ≤ 0,078 sur 56 fichiers, rien nulle part). Pas de balayage
+            // KBD en court.
+            if kind == BlockKind::Short && fenetre == Fenetre::Kbd {
+                continue;
+            }
+            let w = fenetre.echantillons(kind);
+            let reglage = Balayage {
+                w: &w,
+                n,
+                offsets,
+                bande_debut,
+                n_sf,
+                taus: &taus,
+                departs: &departs,
+                fils_max,
+            };
+            for (canal, signal) in &canaux {
+                let (l, decalage) = balaye_decalages(signal, &reglage);
+                if best.map(|b| l > b.l).unwrap_or(true) {
+                    best = Some(Trace {
+                        l,
+                        decalage,
+                        canal: *canal,
+                        resolution: kind,
+                        fenetre,
+                    });
+                }
             }
         }
+        traces.extend(best);
     }
-    best
+    traces
 }
 
 /// Le balayage des `N` décalages pour un canal et une résolution, réparti sur les cœurs.
@@ -643,6 +796,7 @@ struct Balayage<'a> {
     n: usize,
     offsets: &'static [u16],
     bande_debut: usize,
+    n_sf: usize,
     taus: &'a [f64],
     departs: &'a [usize],
     fils_max: Option<usize>,
@@ -654,6 +808,7 @@ fn balaye_decalages(signal: &[f32], r: &Balayage<'_>) -> (f64, usize) {
         n,
         offsets,
         bande_debut,
+        n_sf,
         taus,
         departs,
         fils_max,
@@ -669,7 +824,7 @@ fn balaye_decalages(signal: &[f32], r: &Balayage<'_>) -> (f64, usize) {
         None => dispo.clamp(1, 16),
     };
     let par_fil = n.div_ceil(fils);
-    let denominateur = (N_F * N_SF) as f64;
+    let denominateur = (N_F * n_sf) as f64;
 
     let resultats: Vec<(f64, usize)> = std::thread::scope(|scope| {
         let mut handles = Vec::with_capacity(fils);
@@ -699,7 +854,7 @@ fn balaye_decalages(signal: &[f32], r: &Balayage<'_>) -> (f64, usize) {
                                 trame[i] = signal[base + i] * w[i];
                             }
                             plan.transform_f64_into(&trame, &mut coeffs);
-                            let fc = frame_likelihood(&coeffs, offsets, bande_debut, N_SF, taus);
+                            let fc = frame_likelihood(&coeffs, offsets, bande_debut, n_sf, taus);
                             compte += fc.sous_tau;
                             eligibles += fc.eligibles;
                         }
@@ -1047,6 +1202,8 @@ mod tests {
         }
 
         let trace = likelihood(&signal, 1, SR, &[BlockKind::Short], None)
+            .into_iter()
+            .next()
             .expect("le signal synthétique est assez long pour être mesuré");
         println!(
             "synthétique quantifié : L={:.5} décalage={} (attendu {D})",
@@ -1070,6 +1227,8 @@ mod tests {
             .map(|_| (rng2.suivant() as f32 - 0.5) * 0.5)
             .collect();
         let temoin = likelihood(&bruit, 1, SR, &[BlockKind::Short], None)
+            .into_iter()
+            .next()
             .expect("le bruit témoin a la même longueur, il est mesurable");
         println!("bruit blanc témoin : L={:.5}", temoin.l);
         assert!(
@@ -1206,6 +1365,8 @@ mod tests {
 
         let mesure = |fils: Option<usize>| {
             likelihood(&signal, 1, SR, &[BlockKind::Short], fils)
+                .into_iter()
+                .next()
                 .expect("le signal synthétique est mesurable")
         };
         let reference = mesure(Some(1));
@@ -1240,7 +1401,7 @@ mod tests {
         }
     }
 
-    /// Les DEUX chemins par lesquels [`likelihood`] rend `None`, tenus séparément.
+    /// Les DEUX chemins par lesquels [`likelihood`] ne rend RIEN, tenus séparément.
     ///
     /// « Absence de mesure ≠ valeur par défaut » est la règle du mémo et celle de `verdict()`. Elle
     /// ne vaut que si `None` sort vraiment : un futur repli sur la table 44,1 kHz, ou un `L = 0`
@@ -1257,13 +1418,13 @@ mod tests {
         let assez_long = vec![0.01f32; 4000];
         let courte = [BlockKind::Short];
         assert!(
-            likelihood(&assez_long, 1, 88_200, &courte, None).is_none(),
+            likelihood(&assez_long, 1, 88_200, &courte, None).is_empty(),
             "88 200 Hz n'est pas tabulé : la mesure ne doit pas exister"
         );
         // Le même signal, à la même résolution, à un taux tabulé DOIT rendre une mesure — sans quoi
         // le test ci-dessus passerait pour une raison sans rapport avec le taux.
         assert!(
-            likelihood(&assez_long, 1, 44_100, &courte, None).is_some(),
+            !likelihood(&assez_long, 1, 44_100, &courte, None).is_empty(),
             "44 100 Hz est tabulé : la mesure doit exister sur un signal assez long"
         );
 
@@ -1272,18 +1433,160 @@ mod tests {
         //    ~1400 échantillons. 1000 les rate pour les deux résolutions.
         let court = vec![0.01f32; 1000];
         assert!(
-            likelihood(&court, 1, 44_100, &toutes, None).is_none(),
+            likelihood(&court, 1, 44_100, &toutes, None).is_empty(),
             "1000 échantillons ne portent aucun groupe de {N_F} trames"
         );
         // Et le cas dégénéré du bord : aucun échantillon du tout.
-        assert!(likelihood(&[], 1, 44_100, &toutes, None).is_none());
-        assert!(likelihood(&[], 2, 44_100, &toutes, None).is_none());
+        assert!(likelihood(&[], 1, 44_100, &toutes, None).is_empty());
+        assert!(likelihood(&[], 2, 44_100, &toutes, None).is_empty());
     }
 }
 
 #[cfg(test)]
 mod diagnostic {
     use super::*;
+
+    /// Diagnostic PAR BANDE, à décalage forcé — pour voir OÙ la grille est visible et pourquoi
+    /// les autres bandes sont écartées, sur toute la table et pas seulement la fenêtre jugée.
+    ///
+    /// ```text
+    /// SIFT_QUANT_DIAG=<fichier> SIFT_QUANT_OFFSET=<d> SIFT_QUANT_RES=long|court
+    /// SIFT_QUANT_WIN=sinus|kbd SIFT_QUANT_CANAL=G|D|M|S [SIFT_QUANT_SKIP=17]
+    ///   cargo test --release quant_bandes -- --ignored --nocapture
+    /// ```
+    #[test]
+    #[ignore]
+    fn quant_bandes() {
+        let Ok(path) = std::env::var("SIFT_QUANT_DIAG") else {
+            eprintln!("SIFT_QUANT_DIAG non défini — rien à diagnostiquer");
+            return;
+        };
+        let decalage: usize = std::env::var("SIFT_QUANT_OFFSET")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .expect("SIFT_QUANT_OFFSET requis");
+        let kind = match std::env::var("SIFT_QUANT_RES").as_deref() {
+            Ok("court") => BlockKind::Short,
+            _ => BlockKind::Long,
+        };
+        let fenetre = match std::env::var("SIFT_QUANT_WIN").as_deref() {
+            Ok("kbd") => Fenetre::Kbd,
+            _ => Fenetre::Sinus,
+        };
+        let canal = match std::env::var("SIFT_QUANT_CANAL").as_deref() {
+            Ok("D") => Canal::Droite,
+            Ok("M") => Canal::Milieu,
+            Ok("S") => Canal::Cote,
+            _ => Canal::Gauche,
+        };
+        let saut: usize = std::env::var("SIFT_QUANT_SKIP")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(0);
+
+        let mut pcm: Vec<f32> = Vec::new();
+        let info = crate::analysis::decode::decode_pcm(&path, 2, |b| pcm.extend_from_slice(b))
+            .expect("décodage");
+        let ch = info.channels.max(1) as usize;
+        if saut > 0 && saut * ch < pcm.len() {
+            pcm.drain(..saut * ch);
+        }
+        let n_trames = pcm.len() / ch;
+        let signal: Vec<f32> = match canal {
+            Canal::Gauche => (0..n_trames).map(|i| pcm[i * ch]).collect(),
+            Canal::Droite => (0..n_trames).map(|i| pcm[i * ch + 1]).collect(),
+            Canal::Milieu => (0..n_trames)
+                .map(|i| 0.5 * (pcm[i * ch] + pcm[i * ch + 1]))
+                .collect(),
+            Canal::Cote => (0..n_trames)
+                .map(|i| 0.5 * (pcm[i * ch] - pcm[i * ch + 1]))
+                .collect(),
+        };
+        let offsets = swb_offsets(info.sample_rate, kind).expect("taux tabulé");
+        let n = kind.coeffs();
+        let largeurs: Vec<usize> = (0..=n).collect();
+        let taus = thresholds(P_CENTILE, &largeurs);
+        let w = fenetre.echantillons(kind);
+        let dispo = n_trames.saturating_sub(n - 1 + 2 * n) / n;
+        let departs: Vec<usize> = (0..GROUPES)
+            .map(|g| g * (dispo - N_F) / (GROUPES - 1))
+            .collect();
+        let plan = MdctFast::new(n);
+        let mut trame = vec![0.0f32; 2 * n];
+        let mut coeffs = vec![0.0f64; n];
+        let nb = offsets.len() - 1;
+        // Par bande : [nulle, peu_actifs, peu_niveaux, sans_seuil, jugée, sous_tau, Σactifs, Σniveaux]
+        let mut stats = vec![[0usize; 8]; nb];
+        let mut trames = 0usize;
+        for &depart in &departs {
+            for tr in 0..N_F {
+                let base = decalage + (depart + tr) * n;
+                if base + 2 * n > signal.len() {
+                    break;
+                }
+                trames += 1;
+                for i in 0..2 * n {
+                    trame[i] = signal[base + i] * w[i];
+                }
+                plan.transform_f64_into(&trame, &mut coeffs);
+                for s in 0..nb {
+                    let (lo, hi) = (offsets[s] as usize, offsets[s + 1] as usize);
+                    let st = &mut stats[s];
+                    match juge_bande(&coeffs, lo, hi, &taus) {
+                        Jugement::HorsTrame | Jugement::Nulle => st[0] += 1,
+                        Jugement::PeuActifs { actifs } => {
+                            st[1] += 1;
+                            st[6] += actifs;
+                        }
+                        Jugement::PeuNiveaux { actifs, niveaux } => {
+                            st[2] += 1;
+                            st[6] += actifs;
+                            st[7] += niveaux;
+                        }
+                        Jugement::SansSeuil => st[3] += 1,
+                        Jugement::Jugee {
+                            sous_tau,
+                            actifs,
+                            niveaux,
+                        } => {
+                            st[4] += 1;
+                            if sous_tau {
+                                st[5] += 1;
+                            }
+                            st[6] += actifs;
+                            st[7] += niveaux;
+                        }
+                    }
+                }
+            }
+        }
+        let hz = info.sample_rate as f64 / (2.0 * n as f64);
+        println!(
+            "fichier={path} canal={} res={} fenetre={} decalage={decalage} trames={trames}",
+            canal.label(),
+            kind.label(),
+            fenetre.label()
+        );
+        println!("bande  lo..hi   kHz        larg  nulle  peu_act  peu_niv  jugee  sous_tau  act/tr  niv/tr");
+        for s in 0..nb {
+            let (lo, hi) = (offsets[s] as usize, offsets[s + 1] as usize);
+            let st = stats[s];
+            let vus = (trames - st[0]).max(1) as f64;
+            println!(
+                "{s:5}  {lo:4}..{hi:4}  {:5.1}-{:5.1}  {:4}  {:5}  {:7}  {:7}  {:5}  {:8}  {:6.1}  {:6.1}",
+                lo as f64 * hz / 1000.0,
+                hi as f64 * hz / 1000.0,
+                hi - lo,
+                st[0],
+                st[1],
+                st[2],
+                st[4],
+                st[5],
+                st[6] as f64 / vus,
+                st[7] as f64 / vus
+            );
+        }
+    }
 
     /// Sonde de DIAGNOSTIC — imprime, pour un fichier donné, la ventilation par trame du décalage
     /// gagnant : bandes jugeables et bandes sous `τ`. Ne juge rien.
@@ -1306,23 +1609,39 @@ mod diagnostic {
             info.channels, info.sample_rate
         );
 
-        let trace = likelihood(
+        let traces = likelihood(
             &pcm,
             info.channels,
             info.sample_rate,
             &QUANT_RESOLUTIONS_DIAG,
             None,
         );
-        let Some(t) = trace else {
+        for t in &traces {
+            println!(
+                "  {} : L={:.5} rapport={:.2} décalage={} canal={} fenêtre={}",
+                t.resolution.label(),
+                t.l,
+                t.l / crate::analysis::verdict::quant_lambda_aac(t.resolution) as f64,
+                t.decalage,
+                t.canal.label(),
+                t.fenetre.label()
+            );
+        }
+        let Some(t) = traces.into_iter().max_by(|a, b| {
+            let ra = a.l / crate::analysis::verdict::quant_lambda_aac(a.resolution) as f64;
+            let rb = b.l / crate::analysis::verdict::quant_lambda_aac(b.resolution) as f64;
+            ra.total_cmp(&rb)
+        }) else {
             println!("aucune mesure");
             return;
         };
         println!(
-            "GAGNANT L={:.5} décalage={} canal={} résolution={}",
+            "GAGNANT L={:.5} décalage={} canal={} résolution={} fenêtre={}",
             t.l,
             t.decalage,
             t.canal.label(),
-            t.resolution.label()
+            t.resolution.label(),
+            t.fenetre.label()
         );
 
         // Rejoue EXACTEMENT le groupe gagnant, trame par trame, pour ventiler le compte.
@@ -1338,13 +1657,13 @@ mod diagnostic {
         };
         let offsets = swb_offsets(info.sample_rate, t.resolution).expect("taux tabulé");
         let n = t.resolution.coeffs();
-        let bande_debut = match t.resolution {
-            BlockKind::Long => BANDE_DEBUT_LONG,
-            BlockKind::Short => BANDE_DEBUT_COURT,
+        let (bande_debut, n_sf) = match t.resolution {
+            BlockKind::Long => (BANDE_DEBUT_LONG, N_SF_LONG),
+            BlockKind::Short => (BANDE_DEBUT_COURT, N_SF),
         };
         let largeurs: Vec<usize> = (0..=n).collect();
         let taus = thresholds(P_CENTILE, &largeurs);
-        let w = sine_window(2 * n);
+        let w = t.fenetre.echantillons(t.resolution);
         let dispo = n_trames.saturating_sub(n - 1 + 2 * n) / n;
         let departs: Vec<usize> = (0..GROUPES)
             .map(|g| {
@@ -1373,14 +1692,14 @@ mod diagnostic {
                     trame[i] = signal[base + i] * w[i];
                 }
                 plan.transform_f64_into(&trame, &mut coeffs);
-                let fc = frame_likelihood(&coeffs, offsets, bande_debut, N_SF, &taus);
+                let fc = frame_likelihood(&coeffs, offsets, bande_debut, n_sf, &taus);
                 st += fc.sous_tau;
                 el += fc.eligibles;
                 detail.push((fc.eligibles, fc.sous_tau));
             }
             println!(
                 "depart={depart:6}  sous_tau={st:3}  eligibles={el:3}  L={:.5}  par trame (elig/sous_tau) {:?}",
-                st as f64 / (N_F * N_SF) as f64,
+                st as f64 / (N_F * n_sf) as f64,
                 detail
             );
             if st > meilleur_groupe.0 {
@@ -1407,7 +1726,7 @@ mod diagnostic {
                         trame[i] = signal[base + i] * w[i];
                     }
                     plan.transform_f64_into(&trame, &mut coeffs);
-                    for s in bande_debut..(bande_debut + N_SF).min(offsets.len() - 1) {
+                    for s in bande_debut..(bande_debut + n_sf).min(offsets.len() - 1) {
                         let (lo, hi) = (offsets[s] as usize, offsets[s + 1] as usize);
                         if hi > coeffs.len() {
                             continue;
@@ -1551,13 +1870,28 @@ mod corpus {
             Ok("court") => vec![BlockKind::Short],
             _ => vec![BlockKind::Long, BlockKind::Short],
         };
+        // `SIFT_QUANT_WIN=sinus|kbd` isole une forme de fenêtre ; sans elle, les deux.
+        let fenetres: Vec<Fenetre> = match std::env::var("SIFT_QUANT_WIN").as_deref() {
+            Ok("sinus") => vec![Fenetre::Sinus],
+            Ok("kbd") => vec![Fenetre::Kbd],
+            _ => FENETRES.to_vec(),
+        };
+        // `SIFT_QUANT_BANDES=lo..hi` remplace la fenêtre de bandes des blocs longs (hi exclu).
+        let bandes_long: (usize, usize) = std::env::var("SIFT_QUANT_BANDES")
+            .ok()
+            .and_then(|v| {
+                let (lo, hi) = v.split_once("..")?;
+                let (lo, hi): (usize, usize) = (lo.parse().ok()?, hi.parse().ok()?);
+                (hi > lo).then_some((lo, hi - lo))
+            })
+            .unwrap_or((BANDE_DEBUT_LONG, N_SF_LONG));
 
         let mut vus = 0usize;
         let mut rates = 0usize;
         // Le nom de fichier EN DERNIER — piège mesuré le 2026-08-18 sur 967 fichiers d'une vraie
         // clé USB : un « ; » dans un titre décalait toutes les colonnes suivantes. En dernière
         // position il ne peut plus rien déplacer, les champs qui précèdent se lisant par position.
-        println!("L;decalage;canal;resolution;secondes;fichier");
+        println!("L;decalage;canal;resolution;fenetre;secondes;fichier");
         for e in walkdir::WalkDir::new(&dir).into_iter().flatten() {
             if !e.file_type().is_file() {
                 continue;
@@ -1590,7 +1924,7 @@ mod corpus {
                     // Un échec est une LIGNE, avec le même nombre de colonnes : une ligne plus
                     // courte ferait tomber le nom hors jointure, et un fichier en échec compterait
                     // comme non mesuré.
-                    println!("ERREUR;-;-;-;-;{name} ({err})");
+                    println!("ERREUR;-;-;-;-;-;{name} ({err})");
                     continue;
                 }
             };
@@ -1600,23 +1934,34 @@ mod corpus {
             }
 
             let t0 = std::time::Instant::now();
-            let trace = likelihood(&pcm, info.channels, info.sample_rate, &resolutions, None);
+            let traces = likelihood_reglee(
+                &pcm,
+                info.channels,
+                info.sample_rate,
+                &resolutions,
+                &fenetres,
+                bandes_long,
+                None,
+            );
             let secondes = t0.elapsed().as_secs_f64();
-            match trace {
-                Some(t) => println!(
-                    "{:.5};{};{};{};{secondes:.1};{name}",
+            if traces.is_empty() {
+                rates += 1;
+                println!("NON-MESURE;-;-;-;-;{secondes:.1};{name}");
+            }
+            // Une ligne PAR résolution : leurs `L` ne sont pas sur la même échelle, un maximum
+            // entre elles n'aurait pas de sens (voir `BANDE_DEBUT_LONG`).
+            for t in traces {
+                println!(
+                    "{:.5};{};{};{};{};{secondes:.1};{name}",
                     t.l,
                     t.decalage,
                     t.canal.label(),
-                    t.resolution.label()
-                ),
-                None => {
-                    rates += 1;
-                    println!("NON-MESURE;-;-;-;{secondes:.1};{name}");
-                }
+                    t.resolution.label(),
+                    t.fenetre.label()
+                );
             }
         }
-        println!("-- {vus} fichiers parcourus, {rates} sans mesure (saut={saut})");
+        println!("-- {vus} fichiers parcourus, {rates} sans mesure (saut={saut} bandes_long={bandes_long:?})");
         assert!(vus > 0, "aucun fichier audio dans {dir} — mesure vide");
     }
 }

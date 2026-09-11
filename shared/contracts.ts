@@ -214,9 +214,11 @@ export interface AnalysisReport {
    *  lire `null` comme 0 : 0 est une vraie valeur, celle d'un signal dont aucune cellule ne porte
    *  la grille.
    *
-   *  Un FAIT, pas un verdict. Le seuil qui le juge est `verdict::QUANT_LAMBDA` (0,18 au
-   *  2026-09-02, PROVISOIRE — calibré sur 10 authentiques seulement) et il n'a pas de miroir ici :
-   *  le front n'a pas à re-seuiller une mesure, il affiche le verdict que Rust a rendu.
+   *  Un FAIT, pas un verdict. Depuis le 2026-09-11 c'est un RAPPORT AU SEUIL de son banc
+   *  (AAC blocs courts, AAC blocs longs, MP3 — trois `λ` dans `verdict.rs`, `max(L / λ)`) :
+   *  `1` = pile sur le seuil, `> 1` = grille retrouvée, jugé par `verdict::QUANT_LAMBDA` (1).
+   *  Pas de miroir ici : le front n'a pas à re-seuiller une mesure, il affiche le verdict que
+   *  Rust a rendu.
    *
    *  Ancien rapport en cache (`REPORT_CACHE_VERSION` ≤ 9) : `null`. */
   quant_likelihood: number | null;

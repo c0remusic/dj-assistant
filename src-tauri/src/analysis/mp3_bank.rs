@@ -36,7 +36,7 @@
 //! AAC en phase 1 (résolution longue d'abord), à mesurer avant d'aller plus loin.
 //!
 //! NON CALIBRÉ (marqué un par un) : la fenêtre de bandes [`BANDE_DEBUT`] ; le seuil de décision
-//! reste `verdict::QUANT_LAMBDA`, partagé avec le banc AAC tant qu'une mesure ne dit pas qu'il en
+//! reste `verdict::QUANT_LAMBDA_MP3` (0,18, la valeur historique du banc AAC en blocs courts — depuis le 2026-09-11 chaque banc a le sien, et `quant_likelihood` voyage en rapport au seuil), tant qu'une mesure ne dit pas qu'il en
 //! faut deux.
 //!
 //! SOURCE des tables : ISO/IEC 11172-3, tables B.3 (fenêtre de synthèse `D`), B.8 (bandes de
@@ -597,7 +597,7 @@ mod tests {
     }
 
     /// Un lossless ne porte pas de grille MP3 : `real_lossless.flac` (sinus balayé, le cas
-    /// dégénéré que `MIN_NIVEAUX_DISTINCTS` garde) reste sous `verdict::QUANT_LAMBDA`. Le MP3 de la
+    /// dégénéré que `MIN_NIVEAUX_DISTINCTS` garde) reste sous `verdict::QUANT_LAMBDA_MP3`. Le MP3 de la
     /// même fixture (`real_320.mp3`) n'est PAS un test de détection : un sinus balayé encodé est
     /// tonal, la garde le désarme, `L ≈ 0,06` mesuré — c'est le comportement attendu, pas une
     /// faiblesse du banc. La détection se mesure sur de la musique, ci-dessous.
@@ -612,7 +612,7 @@ mod tests {
         let t = likelihood(&pcm, ch, sr, Some(4)).expect("mesure");
         eprintln!("real_lossless.flac : L = {:.3}", t.l);
         assert!(
-            t.l < crate::analysis::verdict::QUANT_LAMBDA as f64,
+            t.l < crate::analysis::verdict::QUANT_LAMBDA_MP3 as f64,
             "un lossless ne doit pas porter de grille MP3 : L = {:.3}",
             t.l
         );

@@ -949,3 +949,99 @@ aacmf256 aussi. L'ancien motif du renoncement (« une mesure qui n'est plus cell
 
 Reste : aac128 1/10, aacmf128 2/10, aac256 6/10 ; Opus, Vorbis, WMA sans banc (0 Fake, Grey par
 la platitude quand ils le sont).
+
+## Les AAC bas débit (2026-09-11)
+
+État de départ (matrice v4) : aac128 1/10, aacmf128 2/10, aac256 6/10, aacmf256 10/10.
+
+### La fenêtre : ffmpeg encode ses blocs longs en KBD, l'analyse ne regardait qu'en sinus
+
+`aacpsy.c`, modèle `psy_lame_window` (celui par défaut de l'encodeur `aac` de ffmpeg) :
+`window_shape = 1` (Kaiser-Bessel dérivée) pour `ONLY_LONG` et `LONG_STOP`, `0` (sinus) pour
+`LONG_START` et les huit blocs courts. L'annulation du repliement temporel exige la même fenêtre
+des deux côtés : une MDCT sinus d'un flux synthétisé en KBD ne rend PAS les coefficients du codec
+(`mdct::tests::une_synthese_kbd_ne_se_reanalyse_quen_kbd`, écart relatif > 1 % contre < 1e-4 en
+forme appariée). C'est l'explication du constat de `quant_trace` du 2026-09-02, « la grille des
+blocs longs est essentiellement absente après décodage » : elle était regardée à travers la
+mauvaise fenêtre.
+
+Mesure, `quant_scan` sur 56 fichiers (40 AAC du corpus, 6 LAME témoins, 10 authentiques dont les
+deux retirés), `SIFT_QUANT_SKIP=17`, une résolution et une forme à la fois (moyenne de L / nombre
+au-dessus de λ = 0,18) :
+
+| famille | long sinus | long KBD | court sinus | court KBD |
+|---|---|---|---|---|
+| aac256 | 0,087 / 0 | **0,350 / 8** | 0,228 / 6 | 0,056 / 0 |
+| aacmf256 | **0,409 / 10** | 0,258 / 6 | 0,250 / 6 | 0,053 / 0 |
+| aac128 | 0,083 / 0 | 0,087 / 0 | 0,113 / 1 | 0,059 / 0 |
+| aacmf128 | 0,081 / 0 | 0,080 / 0 | 0,119 / 2 | 0,053 / 0 |
+| authentiques (10) | 0,084 / 0 | 0,087 / 0 | 0,062 / 0 | 0,059 / 0 |
+| lame320 / lameV0 (6) | ≤ 0,089 / 0 | ≤ 0,089 / 0 | ≤ 0,062 / 0 | ≤ 0,057 / 0 |
+
+Trois faits :
+
+1. **ffmpeg `aac` : 0/10 en long sinus, 8/10 en long KBD**, et neuf fichiers sur dix convergent
+   sur le MÊME décalage, 1007 — la signature de grille. La forme était le verrou.
+2. **Media Foundation (`aac_mf`) encode ses longs en sinus** : aacmf256 10/10 en sinus (décalages
+   154 ×6, 1007 ×4), 6/10 en KBD. Deux encodeurs, deux formes : le balayage doit essayer les deux
+   sur les blocs longs, et garder le max, comme il le fait pour les canaux.
+3. **Les blocs courts sont en sinus chez les deux** : court KBD ne rend rien (≤ 0,078 partout).
+   Inutile d'y dépenser un balayage.
+
+Les 128 kbps restent aveugles dans les quatre configurations. Mais en court sinus, 7 des 10
+aac128 convergent quand même sur le décalage 47, avec un L de 0,05 à 0,28 : la grille est là,
+ce sont les BANDES qui manquent — diagnostic par bande à suivre (`diagnostic::quant_bandes`).
+
+### Diagnostic par bande : la fenêtre 40-47 était fausse pour tout le monde
+
+`diagnostic::quant_bandes` (décalage forcé, résolution, forme, canal), sur `src02`, long KBD,
+décalage 1007, canal M, bandes sous `τ` sur 64 trames :
+
+| bandes | kHz | aac256 | aac128 | authentique |
+|---|---|---|---|---|
+| 17-32 | 2,1-9,6 | 12-24 | 9-21 | 0-2 |
+| 33-44 | 10-17,9 | 21-26 | 0-4 | 0-2 |
+| 45-47 | 17,9-20 | 7-15 | 0 | 0-2 |
+
+La grille d'un aac128 vit entre 2 et 10 kHz, celle d'un aac256 entre 2 et 18 kHz. La fenêtre
+jugée (40-47, 14,5-20 kHz) tombait là où elle s'éteint — aac256 n'était détecté que par le bord.
+Les blocs courts, eux, sont quasi vides sur de la musique stationnaire (0-4/64) : ffmpeg n'en
+émet qu'aux transitoires, et « le signal est dans les blocs courts » (2026-09-02) n'était vrai
+que parce que les longs étaient regardés en sinus.
+
+Fenêtre large 17-44 (28 bandes, 224 cellules par groupe) plutôt qu'un maximum glissant sur 8 :
+plus de cellules resserre la loi nulle, un max sur des fenêtres l'élargirait. `quant_scan` long
+seul, saut 17 :
+
+| famille | L min-max | > 0,085 |
+|---|---|---|
+| authentiques (10) | 0,036-0,045 | 0 |
+| LAME 320/V0 témoins (6) | 0,040-0,045 | 0 |
+| référence magasin (411) | max 0,076 | 0 (deux à 0,076, cinq > 0,06) |
+| ACID lossless (546) | max 0,062 | 0 |
+| aac128 | 0,089-0,371 | **10/10**, tous au décalage 1007, KBD |
+| aacmf128 | 0,054-0,228 | 7/10, tous en sinus |
+| aac256 | 0,357-0,571 | 10/10 |
+| aacmf256 | 0,357-0,857 | 10/10 |
+
+`λ_long = 0,085` : au-dessus du maximum des 957 lossless réels (0,076, marge 12 %), sous le
+minimum aac128 (0,089). Les blocs courts gardent leur échelle (8 bandes, 64 cellules) et leur
+0,18, le banc MP3 son 0,18 : `quant_likelihood` voyage désormais en RAPPORT au seuil de son banc
+(`max(L/λ)`, jugé contre 1), parce qu'un max de `L` bruts aurait été dominé par l'échelle la plus
+bruyante. `REPORT_CACHE_VERSION` 13.
+
+### Matrice v5 — KBD + fenêtre longue 17-44 + rapport au seuil (2026-09-11, `corpus-scan-v5.csv`)
+
+| vérité \ verdict | Ok | Grey | Fake |
+|---|---|---|---|
+| authentique (8) | **8** | 0 | 0 |
+| faux (150) | 10 | 22 | **118** |
+
+Contre v4 (99 Fake) : faux Ok 27 → **10**, Grey 24 → 22, Fake 99 → **118**. aac128 1 → **10/10**,
+aac256 6 → **10/10**, aacmf128 2 → 8/10, aacmf256 10/10 ; les huit familles MP3 restent à 10/10.
+Les 10 Ok restants : 2 aacmf128 (0,054 et 0,080 en long, sous 0,085), 1 opus, 7 vorbis. Opus,
+Vorbis et WMA restent les trois codecs sans banc (0 Fake, Grey par la platitude quand ils le sont).
+
+Référence magasin (411), détecteur intégré : **382 Ok, 19 Fake, 10 Grey — identique à v4**. Les
+10 Fake par grille sont les mêmes dix fichiers, tous par le banc MP3 (rapports 3,1 à 5,6) ; le banc
+AAC long n'en ajoute aucun, ni ne retire rien. Zéro faux positif nouveau sur 411 + 546 lossless réels.
