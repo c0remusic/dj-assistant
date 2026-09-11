@@ -49,6 +49,9 @@ async function wrap(page) {
     '<meta name="viewport" content="width=device-width,initial-scale=1">\n' +
     // Déclaré avant tout rendu : le canevas prend la bonne couleur dès le départ (guide dark-mode).
     '<meta name="color-scheme" content="light dark">\n' +
+    // Favicon : le carré vert seul — l'échelle de dégradation de la direction de marque
+    // (2026-07-03) le réserve aux 16 px, favicon compris.
+    '<link rel="icon" href="/favicon.svg" type="image/svg+xml">\n' +
     `<meta name="description" content="${page.description}">\n` +
     "</head>\n<body>\n" +
     body +
@@ -60,6 +63,7 @@ async function prepare() {
   await mkdir(join(pub, "screenshots"), { recursive: true });
   for (const page of PAGES) await wrap(page);
   await copyFile(join(root, "docs", "manuel.pdf"), join(pub, "manuel.pdf"));
+  await copyFile(join(root, "docs", "favicon.svg"), join(pub, "favicon.svg"));
   // Toutes les variantes (PNG d'origine, AVIF/WebP bureau 1x/2x, recadrage mobile) : le <picture>
   // de l'accueil les nomme une par une.
   await cp(join(root, "docs", "screenshots"), join(pub, "screenshots"), { recursive: true });

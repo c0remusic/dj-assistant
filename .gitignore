@@ -97,6 +97,7 @@ docs/*
 !docs/manuel.html
 !docs/accueil.html
 !docs/manuel.pdf
+!docs/favicon.svg
 !docs/developpement.md
 !docs/screenshots/
 !docs/design-system-states.md
