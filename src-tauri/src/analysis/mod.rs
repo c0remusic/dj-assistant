@@ -149,9 +149,9 @@ pub struct AnalysisReport {
     /// **bande pleine** (`verdict::needs_quant_probe`), soit ~tout lossless sain, à +0,3 s par
     /// fichier. Sous la falaise ou sur une fraude de conteneur elle vaut `None` parce qu'elle n'a
     /// pas été demandée — pas parce qu'elle serait basse. Elle vaut aussi `None` quand la mesure
-    /// n'existe pas : taux d'échantillonnage hors
-    /// des tables de bandes AAC, fichier trop court pour un groupe de trames, ou signal trop long
-    /// pour être retenu en mémoire (`QUANT_MAX_PCM_SAMPLES`).
+    /// n'existe pas : taux d'échantillonnage hors des tables de bandes, ou fichier trop court
+    /// pour un groupe de trames. Un fichier plus long que `QUANT_MAX_PCM_SAMPLES` est sondé sur
+    /// son début, pas écarté (2026-09-11).
     ///
     /// Un FAIT, pas un verdict : c'est `verdict::QUANT_LAMBDA` qui le seuille, et lui seul. Le
     /// champ voyage pour que la Revue puisse un jour l'afficher dans le collapse Détails.
@@ -217,7 +217,13 @@ pub struct AnalysisReport {
 /// **11 (2026-09-11, #63)** : `quant_likelihood` devient le maximum des bancs AAC et MP3. Bump de
 /// RAPPORT : le pool re-décode la file puis la bibliothèque rangée en fond (#59), c'est ce qui
 /// permet aux LAME 320 et V0 déjà rangés d'être repris avec le nouveau banc.
-pub const REPORT_CACHE_VERSION: i64 = 11;
+///
+/// **12 (2026-09-11)** : un fichier plus long que le plafond de rétention (`QUANT_MAX_PCM_SAMPLES`,
+/// 9,07 min) est sondé sur son début au lieu d'être écarté. Les rapports v11 de ces fichiers
+/// portent `quant_likelihood: None`, et un `None` stocké ne se répare pas par le re-verdict (qui
+/// rejoue les mesures, il n'en refait pas) : seul un re-décodage produit la mesure. v11 n'a
+/// jamais été livrée (v0.1.2 encore en chantier), le coût réel est nul pour un utilisateur.
+pub const REPORT_CACHE_VERSION: i64 = 12;
 
 /// Lit le cache `(tracks.report_json, tracks.report_cache_ver)`. Version absente, version distancée
 /// ou JSON vide (sentinelle d'échec de `persist_failure`) = **pas de rapport courant**, rendu comme
@@ -283,11 +289,38 @@ fn default_peaks_step() -> usize {
 /// chemins, y compris quand la sonde n'a pas été demandée. Le pic ci-dessus est donc borné à la
 /// fenêtre décodage → sonde, pas à la durée de l'analyse.
 ///
-/// **Ce que le dépassement coûte, et il est borné** : la rétention est abandonnée, le tampon
-/// libéré, `quant_likelihood` vaut `None` — et `None` ne dégrade jamais un verdict (`verdict()`).
-/// Un lossless de plus de neuf minutes tombant dans le bras ambigu reste donc **Douteux**, ce
-/// qu'il était avant #52. Aucune régression, seulement une portée.
+/// **Ce que le dépassement coûte : rien au verdict, depuis le 2026-09-11.** Un fichier plus long
+/// que le plafond est sondé sur son DÉBUT — les 9,07 premières minutes à 44,1 kHz — et pas
+/// abandonné. Jusque-là la rétention renonçait au-delà du plafond (`quant_likelihood = None`), au
+/// motif qu'un signal tronqué ne serait « plus la mesure sur laquelle λ a été calibré ». C'était
+/// faux : les huit groupes de trames de `quant_trace::likelihood` s'étalent sur le signal
+/// DISPONIBLE, quel qu'il soit, et la grille d'un transcodage est stationnaire du début à la fin —
+/// neuf minutes d'un morceau de onze en portent autant que les onze. Mesuré sur le corpus : le
+/// seul fichier de plus de neuf minutes (`src08`, 10 min 53 s) ratait ses quatre transcodages MP3
+/// (`lame320`, `lameV0`, `lame128`, `mfmp3_320`) faute de sonde, alors que le banc seul rend
+/// 0,953 sur `src08_lame320.flac`. La coupe se fait à la frontière d'une trame entrelacée
+/// ([`retenir_pour_sonde`]) pour ne jamais décaler les canaux.
 const QUANT_MAX_PCM_SAMPLES: usize = 48_000_000;
+
+/// Pousse un bloc de PCM entrelacé dans le tampon de la sonde, sans dépasser `plafond`
+/// échantillons. Rend `true` quand le plafond est atteint : le bloc a été coupé (ou ignoré), et
+/// l'appelant peut cesser de retenir.
+///
+/// La coupe tombe sur un multiple de `canaux` : un tampon entrelacé qui finit au milieu d'une
+/// trame décalerait G et D d'un échantillon pour toute la suite d'un désentrelacement, et le banc
+/// mesurerait un signal qui n'existe pas. Fonction libre et non closure pour être testée seule
+/// (`tests::la_retention_coupe_au_plafond_sur_une_trame_entiere`).
+fn retenir_pour_sonde(tampon: &mut Vec<f32>, bloc: &[f32], plafond: usize, canaux: usize) -> bool {
+    let canaux = canaux.max(1);
+    let place = plafond.saturating_sub(tampon.len());
+    if place >= bloc.len() {
+        tampon.extend_from_slice(bloc);
+        return false;
+    }
+    let garde = place - place % canaux;
+    tampon.extend_from_slice(&bloc[..garde]);
+    true
+}
 
 /// Les deux résolutions balayées par la sonde, dans l'ordre du prototype.
 ///
@@ -354,21 +387,19 @@ pub fn analyze(path: &str, with_spectrogram: bool) -> Result<AnalysisReport, Str
     // qu'un décodage à la demande.
     let quant_pregate = tag.declared_rail == Rail::Lossless && tag.content_rail != Rail::Lossy;
     let mut quant_pcm: Vec<f32> = Vec::new();
-    let mut quant_pcm_over_cap = false;
+    let mut quant_pcm_tronque = false;
 
     let info = decode::decode_pcm(path, target_ch, |block| {
         decoded_mono_samples += (block.len() / target_ch as usize) as u64;
-        if quant_pregate && !quant_pcm_over_cap {
-            if quant_pcm.len() + block.len() > QUANT_MAX_PCM_SAMPLES {
-                // Au-delà du plafond on ABANDONNE, on ne tronque pas : un signal tronqué ferait
-                // porter les huit groupes de trames sur le seul début du fichier, donc une mesure
-                // qui n'est plus celle sur laquelle λ a été calibré. Mieux vaut pas de mesure
-                // qu'une mesure d'autre chose.
-                quant_pcm_over_cap = true;
-                quant_pcm = Vec::new();
-            } else {
-                quant_pcm.extend_from_slice(block);
-            }
+        if quant_pregate && !quant_pcm_tronque {
+            // Au-delà du plafond on garde le DÉBUT, on n'abandonne pas : voir
+            // `QUANT_MAX_PCM_SAMPLES` pour la mesure qui a renversé l'ancien choix.
+            quant_pcm_tronque = retenir_pour_sonde(
+                &mut quant_pcm,
+                block,
+                QUANT_MAX_PCM_SAMPLES,
+                target_ch as usize,
+            );
         }
         if target_ch == 2 {
             ph.push(block); // interleaved L,R
@@ -437,15 +468,18 @@ pub fn analyze(path: &str, with_spectrogram: bool) -> Result<AnalysisReport, Str
     let quant_likelihood = if verdict::needs_quant_probe(cutoff_hz, tag.declared_rail, content_rail)
     {
         if quant_pcm.is_empty() {
-            // Le pré-filtre du décodage a laissé passer, mais rien n'a été retenu : fichier
-            // au-dessus du plafond, ou décodage vide. Pas de mesure, et on le DIT.
-            log::info!(
-                "quant_trace {} : non mesuré (PCM non retenu, au-delà du plafond = {})",
-                path,
-                quant_pcm_over_cap
-            );
+            // Le pré-filtre du décodage a laissé passer, mais rien n'a été retenu : décodage
+            // vide. Pas de mesure, et on le DIT.
+            log::info!("quant_trace {path} : non mesuré (aucun PCM retenu)");
             None
         } else {
+            if quant_pcm_tronque {
+                log::info!(
+                    "quant_trace {} : fichier au-delà du plafond, sondé sur ses {:.0} premières secondes",
+                    path,
+                    quant_pcm.len() as f32 / (info.sample_rate as f32 * target_ch as f32)
+                );
+            }
             // Deux bancs, une mesure : la grille d'un codec est cherchée par le banc AAC (#52)
             // puis par le banc MP3 (#63), et `quant_likelihood` est le MAXIMUM des deux. Un
             // transcodage n'est passé que par un codec, donc un seul banc peut le voir ; un master
@@ -673,6 +707,38 @@ mod corpus {
 
 #[cfg(test)]
 mod tests {
+    use super::retenir_pour_sonde;
+
+    /// La rétention de la sonde coupe au plafond, sur une trame ENTIÈRE, et ne renonce plus.
+    /// Ce que ce test garde : (1) sous le plafond tout entre ; (2) le bloc qui franchit le plafond
+    /// est coupé à un multiple du nombre de canaux — jamais au milieu d'une trame entrelacée, ce
+    /// qui décalerait G et D pour tout le désentrelacement du banc ; (3) une fois plein, rien
+    /// n'entre plus, et l'appel le dit.
+    #[test]
+    fn la_retention_coupe_au_plafond_sur_une_trame_entiere() {
+        let mut tampon = Vec::new();
+        assert!(!retenir_pour_sonde(
+            &mut tampon,
+            &[1.0, 2.0, 3.0, 4.0],
+            7,
+            2
+        ));
+        assert_eq!(tampon, [1.0, 2.0, 3.0, 4.0]);
+
+        // Place restante : 3 échantillons, mais deux canaux → une seule trame entre (2), pas 3.
+        assert!(retenir_pour_sonde(&mut tampon, &[5.0, 6.0, 7.0, 8.0], 7, 2));
+        assert_eq!(tampon, [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+        assert_eq!(tampon.len() % 2, 0, "jamais coupé au milieu d'une trame");
+
+        // Plein : le bloc suivant n'entre pas, et l'appel le redit.
+        assert!(retenir_pour_sonde(&mut tampon, &[9.0, 10.0], 7, 2));
+        assert_eq!(tampon, [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+
+        // Mono : la place restante entre en entier.
+        let mut mono = vec![0.0; 5];
+        assert!(retenir_pour_sonde(&mut mono, &[1.0, 2.0, 3.0], 7, 1));
+        assert_eq!(mono.len(), 7);
+    }
 
     /// Les quatre états que `cached_report` doit distinguer. Ce que ce test garde est le bump lui-
     /// même : `REPORT_CACHE_VERSION` ne sert à rien si un rapport stampé à l'ANCIENNE version se

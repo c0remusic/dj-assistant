@@ -28,9 +28,9 @@ Le titre de section doit être exactement `## vX.Y.Z` pour que l'extraction le t
   leur débit.** La sonde qui cherchait la trace d'un encodeur AAC dans les échantillons rejoue
   désormais aussi l'encodeur MP3 (banc de filtres de la couche III). Mesuré sur le corpus de test :
   les MP3 320, V0, 256, 192 et 160 réencapsulés en FLAC portent la grille 10 fois sur 10, les
-  MP3 128 7 fois sur 10 ; aucun des 8 achats vérifiés n'est touché. Une seule limite : un morceau de
-  plus de 9 minutes n'est pas sondé (la sonde garde le signal décodé en mémoire, et se retire
-  au-delà), il reste jugé sur la coupure. Un fichier
+  MP3 128 7 fois sur 10 ; aucun des 8 achats vérifiés n'est touché. Un morceau de plus de 9 minutes est
+  sondé sur ses 9 premières minutes (la sonde garde le signal décodé en mémoire, et s'arrête là) —
+  la grille d'un transcodage est la même du début à la fin. Un fichier
   tenu pour authentique dans la référence s'est révélé un MP3 transcodé, et la sonde l'a vu.
 - Les verdicts sont rejoués au démarrage depuis les mesures déjà stockées, sans nouvelle analyse.
 

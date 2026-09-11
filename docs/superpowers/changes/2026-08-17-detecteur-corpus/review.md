@@ -929,3 +929,23 @@ est le prochain gain le moins cher : il rend 3 Fake de plus sans toucher au seui
 Ce qui reste hors de portée après #63 : les AAC à bas et moyen débit (aac128, aacmf128 : 1/10)
 et les trois codecs sans banc (Opus, Vorbis, WMA), qui restent Grey par la platitude quand ils
 le sont. Ce sont les 31 Ok restants, à 3 exceptions près (src08).
+
+### Le plafond levé : src08 re-sondé sur ses 9 premières minutes (2026-09-11, `corpus-scan-v4.csv`)
+
+La rétention ne renonce plus au-delà de `QUANT_MAX_PCM_SAMPLES`, elle garde le début
+(`retenir_pour_sonde`, coupe sur une trame entière). Re-scan des 16 fichiers src08 seuls
+(`corpus-src08.log`), fusionné dans la matrice v3 :
+
+| vérité \ verdict | Ok | Grey | Fake |
+|---|---|---|---|
+| authentique (8) | **8** | 0 | 0 |
+| faux (150) | 27 | 24 | **99** |
+
+src08 rend maintenant lame320 0,938, lameV0 0,813, mfmp3_320 0,844, lame128 0,188 — et, gain non
+prévu, aac256 0,203, aacmf128 0,219, aacmf256 0,266 : sept Fake de plus (31 → 27 Ok, 27 → 24
+Grey, 92 → 99 Fake). `src08_genuine` reste à 0,078, Ok. **Les huit familles MP3 sont à 10/10**,
+aacmf256 aussi. L'ancien motif du renoncement (« une mesure qui n'est plus celle sur laquelle λ a
+été calibré ») est réfuté par la mesure : neuf minutes d'un morceau de onze portent la même grille.
+
+Reste : aac128 1/10, aacmf128 2/10, aac256 6/10 ; Opus, Vorbis, WMA sans banc (0 Fake, Grey par
+la platitude quand ils le sont).
