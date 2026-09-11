@@ -38,7 +38,8 @@ passer.
 - **Détecte les faux lossless** — un FLAC, WAV ou AIFF dont le contenu est passé par du MP3,
   de l'AAC ou de l'Opus. Trois mesures (coupure du spectre, platitude de l'aigu, trace du
   codec dans les échantillons) et un verdict en un mot : **VRAI**, **FAUX**, **À VÉRIFIER**.
-  Aucun fichier authentique n'est accusé ; environ un tiers des transcodages passent encore.
+  Aucun fichier authentique n'est accusé ; une partie des transcodages haut débit passe encore
+  (MP3 320 et V0, AAC 128), et un chantier est ouvert pour les attraper.
 - **Écoute d'abord** — lecteur, forme d'onde, spectrogramme ; on écoute, puis on tranche.
 - **Range en convertissant** — MP3, WAV ou AIFF au format des platines, nommé depuis les
   tags, dans l'arbre de ta bibliothèque. Doublons et déjà-rangés signalés avant.
