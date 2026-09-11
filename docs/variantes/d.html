@@ -12,7 +12,7 @@
 /* D, quatrième itération. Retours : « mets juste Sift avec la police de l'app », « enlève le logo
    inventé dans le header », « un mélange avec B niveau layout ». Donc : Inter partout (la fonte de
    l'app depuis le 2026-08-26, styles.css --font-ui), aucun mot-symbole coloré, le nom en titre.
-   Le hero garde la surface sombre de l'app et la capture en pleine largeur ; les fonctions
+   Le hero garde la surface sombre de l'app, composé comme B (texte à gauche, fenêtre à droite), les verdicts en bandeau à trois cases comme B ; les fonctions
    reprennent la pile collante de B (liste à gauche, un bloc par écran à droite, captures pour
    les écrans qui en ont). Texte à la troisième personne, une ou deux phrases par écran. */
 :root{
@@ -32,18 +32,18 @@
 
 /* Hero : le nom, la fonction, les conditions, le bouton, la fenêtre. */
 .band{background:var(--win-bg);color:var(--win-ink);border-bottom:1px solid var(--win-line)}
-.hero{padding:64px 24px 0}
-.hero h1{font-size:64px;line-height:1;letter-spacing:-.03em;margin:0 0 18px;color:var(--win-ink)}
-.hero .lede{font-size:19px;line-height:1.45;color:var(--win-ink-2);max-width:56ch;margin:0 0 14px;text-wrap:pretty}
-.hero .meta{font:500 12px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--win-ink-3);margin:0 0 28px}
+.hero{display:grid;grid-template-columns:5fr 7fr;gap:40px;align-items:center;padding:56px 24px 56px}
+.hero h1{font-size:56px;line-height:1;letter-spacing:-.03em;margin:0 0 16px;color:var(--win-ink)}
+.hero .lede{font-size:17px;line-height:1.5;color:var(--win-ink-2);max-width:44ch;margin:0 0 14px;text-wrap:pretty}
+.hero .meta{font:500 12px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--win-ink-3);margin:0 0 24px}
 .hero .meta span + span::before{content:"·";margin:0 10px}
 .hero .btn{background:var(--win-bg-3);border-color:var(--win-line);color:var(--win-ink)}
 .hero .btn.primary{background:var(--win-accent);color:#fff;border-color:transparent;height:40px;padding:0 18px;font-size:15px}
 .hero .dl-alt,.hero .dl-note{color:var(--win-ink-3)}
 .hero .dl-alt a{color:var(--win-ink-2)}
-.hero .dl-note{max-width:64ch}
+.hero .dl-note{max-width:44ch;margin-top:10px}
 .hero .dl-note a{color:var(--win-ink-2);text-decoration:underline}
-.shot{display:block;width:100%;margin:44px 0 0;padding:0;border:1px solid var(--win-line);border-bottom:0;border-radius:var(--r-base) var(--r-base) 0 0;overflow:hidden;background:var(--win-bg-2);box-shadow:none;cursor:zoom-in;text-align:left;font:inherit;color:inherit}
+.shot{display:block;width:100%;margin:0;padding:0;border:1px solid var(--win-line);border-radius:var(--r-base);overflow:hidden;background:var(--win-bg-2);box-shadow:0 12px 48px -6px rgba(0,0,0,.5);cursor:zoom-in;text-align:left;font:inherit;color:inherit}
 .shot img{display:block;width:100%;height:auto}
 
 section.wrap{padding:56px 24px}
@@ -64,9 +64,10 @@ h2{font-size:26px;line-height:1.15;margin-bottom:24px}
 .blk p{font-size:15px;line-height:1.55;color:var(--ink-2);text-wrap:pretty}
 .blk .win{margin-top:18px;max-width:none}
 
-.vlist{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:auto 1fr;gap:14px 20px;align-items:baseline;max-width:720px}
-.vlist .verdict{justify-self:start}
-.vlist p{font-size:15px;color:var(--ink-2)}
+.vband{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border:1px solid var(--line-2);border-radius:var(--r-md);overflow:hidden;background:var(--bg-2)}
+.vband > div{padding:16px 18px}
+.vband > div + div{border-left:1px solid var(--line-2)}
+.vband p{margin-top:8px;font-size:14px;color:var(--ink-2)}
 
 .rules{margin:0;padding:0;list-style:none;max-width:720px;display:grid;gap:12px}
 .rules li{font-size:15px;color:var(--ink-2);padding-left:18px;position:relative}
@@ -78,8 +79,10 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:8px 20px}
 footer a{color:var(--ink-2)}
 
 @media (max-width: 860px){
-  .hero{padding-top:40px}
+  .hero{grid-template-columns:1fr;gap:24px;padding:36px 20px 32px}
   .hero h1{font-size:44px}
+  .vband{grid-template-columns:1fr}
+  .vband > div + div{border-left:0;border-top:1px solid var(--line-2)}
   .stack{grid-template-columns:1fr;gap:20px}
   .stack .list{position:static;display:flex;flex-wrap:wrap;gap:2px}
   .stack .list h4{display:none}
@@ -104,6 +107,7 @@ footer a{color:var(--ink-2)}
 <main>
   <div class="band">
     <div class="wrap hero" id="telecharger">
+      <div>
       <h1>Sift</h1>
       <p class="lede">Sift vérifie les fichiers lossless, repère les doublons, écrit les tags, range la bibliothèque et l'exporte vers Rekordbox et la clé USB.</p>
       <p class="meta"><span>Gratuit</span><span>Windows</span><span>macOS</span><span>Open source</span></p>
@@ -112,9 +116,10 @@ footer a{color:var(--ink-2)}
         <span class="dl-alt" id="dl-alt"><a href="https://github.com/c0remusic/sift/releases/latest" data-os="win">Windows</a><span class="sep"> · </span><a href="https://github.com/c0remusic/sift/releases/latest" data-os="mac-arm">Mac Apple Silicon</a><span class="sep"> · </span><a href="https://github.com/c0remusic/sift/releases/latest" data-os="mac-intel">Mac Intel</a></span>
       </div>
       <p class="dl-note">Installeurs non signés : le système affiche un avertissement au premier lancement. <a href="/manuel.html#installer">Marche à suivre dans le manuel.</a></p>
+      </div>
       <button type="button" class="shot win" data-full="/screenshots/revue-4022.avif" aria-label="L'écran Revue de Sift, agrandi"><picture>
-        <source type="image/avif" srcset="/screenshots/revue-1040.avif 1040w, /screenshots/revue-2011.avif 2011w" sizes="(max-width: 1128px) calc(100vw - 48px), 1080px">
-        <source type="image/webp" srcset="/screenshots/revue-1040.webp 1040w, /screenshots/revue-2011.webp 2011w" sizes="(max-width: 1128px) calc(100vw - 48px), 1080px">
+        <source type="image/avif" srcset="/screenshots/revue-1040.avif 1040w, /screenshots/revue-2011.avif 2011w" sizes="(max-width: 860px) calc(100vw - 40px), 600px">
+        <source type="image/webp" srcset="/screenshots/revue-1040.webp 1040w, /screenshots/revue-2011.webp 2011w" sizes="(max-width: 860px) calc(100vw - 40px), 600px">
         <img src="/screenshots/revue.png" alt="L'écran Revue de Sift : la liste des fichiers à gauche, le morceau en cours au centre avec son verdict VRAI, le diagnostic audio à droite" width="2011" height="950" fetchpriority="high">
       </picture></button>
     </div>
@@ -163,11 +168,11 @@ footer a{color:var(--ink-2)}
 
   <section class="wrap" id="verdict">
     <h2>Verdict</h2>
-    <ul class="vlist">
-      <li class="verdict v-ok">VRAI</li><li><p>Rien dans le signal ne contredit un fichier lossless.</p></li>
-      <li class="verdict v-fake">FAUX</li><li><p>Compression mesurée. Le fichier va dans À re-sourcer, sans suppression.</p></li>
-      <li class="verdict v-grey">À VÉRIFIER</li><li><p>Une mesure hors norme, sans preuve. À juger au spectrogramme.</p></li>
-    </ul>
+    <div class="vband">
+      <div><span class="verdict v-ok">VRAI</span><p>Rien dans le signal ne contredit un fichier lossless.</p></div>
+      <div><span class="verdict v-fake">FAUX</span><p>Compression mesurée. Le fichier va dans À re-sourcer, sans suppression.</p></div>
+      <div><span class="verdict v-grey">À VÉRIFIER</span><p>Une mesure hors norme, sans preuve. À juger au spectrogramme.</p></div>
+    </div>
   </section>
 
   <section class="wrap" id="garde-fous">
