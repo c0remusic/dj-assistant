@@ -63,10 +63,7 @@ async function prepare() {
   // Toutes les variantes (PNG d'origine, AVIF/WebP bureau 1x/2x, recadrage mobile) : le <picture>
   // de l'accueil les nomme une par une.
   await cp(join(root, "docs", "screenshots"), join(pub, "screenshots"), { recursive: true });
-  // Variantes de composition du site (docs/variantes/) : documents HTML complets, servis tels
-  // quels sous /variantes/ le temps de choisir une direction. À retirer une fois tranché.
-  await cp(join(root, "docs", "variantes"), join(pub, "variantes"), { recursive: true });
-  console.log("build-site: public/{accueil.html, manuel.html, manuel.pdf, screenshots/*, variantes/*}");
+  console.log("build-site: public/{accueil.html, manuel.html, manuel.pdf, screenshots/*}");
 }
 
 async function finish() {

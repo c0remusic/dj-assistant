@@ -28,7 +28,7 @@ const WRITE_BASELINE = process.argv.includes('--write-baseline');
 // leaving it unexcluded silently doubles (or worse) every count depending on how many worktree
 // agents happen to be running on the machine at scan time. Caught by verify-gate crosscheck
 // (2026-07-24): a baseline recorded while a worktree was present was ~2x the real count.
-// 'docs' : le manuel et le site (docs/manuel.html, docs/accueil.html, docs/variantes/) copient les
+// 'docs' : le manuel et le site (docs/manuel.html, docs/accueil.html) copient les
 // VALEURS RÉSOLUES de styles.css par construction — ils ne peuvent pas référencer un token de
 // l'app, ils sont servis hors de l'app. Les scanner faisait tomber build.yml sur main depuis le
 // 2026-09-10 (d1f5a3f) sans que personne ne regarde la job lint-tokens. Le périmètre du lint est
