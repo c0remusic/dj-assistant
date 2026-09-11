@@ -753,3 +753,37 @@ Dans les deux cas c'est le corpus étiqueté qui sert de juge, pas l'accord entr
 vérité terrain est de notre côté maintenant.
 
 Le corpus se régénère par `node scripts/make-corpus.mjs <dossier-source> <dossier-sortie>`.
+
+## Audit de provenance des 10 authentiques (2026-09-11)
+
+Déclencheur : Antoine ne reconnaissait pas « Mezmotized » (301 kbps en FLAC, quasi mono) et n'a
+pas accès à son historique Beatport pour trancher. Les originaux ont été retrouvés sur disque et
+inspectés au conteneur (chunks, tags, taille des données PCM contre la durée) — pas au signal, qui
+est justement ce que la référence sert à juger.
+
+| fichier | conteneur | verdict de provenance |
+|---|---|---|
+| src01 Brix 'n' Mortar (`D:\MUSIQUE`) | AIFF, `encoded_by = Beatport`, ISRC | intact |
+| src02..src08 (7 AIFF, `D:\sift-backup-djermusique\Contents`) | `Encoded by Beatport` strict, `COMM` puis `SSND`, PCM exact à l'octet, pochette 500×500 | intacts |
+| src09 Paco & The Julia Set, The Deep Wire (.wav) | chunk `LIST INFO` avec `ISFT = Lavf58.20.100`, tags Beatport recopiés en champs INFO, pas de chunk `id3 ` | **réécrit par ffmpeg 4.1 après l'achat**, origine indéterminable (AIFF Beatport ou MP3 Beatport) |
+| src10 Peter Munch, Golden Pieces In Space | original absent de tous les disques ; la copie FLAC du corpus porte les tags Beatport mais `make-corpus.mjs` ne recopie pas `encoded_by` | **non vérifiable** |
+
+Faits utiles au passage : Beatport écrit `TFLT = MPG/3` sur ses AIFF (9/9 ici), ce cadre n'indique
+donc PAS une origine MP3 ; le commentaire « Purchased at Beatport » voyage avec les partages et ne
+vaut rien seul ; le débit d'un AIFF/WAV est toujours 1 411 kbps (PCM) et celui d'un FLAC dépend du
+mixage (301 kbps pour un quasi-mono authentique, corrélation des canaux 0,998).
+
+Décision d'Antoine : garder les 8 conteneurs intacts, sortir src09 et src10 de la référence
+(`labels.json` réécrit, sauvegarde `labels.2026-08-18.avant-audit-provenance.json`). Leurs 30
+transcodages restent des faux : la transformation est connue, même si la source ne l'est plus.
+
+Ce que ça change : src09 était le fichier à −5,79 de platitude qui avait fait reculer le seuil le
+2026-08-18 (`HF_REF_LO`, aujourd'hui une borne d'affichage seulement) ; le plancher livré (−12,
+8ac3a23) vient d'une autre référence (23 sources ACID assainies + 114) et n'est pas touché. Les
+« 0/10 faux positifs » deviennent 0/8.
+
+Matrice du détecteur livré (scan du 2026-09-10, binaire courant, 8 authentiques / 150 faux) :
+authentiques 8 Ok / 0 Grey / 0 Fake ; faux 59 Ok / 26 Grey / 65 Fake. Par famille : MP3 128-256
+49/50 Fake ; LAME 320 et V0 20/20 **Ok** ; AAC 256 5/10 et 9/10 Fake ; AAC 128 1/10 et 1/10 ;
+MediaFoundation 320, Opus, Vorbis, WMA : Grey ou Ok, jamais Fake. Le cross-test FTF (étape 3)
+n'est toujours pas fait ; Antoine a FTF.

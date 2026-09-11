@@ -551,3 +551,12 @@ remplacement des 49 assets, l'URL rend 404. Le job `test` de `b8a7d88` (15:51:47
 bons. Un `gh run rerun --failed` a suffi. Ce n'est pas un bug du dépôt mais un aléa de CI
 récurrent par construction : épingler un tag `autobuild-<date>` (même asset, URL stable) le
 supprimerait, au prix d'un bump manuel du sidecar. À trancher, pas fait le jour de la release.
+
+## 2026-09-11 — une référence se vérifie au conteneur, pas au signal
+
+Deux des dix « authentiques » du corpus de détection n'étaient pas vérifiables : un WAV réécrit par
+ffmpeg 4.1 après l'achat (`ISFT = Lavf58.20.100`, tags Beatport recopiés en `LIST INFO`, pas de chunk
+`id3 `) et un original disparu des disques. Le tag « Purchased at Beatport » ne prouve rien (il
+voyage avec les partages) et `TFLT = MPG/3` est écrit par Beatport sur tous ses AIFF. Le marqueur
+qui tient : `encoded_by = Encoded by Beatport` + ordre des chunks + taille PCM exacte. Sortis de la
+référence sur décision d'Antoine ; détail dans la review du corpus (§ Audit de provenance).
