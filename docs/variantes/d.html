@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex">
+<title>Sift · variante D</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/variantes/site.css">
+<style>
+/* D · La règle des fréquences. Le hero est posé sur la surface sombre de l'app (c'est là que le
+   morceau est jugé) et son élément signature est l'instrument du métier : une règle de 0 à
+   22 kHz où sont portées les vraies coupures mesurées sur le corpus — là où un MP3 s'arrête, là
+   où Sift tranche. Le reste de la page suit le thème du lecteur. Titres en Outfit 700, la fonte
+   du mot-symbole (direction de marque 2026-07-03) ; ambre = vrac / doute, vert = rangé / vrai,
+   les deux couleurs du logo, valeurs de styles.css. */
+:root{
+  --display:"Outfit",var(--font);
+  --amber:#B07A28;--green:#4C7B57;
+  --win-bg:oklch(22.73% 0.0038 286.1);--win-bg-2:oklch(29.39% 0.0036 286.2);--win-bg-3:oklch(34.92% 0.0034 286.2);
+  --win-ink:oklch(95.9% 0.0067 286.3);--win-ink-2:oklch(83.5% 0.0067 286.3);--win-ink-3:oklch(72% 0.0067 286.3);
+  --win-line:oklch(100% 0 89.88 / 0.16);--win-accent:oklch(62.43% 0.2056 255.49);
+  --win-amber:#f2c274;--win-green:#9fe0af;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --amber:#f2c274;--green:#9fe0af; } }
+:root[data-theme="dark"]{ --amber:#f2c274;--green:#9fe0af; }
+
+h1,h2{font-family:var(--display);font-weight:700;letter-spacing:-.02em}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+
+/* Barre */
+.top{position:sticky;top:0;z-index:5;background:var(--win-bg);border-bottom:1px solid var(--win-line);color:var(--win-ink)}
+.top .wrap{display:flex;align-items:center;gap:20px;height:52px}
+.brand{font:700 20px/1 var(--display);letter-spacing:-.035em;color:var(--win-ink)}
+.brand .s{color:var(--win-amber)}.brand .i{color:var(--win-green)}
+.top nav{display:flex;gap:2px;margin-left:auto}
+.top nav a{display:inline-flex;align-items:center;height:32px;padding:0 12px;border-radius:var(--r-md);color:var(--win-ink-2);font-size:13px}
+.top nav a:hover{background:oklch(100% 0 0 / .06);color:var(--win-ink);text-decoration:none}
+.top nav a.cta{background:var(--win-accent);color:#fff}
+
+/* Hero sombre : la surface de l'app, quel que soit le thème du lecteur */
+.band{background:var(--win-bg);color:var(--win-ink);border-bottom:1px solid var(--win-line)}
+.hero{display:grid;grid-template-columns:150px 1fr;gap:40px;padding:56px 24px 0;align-items:start}
+.hero h1{font-size:46px;line-height:1.04;margin:0 0 18px;max-width:17ch;color:var(--win-ink);text-wrap:balance}
+.hero h1 em{font-style:normal;color:var(--win-ink-2)}
+.hero .lede{font-size:18px;line-height:1.5;color:var(--win-ink-2);max-width:48ch;margin:0 0 26px;text-wrap:pretty}
+.hero .btn{background:var(--win-bg-3);border-color:var(--win-line);color:var(--win-ink)}
+.hero .btn.primary{background:var(--win-accent);color:#fff;border-color:transparent}
+.hero .dl-alt,.hero .dl-note{color:var(--win-ink-3)}
+.hero .dl-alt a{color:var(--win-ink-2)}
+.hero .dl-note a{color:var(--win-ink-2);text-decoration:underline}
+
+/* La règle. Un SVG de 150 × 250, gradué en kHz de 0 à 22,05, avec les coupures MESURÉES :
+   MP3 128 ≈ 17 kHz, 256 ≈ 19,7, 320 ≈ 20,5 (corpus, dix sources par encodeur), le mur de Sift à
+   20 000 Hz (au-dessous : FAUX), la fenêtre de doute jusqu'à 20 750, et la bande pleine à
+   22 050 Hz, la moitié de 44,1 kHz. L'axe part de 12 kHz : en dessous, rien ne se joue, et un
+   axe depuis 0 ne faisait que du vide. */
+.rule{font:500 11px/1 var(--mono);color:var(--win-ink-3);padding-top:6px}
+.rule svg{display:block;width:150px;height:auto;overflow:visible}
+.rule .axis{stroke:var(--win-ink-3);stroke-width:1}
+.rule .tick{stroke:var(--win-ink-3);stroke-width:1}
+.rule text{fill:var(--win-ink-3);font:500 11px var(--mono)}
+.rule .cut{stroke:var(--win-ink-2);stroke-width:2;stroke-linecap:round}
+.rule .cut-l{fill:var(--win-ink-2)}
+.rule .wall{stroke:var(--win-amber);stroke-width:1;stroke-dasharray:3 3}
+.rule .wall-l{fill:var(--win-amber);font-weight:500}
+.rule .full{stroke:var(--win-green);stroke-width:2}
+.rule .full-l{fill:var(--win-green);font-weight:500}
+.rule .doubt{fill:var(--win-amber);opacity:.14}
+.rule .fake{fill:var(--win-amber);opacity:.05}
+.rule-cap{margin-top:10px;font:400 12px/1.4 var(--font);color:var(--win-ink-3);max-width:150px}
+
+.shot{grid-column:1 / -1;display:block;width:100%;margin:36px 0 0;padding:0;border:1px solid var(--win-line);border-bottom:0;border-radius:var(--r-base) var(--r-base) 0 0;overflow:hidden;background:var(--win-bg-2);cursor:zoom-in;text-align:left;font:inherit;color:inherit}
+.shot img{display:block;width:100%;height:auto}
+
+/* Le parcours : trois étapes, une vraie séquence — du dossier de téléchargement à la clé. */
+section.wrap{padding:52px 24px}
+section + section{border-top:1px solid var(--line-2)}
+h2{font-size:28px;line-height:1.15;margin-bottom:8px}
+.sub{color:var(--ink-2);max-width:62ch;margin-bottom:28px;text-wrap:pretty}
+.path{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--line)}
+.stage{padding:20px 20px 8px 0}
+.stage + .stage{border-left:1px solid var(--line-2);padding-left:20px}
+.stage h3{font:700 12px/1 var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin:0 0 14px}
+.stage h3 b{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px;vertical-align:-1px}
+.stage.s1 h3 b{background:var(--amber)}.stage.s2 h3 b{background:var(--green)}.stage.s3 h3 b{background:var(--accent)}
+.scr{margin:0 0 22px}
+.scr h4{margin:0 0 2px;font-size:16px;font-weight:600}
+.scr .role{color:var(--ink-3);font-size:13px;margin-bottom:8px}
+.scr ul{margin:0;padding-left:16px;font-size:14px;color:var(--ink-2)}
+.scr li{margin:4px 0}
+
+/* Verdicts : une seule rangée, définitions courtes. Pas trois cartes. */
+.vlist{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:auto 1fr;gap:10px 18px;align-items:baseline;max-width:760px}
+.vlist .verdict{justify-self:start}
+.vlist p{font-size:15px;color:var(--ink-2)}
+
+.rules{margin:0;padding-left:18px;max-width:62ch;color:var(--ink-2)}
+.rules li{margin:8px 0}.rules b{color:var(--ink)}
+
+footer{border-top:1px solid var(--line-2);padding:24px 0 40px;font-size:13px;color:var(--ink-3)}
+footer .wrap{display:flex;flex-wrap:wrap;gap:8px 20px}
+footer a{color:var(--ink-2)}
+
+@media (max-width: 860px){
+  .hero{grid-template-columns:1fr;gap:24px;padding-top:36px}
+  .hero h1{font-size:34px}
+  .rule{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:end}
+  .rule svg{width:120px}
+  .path{grid-template-columns:1fr}
+  .stage + .stage{border-left:0;border-top:1px solid var(--line-2);padding-left:0}
+  .top nav a:not(.cta){display:none}
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#" aria-label="Sift"><span class="s">s</span><span class="i">ı</span>ft</a>
+    <nav>
+      <a href="#parcours">Fonctions</a>
+      <a href="/manuel.html">Manuel</a>
+      <a href="https://github.com/c0remusic/sift">GitHub</a>
+      <a class="cta" href="#telecharger">Télécharger</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="band">
+    <div class="wrap hero" id="telecharger">
+      <div class="rule" aria-label="Règle des fréquences : où s'arrête le spectre d'un MP3, et où Sift tranche">
+        <svg viewBox="0 0 150 250" role="img">
+          <!-- échelle de 12 à 22,05 kHz, la zone où tout se joue : y = 250 − (f − 12) × 22
+               22,05 → 29 · 20,75 → 57,5 · 20 → 74 · 19,7 → 80,6 · 17 → 140 -->
+          <rect class="fake" x="18" y="74" width="132" height="176"/>
+          <rect class="doubt" x="18" y="57" width="132" height="17"/>
+          <line class="axis" x1="18" y1="29" x2="18" y2="250"/>
+          <g class="tick">
+            <line x1="14" y1="250" x2="18" y2="250"/><line x1="14" y1="206" x2="18" y2="206"/>
+            <line x1="14" y1="162" x2="18" y2="162"/><line x1="14" y1="118" x2="18" y2="118"/>
+            <line x1="14" y1="74" x2="18" y2="74"/>
+          </g>
+          <text x="0" y="254">12</text><text x="0" y="210">14</text><text x="0" y="166">16</text>
+          <text x="0" y="122">18</text><text x="0" y="78">20</text><text x="0" y="14">kHz</text>
+          <line class="full" x1="18" y1="29" x2="150" y2="29"/>
+          <text class="full-l" x="24" y="24">22 050 Hz · VRAI</text>
+          <line class="cut" x1="24" y1="63" x2="60" y2="63"/><text class="cut-l" x="66" y="52">MP3 320 · 20,5</text>
+          <line class="wall" x1="18" y1="74" x2="150" y2="74"/>
+          <text class="wall-l" x="24" y="88">sous 20 000 · FAUX</text>
+          <line class="cut" x1="24" y1="81" x2="60" y2="81"/><text class="cut-l" x="66" y="104">MP3 256 · 19,7</text>
+          <line class="cut" x1="24" y1="140" x2="60" y2="140"/><text class="cut-l" x="66" y="144">MP3 128 · 17</text>
+          <text x="24" y="196">un MP3 s'arrête</text><text x="24" y="210">ici, un master</text><text x="24" y="224">va jusqu'en haut</text>
+        </svg>
+        <p class="rule-cap">Coupures mesurées sur dix morceaux par encodeur. Un AAC ne coupe pas : Sift cherche alors la grille du codec dans les échantillons.</p>
+      </div>
+      <div>
+        <h1>Un fichier lossless peut cacher un MP3. <em>Sift le mesure.</em></h1>
+        <p class="lede">Application gratuite pour DJ, Windows et macOS : elle vérifie, range et exporte votre musique vers Rekordbox et la clé USB.</p>
+        <div class="dl">
+          <a class="btn primary" id="dl-main" href="https://github.com/c0remusic/sift/releases/latest">Télécharger <span class="k" id="dl-ver"></span></a>
+          <span class="dl-alt" id="dl-alt"><a href="https://github.com/c0remusic/sift/releases/latest" data-os="win">Windows</a><span class="sep"> · </span><a href="https://github.com/c0remusic/sift/releases/latest" data-os="mac-arm">Mac Apple Silicon</a><span class="sep"> · </span><a href="https://github.com/c0remusic/sift/releases/latest" data-os="mac-intel">Mac Intel</a></span>
+        </div>
+        <p class="dl-note">Les installeurs ne sont pas signés, faute de certificat Apple ou Microsoft : votre système affiche un avertissement au premier lancement, une seule fois. <a href="/manuel.html#installer">Le manuel dit quoi cliquer.</a></p>
+      </div>
+      <button type="button" class="shot win" data-full="/screenshots/revue-4022.avif" aria-label="L'écran Revue de Sift, agrandi"><picture>
+        <source type="image/avif" srcset="/screenshots/revue-1040.avif 1040w, /screenshots/revue-2011.avif 2011w" sizes="(max-width: 1128px) calc(100vw - 48px), 1080px">
+        <source type="image/webp" srcset="/screenshots/revue-1040.webp 1040w, /screenshots/revue-2011.webp 2011w" sizes="(max-width: 1128px) calc(100vw - 48px), 1080px">
+        <img src="/screenshots/revue.png" alt="L'écran Revue de Sift : la liste des fichiers à gauche, le morceau en cours au centre avec son verdict VRAI, le diagnostic audio à droite" width="2011" height="950" fetchpriority="high">
+      </picture></button>
+    </div>
+  </div>
+
+  <section class="wrap" id="verdict">
+    <h2>Trois verdicts, mesurés dans le signal</h2>
+    <p class="sub">Un FLAC, un WAV ou un AIFF peut venir d'un MP3 : l'étiquette dit sans perte, le contenu est déjà passé par un encodage avec perte. Sift mesure la coupure du spectre, la densité de l'aigu et la grille de quantification du codec.</p>
+    <ul class="vlist">
+      <li class="verdict v-ok">VRAI</li><li><p>Rien dans le signal ne contredit un fichier lossless. Ce n'est pas une garantie d'authenticité.</p></li>
+      <li class="verdict v-fake">FAUX</li><li><p>La compression est mesurable. Le fichier part dans À re-sourcer, la liste des morceaux à retrouver ailleurs. Il n'est pas supprimé.</p></li>
+      <li class="verdict v-grey">À VÉRIFIER</li><li><p>Une mesure sort de l'ordinaire sans rien prouver. Sift le signale et vous laisse décider, spectrogramme à l'appui.</p></li>
+    </ul>
+  </section>
+
+  <section class="wrap" id="parcours">
+    <h2>Du dossier de téléchargement à la clé, en trois étapes</h2>
+    <p class="sub">Une règle tient le reste : déplacer un morceau, c'est le convertir et le ranger dans le même geste. Les écrans suivent ce parcours.</p>
+    <div class="path">
+      <div class="stage s1">
+        <h3><b></b>Traiter</h3>
+        <div class="scr">
+          <h4>Revue</h4>
+          <p class="role">Un morceau à la fois : on écoute, puis on décide.</p>
+          <ul>
+            <li>Les dossiers que vous désignez sont surveillés ; chaque fichier qui arrive est analysé en arrière-plan, sans être modifié.</li>
+            <li>Lecteur, forme d'onde, spectrogramme. Le diagnostic donne la coupure, la crête, l'écrêtage, la phase, les silences et les fichiers tronqués.</li>
+            <li>Doublons repérés par empreinte acoustique, même sous un autre nom ou un autre format.</li>
+            <li>Identification sur Discogs : artiste, titre, label, année, genres et pochette, écrits dans le fichier.</li>
+            <li>Conversion en MP3, WAV ou AIFF vers le dossier choisi ; le nom suit un gabarit construit depuis les tags.</li>
+            <li>Le mode Lot traite une sélection entière.</li>
+          </ul>
+        </div>
+        <div class="scr">
+          <h4>Journal</h4>
+          <p class="role">Ce que Sift a fait, et un bouton pour le défaire.</p>
+          <ul>
+            <li>Conversions, fichiers écartés, identifications et synchronisations, par jour et par session.</li>
+            <li>Chaque ligne se défait, y compris un rangement de masse, y compris après un redémarrage.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="stage s2">
+        <h3><b></b>Bibliothèque</h3>
+        <div class="scr">
+          <h4>Rangés</h4>
+          <p class="role">Votre bibliothèque, telle qu'elle est sur le disque.</p>
+          <ul>
+            <li>Une table triable : colonnes au choix et mémorisées, recherche, sélection multiple.</li>
+            <li>L'espace occupé par chaque format. La pochette sert de bouton de lecture.</li>
+            <li>Le clic droit ouvre l'emplacement du fichier, relance l'analyse, déplace ou écarte.</li>
+          </ul>
+        </div>
+        <div class="scr">
+          <h4>À re-sourcer et Corbeille</h4>
+          <p class="role">Les fichiers écartés, rangés selon la raison.</p>
+          <ul>
+            <li>À re-sourcer reçoit les faux et les fichiers tronqués, avec leur raison : les morceaux à racheter ou à retrouver ailleurs.</li>
+            <li>La corbeille reçoit les doublons et les erreurs. Rien n'est effacé du disque tant que vous ne la videz pas vous-même.</li>
+            <li>Un fichier écarté se restaure en un clic.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="stage s3">
+        <h3><b></b>Exporter</h3>
+        <div class="scr">
+          <h4>Rekordbox</h4>
+          <p class="role">Votre bibliothèque rangée, reportée dans Rekordbox.</p>
+          <ul>
+            <li>Une action compare les deux bibliothèques et regroupe ce qu'elle propose : nouveaux morceaux, métadonnées, pochettes, fichiers liés à réparer.</li>
+            <li>Deux façons d'écrire : un fichier XML à importer, ou l'écriture directe dans la base de Rekordbox.</li>
+            <li>Avant d'écrire dans la base, Sift la sauvegarde et vérifie la sauvegarde. Si Rekordbox est ouvert, il refuse d'y toucher.</li>
+          </ul>
+        </div>
+        <div class="scr">
+          <h4>Clé USB</h4>
+          <p class="role">La clé que vous emmenez, préparée depuis l'application.</p>
+          <ul>
+            <li>Pour le disque choisi : format, capacité, espace libre, nombre de fichiers, modèle, état de santé, occupation par format.</li>
+            <li>Formatage en FAT32, le format que lisent les platines, y compris au-delà des 32 Go que Windows refuse.</li>
+            <li>Formater efface la clé : Sift le demande deux fois, en nommant le volume, et refuse si le disque a changé entre-temps.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap" id="jamais">
+    <h2>Ce que Sift ne fera jamais sans vous</h2>
+    <ul class="rules">
+      <li><b>Supprimer un fichier.</b> Écarter un morceau le déplace. Seul le vidage de la corbeille efface, et il demande confirmation.</li>
+      <li><b>Modifier vos dossiers de téléchargement.</b> Sift les lit, il ne les réécrit jamais.</li>
+      <li><b>Écrire dans Rekordbox</b> sans avoir d'abord sauvegardé et vérifié sa base.</li>
+      <li><b>Rendre une action définitive.</b> Tout ce que Sift fait se défait depuis le Journal.</li>
+    </ul>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Sift est gratuit et open source, sous <a href="https://github.com/c0remusic/sift/blob/main/LICENSE">licence MIT</a>.</span>
+    <a href="/manuel.html">Manuel</a>
+    <a href="/manuel.pdf">Manuel en PDF</a>
+    <a href="https://github.com/c0remusic/sift/releases">Toutes les versions</a>
+  </div>
+</footer>
+
+<dialog class="lb" id="lb" aria-label="Capture d'écran de Sift, agrandie">
+  <div class="lb-inner"><img src="" alt="" decoding="async"></div>
+  <button type="button" class="lb-close">Fermer</button>
+</dialog>
+
+<nav class="variantes" aria-label="Variantes"><a href="/variantes/a.html">A</a><a href="/variantes/b.html">B</a><a href="/variantes/c.html">C</a><a class="on" href="/variantes/d.html">D</a><a href="/">actuel</a></nav>
+<script src="/variantes/site.js"></script>
+</body>
+</html>
