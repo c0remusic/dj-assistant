@@ -24,6 +24,14 @@ Le titre de section doit être exactement `## vX.Y.Z` pour que l'extraction le t
   20 dB, la signature d'un encodeur.
 - La trace de codec dans les échantillons (sonde de quantification) est aussi cherchée sur cette
   zone : si elle est trouvée, le verdict passe FAUX.
+- **Les MP3 déguisés en lossless sont reconnus à leur grille de quantification, quel que soit
+  leur débit.** La sonde qui cherchait la trace d'un encodeur AAC dans les échantillons rejoue
+  désormais aussi l'encodeur MP3 (banc de filtres de la couche III). Mesuré sur le corpus de test :
+  les MP3 320, V0, 256, 192 et 160 réencapsulés en FLAC portent la grille 10 fois sur 10, les
+  MP3 128 7 fois sur 10 ; aucun des 8 achats vérifiés n'est touché. Une seule limite : un morceau de
+  plus de 9 minutes n'est pas sondé (la sonde garde le signal décodé en mémoire, et se retire
+  au-delà), il reste jugé sur la coupure. Un fichier
+  tenu pour authentique dans la référence s'est révélé un MP3 transcodé, et la sonde l'a vu.
 - Les verdicts sont rejoués au démarrage depuis les mesures déjà stockées, sans nouvelle analyse.
 
 ## v0.1.1

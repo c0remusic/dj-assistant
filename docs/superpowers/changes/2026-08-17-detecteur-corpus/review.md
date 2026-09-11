@@ -822,3 +822,110 @@ v0.1.1 : 59 → 45 Ok, 26 → 40 Grey, Fake inchangé à 65. Par famille, ce qui
 Grey (était 10/10 Ok), opus128 9 Grey / 1 Ok (était 7 / 3), wma192 10 Grey (était 8 / 2). Identique
 à l'estimation faite depuis le scan v0.1.1 avec la règle rejouée en Python : la règle est bien celle
 qu'on croyait.
+
+## Le banc MP3 (#63) — première mesure (2026-09-11)
+
+`analysis/mp3_bank.rs` : dual exact de la chaîne de synthèse de symphonia (papillons d'aliasing
+inversés, MDCT 36 fenêtrée, inversion de fréquence, analyse polyphase `C = D/32`), puis
+`quant_trace::frame_likelihood` sur les 576 coefficients avec les bandes B.8, fenêtre sfb 13-20.
+Reconstruction analyse→synthèse vérifiée (retard 481, gain 1, résidu −84 dB ; `|D|/32` sans les
+signes rend une corrélation de 0,17, donc les signes de la table comptent). Balayage 32 phases de
+sous-bande × 18 phases de granule, 0,6 s par fichier.
+
+`L_mp3` seul, corpus complet (`mp3_scan`, réglage 8×8, λ = 0,18) :
+
+| famille | min | médiane | max | > λ |
+|---|---|---|---|---|
+| authentiques vérifiés (8) | 0,062 | 0,078 | **0,094** | 0/8 |
+| lame320 | 0,531 | 0,922 | 0,984 | 10/10 |
+| lameV0 | 0,641 | 0,875 | 0,969 | 10/10 |
+| lame256 / 192 / 160 | 0,578 / 0,453 / 0,203 | 0,844 / 0,609 / 0,375 | 1,000 / 0,844 / 0,641 | 10/10 chacune |
+| lame128 | 0,109 | 0,188 | 0,359 | 7/10 |
+| mfmp3_320 / mfmp3_128 | 0,484 / 0,188 | 0,922 / 0,453 | 1,000 / 0,688 | 10/10 chacune |
+| aacmf256 | 0,078 | 0,219 | 0,234 | 6/10 (des faux quand même) |
+| aac128, aac256, aacmf128, opus, vorbis, wma | 0,062 | 0,078 | ≤ 0,219 | 0-1/10 |
+
+**`src09_genuine` (The Deep Wire, le WAV réécrit par ffmpeg, sorti de la référence le matin même
+sur le seul conteneur) : `L_mp3 = 0,797`, décalage 545, canal G.** Le signal confirme ce que le
+conteneur suggérait : c'est un MP3 transcodé. La référence de 10 en contenait un, et le banc AAC ne
+le voyait pas. Les 8 vérifiés au conteneur plafonnent à 0,094, 1,9× sous λ.
+
+Intégration : `analyze()` prend le maximum des deux bancs comme `quant_likelihood`, même λ.
+`REPORT_CACHE_VERSION` 10 → 11 (reprise de la bibliothèque rangée par le pool, #59).
+
+### Le banc MP3 sur ACID, croisé avec la coupure (2026-09-11)
+
+`mp3_scan` sur les 546 lossless déclarés d'ACID (dossier MIXTE : achats et téléchargements, Antoine
+le redit — il ne borne PAS les faux positifs) : **11 fichiers portent une grille MP3** (2,0 %) :
+1 sous la falaise, 5 dans la fenêtre 20 000-20 750, 5 à bande pleine (22 050 Hz, invisibles à la
+coupure : le cas V0). Dans la fenêtre, sur les 21 fichiers, 5 portent la grille (Innershades ×2 à
+1,000 et 0,781, « Sans Bateaux » 0,953, « rhythm invention » 0,812, « Babyloop » 0,641) et **16 ne
+la portent pas** (L 0,078-0,094) tout en ayant un mur de 20 à 53 dB à 20,4-20,7 kHz — les cinq
+Occibel, Bassam, Bluefish, Daïf, Severed Heads, Acid Jerks… Le banc AAC ne les voit pas non plus.
+
+Deux lectures possibles, non départagées : un master avec un passe-bas raide de mastering (ça
+existe : suréchantillonnage de limiteur, EQ de fin de chaîne), ou un transcodage dont la chaîne a
+cassé l'alignement de grille (ré-échantillonnage, normalisation avec écrêtage). C'est exactement
+pour ça que la fenêtre rend `Grey` et pas `Fake` : le mur seul ne suffit pas, et le banc, lui,
+tranche quand il trouve la grille. Le corpus, fabriqué proprement (décodage → FLAC, sans gain ni
+ré-échantillonnage), ne reproduit pas ce cas ; à fabriquer un jour (mp3 → gain → AIFF) pour
+mesurer ce que la grille supporte.
+
+### Le banc MP3 sur 411 lossless taggés magasin (2026-09-11)
+
+Référence construite par marqueurs de magasin sur toute la bibliothèque (`store-markers.csv`) :
+185 Bandcamp, 219 « Purchased at Beatport » en commentaire, 7 Beatport strict (encoded_by +
+ordre COMM/SSND + taille PCM exacte). Un tag de magasin dit d'où vient le morceau, pas le
+format acheté ni ce qu'il a subi depuis — la référence borne donc le taux de faux positifs par
+le HAUT, pas par le bas.
+
+`mp3_scan` (`mp3-ref.log`) : **12 / 411 au-dessus de λ = 0,18 (2,9 %)**, tous à L ≥ 0,50 ;
+392 sous 0,10, 7 entre 0,10 et 0,18, **aucun entre 0,18 et 0,50**. La mesure est bimodale :
+la grille est là ou n'y est pas, λ ne coupe pas dans une pente. Les 7 strict sont tous sous
+0,10. Les 12 sont 9 titres (Deep Wire, Klank, Can I Eat en double) : 9 en commentaire
+Beatport, 3 Bandcamp — dont Deep Wire, déjà identifié comme transcodage (WAV réécrit par
+ffmpeg, retiré de la référence authentique le 2026-09-10). Le commentaire « Purchased at
+Beatport » voyage avec les partages : ces 9 ne sont pas une preuve d'achat.
+
+Détecteur intégré (`corpus_scan`, `corpus-ref.log`) sur les mêmes 411 : **382 Ok (93 %),
+19 Fake, 10 Grey**. Les 19 Fake se partagent en deux causes nettes : 9 par coupure sous
+20 000 Hz (15,4 à 19,9 kHz — Bakked « Structure EP » ×3 à 18,4 kHz, Toothpick à 15,4 kHz,
+Lonewolf, Habersham, Aquanauts, Spectrum : un master lossy mis en vente tel quel, Bandcamp et
+Beatport publient ce que le label envoie) et 10 par grille MP3 (les 9 titres ci-dessus, dont
+Jay Tripwire n° 7 coupé à 20 833 Hz — AU-DESSUS de la fenêtre, invisible à la coupure — et
+Aphasia, Deep Wire, Can I Eat à bande pleine). Dans la fenêtre 20 000-20 750 : 8 fichiers,
+4 Fake par la grille, 4 Grey sans grille (Supreme ×2, 3rd Hustle, Magic Tonight). Les 6 Grey
+restants sont à 22 050 Hz par la platitude sous le plancher master (Dav ×5, KOKO.IT) —
+règle antérieure au chantier, intacte.
+
+Ce que ça dit : les 7 Beatport strict rendent Ok, et sur les 404 autres — dont rien ne
+garantit le format acheté — 3 titres à bande pleine (Aphasia, Can I Eat, Deep Wire) n'ont que
+la grille pour anomalie. Deep Wire est déjà connu (WAV réécrit par ffmpeg). Aphasia et Can I
+Eat sont les deux seuls cas où le banc seul décide sur cette référence : faux positif ou
+transcodage V0, on ne peut pas trancher sans le fichier d'origine — Antoine a reconnu ne pas
+avoir acheté tout ce qui porte un tag de magasin. Borne haute du taux de faux positifs du banc
+sur du lossless taggé magasin : 2 / 411 (0,5 %), à condition que ces deux-là soient
+authentiques, ce qui n'est pas établi.
+
+### Matrice v4 — fenêtre + banc MP3 intégré (2026-09-11, `corpus-scan-v3.csv`)
+
+`node scripts/score-corpus.mjs C:/sift-corpus/labels.json corpus-scan-v3.csv`, 8 authentiques :
+
+| vérité \ verdict | Ok | Grey | Fake |
+|---|---|---|---|
+| authentique (8) | **8** | 0 | 0 |
+| faux (150) | 31 | 27 | **92** |
+
+Contre la matrice v3 (fenêtre seule, 2bc7044) : faux Ok 45 → **31**, Grey 40 → **27**, Fake
+65 → **92**. Par famille : lame160/192/256, mfmp3_128 10/10 ; lame320, lameV0, lame128,
+mfmp3_320 9/10 ; aacmf256 9/10 ; aac256 5/10 ; aac128 et aacmf128 1/10 ; opus, vorbis,
+wma 0 Fake (Grey 9, 3, 10). Le raté de chaque famille MP3 est **le même fichier, src08** : 10 min
+53 s stéréo 44,1 kHz, au-delà du plafond de rétention PCM de 9,07 min (`QUANT_MAX_PCM_SAMPLES`,
+#52) — les deux bancs rendent `None`, le verdict retombe sur la coupure. Ce n'est pas le banc
+qui rate, c'est la sonde qui n'a pas de signal ; le banc seul (`mp3-corpus.log`) donne 0,953
+sur `src08_lame320.flac`. Lever le plafond (sonder les 9 premières minutes au lieu de renoncer)
+est le prochain gain le moins cher : il rend 3 Fake de plus sans toucher au seuil.
+
+Ce qui reste hors de portée après #63 : les AAC à bas et moyen débit (aac128, aacmf128 : 1/10)
+et les trois codecs sans banc (Opus, Vorbis, WMA), qui restent Grey par la platitude quand ils
+le sont. Ce sont les 31 Ok restants, à 3 exceptions près (src08).
