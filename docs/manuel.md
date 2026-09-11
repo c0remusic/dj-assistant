@@ -214,12 +214,13 @@ Sur Mac, `⌘` remplace `Ctrl`.
 ## Ce que la détection ne voit pas
 
 Aucun détecteur n'est parfait. Sift mesure trois choses dans le signal : la fréquence où le spectre
-s'arrête, la densité des aigus, et la trace que laisse un codec dans les échantillons. Sur son jeu
-de test (8 achats vérifiés, 150 transcodages fabriqués depuis ces achats), il n'a accusé aucun
-fichier authentique : c'est la règle qui prime, il vaut mieux laisser passer un faux que vous faire
-racheter un bon fichier. En contrepartie, une partie des transcodages haut débit passe encore,
-surtout les MP3 320 et V0 et l'AAC 128, qui ne coupent pas les aigus. Un chantier est ouvert pour
-les attraper.
+s'arrête, la densité des aigus, et la grille que laisse l'encodeur dans les échantillons, rejouée
+pour le MP3 et pour l'AAC. Sur son jeu de test (8 achats vérifiés, 150 transcodages fabriqués
+depuis ces achats), il n'a accusé aucun fichier authentique : c'est la règle qui prime, il vaut
+mieux laisser passer un faux que vous faire racheter un bon fichier. Depuis la v0.1.2, tous les
+MP3 du jeu de test sont attrapés, quel que soit leur débit, 320 et V0 compris, et presque tous
+les AAC. Ce qui passe encore : une partie des transcodages Opus, Vorbis et WMA, rendus
+**À VÉRIFIER** au mieux, et quelques AAC 128.
 
 En clair : un verdict **FAUX** est fiable. Un verdict **VRAI** signifie que rien de mesurable ne
 contredit le fichier, pas qu'il est garanti authentique.
