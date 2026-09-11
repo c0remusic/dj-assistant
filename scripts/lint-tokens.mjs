@@ -28,7 +28,12 @@ const WRITE_BASELINE = process.argv.includes('--write-baseline');
 // leaving it unexcluded silently doubles (or worse) every count depending on how many worktree
 // agents happen to be running on the machine at scan time. Caught by verify-gate crosscheck
 // (2026-07-24): a baseline recorded while a worktree was present was ~2x the real count.
-const EXCLUDE_DIRS = new Set(['node_modules', 'dist', '.git', 'target', '.claude']);
+// 'docs' : le manuel et le site (docs/manuel.html, docs/accueil.html, docs/variantes/) copient les
+// VALEURS RÉSOLUES de styles.css par construction — ils ne peuvent pas référencer un token de
+// l'app, ils sont servis hors de l'app. Les scanner faisait tomber build.yml sur main depuis le
+// 2026-09-10 (d1f5a3f) sans que personne ne regarde la job lint-tokens. Le périmètre du lint est
+// l'UI de l'app : frontend/, shared/, test/.
+const EXCLUDE_DIRS = new Set(['node_modules', 'dist', '.git', 'target', '.claude', 'docs', 'public']);
 // src-tauri\target — matched by checking the relative path contains src-tauri/target.
 const SCAN_EXTS = new Set(['.css', '.ts', '.tsx']);
 
