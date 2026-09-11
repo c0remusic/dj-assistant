@@ -6,61 +6,63 @@
 <meta name="color-scheme" content="light dark">
 <meta name="robots" content="noindex">
 <title>Sift · variante D</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="/variantes/site.css">
 <style>
-/* D, deuxième itération (retours : texte qui « pue l'AI slop », règle des fréquences pas comprise,
-   « manque de hiérarchie »). La règle est retirée : l'instrument n'était pas lisible sans
-   explication, et une page d'outil n'explique pas, elle montre. Ce qui reste : le hero sur la
-   surface sombre de l'app, la capture comme seul visuel, et une hiérarchie typographique nette :
-   le mot-symbole en titre (retour d'Antoine : « mets juste SIFT »), une ligne de fonction, une ligne de conditions, un bouton ; puis des sections à deux
-   niveaux. Le texte présente les fonctions, sans s'adresser au lecteur. Outfit 700 pour les
-   titres (la fonte du mot-symbole), Inter pour le reste, mono pour les conditions. */
+/* D, quatrième itération. Retours : « mets juste Sift avec la police de l'app », « enlève le logo
+   inventé dans le header », « un mélange avec B niveau layout ». Donc : Inter partout (la fonte de
+   l'app depuis le 2026-08-26, styles.css --font-ui), aucun mot-symbole coloré, le nom en titre.
+   Le hero garde la surface sombre de l'app et la capture en pleine largeur ; les fonctions
+   reprennent la pile collante de B (liste à gauche, un bloc par écran à droite, captures pour
+   les écrans qui en ont). Texte à la troisième personne, une ou deux phrases par écran. */
 :root{
-  --display:"Outfit",var(--font);
   --win-bg:oklch(22.73% 0.0038 286.1);--win-bg-2:oklch(29.39% 0.0036 286.2);--win-bg-3:oklch(34.92% 0.0034 286.2);
   --win-ink:oklch(95.9% 0.0067 286.3);--win-ink-2:oklch(83.5% 0.0067 286.3);--win-ink-3:oklch(72% 0.0067 286.3);
   --win-line:oklch(100% 0 89.88 / 0.16);--win-accent:oklch(62.43% 0.2056 255.49);
-  --win-amber:#f2c274;--win-green:#9fe0af;
 }
-h1,h2{font-family:var(--display);font-weight:700;letter-spacing:-.02em;text-wrap:balance}
 .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
 
 .top{position:sticky;top:0;z-index:5;background:var(--win-bg);border-bottom:1px solid var(--win-line);color:var(--win-ink)}
-.top .wrap{display:flex;align-items:center;gap:20px;height:52px}
-.brand{font:700 20px/1 var(--display);letter-spacing:-.035em;color:var(--win-ink)}
-.brand .s{color:var(--win-amber)}.brand .i{color:var(--win-green)}
+.top .wrap{display:flex;align-items:center;gap:20px;height:48px}
+.brand{font-weight:600;font-size:15px;color:var(--win-ink)}
 .top nav{display:flex;gap:2px;margin-left:auto}
 .top nav a{display:inline-flex;align-items:center;height:32px;padding:0 12px;border-radius:var(--r-md);color:var(--win-ink-2);font-size:13px}
 .top nav a:hover{background:oklch(100% 0 0 / .06);color:var(--win-ink);text-decoration:none}
 .top nav a.cta{background:var(--win-accent);color:#fff}
 
-/* Hero : quatre niveaux, dans l'ordre de lecture. */
+/* Hero : le nom, la fonction, les conditions, le bouton, la fenêtre. */
 .band{background:var(--win-bg);color:var(--win-ink);border-bottom:1px solid var(--win-line)}
-.hero{padding:72px 24px 0}
-.hero h1{font-size:96px;line-height:.9;margin:0 0 22px;letter-spacing:-.035em;color:var(--win-ink)}
-.hero h1 .s{color:var(--win-amber)}.hero h1 .i{color:var(--win-green)}
+.hero{padding:64px 24px 0}
+.hero h1{font-size:64px;line-height:1;letter-spacing:-.03em;margin:0 0 18px;color:var(--win-ink)}
 .hero .lede{font-size:19px;line-height:1.45;color:var(--win-ink-2);max-width:56ch;margin:0 0 14px;text-wrap:pretty}
-.hero .meta{font:500 12px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--win-ink-3);margin:0 0 30px}
-.hero .meta span + span::before{content:"·";margin:0 10px;color:var(--win-ink-3)}
+.hero .meta{font:500 12px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--win-ink-3);margin:0 0 28px}
+.hero .meta span + span::before{content:"·";margin:0 10px}
 .hero .btn{background:var(--win-bg-3);border-color:var(--win-line);color:var(--win-ink)}
 .hero .btn.primary{background:var(--win-accent);color:#fff;border-color:transparent;height:40px;padding:0 18px;font-size:15px}
 .hero .dl-alt,.hero .dl-note{color:var(--win-ink-3)}
 .hero .dl-alt a{color:var(--win-ink-2)}
 .hero .dl-note{max-width:64ch}
 .hero .dl-note a{color:var(--win-ink-2);text-decoration:underline}
-.shot{display:block;width:100%;margin:48px 0 0;padding:0;border:1px solid var(--win-line);border-bottom:0;border-radius:var(--r-base) var(--r-base) 0 0;overflow:hidden;background:var(--win-bg-2);cursor:zoom-in;text-align:left;font:inherit;color:inherit}
+.shot{display:block;width:100%;margin:44px 0 0;padding:0;border:1px solid var(--win-line);border-bottom:0;border-radius:var(--r-base) var(--r-base) 0 0;overflow:hidden;background:var(--win-bg-2);box-shadow:none;cursor:zoom-in;text-align:left;font:inherit;color:inherit}
 .shot img{display:block;width:100%;height:auto}
 
-/* Sections : titre 30, puis deux niveaux (étape 12 majuscules, écran 17, texte 15). */
-section.wrap{padding:64px 24px}
+section.wrap{padding:56px 24px}
 section + section{border-top:1px solid var(--line-2)}
-h2{font-size:30px;line-height:1.15;margin-bottom:28px}
-.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:40px 32px}
-.stage h3{font:500 12px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin:0 0 18px;padding-bottom:10px;border-bottom:1px solid var(--line)}
-.f{margin:0 0 24px}
-.f h4{margin:0 0 6px;font-size:17px;font-weight:600;letter-spacing:-.01em}
-.f p{font-size:15px;line-height:1.5;color:var(--ink-2);text-wrap:pretty}
+h2{font-size:26px;line-height:1.15;margin-bottom:24px}
+
+/* Pile collante (B) : liste à gauche, un bloc par écran à droite. */
+.stack{display:grid;grid-template-columns:200px 1fr;gap:48px;align-items:start}
+.stack .list{position:sticky;top:64px}
+.stack .list h4{margin:12px 10px 4px;font:500 11px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.stack .list h4:first-child{margin-top:0}
+.stack .list a{display:block;padding:6px 10px;border-radius:var(--r-md);color:var(--ink-2);font-size:14px;transition:background-color .15s ease,color .15s ease}
+.stack .list a.on{background:var(--alt);color:var(--ink);font-weight:500}
+.stack .list a:hover{text-decoration:none;background:var(--hover)}
+.blk{padding:0 0 36px;scroll-margin-top:64px;max-width:68ch}
+.blk + .blk{padding-top:36px;border-top:1px solid var(--line-2)}
+.blk h3{font-size:19px;margin-bottom:8px;letter-spacing:-.01em}
+.blk p{font-size:15px;line-height:1.55;color:var(--ink-2);text-wrap:pretty}
+.blk .win{margin-top:18px;max-width:none}
 
 .vlist{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:auto 1fr;gap:14px 20px;align-items:baseline;max-width:720px}
 .vlist .verdict{justify-self:start}
@@ -76,9 +78,11 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:8px 20px}
 footer a{color:var(--ink-2)}
 
 @media (max-width: 860px){
-  .hero{padding-top:44px}
-  .hero h1{font-size:64px}
-  .grid{grid-template-columns:1fr;gap:28px}
+  .hero{padding-top:40px}
+  .hero h1{font-size:44px}
+  .stack{grid-template-columns:1fr;gap:20px}
+  .stack .list{position:static;display:flex;flex-wrap:wrap;gap:2px}
+  .stack .list h4{display:none}
   .top nav a:not(.cta){display:none}
 }
 </style>
@@ -87,7 +91,7 @@ footer a{color:var(--ink-2)}
 
 <header class="top">
   <div class="wrap">
-    <a class="brand" href="#" aria-label="Sift"><span class="s">s</span><span class="i">ı</span>ft</a>
+    <a class="brand" href="#">Sift</a>
     <nav>
       <a href="#fonctions">Fonctions</a>
       <a href="/manuel.html">Manuel</a>
@@ -100,7 +104,7 @@ footer a{color:var(--ink-2)}
 <main>
   <div class="band">
     <div class="wrap hero" id="telecharger">
-      <h1 class="mark" aria-label="Sift"><span class="s">s</span><span class="i">ı</span>ft</h1>
+      <h1>Sift</h1>
       <p class="lede">Sift vérifie les fichiers lossless, repère les doublons, écrit les tags, range la bibliothèque et l'exporte vers Rekordbox et la clé USB.</p>
       <p class="meta"><span>Gratuit</span><span>Windows</span><span>macOS</span><span>Open source</span></p>
       <div class="dl">
@@ -118,38 +122,40 @@ footer a{color:var(--ink-2)}
 
   <section class="wrap" id="fonctions">
     <h2>Fonctions</h2>
-    <div class="grid">
-      <div class="stage">
-        <h3>Traiter</h3>
-        <div class="f">
-          <h4>Revue</h4>
+    <div class="stack">
+      <nav class="list" aria-label="Écrans">
+        <h4>Traiter</h4><a href="#f-revue" class="on">Revue</a><a href="#f-journal">Journal</a>
+        <h4>Bibliothèque</h4><a href="#f-ranges">Rangés</a><a href="#f-resourcer">À re-sourcer et Corbeille</a>
+        <h4>Exporter</h4><a href="#f-rekordbox">Rekordbox</a><a href="#f-usb">Clé USB</a>
+      </nav>
+      <div>
+        <div class="blk" id="f-revue">
+          <h3>Revue</h3>
           <p>Chaque fichier qui arrive dans un dossier surveillé est analysé en arrière-plan : coupure du spectre, densité de l'aigu, grille de quantification du codec, doublons par empreinte acoustique. Lecteur, forme d'onde, spectrogramme. Identification Discogs. Conversion en MP3, WAV ou AIFF, nom de fichier construit depuis les tags. Mode Lot pour une sélection.</p>
         </div>
-        <div class="f">
-          <h4>Journal</h4>
+        <div class="blk" id="f-journal">
+          <h3>Journal</h3>
           <p>Historique des conversions, fichiers écartés, identifications et synchronisations. Chaque ligne se défait, même après un redémarrage.</p>
         </div>
-      </div>
-      <div class="stage">
-        <h3>Bibliothèque</h3>
-        <div class="f">
-          <h4>Rangés</h4>
+        <div class="blk" id="f-ranges">
+          <h3>Rangés</h3>
           <p>La bibliothèque telle qu'elle est sur le disque : table triable, colonnes mémorisées, recherche, sélection multiple, espace occupé par format, actions au clic droit.</p>
+          <button type="button" class="win" data-full="/screenshots/ranges.png" aria-label="L'écran Rangés, agrandi"><picture><source type="image/avif" srcset="/screenshots/ranges-1040.avif"><source type="image/webp" srcset="/screenshots/ranges-1040.webp"><img src="/screenshots/ranges.png" alt="L'écran Rangés : la table de la bibliothèque, avec l'espace occupé par format" width="2011" height="950" loading="lazy"></picture></button>
         </div>
-        <div class="f">
-          <h4>À re-sourcer et Corbeille</h4>
+        <div class="blk" id="f-resourcer">
+          <h3>À re-sourcer et Corbeille</h3>
           <p>Les faux et les fichiers tronqués d'un côté, les doublons et les erreurs de l'autre, chacun avec sa raison. Rien n'est effacé tant que la corbeille n'est pas vidée. Restauration en un clic.</p>
+          <button type="button" class="win" data-full="/screenshots/re-sourcer.png" aria-label="L'écran À re-sourcer, agrandi"><picture><source type="image/avif" srcset="/screenshots/re-sourcer-1040.avif"><source type="image/webp" srcset="/screenshots/re-sourcer-1040.webp"><img src="/screenshots/re-sourcer.png" alt="L'écran À re-sourcer : les fichiers écartés, avec la raison" width="2011" height="950" loading="lazy"></picture></button>
         </div>
-      </div>
-      <div class="stage">
-        <h3>Exporter</h3>
-        <div class="f">
-          <h4>Rekordbox</h4>
+        <div class="blk" id="f-rekordbox">
+          <h3>Rekordbox</h3>
           <p>Comparaison des deux bibliothèques : nouveaux morceaux, métadonnées, pochettes, fichiers liés à réparer. Écriture par fichier XML, ou directement dans la base après sauvegarde vérifiée. Refus si Rekordbox est ouvert.</p>
+          <button type="button" class="win" data-full="/screenshots/rekordbox.png" aria-label="L'écran Rekordbox, agrandi"><picture><source type="image/avif" srcset="/screenshots/rekordbox-1040.avif"><source type="image/webp" srcset="/screenshots/rekordbox-1040.webp"><img src="/screenshots/rekordbox.png" alt="L'écran Rekordbox : la comparaison des deux bibliothèques" width="2011" height="950" loading="lazy"></picture></button>
         </div>
-        <div class="f">
-          <h4>Clé USB</h4>
+        <div class="blk" id="f-usb">
+          <h3>Clé USB</h3>
           <p>Informations du disque, formatage FAT32 au-delà des 32 Go que Windows refuse, éjection. Double confirmation, avec le nom du volume, avant d'effacer.</p>
+          <button type="button" class="win" data-full="/screenshots/cle-usb.png" aria-label="L'écran Clé USB, agrandi"><picture><source type="image/avif" srcset="/screenshots/cle-usb-1040.avif"><source type="image/webp" srcset="/screenshots/cle-usb-1040.webp"><img src="/screenshots/cle-usb.png" alt="L'écran Clé USB : le disque choisi, sa capacité et son occupation par format" width="2011" height="950" loading="lazy"></picture></button>
         </div>
       </div>
     </div>
@@ -191,5 +197,23 @@ footer a{color:var(--ink-2)}
 
 <nav class="variantes" aria-label="Variantes"><a href="/variantes/a.html">A</a><a href="/variantes/b.html">B</a><a href="/variantes/c.html">C</a><a class="on" href="/variantes/d.html">D</a><a href="/">actuel</a></nav>
 <script src="/variantes/site.js"></script>
+<script>
+// Scroll-spy de la liste (B) par IntersectionObserver : le bloc qui occupe la bande haute de la
+// fenêtre marque son entrée. Pas d'écouteur de scroll, une classe basculée par entrée.
+(function () {
+  var links = [].slice.call(document.querySelectorAll(".stack .list a"));
+  var byId = {};
+  links.forEach(function (a) { byId[a.getAttribute("href").slice(1)] = a; });
+  if (!("IntersectionObserver" in window)) return;
+  var visible = {};
+  var obs = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) { visible[e.target.id] = e.isIntersecting; });
+    var first = Object.keys(byId).filter(function (id) { return visible[id]; })[0];
+    if (!first) return;
+    links.forEach(function (a) { a.classList.toggle("on", a === byId[first]); });
+  }, { rootMargin: "-64px 0px -60% 0px", threshold: 0 });
+  Object.keys(byId).forEach(function (id) { var t = document.getElementById(id); if (t) obs.observe(t); });
+})();
+</script>
 </body>
 </html>
