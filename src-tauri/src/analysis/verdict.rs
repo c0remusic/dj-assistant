@@ -72,7 +72,10 @@ use crate::analysis::{Rail, Verdict};
 /// file. Conséquence à connaître le jour d'un prochain bump : **un bump de RAPPORT re-décode la
 /// bibliothèque rangée en fond**, comme il re-décode déjà la file ; un bump de VERDICT seul reste
 /// rejoué ici sans décodage.
-pub const VERDICT_CACHE_VERSION: i64 = 3;
+///
+/// **4 (2026-09-11)** : `LOSSLESS_OK_HZ` 20 000 → 20 750, fenêtre LAME 320 rendue `Grey`. Bump de
+/// VERDICT seul : rejoué au démarrage depuis le `cutoff_hz` stocké, sans décodage.
+pub const VERDICT_CACHE_VERSION: i64 = 4;
 
 /// Lit le cache `(tracks.verdict, tracks.verdict_ver)`. Version absente (NULL — ligne d'avant la
 /// v22 que son backfill n'a pas stampée) ou différente = **pas de verdict courant**, rendu comme
@@ -91,13 +94,27 @@ pub fn cached(raw: Option<String>, ver: Option<i64>) -> Option<String> {
 
 /// Decision bands (Hz) for a file DECLARED lossless. `cutoff_hz` is stored raw upstream so
 /// these thresholds stay reconfigurable without re-analysis (Réglages, M2b+).
-pub const LOSSLESS_OK_HZ: f32 = 20000.0; // ≥ → authentic lossless
-/// **Fenêtre douteuse MORTE depuis le 2026-09-01** : la falaise rejoint `LOSSLESS_OK_HZ`. Mesuré
-/// au corpus (issue #51) : l'intervalle (19 500, 20 000) contenait 23 faux — la plage lame256,
-/// coupures 19 488-19 907 — et zéro authentique (minimum vérifié à l'œil : mur écarté à 19 692,
-/// premier vrai roll-off bien au-dessus). Un doute que la mesure ne peuple que de faux n'est pas
-/// un doute. Les deux constantes restent distinctes : la spec M2b+ les veut reconfigurables.
-pub const LOSSY_CLIFF_HZ: f32 = 20000.0; // ≤ → lossy lowpass cliff → fake
+/// ≥ → bande pleine : la coupure n'a plus rien à dire, la platitude et la sonde tranchent.
+///
+/// **20 750 depuis le 2026-09-11 (fenêtre LAME 320).** Un MP3 encodé par LAME à 320 kbps CBR
+/// pose un passe-bas à 20,5 kHz : mesuré sur les 20 `lame320` de `C:\sift-corpus` (deux scans),
+/// coupure entre 20 177 et 20 704 Hz — donc AU-DESSUS de l'ancienne borne de 20 000, et 20/20
+/// jugés Vrai par le détecteur livré en v0.1.1. Les authentiques vérifiés au conteneur mesurent
+/// 22 050 (8/8) ; les roll-offs naturels de la référence ACID sont recensés dans la review du corpus
+/// (§ Audit de provenance). Entre la falaise et cette borne, une déclaration lossless est
+/// `Grey` — « à vérifier visuellement » — jamais `Fake` : un mur à 20,3 kHz se voit au
+/// spectrogramme, mais un roll-off doux d'un master peut y tomber, et la contrainte reste zéro
+/// faux positif. Réglable sans ré-analyse : `cutoff_hz` est stocké brut.
+pub const LOSSLESS_OK_HZ: f32 = 20750.0;
+/// ≤ → passe-bas d'encodeur lossy → `Fake`. 20 000 depuis le 2026-09-01 (issue #51) : l'intervalle
+/// (19 500, 20 000) ne contenait que des faux — 23 lame256, coupures 19 488-19 907 — et zéro
+/// authentique (mur écarté à 19 692, premier vrai roll-off bien au-dessus).
+///
+/// La fenêtre (20 000, 20 750) rouverte le 2026-09-11 n'est PAS l'ancienne fenêtre douteuse
+/// (19 500, 20 000) qui était morte parce que peuplée de faux seulement : celle-ci est peuplée
+/// de faux (LAME 320) ET potentiellement d'authentiques à roll-off, donc elle rend `Grey`, pas
+/// `Fake`. Voir `LOSSLESS_OK_HZ`.
+pub const LOSSY_CLIFF_HZ: f32 = 20000.0;
 
 /// Ce que rend `spectrum::detect_cutoff` quand il n'avait **rien à mesurer** — aucune trame
 /// décodée. Ce n'est pas une coupure à 0 Hz : c'est l'absence de mesure.
@@ -330,7 +347,10 @@ pub fn needs_quant_probe(cutoff_hz: f32, declared: Rail, content_rail: Rail) -> 
     declared == Rail::Lossless
         && content_rail != Rail::Lossy
         && cutoff_hz > NO_MEASUREMENT_HZ
-        && cutoff_hz >= LOSSLESS_OK_HZ
+        // Depuis le 2026-09-11 la sonde couvre aussi la fenêtre (20 000, 20 750) : un fichier
+        // qui y tombe est `Grey` par la coupure, et la grille d'un codec retrouvée le rend
+        // `Fake` — le doute ne doit pas désarmer la mesure qui pourrait le lever.
+        && cutoff_hz > LOSSY_CLIFF_HZ
 }
 
 /// Maps cutoff + declared rail + declared bitrate to a verdict, ou dit pourquoi il n'y a pas de
@@ -369,33 +389,33 @@ pub fn verdict(
             } else if cutoff_hz <= NO_MEASUREMENT_HZ {
                 // Rien mesuré → hors domaine (2026-09-01). Rendait `Grey` jusque-là.
                 Err(NotMeasured::Cutoff)
-            } else if cutoff_hz >= LOSSLESS_OK_HZ {
-                // Bande pleine : la coupure n'a plus rien à dire. C'est ici, et seulement ici, que
-                // la platitude de l'aigu tranche — elle ne DÉGRADE jamais un verdict déjà négatif,
-                // elle rattrape ce que la falaise ne peut pas voir.
-                // Le TROISIÈME signal (issue #52), et il se lit AVANT la platitude — sur les deux
-                // issues du bras, `Ok` comme `Grey`. La cible de #52 est précisément le fichier
-                // dont la platitude est NORMALE et qui sortait donc `Ok` : le brancher sous le
-                // seul `Grey` le rendait muet là où il compte (mesuré sur corpus, voir
+            } else if cutoff_hz <= LOSSY_CLIFF_HZ {
+                Ok(Verdict::Fake)
+            } else if quant_likelihood.is_some_and(|l| l > QUANT_LAMBDA) {
+                // Le TROISIÈME signal (issue #52), lu AVANT la platitude et AVANT la fenêtre — sur
+                // tout ce que la falaise n'a pas tranché. La cible de #52 est précisément le fichier
+                // dont la platitude est NORMALE et qui sortait donc `Ok` : le brancher sous le seul
+                // `Grey` le rendait muet là où il compte (mesuré sur corpus, voir
                 // `needs_quant_probe`).
                 //
                 // Une grille de codec retrouvée dans le signal n'est pas un doute — c'est un
-                // transcodage établi, donc Faux. Quand elle n'est pas retrouvée (ou pas mesurée),
-                // le verdict de platitude s'applique tel quel, inchangé depuis #51.
+                // transcodage établi, donc Faux.
                 //
                 // `is_some_and` et pas un `unwrap_or(0.0)` : la mesure absente doit sortir de la
                 // comparaison, pas y entrer avec une valeur basse plausible.
-                if quant_likelihood.is_some_and(|l| l > QUANT_LAMBDA) {
-                    Ok(Verdict::Fake)
-                } else if below_master_range(flatness) {
-                    Ok(Verdict::Grey)
-                } else {
-                    Ok(Verdict::Ok)
-                }
-            } else if cutoff_hz <= LOSSY_CLIFF_HZ {
                 Ok(Verdict::Fake)
-            } else {
+            } else if cutoff_hz < LOSSLESS_OK_HZ {
+                // Fenêtre LAME 320 (2026-09-11) : coupure au-dessus de la falaise mais sous la
+                // bande pleine. Peuplée de faux (LAME 320, 20 177-20 704 Hz) et possiblement de
+                // roll-offs authentiques : un doute, à trancher à l'œil — jamais `Fake` d'office.
                 Ok(Verdict::Grey)
+            } else if below_master_range(flatness) {
+                // Bande pleine : la coupure n'a plus rien à dire. C'est ici, et seulement ici, que
+                // la platitude de l'aigu tranche — elle ne DÉGRADE jamais un verdict déjà négatif,
+                // elle rattrape ce que la falaise ne peut pas voir. Inchangé depuis #51.
+                Ok(Verdict::Grey)
+            } else {
+                Ok(Verdict::Ok)
             }
         }
         Rail::Lossy => match declared_bitrate {
@@ -483,7 +503,9 @@ mod tests {
 
     // `lossless_in_grey_band_is_grey` (19 800 → Douteux) est parti le 2026-09-01 avec la fenêtre
     // qu'il gardait — son sujet n'existe plus. Le comportement de l'ex-fenêtre est désormais figé
-    // par `la_fenetre_douteuse_est_morte_la_falaise_rejoint_20000`.
+    // par `la_fenetre_douteuse_est_morte_la_falaise_rejoint_20000`, remplacé le 2026-09-11 par
+    // `la_fenetre_lame320_est_ambre_entre_la_falaise_et_la_bande_pleine` (fenêtre (20 000, 20 750)
+    // rouverte en Grey pour LAME 320).
 
     /// Les VALEURS des planchers, gelées en littéral — les tests d'encadrement sont symboliques
     /// (`FLOOR - 0.1`) et suivraient n'importe quelle dérive sans tomber. Ces deux chiffres sont
@@ -838,43 +860,76 @@ mod tests {
         );
     }
 
-    /// **Cas 2 — la fenêtre douteuse est morte (2026-09-01).** La falaise rejoint
-    /// `LOSSLESS_OK_HZ` : sous 20 000 Hz une déclaration lossless est Fausse, à 20 000 et
-    /// au-dessus la platitude tranche. Corpus à l'appui (issue #51) : l'ex-fenêtre
-    /// (19 500, 20 000) ne contenait que des faux — 23 lame256 — et zéro authentique vérifié.
-    /// L'ancienne version de ce test figeait la fenêtre pour prouver que la lane 1 n'y touchait
-    /// pas ; celle-ci fige sa mort, aux mêmes bornes, dans les deux sens.
+    /// **Cas 2 — la fenêtre LAME 320 est ambre (2026-09-11).** Sous 20 000 Hz une déclaration
+    /// lossless est Fausse (falaise, #51 : l'intervalle (19 500, 20 000) ne contenait que des
+    /// faux). Entre 20 000 exclu et 20 750 exclu, `Grey` : les 20 `lame320` du corpus coupent
+    /// entre 20 177 et 20 704 Hz et sortaient tous Vrai en v0.1.1 ; un roll-off authentique peut y
+    /// tomber, donc jamais `Fake` d'office. À 20 750 et au-dessus, la platitude tranche. La grille
+    /// d'un codec (#52) rend `Fake` sur les deux derniers bras. Mesuré en mutant : ramener
+    /// `LOSSLESS_OK_HZ` à 20 000 fait tomber les assertions de la fenêtre.
     #[test]
-    fn la_fenetre_douteuse_est_morte_la_falaise_rejoint_20000() {
-        let at = |hz: f32| {
+    fn la_fenetre_lame320_est_ambre_entre_la_falaise_et_la_bande_pleine() {
+        let at = |hz: f32, l: Option<f32>| {
             verdict(
                 hz,
                 Rail::Lossless,
                 None,
                 Rail::Lossless,
                 HfFlatness::default(),
-                None,
+                l,
             )
         };
         assert_eq!(
-            at(LOSSY_CLIFF_HZ - 0.1),
-            Ok(Verdict::Fake),
-            "juste sous la falaise : Faux"
-        );
-        assert_eq!(
-            at(19750.0),
+            at(19750.0, None),
             Ok(Verdict::Fake),
             "cœur de l'ex-fenêtre : Faux"
         );
-        assert_eq!(at(19999.9), Ok(Verdict::Fake), "juste sous 20 000 : Faux");
         assert_eq!(
-            at(LOSSLESS_OK_HZ),
-            Ok(Verdict::Ok),
-            "20 000 Hz inclus : Vrai"
+            at(LOSSY_CLIFF_HZ, None),
+            Ok(Verdict::Fake),
+            "20 000 inclus : Faux"
         );
         assert_eq!(
-            LOSSY_CLIFF_HZ, LOSSLESS_OK_HZ,
-            "les deux constantes coïncident — l'écart rouvrirait une fenêtre qu'aucune mesure ne peuple"
+            at(LOSSY_CLIFF_HZ + 0.1, None),
+            Ok(Verdict::Grey),
+            "juste au-dessus de la falaise : la fenêtre s'ouvre"
+        );
+        for hz in [20177.0, 20300.0, 20704.0] {
+            assert_eq!(
+                at(hz, None),
+                Ok(Verdict::Grey),
+                "lame320 mesuré à {hz} Hz : À vérifier"
+            );
+            assert_eq!(
+                at(hz, Some(QUANT_LAMBDA + 0.01)),
+                Ok(Verdict::Fake),
+                "grille de codec à {hz} Hz : Faux malgré la fenêtre"
+            );
+        }
+        assert_eq!(
+            at(LOSSLESS_OK_HZ - 0.1, None),
+            Ok(Verdict::Grey),
+            "juste sous la bande pleine : encore la fenêtre"
+        );
+        assert_eq!(
+            at(LOSSLESS_OK_HZ, None),
+            Ok(Verdict::Ok),
+            "20 750 inclus : bande pleine, Vrai"
+        );
+        assert_eq!(at(22050.0, None), Ok(Verdict::Ok), "Nyquist : Vrai");
+        // Deux `assert_eq!` et pas des `assert!` sur constantes (clippy::assertions_on_constants) :
+        // la borne est gelée en littéral, 20 750 couvre le maximum mesuré (20 704) avec 46 Hz de
+        // marge, et l'écart avec la falaise est ce qui fait exister la fenêtre — sans lui, LAME 320
+        // redevient Vrai (v0.1.1, 20/20 ratés).
+        assert_eq!(
+            LOSSLESS_OK_HZ, 20750.0,
+            "borne de la bande pleine gelée en littéral"
+        );
+        assert_eq!(LOSSY_CLIFF_HZ, 20000.0, "falaise gelée en littéral");
+        assert_eq!(
+            LOSSLESS_OK_HZ.max(LOSSY_CLIFF_HZ),
+            LOSSLESS_OK_HZ,
+            "la bande pleine commence au-dessus de la falaise : c'est l'écart qui fait la fenêtre"
         );
     }
 
@@ -1223,8 +1278,26 @@ mod tests {
             );
         }
 
+        // 1 bis. Fenêtre LAME 320 (2026-09-11) : sondée, et la mesure y tranche aussi.
+        for c in [LOSSY_CLIFF_HZ + 0.1, 20300.0, LOSSLESS_OK_HZ - 0.1] {
+            assert!(
+                needs_quant_probe(c, Rail::Lossless, Rail::Lossless),
+                "fenetre a {c} Hz : Grey par la coupure, la sonde doit pouvoir lever le doute"
+            );
+            assert_eq!(
+                verdict(c, Rail::Lossless, None, Rail::Lossless, plate, Some(0.45)),
+                Ok(Verdict::Fake),
+                "grille retrouvee dans la fenetre a {c} Hz : Faux"
+            );
+            assert_eq!(
+                verdict(c, Rail::Lossless, None, Rail::Lossless, plate, None),
+                Ok(Verdict::Grey),
+                "fenetre sans mesure a {c} Hz : A verifier"
+            );
+        }
+
         // 2. Bande coupée : la falaise a déjà tranché.
-        for c in [LOSSY_CLIFF_HZ - 0.1, 19750.0, 16000.0] {
+        for c in [LOSSY_CLIFF_HZ, LOSSY_CLIFF_HZ - 0.1, 19750.0, 16000.0] {
             assert!(
                 !needs_quant_probe(c, Rail::Lossless, Rail::Lossless),
                 "coupure a {c} Hz : Faux par la falaise, rien a sonder"

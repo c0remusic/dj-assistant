@@ -9,6 +9,23 @@ détails techniques vivent dans les messages de commit.
 Une section manquante fait **échouer** le build de release plutôt que publier des notes vides.
 Le titre de section doit être exactement `## vX.Y.Z` pour que l'extraction le trouve.
 
+## v0.1.2
+
+### Détection
+
+- **Les MP3 320 déguisés en lossless ne passent plus pour vrais.** Un MP3 encodé par LAME à
+  320 kbps coupe le spectre entre 20,2 et 20,7 kHz, juste au-dessus de la limite que Sift
+  considérait comme « bande pleine ». Un fichier lossless dont le spectre s'arrête entre
+  20 000 et 20 750 Hz est désormais **À VÉRIFIER** au lieu de VRAI : un mur net à cette hauteur se
+  voit au spectrogramme. Jamais FAUX d'office, parce qu'un vrai master peut y avoir un roll-off
+  naturel. Mesuré : les 20 MP3 320 du corpus de test passaient en VRAI, ils passent À VÉRIFIER ;
+  aucun des 8 achats vérifiés n'est touché (tous à 22 050 Hz) ; dans une bibliothèque réelle de
+  546 lossless, 21 fichiers tombent dans cette zone, et 19 d'entre eux ont un mur de plus de
+  20 dB, la signature d'un encodeur.
+- La trace de codec dans les échantillons (sonde de quantification) est aussi cherchée sur cette
+  zone : si elle est trouvée, le verdict passe FAUX.
+- Les verdicts sont rejoués au démarrage depuis les mesures déjà stockées, sans nouvelle analyse.
+
 ## v0.1.1
 
 Première version publiée depuis la 0.0.3 : elle porte tout ce qui suit, plus les

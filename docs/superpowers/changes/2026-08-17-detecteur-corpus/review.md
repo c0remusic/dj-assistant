@@ -787,3 +787,38 @@ authentiques 8 Ok / 0 Grey / 0 Fake ; faux 59 Ok / 26 Grey / 65 Fake. Par famill
 49/50 Fake ; LAME 320 et V0 20/20 **Ok** ; AAC 256 5/10 et 9/10 Fake ; AAC 128 1/10 et 1/10 ;
 MediaFoundation 320, Opus, Vorbis, WMA : Grey ou Ok, jamais Fake. Le cross-test FTF (étape 3)
 n'est toujours pas fait ; Antoine a FTF.
+
+## La fenêtre LAME 320 (2026-09-11) — ce que la référence ACID contient entre 20 000 et 20 750 Hz
+
+Décision d'Antoine (« go pour les deux ») : rouvrir une fenêtre entre la falaise (20 000) et la bande
+pleine, en `Grey`, pour attraper LAME 320 (coupure 20 177-20 704 sur les 20 fichiers du corpus,
+20/20 jugés `Ok` en v0.1.1). Avant de figer la borne haute à 20 750, scan de `D:\MUSIQUE\ACID`
+(546 lossless déclarés + 33 lossy) avec le binaire v0.1.1 :
+
+| coupure | lossless ACID |
+|---|---|
+| ≤ 20 000 (Faux) | 9 |
+| 20 000-20 750 (la fenêtre) | **21** |
+| 20 750-21 999 | 28 |
+| ≥ 22 000 | 488 |
+
+Les 21 de la fenêtre, mesurés au spectre moyen (chute d'énergie entre 500 Hz sous la coupure et
+500 Hz au-dessus ; témoins : `lame320` du corpus à 41,5 et 48,8 dB) : **19 ont un mur d'au moins
+20 dB** (de 20,1 à 53,3 dB — les cinq titres de l'EP « Occibel - TKL CONFINED EDITION » entre 42 et
+53, « Bassam - Slave To The Rave » en .aif ET en .wav à 43,6), 2 sont intermédiaires (12,8 et
+15,7 dB), aucun n'est un roll-off doux. Ce sont très probablement des MP3 320 réencapsulés, dans un
+dossier tenu pour sûr — la famille exacte que le détecteur v0.1.1 ne voyait pas, et que le
+2026-09-01 n'avait pas relue (l'assainissement portait sur les murs de 19,4-20,4 kHz).
+
+Coût de la fenêtre côté authentiques : aucun connu. Les 8 achats vérifiés sont à 22 050 ; les
+28 fichiers ACID entre 20 750 et 22 000 ne sont pas touchés. Borne gelée à 20 750 (46 Hz au-dessus
+du maximum mesuré). Réserve : le témoin « roll-off ACID » utilisé ici (trois fichiers à 21,4 kHz)
+chute aussi de 25 à 38 dB à ±500 Hz — la pente seule ne sépare pas parfaitement mur et roll-off
+raide ; c'est pour ça que la fenêtre rend `Grey` et non `Fake`.
+
+Matrice mesurée avec le binaire à fenêtre (re-scan complet du corpus, 2026-09-11, 8 authentiques /
+150 faux) : authentiques 8 Ok / 0 Grey / 0 Fake ; faux **45 Ok (30 %) / 40 Grey / 65 Fake**. Contre
+v0.1.1 : 59 → 45 Ok, 26 → 40 Grey, Fake inchangé à 65. Par famille, ce qui bouge : lame320 10/10
+Grey (était 10/10 Ok), opus128 9 Grey / 1 Ok (était 7 / 3), wma192 10 Grey (était 8 / 2). Identique
+à l'estimation faite depuis le scan v0.1.1 avec la règle rejouée en Python : la règle est bien celle
+qu'on croyait.
