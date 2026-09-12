@@ -1,0 +1,52 @@
+{
+  "name": "sift",
+  "private": true,
+  "version": "0.1.3",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "vite",
+    "dev:blank": "powershell -ExecutionPolicy Bypass -File scripts/dev-blank-profile.ps1",
+    "prebuild": "node scripts/build-site.mjs prepare",
+    "build": "vite build",
+    "postbuild": "node scripts/build-site.mjs finish",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "fetch-ffmpeg": "node scripts/fetch-ffmpeg.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "lint:tokens": "node scripts/lint-tokens.mjs",
+    "lint:accents": "node scripts/lint-accents.mjs",
+    "lint:css-comments": "node scripts/lint-css-comments.mjs",
+    "check:security": "node scripts/check-tauri-security.mjs",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@storybook/addon-a11y": "^10.5.2",
+    "@storybook/html-vite": "^10.5.2",
+    "@tauri-apps/cli": "^2.11.4",
+    "eslint": "^9.39.5",
+    "globals": "^17.9.0",
+    "storybook": "^10.5.2",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.66.0",
+    "vite": "^8.1.5",
+    "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.2.8",
+    "@tabler/icons-webfont": "^3.46.0",
+    "@tauri-apps/api": "^2.11.1",
+    "@tauri-apps/plugin-dialog": "^2.7.2",
+    "@tauri-apps/plugin-os": "^2.3.2",
+    "@tauri-apps/plugin-process": "^2.3.1",
+    "@tauri-apps/plugin-updater": "^2.10.1",
+    "wavesurfer.js": "^7.12.11"
+  }
+}

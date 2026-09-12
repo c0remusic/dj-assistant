@@ -1,0 +1,136 @@
+name: test
+
+# Workflow SÉPARÉ de `build.yml` à cause d'une contrainte GitHub Actions : les déclencheurs `on:`
+# sont au niveau du WORKFLOW, jamais du job. Un job `test` placé dans `build.yml` (qui ne se
+# déclenche que sur `push` vers `main`) ne tournerait donc jamais sur une branche de travail —
+# c'est-à-dire jamais AVANT un merge, ce qui lui retire toute valeur de garde-fou. À l'inverse,
+# ajouter `pull_request` à `build.yml` ferait tourner les deux `tauri build` (Windows + macOS) sur
+# chaque PR pour rien.
+#
+# POURQUOI CE FICHIER EXISTE. La définition de fini du projet (CLAUDE.md, § « Avant de dire fini »)
+# exige tsc + clippy + fmt + cargo test. Jusqu'au 2026-07-28, RIEN ne les exécutait en intégration
+# continue : `build.yml` ne lançait que `lint:tokens` et `tauri build`, `release.yml` que `npm ci`
+# et `fetch-ffmpeg`. Le seul gardien était le hook pre-commit `verify-gate`, qui vit dans
+# `.git/hooks/` — donc absent de tout clone frais, de toute PR, et de toute machine autre que celle
+# d'Antoine. Audit multi-passes du 2026-07-28, finding SYS-4 : c'est la cause racine dont découlait
+# le reste du rapport (les bons patrons sont écrits et testés, puis pas appliqués au site suivant,
+# parce que rien ne le vérifie).
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+# Jeton en LECTURE SEULE par défaut. Un job qui doit écrire (publication)
+# redéclare ses propres permissions à son niveau, ou il hérite de celles-ci.
+permissions:
+  contents: read
+
+jobs:
+  test:
+    # Windows uniquement, délibéré : c'est la plateforme de développement réelle, celle qui a
+    # produit les incidents de cache incrémental et de chemins UNC documentés dans
+    # .claude/rules/rust.md. Une matrice macOS doublerait le temps pour un risque non observé.
+    runs-on: windows-latest
+    # Sans plafond, un job bloqué consomme jusqu'à la limite du fournisseur (6 h). 90 et non 45
+    # depuis le 2026-09-12 : un dépôt sans cache reconstruit tout, et le premier run de
+    # `sift-src` a été COUPÉ à 45 min pile — donc sans écrire le cache, donc condamné à se
+    # refaire couper. Avec cache, le job tient en 6 à 10 min (mesuré sur les runs verts) ; le
+    # plafond ne sert qu'aux démarrages à froid et aux blocages réels.
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      # Le canal vient de rust-toolchain.toml, jamais d'une valeur recopiée ici. Sinon deux
+      # sources de vérité divergent en silence.
+      #
+      # Pourquoi ce n'est pas `@stable` : rust-toolchain.toml SURCHARGE le toolchain actif dès que
+      # cargo tourne dans le dépôt. Avec `@stable`, l'action installe la dernière stable AVEC
+      # clippy et rustfmt, puis cargo honore le fichier et rustup installe le canal épinglé à la
+      # volée — SANS ces composants. Tant que stable coïncide avec le pin, rien ne se voit; le jour
+      # où stable avance, `cargo clippy` échoue sur « clippy is not installed for the toolchain ».
+      - name: Read pinned toolchain
+        id: rust
+        shell: bash
+        run: |
+          channel=$(sed -n 's/^ *channel *= *"\(.*\)"/\1/p' rust-toolchain.toml)
+          test -n "$channel" || { echo "channel introuvable dans rust-toolchain.toml"; exit 1; }
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+          echo "toolchain epingle: $channel"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # master, épinglé 2026-07-30
+        with:
+          toolchain: ${{ steps.rust.outputs.channel }}
+          components: clippy, rustfmt
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2, épinglé 2026-07-30
+        with:
+          workspaces: "src-tauri -> target"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install npm deps
+        run: npm ci
+
+      # Ces deux étapes ne sont pas optionnelles. `src-tauri/fixtures/*` est gitignoré
+      # (.gitignore:14) : sans elles, les tests de `analysis::decode` échouent en "file not found"
+      # sur tout checkout frais. Ce serait un rouge qui ne signale AUCUN bug — le genre de faux
+      # négatif qui fait désactiver un job de CI la première semaine. Les anchors authentiques
+      # optionnelles (src-tauri/fixtures/README.md) restent absentes : le test de caractérisation
+      # les saute quand elles n'y sont pas.
+      - name: Fetch ffmpeg sidecar
+        run: npm run fetch-ffmpeg
+
+      - name: Generate audio fixtures
+        run: node scripts/make-fixtures.mjs
+
+      # Ordre délibéré : du moins cher au plus cher, pour que l'échec le plus rapide sorte en
+      # premier. tsc ne compile pas Rust, fmt ne compile rien, clippy compile mais ne lie pas.
+      # La lecture de config passe avant tout le reste : elle coûte une lecture de fichier, et
+      # aucune des autres étapes ne regarde tauri.conf.json.
+      - name: Config Tauri (scope asset, CSP)
+        run: node scripts/check-tauri-security.mjs
+
+      # Ajoutée le 2026-08-26 (issues #43/#44). Elle vit ICI et pas dans `build.yml` avec
+      # `lint:tokens` parce qu'elle garde un texte que la revue humaine ne voit pas : un
+      # commentaire désaccentué se lit sans qu'on le remarque, et il faut donc l'attraper AVANT
+      # le merge, pas après. Zéro compilation, comme les trois gates frontend voisines.
+      - name: Lint accents (ratchet — bloque un bloc de commentaire français neuf écrit sans accent)
+        run: npm run lint:accents
+
+      # Ajoutée le 2026-09-07 après le MÊME raté payé deux fois en deux jours : un `*/` orphelin
+      # laisse du texte de commentaire hors /* */, que le navigateur lit comme un sélecteur
+      # invalide — la règle suivante meurt en silence, et le CSS reste syntaxiquement parsable
+      # pour tout le reste de la chaîne. Zéro compilation, comme ses voisines.
+      - name: Lint css-comments (un */ orphelin éteint en silence la règle CSS suivante)
+        run: npm run lint:css-comments
+
+      - name: Type-check frontend
+        run: npx tsc --noEmit
+
+      # Ajoutés le 2026-08-05, en même temps que le harnais lui-même. Les mettre ici et pas
+      # seulement en local suit la raison d'être de ce fichier, écrite en tête : une gate qui
+      # ne vit que sur la machine d'Antoine n'existe pas pour une PR, et cesse d'être lancée
+      # dès qu'elle devient pénible. Elles restent avant les étapes Rust car elles ne
+      # compilent rien.
+      - name: Tests frontend
+        run: npm run test
+
+      - name: Lint frontend
+        run: npm run lint
+
+      - name: Rustfmt
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+
+      - name: Clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+
+      - name: Tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml

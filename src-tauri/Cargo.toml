@@ -1,0 +1,93 @@
+[package]
+name = "sift"
+version = "0.1.3"
+description = "Sift — prépa sons DJ"
+authors = ["Sift"]
+license-file = "../LICENSE"
+repository = ""
+edition = "2021"
+rust-version = "1.77.2"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "sift_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6.3", features = [] }
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+log = "0.4"
+tauri = { version = "2.11.3", features = ["macos-private-api", "protocol-asset"] }
+tauri-plugin-log = "2"
+rusqlite = { version = "0.40", features = ["bundled", "serialize"] }
+ffmpeg-sidecar = "2.5.0"
+walkdir = "2.5.0"
+tauri-plugin-dialog = "2.7.1"
+tauri-plugin-updater = "2.10.1"
+tauri-plugin-process = "2.3.1"
+tauri-plugin-single-instance = "2"
+tauri-plugin-window-state = "2"
+tauri-plugin-os = "2.3.2"
+notify-debouncer-full = "0.7.0"
+rustfft = "6.4.1"
+lofty = "0.24"
+open = "5"
+rusty-chromaprint = "0.3"
+symphonia = { version = "0.6", features = ["mp3", "flac", "wav", "aiff", "isomp4", "aac", "alac"] }
+ureq = { version = "3", features = ["json"] }
+dirs = "5"
+pbkdf2 = "0.12"
+hmac = "0.12"
+sha2 = "0.10"
+aes = "0.8"
+cbc = { version = "0.1", features = ["alloc"] }
+flate2 = "1.1.9"
+base85 = "2.0.0"
+rand = "0.8"
+sysinfo = "0.39"
+chrono = "0.4"
+uuid = { version = "1", features = ["v4"] }
+quick-xml = { version = "0.41", features = ["serialize"] }
+percent-encoding = "2.3"
+wmi = "0.18"
+tempfile = "3.27.0"
+image = { version = "0.25", default-features = false, features = ["jpeg"] }
+
+# DwmExtendFrameIntoClientArea fix for the undecorated+transparent+resizable window's native
+# resize-margin showing as a solid backdrop instead of true transparency (annotation: "on a des
+# coins arrondis mais la fenetre affiche toujours une case sur windows"). Version pinned to match
+# tauri's own `windows` dependency (2.11.x depends on "0.61") so HWND is the same type on both sides.
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Dwm",
+    "Win32_UI_Controls",
+    # Ouverture, verrouillage et démontage d'un volume brut pour l'écriture FAT32.
+    "Win32_Security",
+    "Win32_Storage_FileSystem",
+    "Win32_System_IO",
+    "Win32_System_Ioctl",
+] }
+
+# Écriture FAT32 au-delà du plafond de 32 Go de Windows. Dépendance de PRODUCTION sur Windows
+# uniquement : macOS formate par `diskutil eraseDisk FAT32`, qui n'a pas ce plafond, et n'appelle
+# donc jamais `usb_format::fat32`. Voir le gate `cfg(any(windows, test))` sur ce module.
+fatfs = "0.3.6"
+
+[dev-dependencies]
+
+# Même crate qu'au-dessus, redéclarée ici pour que les tests de `usb_format::fat32` compilent sur
+# une machine non-Windows — c'était la raison pour laquelle le module n'avait pas de gate du tout.
+fatfs = "0.3.6"
+
+# Audio DSP is unusably slow in an unoptimised debug build (rustfft + per-sample loops).
+# Optimise dependencies fully, and our own code lightly, while keeping dev compile fast.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3

@@ -1,0 +1,106 @@
+name: build
+
+on:
+  # Plus de déclenchement sur push depuis le 2026-09-12 : ce workflow construit les trois
+  # installeurs (Windows et deux macOS), c'est-à-dire exactement ce que `release.yml` refait au
+  # tag, et il le refaisait à CHAQUE push sur main. Sur un dépôt privé cela a vidé le quota
+  # GitHub Actions en une soirée (macOS compte ×10) ; le dépôt est repassé public, donc gratuit,
+  # mais le doublon reste un doublon. Il se lance à la main quand on veut un installeur hors
+  # release.
+  workflow_dispatch:
+
+# Jeton en LECTURE SEULE par défaut. Un job qui doit écrire (publication)
+# redéclare ses propres permissions à son niveau, ou il hérite de celles-ci.
+permissions:
+  contents: read
+
+jobs:
+  # Job séparé et indépendant du build des installeurs (pas de `needs:`) : un ratchet de style
+  # qui casse ne doit jamais empêcher la production/upload des binaires — trouvé par verify-gate
+  # (2026-07-24), le job `build` était séquentiel et un échec de lint aurait bloqué tauri build +
+  # l'upload des artefacts sur main.
+  lint-tokens:
+    runs-on: ubuntu-latest
+    # Sans plafond, un job bloque consomme jusqu'a la limite du fournisseur (6 h).
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install npm deps
+        run: npm ci
+      - name: Lint design tokens (ratchet — bloque sur toute nouvelle dérive, pas sur la dette existante)
+        run: npm run lint:tokens
+
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            triple: x86_64-pc-windows-msvc
+          - os: macos-latest
+            triple: aarch64-apple-darwin
+          # Cible Mac Intel, décidée le 2026-09-02 (issue #14, « ok » d'Antoine — un binaire
+          # arm64 ne démarre pas du tout sur un Mac Intel, et le parc des DJ cibles est mixte,
+          # #13). Runner natif x86_64 : `macos-15-intel`, disponible jusqu'en août 2027, DERNIER
+          # Intel de GitHub Actions (macOS Tahoe 26 = dernier macOS Intel côté Apple). Le build
+          # natif évite tout cross-compile : ffmpeg se construit à l'architecture de l'hôte et
+          # les clés de cache portent déjà le triple. À l'échéance 2027, la cible tombe ou passe
+          # en cross — décision à reprendre sur #14.
+          - os: macos-15-intel
+            triple: x86_64-apple-darwin
+    runs-on: ${{ matrix.os }}
+    # Sans plafond, un job bloque consomme jusqu'a la limite du fournisseur (6 h).
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable, épinglé 2026-07-30
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2, épinglé 2026-07-30
+        with:
+          workspaces: "src-tauri -> target"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install npm deps
+        run: npm ci
+
+      # macOS construit ffmpeg depuis les sources (aucun build LGPL statique publié n'existe —
+      # voir scripts/fetch-ffmpeg.mjs), ce qui coûte plusieurs minutes. La clé porte sur le
+      # contenu du script de build : changer la version épinglée ou un drapeau de configure
+      # invalide le cache, ne rien changer le réutilise. Windows télécharge et ne passe pas ici.
+      - name: Cache du ffmpeg macOS construit
+        if: runner.os == 'macOS'
+        id: ffmpeg-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4, épinglé 2026-08-02
+        with:
+          path: src-tauri/binaries
+          key: ffmpeg-${{ matrix.triple }}-${{ hashFiles('scripts/build-ffmpeg-macos.sh') }}
+
+      - name: Fetch ffmpeg sidecar
+        if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
+        run: npm run fetch-ffmpeg
+
+      - name: Build Tauri app (unsigned)
+        run: npm run tauri build
+
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: sift-${{ matrix.triple }}
+          path: |
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: ignore

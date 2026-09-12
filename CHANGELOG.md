@@ -9,6 +9,26 @@ détails techniques vivent dans les messages de commit.
 Une section manquante fait **échouer** le build de release plutôt que publier des notes vides.
 Le titre de section doit être exactement `## vX.Y.Z` pour que l'extraction le trouve.
 
+## v0.1.3
+
+### Apparence
+
+- **Sift a son icône.** Deux carrés qui se chevauchent, l'un ambre et ouvert, l'autre vert et
+  plein : le fichier en vrac et le fichier rangé. Elle remplace l'icône par défaut dans la barre
+  des tâches, le Dock et le raccourci.
+
+### Sous le capot
+
+- Les tables de la norme MPEG que le détecteur rejoue sont écrites en valeurs exactes, au lieu
+  des décimales arrondies qui circulent dans les décodeurs. Deux d'entre elles gagnent un
+  chiffre. Aucun verdict ne change.
+
+### Licence
+
+- Sift devient un logiciel propriétaire : son usage reste libre et gratuit, sa redistribution et
+  sa modification demandent un accord. Les versions jusqu'à la 0.1.2 restent sous licence MIT
+  pour qui les a obtenues.
+
 ## v0.1.2
 
 ### Détection

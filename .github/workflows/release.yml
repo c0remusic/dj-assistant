@@ -1,0 +1,98 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+# Jeton en LECTURE SEULE par défaut. Un job qui doit écrire (publication)
+# redéclare ses propres permissions à son niveau, ou il hérite de celles-ci.
+permissions:
+  contents: read
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            triple: x86_64-pc-windows-msvc
+          - os: macos-latest
+            triple: aarch64-apple-darwin
+          # Mac Intel : même entrée que build.yml (issue #14, décidée le 2026-09-02) — elle y
+          # avait été ajoutée sans suivre ici, constaté sur le brouillon v0.1.0 le 2026-09-10
+          # (aucun installeur Intel, pas de plateforme darwin-x86_64 dans latest.json). Runner
+          # natif x86_64 `macos-15-intel`, disponible jusqu'en août 2027 ; ffmpeg se construit à
+          # l'architecture de l'hôte, la clé de cache porte le triple.
+          - os: macos-15-intel
+            triple: x86_64-apple-darwin
+    runs-on: ${{ matrix.os }}
+    # Sans plafond, un job bloque consomme jusqu'a la limite du fournisseur (6 h).
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable, épinglé 2026-07-30
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2, épinglé 2026-07-30
+        with:
+          workspaces: "src-tauri -> target"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install npm deps
+        run: npm ci
+
+      # Même cache que build.yml, même clé : une release qui suit un build sur le même script
+      # réutilise le binaire déjà construit au lieu de refaire quinze minutes de compilation.
+      - name: Cache du ffmpeg macOS construit
+        if: runner.os == 'macOS'
+        id: ffmpeg-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4, épinglé 2026-08-02
+        with:
+          path: src-tauri/binaries
+          key: ffmpeg-${{ matrix.triple }}-${{ hashFiles('scripts/build-ffmpeg-macos.sh') }}
+
+      - name: Fetch ffmpeg sidecar
+        if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
+        run: npm run fetch-ffmpeg
+
+      # `shell: bash` explicitement : la matrice tourne sur windows-latest, où le shell par
+      # défaut est PowerShell et la syntaxe heredoc ci-dessous n'existe pas.
+      #
+      # Le script sort en code 1 si CHANGELOG.md n'a pas de section pour ce tag, ce qui fait
+      # échouer la release. C'est voulu : `releaseBody` part aussi dans le champ `notes` de
+      # `latest.json`, que chaque installation existante télécharge — publier vide serait un
+      # échec silencieux chez des utilisateurs, pas ici.
+      - name: Extraire les notes de version depuis CHANGELOG.md
+        id: changelog
+        shell: bash
+        run: |
+          {
+            echo 'body<<CHANGELOG_EOF'
+            node scripts/changelog-section.mjs "${{ github.ref_name }}"
+            echo 'CHANGELOG_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build, sign and publish release
+        uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # action-v1.0.0, épinglé 2026-07-30
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "Sift ${{ github.ref_name }}"
+          releaseBody: ${{ steps.changelog.outputs.body }}
+          releaseDraft: true
+          prerelease: false
+          args: --config src-tauri/tauri.release.conf.json
