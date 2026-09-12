@@ -1,8 +1,12 @@
 name: build
 
 on:
-  push:
-    branches: [main]
+  # Plus de déclenchement sur push depuis le 2026-09-12 : ce workflow construit les trois
+  # installeurs (Windows et deux macOS), c'est-à-dire exactement ce que `release.yml` refait au
+  # tag, et il le refaisait à CHAQUE push sur main. Sur un dépôt privé cela a vidé le quota
+  # GitHub Actions en une soirée (macOS compte ×10) ; le dépôt est repassé public, donc gratuit,
+  # mais le doublon reste un doublon. Il se lance à la main quand on veut un installeur hors
+  # release.
   workflow_dispatch:
 
 # Jeton en LECTURE SEULE par défaut. Un job qui doit écrire (publication)

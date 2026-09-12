@@ -11,14 +11,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 > que le travail n'est pas déjà fait, `git merge origin/main` (jamais de rebase d'une
 > branche déjà poussée), re-gater, re-pousser. Jamais de tag.
 >
-> ⚠️ **DEUX dépôts depuis le 2026-09-12** (passage en licence propriétaire). `origin` est
-> **`c0remusic/sift-src`, PRIVÉ** : c'est là que vit le code, et c'est là qu'on pousse.
-> **`c0remusic/sift` reste PUBLIC** et ne sert plus qu'à la distribution — releases, issues,
-> et rien d'autre. Il n'est pas un miroir : on ne pousse pas de code dedans. Il reste public
-> parce que l'endpoint de mise à jour gravé dans les binaires déjà installés le nomme
-> (`src-tauri/tauri.release.conf.json`) ; le rendre privé couperait l'auto-update de toutes
-> les versions dans la nature. Le code jusqu'au commit `fc52790` reste visible dans son
-> historique, sous MIT : ça ne se reprend pas, seules les versions suivantes sont fermées.
+> ⚠️ **Dépôt unique, `c0remusic/sift`, PUBLIC** — et le code y est sous licence
+> PROPRIÉTAIRE depuis le 2026-09-12 (consultable, pas réutilisable). Un montage à deux dépôts
+> a été monté puis DÉFAIT le même jour : un dépôt privé fait payer les minutes GitHub Actions
+> (macOS compte ×10, Windows ×2), et les trois installeurs par release ont vidé le quota en une
+> soirée. Un dépôt public les construit gratuitement. Ne pas re-proposer le passage en privé
+> sans avoir chiffré ce coût — c'est l'écueil qui a coûté une soirée.
 
 ## Quoi
 
@@ -143,8 +141,8 @@ Deux gardiens, à connaître avant de dire « terminé » :
   (`cargo fmt --check` y est depuis le 2026-08-26 — quatre commits de CI rouge
   invisible en local, `7b4089b`.)
 
-`build.yml` (installeurs non signés Win+Mac) et `release.yml` ne se déclenchent que sur
-`main` / tags — ils ne sont pas un filet de branche.
+`release.yml` ne se déclenche que sur un tag, et `build.yml` (installeurs non signés Win+Mac)
+plus que **à la main** depuis le 2026-09-12 — ni l'un ni l'autre n'est un filet de branche.
 
 ### Un raté attrapé se convertit en gate, il ne se réécrit pas en prose
 
@@ -610,16 +608,9 @@ pas qu'à la page GitHub : `tauri-action` le recopie dans le champ `notes` de `l
 que **chaque installation existante télécharge**. Éditer le corps d'une release après coup
 change la page GitHub mais PAS `latest.json`, généré au build.
 
-**La publication est CROISÉE** (2026-09-12). `release.yml` tourne dans le dépôt privé et fait
-deux choses : son job `release` construit et dépose un brouillon **ici**, puis son job
-`publier` reprend ces fichiers, **réécrit les URL de `latest.json`** vers `c0remusic/sift`,
-repose tout là-bas en brouillon, et supprime le brouillon privé. `tauri-action` ne sait
-publier que dans le dépôt qui l'exécute et écrit ses URL vers lui : sans cette réécriture,
-`latest.json` enverrait chaque installation vers un dépôt privé, donc vers un 404.
-
-Le job `publier` a besoin du secret **`RELEASE_TOKEN`** — un jeton personnel à portée
-`contents:write` sur `c0remusic/sift`. Le `GITHUB_TOKEN` du dépôt privé n'a aucun droit sur
-l'autre. Sans ce secret, le build réussit et la publication échoue.
+⚠️ **`build.yml` ne se déclenche plus sur push** (2026-09-12), seulement à la main : il
+construisait les trois installeurs à chaque arrivée sur `main`, c'est-à-dire ce que `release.yml`
+refait au tag.
 
 Synchroniser les versions de `package.json`, `src-tauri/Cargo.toml` et
 `src-tauri/tauri.conf.json`, depuis `main`. Après `git tag vX.Y.Z && git push --tags`,
