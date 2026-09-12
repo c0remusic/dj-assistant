@@ -1,66 +1,43 @@
 # Sift
 
-**Le poste de prépa entre tes téléchargements et les platines.**
-App desktop gratuite pour DJ, Windows et macOS. Sift écoute chaque fichier qui arrive, dit s'il
-est vraiment lossless, repère les doublons, le range au bon format au bon endroit, puis pousse
-la bibliothèque vers Rekordbox et sur une clé USB.
+Préparation de musique pour DJ, sur Windows et macOS. Sift vérifie les fichiers lossless, repère
+les doublons, écrit les tags, range la bibliothèque et l'exporte vers Rekordbox et la clé USB.
 
-Une seule règle : **déplacer, c'est encoder et ranger**. Rien n'est supprimé sans que tu le
-demandes, et un dossier surveillé n'est jamais réécrit.
-
-![L'écran Revue de Sift : la file à gauche, la piste ouverte au centre avec son verdict, le diagnostic audio à droite](docs/screenshots/revue.png)
+**[sift-music.vercel.app](https://sift-music.vercel.app)** — présentation et téléchargement.
 
 ## Télécharger
 
-[**Dernière version →**](https://github.com/c0remusic/sift/releases/latest)
+Les installeurs sont dans les [versions publiées](https://github.com/c0remusic/sift/releases/latest).
+Un seul fichier à prendre, selon la machine :
 
-| Machine | Fichier |
+| machine | fichier |
 |---|---|
 | Windows | `Sift_<version>_x64-setup.exe` |
-| Mac Apple Silicon (M1 et suivants) | `Sift_<version>_aarch64.dmg` |
+| Mac Apple Silicon | `Sift_<version>_aarch64.dmg` |
 | Mac Intel | `Sift_<version>_x64.dmg` |
 
-Les builds ne sont pas signés : le système avertit au premier lancement, une seule fois.
-Quoi cliquer, selon le message : [`docs/install-non-signe.md`](docs/install-non-signe.md).
-Les versions suivantes arrivent par la mise à jour automatique, depuis l'app.
+Le reste de la liste sert à la mise à jour automatique et ne s'installe pas.
 
-## Manuel
+Ces builds ne sont pas signés, faute de certificat Apple ou Microsoft : le système affiche un
+avertissement au premier lancement, une seule fois. Le
+[manuel](https://sift-music.vercel.app/manuel.html#installer) dit quoi cliquer.
 
-- **En ligne, dans le design de l'app :** https://sift-music.vercel.app/manuel.html
-- **En PDF :** https://sift-music.vercel.app/manuel.pdf
-- En Markdown : [`docs/manuel.md`](docs/manuel.md)
+## Se servir de Sift
 
-Installer, trois mots à connaître, les huit écrans, le clavier, et ce que la détection laisse
-passer.
+- [Manuel](https://sift-music.vercel.app/manuel.html), ou [en PDF](https://sift-music.vercel.app/manuel.pdf).
+- [Nouveautés par version](CHANGELOG.md).
 
-## Ce que Sift fait
+## Un problème, une idée
 
-- **Détecte les faux lossless** — un FLAC, WAV ou AIFF dont le contenu est passé par du MP3,
-  de l'AAC ou de l'Opus. Trois mesures (coupure du spectre, platitude de l'aigu, trace du
-  codec dans les échantillons) et un verdict en un mot : **VRAI**, **FAUX**, **À VÉRIFIER**.
-  Aucun fichier authentique n'est accusé ; une partie des transcodages haut débit passe encore
-  (MP3 320 et V0, AAC 128), et un chantier est ouvert pour les attraper.
-- **Écoute d'abord** — lecteur, forme d'onde, spectrogramme ; on écoute, puis on tranche.
-- **Range en convertissant** — MP3, WAV ou AIFF au format des platines, nommé depuis les
-  tags, dans l'arbre de ta bibliothèque. Doublons et déjà-rangés signalés avant.
-- **Identifie sur Discogs** — artiste, titre, label, année, genre, pochette.
-- **Rekordbox** — une synchronisation, par XML ou directement dans `master.db`, avec
-  sauvegarde vérifiée avant toute écriture.
-- **Clé USB** — formatage FAT32 même au-delà de 32 Go, éjection propre.
-- **Tout se défait** — un journal de chaque action, avec retour en arrière.
+Les [issues](https://github.com/c0remusic/sift/issues) sont ouvertes. Indiquez la version, votre
+machine, et ce que vous attendiez. Pour une faille de sécurité, ne passez pas par une issue
+publique : voir [SECURITY.md](SECURITY.md).
 
-## Un problème ?
+## Le code
 
-Les erreurs s'affichent dans l'app avec leur cause. Pour signaler :
-[github.com/c0remusic/sift/issues](https://github.com/c0remusic/sift/issues) — la version, la
-machine, et ce qui était attendu. Faille de sécurité : [`SECURITY.md`](SECURITY.md).
+Sift est un logiciel propriétaire. Son code source est développé dans un dépôt privé et n'est plus
+publié ici : ce dépôt ne sert plus qu'à la distribution, aux versions et aux issues.
 
-## Pour construire
-
-Tauri v2 (Rust) + Vite / TypeScript vanilla. Tout est dans
-[`docs/developpement.md`](docs/developpement.md) : pile, prérequis, commandes, structure, CI et
-release. Conventions et architecture détaillée : [`CLAUDE.md`](CLAUDE.md). Nouveautés par version :
-[`CHANGELOG.md`](CHANGELOG.md).
-
-Sift est un logiciel propriétaire : le code est consultable, son usage est encadré par la
-[licence](LICENSE). Les versions jusqu'à la v0.1.2 incluse restent sous MIT.
+L'historique de ce dépôt s'arrête à la version 0.1.2. Ce qui y a été publié l'a été sous licence
+MIT, et le reste pour ces versions-là. Les versions suivantes sont couvertes par la
+[licence](LICENSE) du produit.
