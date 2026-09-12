@@ -62,4 +62,5 @@ Tauri v2 (Rust) + Vite / TypeScript vanilla. Tout est dans
 release. Conventions et architecture détaillée : [`CLAUDE.md`](CLAUDE.md). Contribuer :
 [`CONTRIBUTING.md`](CONTRIBUTING.md). Nouveautés par version : [`CHANGELOG.md`](CHANGELOG.md).
 
-Licence [MIT](LICENSE).
+Sift est un logiciel propriétaire : le code est consultable, son usage est encadré par la
+[licence](LICENSE). Les versions jusqu'à la v0.1.2 incluse restent sous MIT.
