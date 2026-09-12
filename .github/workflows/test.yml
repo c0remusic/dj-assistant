@@ -33,8 +33,12 @@ jobs:
     # produit les incidents de cache incrémental et de chemins UNC documentés dans
     # .claude/rules/rust.md. Une matrice macOS doublerait le temps pour un risque non observé.
     runs-on: windows-latest
-    # Sans plafond, un job bloqué consomme jusqu'à la limite du fournisseur (6 h).
-    timeout-minutes: 45
+    # Sans plafond, un job bloqué consomme jusqu'à la limite du fournisseur (6 h). 90 et non 45
+    # depuis le 2026-09-12 : un dépôt sans cache reconstruit tout, et le premier run de
+    # `sift-src` a été COUPÉ à 45 min pile — donc sans écrire le cache, donc condamné à se
+    # refaire couper. Avec cache, le job tient en 6 à 10 min (mesuré sur les runs verts) ; le
+    # plafond ne sert qu'aux démarrages à froid et aux blocages réels.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
 
