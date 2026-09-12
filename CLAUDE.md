@@ -10,6 +10,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 > HEAD:main` (fast-forward). Non-ff = une session parallèle a avancé `main` : re-vérifier
 > que le travail n'est pas déjà fait, `git merge origin/main` (jamais de rebase d'une
 > branche déjà poussée), re-gater, re-pousser. Jamais de tag.
+>
+> ⚠️ **DEUX dépôts depuis le 2026-09-12** (passage en licence propriétaire). `origin` est
+> **`c0remusic/sift-src`, PRIVÉ** : c'est là que vit le code, et c'est là qu'on pousse.
+> **`c0remusic/sift` reste PUBLIC** et ne sert plus qu'à la distribution — releases, issues,
+> et rien d'autre. Il n'est pas un miroir : on ne pousse pas de code dedans. Il reste public
+> parce que l'endpoint de mise à jour gravé dans les binaires déjà installés le nomme
+> (`src-tauri/tauri.release.conf.json`) ; le rendre privé couperait l'auto-update de toutes
+> les versions dans la nature. Le code jusqu'au commit `fc52790` reste visible dans son
+> historique, sous MIT : ça ne se reprend pas, seules les versions suivantes sont fermées.
 
 ## Quoi
 
@@ -37,9 +46,9 @@ Les patterns React (hooks/stores/providers) **ne s'appliquent pas ici**, et une
 migration de framework est explicitement écartée.
 
 **Toolchain Rust : `rust-toolchain.toml` à la RACINE** (pas dans `src-tauri/`) épingle
-le canal `1.96.0`. `src-tauri/Cargo.toml:9` déclare encore `rust-version = "1.77.2"` —
-ce chiffre n'est **plus vérifié par rien** (ni CI, ni job dédié) depuis l'épinglage.
-Ne pas le traiter comme une contrainte tant qu'un build réel ne l'a pas rétabli.
+le canal `1.96.0`. `src-tauri/Cargo.toml:9` déclare `rust-version = "1.77.2"`, et **clippy
+le fait respecter** par le lint `incompatible_msrv` : toute API stabilisée après 1.77.2
+casse la CI. Mesuré le 2026-09-12 — `LazyLock` (1.80) refusé, remplacé par `OnceLock`.
 
 ## Commandes
 
@@ -600,6 +609,17 @@ elle manque, donc la release **échoue** au lieu de publier des notes vides. Ce 
 pas qu'à la page GitHub : `tauri-action` le recopie dans le champ `notes` de `latest.json`,
 que **chaque installation existante télécharge**. Éditer le corps d'une release après coup
 change la page GitHub mais PAS `latest.json`, généré au build.
+
+**La publication est CROISÉE** (2026-09-12). `release.yml` tourne dans le dépôt privé et fait
+deux choses : son job `release` construit et dépose un brouillon **ici**, puis son job
+`publier` reprend ces fichiers, **réécrit les URL de `latest.json`** vers `c0remusic/sift`,
+repose tout là-bas en brouillon, et supprime le brouillon privé. `tauri-action` ne sait
+publier que dans le dépôt qui l'exécute et écrit ses URL vers lui : sans cette réécriture,
+`latest.json` enverrait chaque installation vers un dépôt privé, donc vers un 404.
+
+Le job `publier` a besoin du secret **`RELEASE_TOKEN`** — un jeton personnel à portée
+`contents:write` sur `c0remusic/sift`. Le `GITHUB_TOKEN` du dépôt privé n'a aucun droit sur
+l'autre. Sans ce secret, le build réussit et la publication échoue.
 
 Synchroniser les versions de `package.json`, `src-tauri/Cargo.toml` et
 `src-tauri/tauri.conf.json`, depuis `main`. Après `git tag vX.Y.Z && git push --tags`,
