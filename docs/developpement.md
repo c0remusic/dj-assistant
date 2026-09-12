@@ -5,7 +5,6 @@ dépôt donne les installeurs et le manuel.
 
 Conventions, garde-fous et architecture détaillée : [`CLAUDE.md`](../CLAUDE.md) (lu par les
 agents, valable pour les humains). Vocabulaire métier : [`CONTEXT.md`](../CONTEXT.md).
-Contribuer : [`CONTRIBUTING.md`](../CONTRIBUTING.md).
 
 ## Pile technique
 

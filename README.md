@@ -59,8 +59,8 @@ machine, et ce qui était attendu. Faille de sécurité : [`SECURITY.md`](SECURI
 
 Tauri v2 (Rust) + Vite / TypeScript vanilla. Tout est dans
 [`docs/developpement.md`](docs/developpement.md) : pile, prérequis, commandes, structure, CI et
-release. Conventions et architecture détaillée : [`CLAUDE.md`](CLAUDE.md). Contribuer :
-[`CONTRIBUTING.md`](CONTRIBUTING.md). Nouveautés par version : [`CHANGELOG.md`](CHANGELOG.md).
+release. Conventions et architecture détaillée : [`CLAUDE.md`](CLAUDE.md). Nouveautés par version :
+[`CHANGELOG.md`](CHANGELOG.md).
 
 Sift est un logiciel propriétaire : le code est consultable, son usage est encadré par la
 [licence](LICENSE). Les versions jusqu'à la v0.1.2 incluse restent sous MIT.

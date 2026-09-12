@@ -1,7 +1,6 @@
 <!--
-Merci pour la pull request. Si elle n'est pas liée à une issue existante,
-lisez CONTRIBUTING.md avant d'aller plus loin : le projet a un périmètre
-étroit, et une PR non discutée peut être refusée pour cette seule raison.
+Sift est un logiciel propriétaire et n'accepte pas de pull requests
+extérieures. Les issues restent ouvertes pour les bugs et les demandes.
 -->
 
 ## Ce que ça change
